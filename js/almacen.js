@@ -309,14 +309,24 @@ function renderSMItems(){
   const st=todoAlmacen?getStock():(smProyNom?_getStockProy(smCodProy,smProyNom):getStock());
   const allStock=Object.entries(st).filter(([,v])=>v.stock>0)
     .sort((a,b)=>todoAlmacen?(a[1].nombre||'').localeCompare(b[1].nombre||''):0);
+  // Mapa cod → [codProy, ...] para mostrar origen cuando Todo Almacén está activo
+  const proyStockMap={};
+  if(todoAlmacen){
+    DB.proyectos.forEach(p=>{
+      const ps=_getStockProy(p.codigo,p.nombre);
+      Object.entries(ps).forEach(([cod,v])=>{if(v.stock>0){if(!proyStockMap[cod])proyStockMap[cod]=[];proyStockMap[cod].push(p.codigo);}});
+    });
+  }
   const b=document.getElementById('smItemsBody');if(!b)return;
   b.innerHTML=smItemsArr.map((it,i)=>{
     const sv=st[it.cod];
     const otherCods=new Set(smItemsArr.filter((_,j)=>j!==i&&_.cod).map(x=>x.cod));
     const opts='<option value="">— Seleccionar material —</option>'+
       allStock.filter(([cod])=>!otherCods.has(cod)||cod===it.cod)
-        .map(([cod,v])=>`<option value="${cod}"${cod===it.cod?' selected':''}>${cod} – ${v.nombre} (Stock: ${fmtN(v.stock)} ${v.unidad})</option>`)
-        .join('');
+        .map(([cod,v])=>{
+          const proyTag=todoAlmacen&&proyStockMap[cod]?.length?` · [${proyStockMap[cod].join(', ')}]`:'';
+          return`<option value="${cod}"${cod===it.cod?' selected':''}>${cod} – ${v.nombre} (Stock: ${fmtN(v.stock)} ${v.unidad})${proyTag}</option>`;
+        }).join('');
     return`<tr>
       <td style="padding:.28rem .4rem;color:var(--muted2);font-size:.7rem;text-align:center">${i+1}</td>
       <td style="padding:.28rem .4rem"><select onchange="smItemsArr[${i}].cod=this.value;renderSMItems()" style="${ISS};width:100%;min-width:280px">${opts}</select></td>
