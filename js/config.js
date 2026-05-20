@@ -84,7 +84,8 @@ const SUPA_TABLES={
   costos:'costos',frentesTrabajo:'frentes_trabajo',tipoMaterial:'tipo_material',
   tramos:'tramos',catalogoItems:'materiales',unidades:'unidades',
   asistencia:'asistencia',proyectos:'proyectos',auxiliosMecanicos:'auxilios_mecanicos',
-  auxMecInsumos:'aux_mec_insumos',engrase:'engrase',tareaje:'tareaje'
+  auxMecInsumos:'aux_mec_insumos',engrase:'engrase',tareaje:'tareaje',
+  subtiposEquipo:'subtipos_equipo'
 };
 
 const ACTION_MAP={
@@ -98,7 +99,8 @@ const ACTION_MAP={
   saveTipoMaterial:'tipoMaterial',saveTramo:'tramos',
   saveCatalogo:'catalogoItems',saveRequerimiento:'requerimientos',
   saveFacturaPago:'facturasPago',saveAsistencia:'asistencia',saveProyecto:'proyectos',
-  saveAuxMec:'auxiliosMecanicos',saveAuxMecInsumo:'auxMecInsumos',saveEngrase:'engrase',saveTareaje:'tareaje'
+  saveAuxMec:'auxiliosMecanicos',saveAuxMecInsumo:'auxMecInsumos',saveEngrase:'engrase',saveTareaje:'tareaje',
+  saveSubtipoEquipo:'subtiposEquipo'
 };
 
 async function supaUpsert(dbKey,record){
@@ -197,7 +199,7 @@ async function loadSheetsData(){
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
-      tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar'};
+      tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -319,8 +321,8 @@ const DB={
   almacen:[],requerimientos:[],facturasPago:[],combustible:[],supervision:[],
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
-  catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1}
+  catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1}
 };
 
 // ══ STATE ══

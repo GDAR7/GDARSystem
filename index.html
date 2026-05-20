@@ -451,6 +451,10 @@
   <div class="card">
     <div class="card-head"><span class="card-title">Flota Completa</span>
       <div class="card-head-right">
+        <div style="display:flex;gap:.25rem">
+          <button id="eqSortCodBtn" class="btn btn-out btn-sm" style="font-size:.72rem;border-color:var(--mec);color:var(--mec)" onclick="setEqSort('cod')">↕ Código</button>
+          <button id="eqSortTipoBtn" class="btn btn-out btn-sm" style="font-size:.72rem" onclick="setEqSort('tipo')">↕ Tipo</button>
+        </div>
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbMaster')"></div>
         <button class="btn btn-a" style="--ba:var(--mec)" onclick="openEquipo()">＋ Agregar</button>
       </div>
@@ -1308,7 +1312,12 @@
       <div class="fg" style="grid-column:1/-1"><label>Proyecto Asignado</label><select id="eqProy"><option value="">— Sin proyecto —</option></select></div>
       <div class="fg"><label>Código</label><input id="eqCod" placeholder="EQ-001"></div>
       <div class="fg"><label>Tipo / Línea</label><select id="eqTi"><option>Línea Amarilla</option><option>Línea Blanca</option><option>Vehículo Menor</option><option>Equipos Complementarios</option></select></div>
-      <div class="fg"><label>Subtipo</label><select id="eqSub"><option>Excavadora</option><option>Cargador Frontal</option><option>Motoniveladora</option><option>Retroexcavadora</option><option>Tractor Oruga</option><option>Rodillo</option><option>Volquete</option><option>Camioneta</option><option>Bus / Van</option><option>Generador</option><option>Compresor</option><option>Bomba de Agua</option><option>Otro</option></select></div>
+      <div class="fg"><label>Subtipo</label>
+        <select id="eqSub" onchange="document.getElementById('eqSubCustomWrap').style.display=this.value==='__nuevo__'?'block':'none'">
+          <option value="__nuevo__">＋ Nuevo subtipo...</option>
+        </select>
+        <div id="eqSubCustomWrap" style="display:none;margin-top:.35rem"><input id="eqSubCustom" placeholder="Escribir nombre del subtipo..." style="background:var(--panel2);border:1px solid var(--mec);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></div>
+      </div>
       <div class="fg"><label>Marca</label><input id="eqMa" placeholder="CAT / Komatsu / Volvo"></div>
       <div class="fg"><label>Modelo</label><input id="eqMo" placeholder="320D"></div>
       <div class="fg"><label>Año</label><input id="eqAn" type="number" placeholder="2020"></div>

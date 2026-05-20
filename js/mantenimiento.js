@@ -16,8 +16,20 @@ function rAmb(){document.getElementById('tbAmb').innerHTML=DB.ambiental.map(r=>`
 function gAmb(){DB.ambiental.push({id:nid('amb'),fecha:document.getElementById('maF').value||today(),tipo:document.getElementById('maT').value,desc:document.getElementById('maD').value,cant:document.getElementById('maCn').value,dest:document.getElementById('maDst').value,est:document.getElementById('maE').value});syncSheet('saveAmbiental',DB.ambiental[DB.ambiental.length-1]);closeM('mAmb');rAmb();toast('Registro ambiental guardado');}
 
 // ══ MANTENIMIENTO ══
+let _eqSort='cod';
+function setEqSort(s){
+  _eqSort=s;
+  ['cod','tipo'].forEach(k=>{
+    const b=document.getElementById('eqSort'+k.charAt(0).toUpperCase()+k.slice(1)+'Btn');
+    if(b){b.style.borderColor=k===s?'var(--mec)':'';b.style.color=k===s?'var(--mec)':'';}
+  });
+  rMaster();
+}
 function rMaster(){
-  document.getElementById('tbMaster').innerHTML=DB.equipos.map(e=>`<tr>
+  const sorted=[...DB.equipos].sort((a,b)=>_eqSort==='tipo'
+    ?(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo)
+    :a.codigo.localeCompare(b.codigo));
+  document.getElementById('tbMaster').innerHTML=sorted.map(e=>`<tr>
     <td class="mono" style="color:var(--mec)">${e.codigo}</td>
     <td><strong>${e.nombre}</strong></td>
     <td><span class="badge b-purple" style="font-size:.65rem">${e.tipo}</span></td>
@@ -34,10 +46,19 @@ function rMaster(){
   </tr>`).join('');
 }
 let _eqTab=0,_eqEditId=null;
+function _buildEqSubOpts(selectedVal){
+  const sel=document.getElementById('eqSub');if(!sel)return;
+  const opts=DB.subtiposEquipo.map(s=>`<option value="${s.nombre}"${s.nombre===selectedVal?' selected':''}>${s.nombre}</option>`).join('');
+  sel.innerHTML=opts+'<option value="__nuevo__">＋ Nuevo subtipo...</option>';
+  if(selectedVal&&selectedVal!=='__nuevo__')sel.value=selectedVal;
+  document.getElementById('eqSubCustomWrap').style.display='none';
+  document.getElementById('eqSubCustom').value='';
+}
 function openEquipo(){
   _eqEditId=null;
   document.querySelector('#mEquipo .mttl').textContent='Agregar Equipo';
   _eqTab=0;eqGoTab(0);
+  _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
   if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}</option>`).join('');
   openM('mEquipo');
@@ -57,11 +78,21 @@ function eqGoTab(n){
 function gEquipo(){
   const cod=document.getElementById('eqCod').value.trim();
   if(!cod){toast('Ingrese el código del equipo',true);eqGoTab(0);return;}
+  const subRaw=document.getElementById('eqSub').value;
+  let sub=subRaw;
+  if(subRaw==='__nuevo__'){
+    sub=document.getElementById('eqSubCustom').value.trim()||'Otro';
+    if(!DB.subtiposEquipo.find(s=>s.nombre===sub)){
+      const newSub={id:nid('sub'),nombre:sub};
+      DB.subtiposEquipo.push(newSub);
+      syncSheet('saveSubtipoEquipo',newSub);
+    }
+  }
   const eq={
     id:nid('eq'),codigo:cod,
-    nombre:(document.getElementById('eqSub').value+' '+document.getElementById('eqMa').value+' '+document.getElementById('eqMo').value).trim(),
+    nombre:(sub+' '+document.getElementById('eqMa').value+' '+document.getElementById('eqMo').value).trim(),
     tipo:document.getElementById('eqTi').value,
-    sub:document.getElementById('eqSub').value,
+    sub,
     marca:document.getElementById('eqMa').value,
     modelo:document.getElementById('eqMo').value,
     anio:+document.getElementById('eqAn').value||2020,
@@ -149,7 +180,15 @@ function editEquipo(id){
   // Tab 0
   document.getElementById('eqCod').value=e.codigo||'';
   document.getElementById('eqTi').value=e.tipo||'Línea Amarilla';
-  document.getElementById('eqSub').value=e.sub||'Excavadora';
+  const subInDB=DB.subtiposEquipo.find(s=>s.nombre===e.sub);
+  if(subInDB){
+    _buildEqSubOpts(e.sub);
+  }else if(e.sub){
+    // subtipo existe en el equipo pero no en la tabla → mostrarlo como custom
+    document.getElementById('eqSub').value='__nuevo__';
+    document.getElementById('eqSubCustomWrap').style.display='block';
+    document.getElementById('eqSubCustom').value=e.sub;
+  }
   document.getElementById('eqMa').value=e.marca||'';
   document.getElementById('eqMo').value=e.modelo||'';
   document.getElementById('eqAn').value=e.anio||'';
