@@ -60,7 +60,7 @@ function openEquipo(){
   _eqTab=0;eqGoTab(0);
   _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
-  if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}</option>`).join('');
+  if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}${p.nombre?' – '+p.nombre:''}</option>`).join('');
   openM('mEquipo');
 }
 function eqGoTab(n){
