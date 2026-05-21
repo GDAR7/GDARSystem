@@ -117,7 +117,7 @@ function editAlm(id){
       const paraParts=(r.para||'').split(' – ');
       const persEl=document.getElementById('asPers');if(persEl)persEl.value=paraParts[0]||'';
       document.getElementById('asDest').value=paraParts.slice(1).join(' – ')||'';
-      // Nuevos campos
+      //ei- Nuevos campos
       const sps=document.getElementById('asProyecto');
       if(sps&&r.proyecto)sps.value=r.proyecto;
       document.getElementById('asObs').value=r.obs||'';
@@ -360,20 +360,31 @@ function gAlmSM(){
   for(const it of validos){
     const m=st[it.cod];
     if(todoAlmacen){
-      // Distribuir la salida entre los proyectos origen que tienen stock real
       let remaining=it.cant;
       for(const p of DB.proyectos){
         if(remaining<=0)break;
         const ps=_getStockProy(p.codigo,p.nombre);
         if(!ps[it.cod]||ps[it.cod].stock<=0)continue;
         const takeAmt=Math.min(remaining,ps[it.cod].stock);
-        const esPrestamo=p.codigo!==codProy;
-        const obsNote=esPrestamo?('Prestado a: '+(codProy||proy||'otro proyecto')+(obs?' | '+obs:'')):(obs);
-        const rec={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:obsNote,numVale:vale};
-        DB.almacen.push(rec);
-        syncSheet('saveAlmacen',rec);
+        const esPrestamo=codProy&&p.codigo!==codProy;
+        if(esPrestamo){
+          // 1. SAL del proyecto que presta (ej. EPY-001-26)
+          const r1={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo a: '+(codProy||proy)+(obs?' | '+obs:''),numVale:vale};
+          DB.almacen.push(r1);syncSheet('saveAlmacen',r1);
+          // 2. ENT al proyecto receptor (ej. EPY-003-26)
+          const r2={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'E',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo de: '+p.codigo+(obs?' | '+obs:''),numVale:vale};
+          DB.almacen.push(r2);syncSheet('saveAlmacen',r2);
+          // 3. SAL del proyecto receptor — despacho real al vale
+          const r3={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Prestado de: '+p.codigo+(obs?' | '+obs:''),numVale:vale};
+          DB.almacen.push(r3);syncSheet('saveAlmacen',r3);
+          totalRecs+=3;
+        }else{
+          // Mismo proyecto — salida normal
+          const rec={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs,numVale:vale};
+          DB.almacen.push(rec);syncSheet('saveAlmacen',rec);
+          totalRecs++;
+        }
         remaining-=takeAmt;
-        totalRecs++;
       }
     }else{
       const rec={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:it.cant,stock:0,tipoCosto:tc,para,obs,numVale:vale};
