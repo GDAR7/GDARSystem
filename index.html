@@ -451,16 +451,17 @@
   <div class="card">
     <div class="card-head"><span class="card-title">Flota Completa</span>
       <div class="card-head-right">
-        <div style="display:flex;gap:.25rem">
-          <button id="eqSortCodBtn" class="btn btn-out btn-sm" style="font-size:.72rem;border-color:var(--mec);color:var(--mec)" onclick="setEqSort('cod')">↕ Código</button>
-          <button id="eqSortTipoBtn" class="btn btn-out btn-sm" style="font-size:.72rem" onclick="setEqSort('tipo')">↕ Tipo</button>
-        </div>
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbMaster')"></div>
         <button class="btn btn-a" style="--ba:var(--mec)" onclick="openEquipo()">＋ Agregar</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th></th></tr></thead>
+      <thead><tr>
+        <th id="eqSortCodBtn" onclick="setEqSort('cod')" style="cursor:pointer;white-space:nowrap;user-select:none">Código <span style="font-size:.7rem;opacity:.6">↕</span></th>
+        <th>Equipo</th>
+        <th id="eqSortTipoBtn" onclick="setEqSort('tipo')" style="cursor:pointer;white-space:nowrap;user-select:none">Tipo <span style="font-size:.7rem;opacity:.6">↕</span></th>
+        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th></th>
+      </tr></thead>
       <tbody id="tbMaster"></tbody>
     </table></div></div>
   </div>

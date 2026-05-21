@@ -35,8 +35,12 @@ let _eqSort='cod';
 function setEqSort(s){
   _eqSort=s;
   ['cod','tipo'].forEach(k=>{
-    const b=document.getElementById('eqSort'+k.charAt(0).toUpperCase()+k.slice(1)+'Btn');
-    if(b){b.style.borderColor=k===s?'var(--mec)':'';b.style.color=k===s?'var(--mec)':'';}
+    const th=document.getElementById('eqSort'+k.charAt(0).toUpperCase()+k.slice(1)+'Btn');
+    if(th){
+      th.style.color=k===s?'var(--mec)':'';
+      const arrow=th.querySelector('span');
+      if(arrow){arrow.textContent=k===s?'↓':'↕';arrow.style.opacity=k===s?'1':'.6';}
+    }
   });
   rMaster();
 }
