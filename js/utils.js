@@ -227,7 +227,7 @@ function setPage(k){
   renderPage(k);
 }
 function renderPage(k){
-  const m={dashboard:rDash,personal:rPersonal,asistencia:rAsistencia,planilla:()=>{},asistentaSocial:rSocial,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,supervision:rSuper,seguridad:rSeg,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,tareaje:rTareaje,planner:rPlanner,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposComplementarios:()=>rLinea('Equipos Complementarios'),panelHoras:rPanelHoras,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos};
+  const m={dashboard:rDash,personal:rPersonal,asistencia:rAsistencia,planilla:()=>{},asistentaSocial:rSocial,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,supervision:rSuper,seguridad:rSeg,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,tareaje:rTareaje,planner:rPlanner,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos};
   if(m[k])m[k]();
 }
 

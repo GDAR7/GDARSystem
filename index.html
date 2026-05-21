@@ -672,13 +672,13 @@
 </div>
 
 <!-- C.EQUIPOS – COMPLEMENTARIOS -->
-<div class="page" id="page-equiposComplementarios">
-  <div class="ph"><div class="ph-title" style="color:var(--ceq)">Equipos Complementarios</div><div class="ph-sub">Generadores, compresores, bombas, mezcladores y otros</div></div>
+<div class="page" id="page-equiposMenores">
+  <div class="ph"><div class="ph-title" style="color:var(--ceq)">Equipos Menores</div><div class="ph-sub">Generadores, compresores, bombas, mezcladores y otros</div></div>
   <div class="card">
-    <div class="card-head"><span class="card-title">Equipos Complementarios</span>
+    <div class="card-head"><span class="card-title">Equipos Menores</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbEC')"></div>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Equipos Complementarios')">＋ Reporte</button>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Equipos Menores')">＋ Reporte</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
@@ -1311,7 +1311,7 @@
       <div class="eq-sec">Datos Generales</div>
       <div class="fg" style="grid-column:1/-1"><label>Proyecto Asignado</label><select id="eqProy"><option value="">— Sin proyecto —</option></select></div>
       <div class="fg"><label>Código</label><input id="eqCod" placeholder="EQ-001"></div>
-      <div class="fg"><label>Tipo / Línea</label><select id="eqTi"><option>Línea Amarilla</option><option>Línea Blanca</option><option>Vehículo Menor</option><option>Equipos Complementarios</option></select></div>
+      <div class="fg"><label>Tipo / Línea</label><select id="eqTi"><option>Línea Amarilla</option><option>Línea Blanca</option><option>Vehículo Menor</option><option>Equipos Menores</option></select></div>
       <div class="fg"><label>Subtipo</label>
         <select id="eqSub" onchange="document.getElementById('eqSubCustomWrap').style.display=this.value==='__nuevo__'?'block':'none'">
           <option value="__nuevo__">＋ Nuevo subtipo...</option>

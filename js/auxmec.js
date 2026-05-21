@@ -245,7 +245,7 @@ function rPlanner(){
 function gAct(){const nom=document.getElementById('acNom').value.trim();if(!nom){toast('Ingrese nombre',true);return;}DB.planner.push({id:nid('plan'),cod:document.getElementById('acCod').value||'ACT-'+String(DB.planner.length+1).padStart(3,'0'),nom,resp:document.getElementById('acRe').value,ini:document.getElementById('acFi').value,fin:document.getElementById('acFf').value,av:+document.getElementById('acAv').value||0,est:document.getElementById('acEs').value});closeM('mAct');rPlanner();toast('Actividad registrada');}
 
 // ══ CONTROL EQUIPOS POR LÍNEA ══
-const lineaMap={'Línea Amarilla':'lineaAmarilla','Línea Blanca':'lineaBlanca','Vehículo Menor':'vehiculosMenores','Equipos Complementarios':'equiposComplementarios'};
+const lineaMap={'Línea Amarilla':'lineaAmarilla','Línea Blanca':'lineaBlanca','Vehículo Menor':'vehiculosMenores','Equipos Menores':'equiposMenores'};
 let currentReporteTipo='Línea Amarilla';
 function openReporte(tipo){
   currentReporteTipo=tipo;
@@ -437,7 +437,7 @@ function rLinea(tipo){
   const eqs=DB.equipos.filter(e=>e.tipo===tipo);
   const partes=DB.partes.filter(p=>eqs.some(e=>e.id===p.eqId));
   // map to right tbodies
-  const tbMap={'Línea Amarilla':'tbLA','Línea Blanca':'tbLB','Vehículo Menor':'tbVM','Equipos Complementarios':'tbEC'};
+  const tbMap={'Línea Amarilla':'tbLA','Línea Blanca':'tbLB','Vehículo Menor':'tbVM','Equipos Menores':'tbEC'};
   const tbPMap={'Línea Amarilla':'tbPartesLA','Línea Blanca':'tbPartesLB','Vehículo Menor':'tbSalidasVM'};
   const tb=document.getElementById(tbMap[tipo]);
   if(!tb)return;
