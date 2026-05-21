@@ -78,6 +78,7 @@ function openEquipo(){
    'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTar','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
+  document.getElementById('eqKm').value=0;
   document.getElementById('eqTi').value='Línea Amarilla';
   document.getElementById('eqEst').value='Operativo';
   const sts=document.getElementById('eqSts');if(sts)sts.value='';
@@ -121,6 +122,7 @@ function gEquipo(){
     anio:+document.getElementById('eqAn').value||2020,
     placa:document.getElementById('eqPl').value,
     hr:+document.getElementById('eqHr').value||0,
+    km:+document.getElementById('eqKm').value||0,
     est:document.getElementById('eqEst').value,
     numSerie:document.getElementById('eqNs').value,
     potenciaHp:+document.getElementById('eqPhp').value||null,
@@ -172,7 +174,7 @@ function verEquipo(id){
     ${sec('Generales')}
     ${row('Código',e.codigo)}${row('Tipo / Línea',e.tipo)}${row('Subtipo',e.sub)}
     ${row('Marca',e.marca)}${row('Modelo',e.modelo)}${row('Año',e.anio)}
-    ${row('Placa',e.placa)}${row('Horómetro',fmtN(e.hr)+' h')}${row('Estado',e.est)}
+    ${row('Placa',e.placa)}${row('Horómetro',fmtN(e.hr)+' h')}${row('Kilometraje',e.km!=null&&e.km>0?fmtN(e.km)+' km':null)}${row('Estado',e.est)}
     ${row('Proyecto',e.proyecto)}
     ${sec('Técnicos')}
     ${row('N° de Serie',e.numSerie)}${row('Potencia HP',e.potenciaHp)}
@@ -217,6 +219,7 @@ function editEquipo(id){
   document.getElementById('eqAn').value=e.anio||'';
   document.getElementById('eqPl').value=e.placa||'';
   document.getElementById('eqHr').value=e.hr||0;
+  document.getElementById('eqKm').value=e.km||0;
   document.getElementById('eqEst').value=e.est||'Operativo';
   document.getElementById('eqProy').value=e.proyecto||'';
   // Tab 1
