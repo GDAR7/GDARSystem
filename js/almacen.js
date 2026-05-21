@@ -368,14 +368,15 @@ function gAlmSM(){
         const takeAmt=Math.min(remaining,ps[it.cod].stock);
         const esPrestamo=codProy&&p.codigo!==codProy;
         if(esPrestamo){
-          // 1. SAL del proyecto que presta (ej. EPY-001-26)
-          const r1={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo a: '+(codProy||proy)+(obs?' | '+obs:''),numVale:vale};
+          // 1. SAL del proyecto que presta — vale propio correlativo de ese proyecto
+          const valeOrigen=_nextValeNum(p.codigo);
+          const r1={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo a: '+(codProy||proy)+(obs?' | '+obs:''),numVale:valeOrigen};
           DB.almacen.push(r1);syncSheet('saveAlmacen',r1);
-          // 2. ENT al proyecto receptor (ej. EPY-003-26)
-          const r2={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'E',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo de: '+p.codigo+(obs?' | '+obs:''),numVale:vale};
+          // 2. ENT al proyecto receptor — transferencia interna, sin vale
+          const r2={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'E',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Préstamo de: '+p.codigo+' ('+valeOrigen+')'+(obs?' | '+obs:''),numVale:''};
           DB.almacen.push(r2);syncSheet('saveAlmacen',r2);
-          // 3. SAL del proyecto receptor — despacho real al vale
-          const r3={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Prestado de: '+p.codigo+(obs?' | '+obs:''),numVale:vale};
+          // 3. SAL del proyecto receptor — despacho real, vale del formulario
+          const r3={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:'Prestado de: '+p.codigo+' ('+valeOrigen+')'+(obs?' | '+obs:''),numVale:vale};
           DB.almacen.push(r3);syncSheet('saveAlmacen',r3);
           totalRecs+=3;
         }else{
