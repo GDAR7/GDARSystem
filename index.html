@@ -1299,6 +1299,18 @@
   <div class="mf"><button class="btn btn-out" onclick="closeM('mEqVer')">Cerrar</button></div>
 </div></div>
 
+<!-- MODAL GESTIONAR SUBTIPOS -->
+<div class="mo" id="mGestSubtipos"><div class="modal" style="max-width:420px">
+  <div class="mh"><span class="mttl">✏️ Gestionar Subtipos</span><button class="mx" onclick="closeM('mGestSubtipos')">✕</button></div>
+  <div class="mb">
+    <div id="gestSubtiposBody" style="display:flex;flex-direction:column;gap:.35rem;max-height:340px;overflow-y:auto;padding-right:.25rem"></div>
+    <div style="margin-top:.8rem;display:flex;gap:.4rem">
+      <input id="gestSubNuevo" placeholder="Nuevo subtipo..." style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.32rem .5rem;color:var(--text);font-size:.82rem">
+      <button class="btn btn-a" onclick="gestAddSubtipo()" style="--ba:var(--mec)">＋</button>
+    </div>
+  </div>
+</div></div>
+
 <div class="mo" id="mEquipo"><div class="modal" style="max-width:700px">
   <div class="mh"><span class="mttl">Agregar Equipo</span><button class="mx" onclick="closeM('mEquipo')">✕</button></div>
   <div style="display:flex;border-bottom:1px solid var(--border);padding:0 1rem;gap:0">
@@ -1313,7 +1325,7 @@
       <div class="fg" style="grid-column:1/-1"><label>Proyecto Asignado</label><select id="eqProy"><option value="">— Sin proyecto —</option></select></div>
       <div class="fg"><label>Código</label><input id="eqCod" placeholder="EQ-001"></div>
       <div class="fg"><label>Tipo / Línea</label><select id="eqTi"><option>Línea Amarilla</option><option>Línea Blanca</option><option>Vehículo Menor</option><option>Equipos Menores</option></select></div>
-      <div class="fg"><label>Subtipo</label>
+      <div class="fg"><label style="display:flex;justify-content:space-between;align-items:center">Subtipo <button type="button" onclick="openGestSubtipos()" title="Editar subtipos" style="background:none;border:none;cursor:pointer;color:var(--muted2);font-size:.8rem;padding:0;line-height:1">✏️ Editar</button></label>
         <select id="eqSub" onchange="document.getElementById('eqSubCustomWrap').style.display=this.value==='__nuevo__'?'block':'none'">
           <option value="__nuevo__">＋ Nuevo subtipo...</option>
         </select>
@@ -1345,7 +1357,11 @@
     </div>
     <div id="eqP2" class="fg-grid" style="display:none">
       <div class="eq-sec">Proveedor / Contrato</div>
-      <div class="fg"><label>Proveedor</label><input id="eqProv"></div>
+      <div class="fg" style="position:relative">
+        <label>Proveedor</label>
+        <input id="eqProv" autocomplete="off" oninput="_eqProvAc(this.value)" onblur="setTimeout(()=>{const d=document.getElementById('eqProvDrop');if(d)d.style.display='none'},180)">
+        <div id="eqProvDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--mec);border-radius:6px;z-index:999;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px #0006"></div>
+      </div>
       <div class="fg"><label>Contacto</label><input id="eqCtc"></div>
       <div class="fg"><label>Celular</label><input id="eqCel"></div>
       <div class="fg"><label>Correo</label><input id="eqCor" type="email"></div>

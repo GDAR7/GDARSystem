@@ -64,6 +64,88 @@ function rMaster(){
     </td>
   </tr>`).join('');
 }
+// ══ GESTIÓN DE SUBTIPOS ══
+function openGestSubtipos(){_renderGestSubtipos();openM('mGestSubtipos');}
+function _renderGestSubtipos(){
+  const IS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;flex:1;min-width:0';
+  document.getElementById('gestSubtiposBody').innerHTML=DB.subtiposEquipo.map(s=>`
+    <div style="display:flex;gap:.35rem;align-items:center">
+      <input id="gse${s.id}" value="${s.nombre}" style="${IS}">
+      <button class="btn btn-out btn-sm" onclick="gestSaveSubtipo(${s.id})" title="Guardar" style="color:#10b981;border-color:#10b98160;flex-shrink:0">✓</button>
+      <button class="btn btn-del btn-sm" onclick="gestDelSubtipo(${s.id})" style="flex-shrink:0">🗑</button>
+    </div>`).join('');
+}
+function gestSaveSubtipo(id){
+  const inp=document.getElementById('gse'+id);if(!inp)return;
+  const nuevo=inp.value.trim();if(!nuevo){toast('Nombre vacío',true);return;}
+  const s=DB.subtiposEquipo.find(x=>x.id===id);if(!s)return;
+  const viejo=s.nombre;
+  if(viejo===nuevo)return;
+  s.nombre=nuevo;
+  syncSheet('saveSubtipoEquipo',s);
+  // Actualizar equipos que usen este subtipo
+  DB.equipos.forEach(e=>{
+    if(e.sub===viejo){
+      e.sub=nuevo;
+      e.nombre=e.nombre.replace(viejo,nuevo);
+      syncSheet('saveEquipo',e);
+    }
+  });
+  toast('✓ Subtipo actualizado');
+  _renderGestSubtipos();
+  // Refrescar el select del formulario si está abierto
+  const cur=document.getElementById('eqSub');
+  if(cur)_buildEqSubOpts(cur.value===viejo?nuevo:cur.value);
+}
+function gestDelSubtipo(id){
+  const s=DB.subtiposEquipo.find(x=>x.id===id);if(!s)return;
+  if(DB.equipos.some(e=>e.sub===s.nombre)){toast('En uso por equipos, no se puede eliminar',true);return;}
+  DB.subtiposEquipo=DB.subtiposEquipo.filter(x=>x.id!==id);
+  supaDelete('subtiposEquipo',id);
+  _renderGestSubtipos();
+  toast('Subtipo eliminado');
+}
+function gestAddSubtipo(){
+  const inp=document.getElementById('gestSubNuevo');if(!inp)return;
+  const nombre=inp.value.trim();if(!nombre)return;
+  if(DB.subtiposEquipo.find(s=>s.nombre===nombre)){toast('Ya existe ese subtipo',true);return;}
+  const ns={id:nid('sub'),nombre};
+  DB.subtiposEquipo.push(ns);
+  syncSheet('saveSubtipoEquipo',ns);
+  inp.value='';
+  _renderGestSubtipos();
+  toast('Subtipo agregado');
+}
+
+// ══ AUTOCOMPLETE PROVEEDOR ══
+function _eqProvAc(val){
+  const drop=document.getElementById('eqProvDrop');if(!drop)return;
+  const q=(val||'').trim().toLowerCase();
+  if(!q){drop.style.display='none';return;}
+  // Extraer proveedores únicos de DB.equipos con sus datos de contacto
+  const map={};
+  DB.equipos.forEach(e=>{
+    if(e.proveedor&&e.proveedor.trim()&&!map[e.proveedor]){
+      map[e.proveedor]={ctc:e.contacto||'',cel:e.celular||'',cor:e.correo||''};
+    }
+  });
+  const matches=Object.entries(map).filter(([p])=>p.toLowerCase().includes(q));
+  if(!matches.length){drop.style.display='none';return;}
+  drop.innerHTML=matches.map(([p,d])=>`
+    <div onclick="_eqProvPick('${p.replace(/'/g,"\\'")}','${d.ctc.replace(/'/g,"\\'")}','${d.cel.replace(/'/g,"\\'")}','${d.cor.replace(/'/g,"\\'")}')
+    " style="padding:.38rem .6rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)"
+       onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+      <div style="font-weight:600">${p}</div>
+      ${d.ctc?`<div style="font-size:.72rem;color:var(--muted2)">${d.ctc}${d.cel?' · '+d.cel:''}</div>`:''}
+    </div>`).join('');
+  drop.style.display='block';
+}
+function _eqProvPick(prov,ctc,cel,cor){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  set('eqProv',prov);set('eqCtc',ctc);set('eqCel',cel);set('eqCor',cor);
+  const drop=document.getElementById('eqProvDrop');if(drop)drop.style.display='none';
+}
+
 let _eqTab=0,_eqEditId=null;
 function _buildEqSubOpts(selectedVal){
   const sel=document.getElementById('eqSub');if(!sel)return;
