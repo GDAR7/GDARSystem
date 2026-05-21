@@ -356,14 +356,34 @@ function gAlmSM(){
     if(!st[it.cod]||st[it.cod].stock<=0){toast('Sin stock: '+it.cod,true);return;}
     if(it.cant>st[it.cod].stock){toast('Stock insuficiente: '+it.cod+' (disponible: '+fmtN(st[it.cod].stock)+')',true);return;}
   }
+  let totalRecs=0;
   for(const it of validos){
     const m=st[it.cod];
-    const rec={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:it.cant,stock:0,tipoCosto:tc,para,obs,numVale:vale};
-    DB.almacen.push(rec);
-    syncSheet('saveAlmacen',rec);
+    if(todoAlmacen){
+      // Distribuir la salida entre los proyectos origen que tienen stock real
+      let remaining=it.cant;
+      for(const p of DB.proyectos){
+        if(remaining<=0)break;
+        const ps=_getStockProy(p.codigo,p.nombre);
+        if(!ps[it.cod]||ps[it.cod].stock<=0)continue;
+        const takeAmt=Math.min(remaining,ps[it.cod].stock);
+        const esPrestamo=p.codigo!==codProy;
+        const obsNote=esPrestamo?('Prestado a: '+(codProy||proy||'otro proyecto')+(obs?' | '+obs:'')):(obs);
+        const rec={id:nid('alm'),fecha,proyecto:p.nombre,codProy:p.codigo,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:takeAmt,stock:0,tipoCosto:tc,para,obs:obsNote,numVale:vale};
+        DB.almacen.push(rec);
+        syncSheet('saveAlmacen',rec);
+        remaining-=takeAmt;
+        totalRecs++;
+      }
+    }else{
+      const rec={id:nid('alm'),fecha,proyecto:proy,codProy,rqRef:'',codigo:it.cod,nombre:m.nombre,unidad:m.unidad,tipo:'S',cant:it.cant,stock:0,tipoCosto:tc,para,obs,numVale:vale};
+      DB.almacen.push(rec);
+      syncSheet('saveAlmacen',rec);
+      totalRecs++;
+    }
   }
   closeM('mAlmSM');rAlm();
-  toast('✓ '+validos.length+' salida(s) registradas – Vale: '+vale);
+  toast('✓ '+totalRecs+' salida(s) registradas – Vale: '+vale);
 }
 function openPrintVale(){
   if(!DB.almacen.some(r=>r.tipo==='S'&&r.numVale)){toast('No hay vales registrados',true);return;}
