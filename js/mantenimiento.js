@@ -1,8 +1,23 @@
 ﻿// ══ SUPERVISIÓN ══
+function openSuper(){
+  ['suF','suA','suAc','suO'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['suS','suR'].forEach(id=>{const el=document.getElementById(id);if(el)el.selectedIndex=0;});
+  openM('mSuper');
+}
 function rSuper(){document.getElementById('tbSuper').innerHTML=DB.supervision.map(r=>`<tr><td class="mono">${r.fecha}</td><td>${r.sup}</td><td>${r.area}</td><td>${r.act}</td><td>${r.obs||'—'}</td><td>${bge(r.res)}</td><td><button class="btn btn-del btn-sm" onclick="del('supervision',${r.id})">🗑</button></td></tr>`).join('');}
 function gSuper(){DB.supervision.push({id:nid('super'),fecha:document.getElementById('suF').value||today(),sup:document.getElementById('suS').value,area:document.getElementById('suA').value,act:document.getElementById('suAc').value,obs:document.getElementById('suO').value,res:document.getElementById('suR').value});syncSheet('saveSupervision',DB.supervision[DB.supervision.length-1]);closeM('mSuper');rSuper();toast('Supervisión registrada');}
 
 // ══ SEGURIDAD ══
+function openInc(){
+  ['inF','inA','inD'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['inT','inTr','inSv','inE'].forEach(id=>{const el=document.getElementById(id);if(el)el.selectedIndex=0;});
+  openM('mInc');
+}
+function openPetar(){
+  ['ptN','ptV'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ptT','ptR','ptE'].forEach(id=>{const el=document.getElementById(id);if(el)el.selectedIndex=0;});
+  openM('mPetar');
+}
 function rSeg(){
   document.getElementById('segKpis').innerHTML=[{l:'Incidentes Mes',v:DB.incidentes.length,c:'#ef4444'},{l:'Sin Cerrar',v:DB.incidentes.filter(i=>i.est!=='Cerrado').length,c:'#f97316'},{l:'PETAR Activos',v:DB.petar.filter(p=>p.est==='Activo').length,c:'#f59e0b'},{l:'Días sin Accidente',v:15,c:'#10b981'}].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
   document.getElementById('tbInc').innerHTML=DB.incidentes.map(r=>`<tr><td class="mono">${r.fecha}</td><td><span class="badge b-red">${r.tipo}</span></td><td>${r.area}</td><td>${r.desc}</td><td>${r.trab}</td><td>${bge(r.sev)}</td><td>${bge(r.est)}</td><td><button class="btn btn-del btn-sm" onclick="del('incidentes',${r.id})">🗑</button></td></tr>`).join('');
@@ -58,6 +73,14 @@ function openEquipo(){
   _eqEditId=null;
   document.querySelector('#mEquipo .mttl').textContent='Agregar Equipo';
   _eqTab=0;eqGoTab(0);
+  ['eqCod','eqMa','eqMo','eqAn','eqPl',
+   'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls','eqSoat','eqPtr','eqRtec','eqGps',
+   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTar','eqIco','eqTco',
+   'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('eqHr').value=0;
+  document.getElementById('eqTi').value='Línea Amarilla';
+  document.getElementById('eqEst').value='Operativo';
+  const sts=document.getElementById('eqSts');if(sts)sts.value='';
   _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
   if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}${p.nombre?' – '+p.nombre:''}</option>`).join('');
@@ -235,8 +258,12 @@ function _genOT(){
 function openMant(){
   _mantEditId=null;
   document.getElementById('mMantTtl').textContent='Programar Mantenimiento';
-  ['otDe','otFp','otFe','otHs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['otDe','otFp','otFe'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('otN').value=_genOT();
+  document.getElementById('otHs').value=0;
+  const eq=document.getElementById('otEq');if(eq)eq.selectedIndex=0;
+  const ti=document.getElementById('otTi');if(ti)ti.selectedIndex=0;
+  const mc=document.getElementById('otMec');if(mc)mc.selectedIndex=0;
   const es=document.getElementById('otEs');if(es)es.value='Programado';
   openM('mMant');
 }

@@ -348,11 +348,12 @@ function gAlmSM(){
   const para=document.getElementById('smPers').value+(document.getElementById('smDest').value?' – '+document.getElementById('smDest').value:'');
   const tc=document.getElementById('smTc').value;
   const obs=document.getElementById('smObs').value;
-  const st=proy?_getStockProy(codProy,proy):getStock();
+  const todoAlmacen=document.getElementById('smTodoAlmacen')?.checked;
+  const st=todoAlmacen?getStock():(proy?_getStockProy(codProy,proy):getStock());
   const validos=smItemsArr.filter(it=>it.cod&&+it.cant>0);
   if(!validos.length){toast('Agregue al menos un material',true);return;}
   for(const it of validos){
-    if(!st[it.cod]){toast('Sin stock: '+it.cod,true);return;}
+    if(!st[it.cod]||st[it.cod].stock<=0){toast('Sin stock: '+it.cod,true);return;}
     if(it.cant>st[it.cod].stock){toast('Stock insuficiente: '+it.cod+' (disponible: '+fmtN(st[it.cod].stock)+')',true);return;}
   }
   for(const it of validos){
