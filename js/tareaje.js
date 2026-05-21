@@ -16,15 +16,41 @@ const _TARE_T={
 };
 let _tarPickerCb=null;
 let _tarMultiMode=false;
+let _tarHoverMode=false;
 const _tarSel=new Set();
 
 function toggleTareMult(){
+  _tarHoverMode=false;
+  const hBtn=document.getElementById('tarHoverBtn');
+  if(hBtn){hBtn.style.background='';hBtn.style.color='';}
   _tarMultiMode=!_tarMultiMode;
   _tarSel.clear();
   const btn=document.getElementById('tarMultBtn');
   if(btn){btn.style.background=_tarMultiMode?'var(--mec)':'';btn.style.color=_tarMultiMode?'#fff':'';}
   _updateTarMultBar();
   if(!_tarMultiMode)rTareaje();
+}
+function toggleTareHover(){
+  _tarMultiMode=false;
+  const mBtn=document.getElementById('tarMultBtn');
+  if(mBtn){mBtn.style.background='';mBtn.style.color='';}
+  _tarHoverMode=!_tarHoverMode;
+  _tarSel.clear();
+  const btn=document.getElementById('tarHoverBtn');
+  if(btn){btn.style.background=_tarHoverMode?'#f59e0b':'';btn.style.color=_tarHoverMode?'#000':'';}
+  if(_tarHoverMode)_tarMultiMode=true;
+  _updateTarMultBar();
+  if(!_tarHoverMode)rTareaje();
+}
+function _tarHoverOver(personalId,fecha,cellEl){
+  if(!_tarHoverMode)return;
+  const key=`${personalId}|${fecha}`;
+  if(_tarSel.has(key))return;
+  _tarSel.add(key);
+  cellEl.style.outline='2px solid #f59e0b';
+  cellEl.style.outlineOffset='-2px';
+  const td=document.getElementById('tarMultTypes');if(td)td.innerHTML='';
+  _updateTarMultBar();
 }
 function _updateTarMultBar(){
   const bar=document.getElementById('tarMultBar');if(!bar)return;
@@ -48,8 +74,11 @@ function clearTareSel(){
   });
   _tarSel.clear();
   _tarMultiMode=false;
+  _tarHoverMode=false;
   const btn=document.getElementById('tarMultBtn');
   if(btn){btn.style.background='';btn.style.color='';}
+  const hBtn=document.getElementById('tarHoverBtn');
+  if(hBtn){hBtn.style.background='';hBtn.style.color='';}
   _updateTarMultBar();
 }
 function _tarCellClick(personalId,fecha,cellEl){
@@ -132,7 +161,7 @@ function rTareaje(){
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-      return`<td id="tar-${p.id}-${fecha}" onclick="_tarCellClick(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
+      return`<td id="tar-${p.id}-${fecha}" onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
     }).join('');
     const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD').length;
     const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN').length;
