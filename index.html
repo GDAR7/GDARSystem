@@ -566,6 +566,7 @@
         <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
         <input type="text" id="tareElab" placeholder="Elaborado por..." style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:155px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem" oninput="rTareaje()">
+        <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
       </div>
     </div>
@@ -574,6 +575,13 @@
     </div>
   </div>
   <div id="tarePicker" style="display:none;position:fixed;z-index:9999"></div>
+  <!-- BARRA MULTI-SELECCIÓN -->
+  <div id="tarMultBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:9998;background:var(--panel);border:1px solid var(--mec);border-radius:10px;padding:.6rem 1rem;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
+    <span id="tarMultCnt" style="font-size:.78rem;font-weight:700;color:var(--mec);white-space:nowrap">0 celdas</span>
+    <span style="color:var(--muted2);font-size:.72rem">→ Aplicar:</span>
+    <div id="tarMultTypes" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button onclick="clearTareSel()" style="background:#374151;color:#9ca3af;border:1px solid #6b7280;border-radius:5px;padding:3px 8px;font-size:.65rem;font-weight:700;cursor:pointer;margin-left:.3rem">✕ Cancelar</button>
+  </div>
 </div>
 
 <!-- PLANNER -->

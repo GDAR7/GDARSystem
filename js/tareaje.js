@@ -15,6 +15,91 @@ const _TARE_T={
   R: {l:'Retirado',        bg:'#7f1d1d',tx:'#fff'}
 };
 let _tarPickerCb=null;
+let _tarMultiMode=false;
+const _tarSel=new Set();
+
+function toggleTareMult(){
+  _tarMultiMode=!_tarMultiMode;
+  _tarSel.clear();
+  const btn=document.getElementById('tarMultBtn');
+  if(btn){btn.style.background=_tarMultiMode?'var(--mec)':'';btn.style.color=_tarMultiMode?'#fff':'';}
+  _updateTarMultBar();
+  if(!_tarMultiMode)rTareaje();
+}
+function _updateTarMultBar(){
+  const bar=document.getElementById('tarMultBar');if(!bar)return;
+  if(_tarMultiMode&&_tarSel.size>0){
+    bar.style.display='flex';
+    const cnt=document.getElementById('tarMultCnt');
+    if(cnt)cnt.textContent=_tarSel.size+' celda(s) seleccionada(s)';
+    const td=document.getElementById('tarMultTypes');
+    if(td&&!td.children.length){
+      td.innerHTML=Object.entries(_TARE_T).map(([k,v])=>
+        `<button onclick="applyTareMult('${k}')" style="background:${v.bg};color:${v.tx};border:none;border-radius:5px;padding:3px 7px;font-size:.65rem;font-weight:700;cursor:pointer" title="${v.l}">${k}</button>`
+      ).join('')+`<button onclick="applyTareMult('')" style="background:#374151;color:#9ca3af;border:1px solid #6b7280;border-radius:5px;padding:3px 7px;font-size:.65rem;font-weight:700;cursor:pointer">✕ Borrar</button>`;
+    }
+  }else{bar.style.display='none';}
+}
+function clearTareSel(){
+  _tarSel.forEach(key=>{
+    const [pId,fecha]=key.split('|');
+    const cell=document.getElementById(`tar-${pId}-${fecha}`);
+    if(cell)cell.style.outline='';
+  });
+  _tarSel.clear();
+  _tarMultiMode=false;
+  const btn=document.getElementById('tarMultBtn');
+  if(btn){btn.style.background='';btn.style.color='';}
+  _updateTarMultBar();
+}
+function _tarCellClick(personalId,fecha,cellEl){
+  if(!_tarMultiMode){openTarePicker(personalId,fecha,cellEl);return;}
+  const key=`${personalId}|${fecha}`;
+  if(_tarSel.has(key)){_tarSel.delete(key);cellEl.style.outline='';}
+  else{_tarSel.add(key);cellEl.style.outline='2px solid #fff';cellEl.style.outlineOffset='-2px';}
+  const td=document.getElementById('tarMultTypes');if(td)td.innerHTML='';
+  _updateTarMultBar();
+}
+function _tarColClick(fecha){
+  if(!_tarMultiMode)return;
+  // Seleccionar/deseleccionar toda la columna
+  const cells=document.querySelectorAll(`[id^="tar-"][id$="-${fecha}"]`);
+  const allSel=[...cells].every(c=>{const k=c.id.replace('tar-','').replace('-'+fecha,'')+'|'+fecha;return _tarSel.has(k);});
+  cells.forEach(c=>{
+    const pId=c.id.split('-')[1];const key=`${pId}|${fecha}`;
+    if(allSel){_tarSel.delete(key);c.style.outline='';}
+    else{_tarSel.add(key);c.style.outline='2px solid #fff';c.style.outlineOffset='-2px';}
+  });
+  const td=document.getElementById('tarMultTypes');if(td)td.innerHTML='';
+  _updateTarMultBar();
+}
+function applyTareMult(tipo){
+  const count=_tarSel.size;if(!count)return;
+  _tarSel.forEach(key=>{
+    const [pId,fecha]=key.split('|');
+    const personalId=+pId;
+    const existing=DB.tareaje.find(r=>r.personalId===personalId&&r.fecha===fecha);
+    if(existing){
+      if(!tipo){DB.tareaje=DB.tareaje.filter(r=>r.id!==existing.id);supaDelete('tareaje',existing.id);}
+      else{existing.tipo=tipo;syncSheet('saveTareaje',existing);}
+    }else{
+      if(!tipo)return;
+      const rec={id:nid('tar'),personalId,fecha,tipo};
+      DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
+    }
+    const cell=document.getElementById(`tar-${personalId}-${fecha}`);
+    if(cell){
+      const t=tipo?_TARE_T[tipo]:null;
+      const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
+      cell.textContent=tipo;cell.style.background=t?t.bg:(isSun?'rgba(245,158,11,.06)':'');
+      cell.style.color=t?t.tx:'';cell.title=t?t.l:fecha;cell.style.outline='';
+    }
+  });
+  _tarSel.clear();
+  clearTareSel();
+  rTareaje();
+  toast(`✓ ${count} celda(s) actualizadas`);
+}
 function rTareaje(){
   const pad=n=>String(n).padStart(2,'0');
   const mv=document.getElementById('tareMes')?.value||new Date().toISOString().slice(0,7);
@@ -38,7 +123,7 @@ function rTareaje(){
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
+    return`<th onclick="_tarColClick('${fecha}')" style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;cursor:pointer;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
     const cells=Array.from({length:days},(_,i)=>{
@@ -47,7 +132,7 @@ function rTareaje(){
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-      return`<td id="tar-${p.id}-${fecha}" onclick="openTarePicker(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
+      return`<td id="tar-${p.id}-${fecha}" onclick="_tarCellClick(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
     }).join('');
     const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD').length;
     const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN').length;
