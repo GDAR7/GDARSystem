@@ -129,17 +129,83 @@
     <div class="card-body" style="display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap;">
       <div class="fg"><label>Mes</label><select id="plMes"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div>
       <div class="fg"><label>Año</label><select id="plAnio"><option value="2025">2025</option><option value="2026" selected>2026</option></select></div>
-      <button class="btn btn-a" style="--ba:var(--adm)" onclick="genPlanilla()">Generar Planilla</button>
+      <div class="fg"><label>Proyecto</label><select id="plProy"><option value="">— Todos —</option></select></div>
+      <button class="btn btn-a" style="--ba:var(--adm)" onclick="genPlanilla()">⚙️ Generar Planilla</button>
+      <button class="btn btn-out" onclick="printPlanilla()" style="color:var(--adm);border-color:var(--adm)60">🖨️ PDF</button>
     </div>
   </div>
   <div class="card" id="planillaCard" style="display:none">
-    <div class="card-head"><span class="card-title" id="planillaTtl">Planilla</span></div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>#</th><th>Trabajador</th><th>Cargo</th><th class="tr">Básico</th><th class="tr">Asig.Fam.</th><th class="tr">Bonif.5%</th><th class="tr">Bruto</th><th class="tr">SNP 13%</th><th class="tr">Neto S/</th></tr></thead>
-      <tbody id="tbPlanilla"></tbody><tfoot id="tfPlanilla"></tfoot>
-    </table></div></div>
+    <div class="card-head">
+      <span class="card-title" id="planillaTtl">Planilla</span>
+      <div class="card-head-right"><span id="planillaResumen" style="font-size:.8rem;color:var(--muted2)"></span></div>
+    </div>
+    <div class="card-body" style="overflow-x:auto;padding:0">
+      <table id="tbPlanilla" style="border-collapse:collapse;min-width:100%;white-space:nowrap;font-size:.72rem">
+        <thead id="thPlanilla"></thead>
+        <tbody id="tbPlanillaBody"></tbody>
+        <tfoot id="tfPlanilla"></tfoot>
+      </table>
+    </div>
   </div>
 </div>
+
+<!-- MODAL DATOS MENSUALES PLANILLA -->
+<div class="mo" id="mPlanillaDet"><div class="modal" style="max-width:680px">
+  <div class="mh"><span class="mttl">Datos Mensuales del Trabajador</span><button class="mx" onclick="closeM('mPlanillaDet')">✕</button></div>
+  <div id="mPlDetInfo" style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.8rem;color:var(--muted2)"></div>
+  <div style="display:flex;border-bottom:1px solid var(--border);padding:0 1rem;gap:0">
+    <button class="eq-tab eq-tab-act" id="plDetTab0" onclick="plDetGoTab(0)">A · Ingresos</button>
+    <button class="eq-tab" id="plDetTab1" onclick="plDetGoTab(1)">B · Deducciones</button>
+    <button class="eq-tab" id="plDetTab2" onclick="plDetGoTab(2)">C · Aportes Empl.</button>
+  </div>
+  <div class="mb">
+    <!-- TAB A: Ingresos adicionales -->
+    <div id="plDetP0" class="fg-grid">
+      <div class="fg"><label>HE 25% (horas)</label><input id="pdHe25" type="number" value="0" min="0"></div>
+      <div class="fg"><label>HE 35% (horas)</label><input id="pdHe35" type="number" value="0" min="0"></div>
+      <div class="fg"><label>HE 100% (horas)</label><input id="pdHe100" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Reintegro S/</label><input id="pdReintegro" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Bonif. Altura S/</label><input id="pdBAltura" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Bonif. Costo de Vida S/</label><input id="pdBCv" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Bonif. H. Nocturnas S/</label><input id="pdBNocturnas" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Refrigerio S/</label><input id="pdRefrigerio" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Lic. Sindical S/</label><input id="pdLicSindical" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Vacaciones S/</label><input id="pdVacaciones" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Bono S/</label><input id="pdBono" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Gratificación S/</label><input id="pdGratificacion" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Gratif. Trunca S/</label><input id="pdGratifTrunca" type="number" value="0" min="0"></div>
+      <div class="fg"><label>HE Adicional (Ago.) S/</label><input id="pdHeAdicional" type="number" value="0" min="0"></div>
+    </div>
+    <!-- TAB B: Deducciones adicionales -->
+    <div id="plDetP1" class="fg-grid" style="display:none">
+      <div class="fg"><label>Adelantos S/</label><input id="pdAdelanto" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Vacaciones (desc.) S/</label><input id="pdVacDesc" type="number" value="0" min="0"></div>
+      <div class="fg"><label>CTS S/</label><input id="pdCts" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Sindicato S/</label><input id="pdSindicato" type="number" value="0" min="0"></div>
+      <div class="fg"><label>RIMAC S/</label><input id="pdRimac" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Otros Descuentos S/</label><input id="pdOtrosDesc" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Retención Judicial S/</label><input id="pdRetJudicial" type="number" value="0" min="0"></div>
+      <div class="fg"><label>5ta Categoría S/</label><input id="pdQuintaCat" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Más Vida S/</label><input id="pdMasVida" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Fondo Compen. Minera (Ley 29741) S/</label><input id="pdFondoMina" type="number" value="0" min="0"></div>
+    </div>
+    <!-- TAB C: Aportes empleador (campos manuales) -->
+    <div id="plDetP2" class="fg-grid" style="display:none">
+      <div style="grid-column:1/-1;font-size:.75rem;color:var(--muted2);padding:.3rem 0">ESSALUD (9%) y Aporte AFP Empleador se calculan automáticamente. Ingresa los seguros y SCTR manualmente:</div>
+      <div class="fg"><label>SCTR Pensión Superficie S/</label><input id="pdSctrPenSup" type="number" value="0" min="0"></div>
+      <div class="fg"><label>SCTR Pensiones Mina S/</label><input id="pdSctrPenMina" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Seguro Vida Empleados S/</label><input id="pdSegVidaEmpl" type="number" value="0" min="0"></div>
+      <div class="fg"><label>S. Vida Obreros Ley S/</label><input id="pdSegVidaLey" type="number" value="0" min="0"></div>
+      <div class="fg"><label>SCTR Salud S/</label><input id="pdSctrSalud" type="number" value="0" min="0"></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mPlanillaDet')">Cancelar</button>
+    <button id="plDetBPrev" class="btn btn-out" style="display:none" onclick="plDetGoTab(_plDetCurTab-1)">◀ Anterior</button>
+    <button id="plDetBNext" class="btn btn-out" onclick="plDetGoTab(_plDetCurTab+1)">Siguiente ▶</button>
+    <button id="plDetBSave" class="btn btn-a" style="--ba:var(--adm);display:none" onclick="gPlanillaDet()">Guardar</button>
+  </div>
+</div></div>
 
 <!-- BIENESTAR – ASISTENTA SOCIAL -->
 <div class="page" id="page-asistentaSocial">
@@ -1816,6 +1882,7 @@
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/personal.js"></script>
+<script src="js/planilla.js"></script>
 <script src="js/almacen.js"></script>
 <script src="js/combustible.js"></script>
 <script src="js/requerimientos.js"></script>

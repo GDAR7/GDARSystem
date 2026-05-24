@@ -367,20 +367,6 @@ function exportTareajePDF(){
   setTimeout(function(){win.print();},400);
 }
 
-function genPlanilla(){
-  const mes=+document.getElementById('plMes').value,anio=document.getElementById('plAnio').value;
-  const mn=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('planillaTtl').textContent=`Planilla ${mn[mes]} ${anio}`;
-  const act=DB.personal.filter(p=>p.est==='Activo');
-  let tB=0,tD=0,tN=0;
-  document.getElementById('tbPlanilla').innerHTML=act.map((p,i)=>{
-    const asig=p.asig?113.0:0,bon=p.sue*.05,bruto=p.sue+asig+bon,desc=bruto*.13,neto=bruto-desc;
-    tB+=bruto;tD+=desc;tN+=neto;
-    return`<tr><td>${i+1}</td><td><strong>${p.ape}, ${p.nom}</strong></td><td>${p.cargo}</td><td class="tr mono">${fmt(p.sue)}</td><td class="tr mono">${asig?fmt(asig):'—'}</td><td class="tr mono">${fmt(bon)}</td><td class="tr mono text-acc"><strong>${fmt(bruto)}</strong></td><td class="tr mono text-red">${fmt(desc)}</td><td class="tr mono text-green"><strong>${fmt(neto)}</strong></td></tr>`;
-  }).join('');
-  document.getElementById('tfPlanilla').innerHTML=`<tr style="background:var(--panel2);font-weight:700"><td colspan="6" class="tr" style="color:var(--muted2);font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em">TOTALES</td><td class="tr mono text-acc">${fmt(tB)}</td><td class="tr mono text-red">${fmt(tD)}</td><td class="tr mono text-green">${fmt(tN)}</td></tr>`;
-  document.getElementById('planillaCard').style.display='block';
-}
 
 // ══ BIENESTAR ══
 function rSocial(){document.getElementById('tbSocial').innerHTML=DB.social.map(r=>`<tr><td class="mono">${r.fecha}</td><td>${r.trab}</td><td><span class="badge b-pink">${r.tipo}</span></td><td>${r.desc}</td><td>${r.deriv}</td><td>${bge(r.est)}</td><td><button class="btn btn-del btn-sm" onclick="del('social',${r.id})">🗑</button></td></tr>`).join('');}
