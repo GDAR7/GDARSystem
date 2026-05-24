@@ -69,17 +69,32 @@ function rPersonal(){
 function _poblarProyPersonal(sel){
   sel.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');
 }
+function perGoTab(n){
+  [0,1].forEach(i=>{
+    const p=document.getElementById('perP'+i),t=document.getElementById('perTab'+i);
+    if(p)p.style.display=i===n?'grid':'none';
+    if(t)t.classList.toggle('eq-tab-act',i===n);
+  });
+  const prev=document.getElementById('perBPrev'),next=document.getElementById('perBNext'),save=document.getElementById('perBSave');
+  if(prev)prev.style.display=n>0?'':'none';
+  if(next)next.style.display=n<1?'':'none';
+  if(save)save.style.display=n===1?'':'none';
+}
 function openPersonalNew(){
   _editPersonalId=null;
-  ['wDni','wApe','wNom','wCargo','wSue','wProc','wNotas'].forEach(id=>document.getElementById(id).value='');
+  ['wDni','wApe','wNom','wCargo','wSue','wProc','wNotas','wCuspp','wCuenta'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('wCat').value='Operador A';
   document.getElementById('wTipo').value='';
   document.getElementById('wGuardia').value='';
   document.getElementById('wAsig').value='0';
   document.getElementById('wEst').value='Activo';
   document.getElementById('wIng').value=today();
+  document.getElementById('wAfp').value='';
+  document.getElementById('wBanco').value='';
+  document.getElementById('wMovilidad').value='0';
   const ps=document.getElementById('wProy');if(ps){_poblarProyPersonal(ps);ps.value='';}
   document.querySelector('#mPersonal .mttl').textContent='Agregar Trabajador';
+  perGoTab(0);
   openM('mPersonal');
 }
 function openPersonalEdit(id){
@@ -98,14 +113,20 @@ function openPersonalEdit(id){
   document.getElementById('wAsig').value=p.asig!=null?String(p.asig):'0';
   document.getElementById('wEst').value=p.est||'Activo';
   document.getElementById('wNotas').value=p.notas||'';
+  document.getElementById('wAfp').value=p.afp||'';
+  document.getElementById('wCuspp').value=p.cuspp||'';
+  document.getElementById('wBanco').value=p.banco||'';
+  document.getElementById('wCuenta').value=p.cuenta||'';
+  document.getElementById('wMovilidad').value=p.movilidad||0;
   const ps=document.getElementById('wProy');if(ps){_poblarProyPersonal(ps);ps.value=p.proy||'';}
   document.querySelector('#mPersonal .mttl').textContent='Editar Trabajador';
+  perGoTab(0);
   openM('mPersonal');
 }
 function gPersonal(){
   const dni=document.getElementById('wDni').value.trim(),nom=document.getElementById('wNom').value.trim();
   if(!dni||!nom){toast('Ingrese DNI y nombre',true);return;}
-  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value};
+  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0};
   if(_editPersonalId){
     const idx=DB.personal.findIndex(x=>x.id===_editPersonalId);
     if(idx>-1){Object.assign(DB.personal[idx],rec);syncSheet('savePersonal',DB.personal[idx]);}

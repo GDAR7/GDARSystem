@@ -892,23 +892,41 @@
 <!-- Personal Modal -->
 <div class="mo" id="mPersonal"><div class="modal">
   <div class="mh"><span class="mttl">Agregar Trabajador</span><button class="mx" onclick="closeM('mPersonal')">✕</button></div>
-  <div class="mb"><div class="fg-grid">
-    <div class="fg" style="grid-column:1/-1"><label>Proyecto Asignado</label><select id="wProy"><option value="">— Sin proyecto —</option></select></div>
-    <div class="fg"><label>DNI</label><input id="wDni" placeholder="12345678" maxlength="8"></div>
-    <div class="fg"><label>Apellidos</label><input id="wApe"></div>
-    <div class="fg"><label>Nombres</label><input id="wNom"></div>
-    <div class="fg"><label>Cargo</label><input id="wCargo"></div>
-    <div class="fg"><label>Categoría</label><select id="wCat"><option>Operador A</option><option>Operador B</option><option>Mecánico</option><option>Ayudante</option><option>Capataz</option><option>Ing. Supervisor</option><option>Administrador</option></select></div>
-    <div class="fg"><label>Procedencia</label><input id="wProc" placeholder="Ej: Lima, Oyón, Huacho..."></div>
-    <div class="fg"><label>Tipo</label><select id="wTipo"><option value="">— Seleccionar —</option><option>Staff</option><option>Obrero</option></select></div>
-    <div class="fg"><label>Guardia</label><select id="wGuardia"><option value="">— Seleccionar —</option><option>A</option><option>B</option><option>C</option></select></div>
-    <div class="fg"><label>F. Ingreso</label><input id="wIng" type="date"></div>
-    <div class="fg"><label>Sueldo Base S/</label><input id="wSue" type="number" placeholder="1800"></div>
-    <div class="fg"><label>Asig. Familiar</label><select id="wAsig"><option value="1">Sí (S/ 113.00)</option><option value="0">No</option></select></div>
-    <div class="fg"><label>Estado</label><select id="wEst"><option>Activo</option><option>De Permiso</option><option>Inactivo</option></select></div>
-    <div class="fg" style="grid-column:1/-1"><label>Notas</label><textarea id="wNotas" rows="2" style="resize:vertical" placeholder="Observaciones, condiciones especiales..."></textarea></div>
-  </div></div>
-  <div class="mf"><button class="btn btn-out" onclick="closeM('mPersonal')">Cancelar</button><button class="btn btn-a" style="--ba:var(--adm)" onclick="gPersonal()">Guardar</button></div>
+  <div style="display:flex;border-bottom:1px solid var(--border);padding:0 1rem;gap:0">
+    <button class="eq-tab eq-tab-act" id="perTab0" onclick="perGoTab(0)">① Datos</button>
+    <button class="eq-tab" id="perTab1" onclick="perGoTab(1)">② Planilla</button>
+  </div>
+  <div class="mb">
+    <div id="perP0" class="fg-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Proyecto Asignado</label><select id="wProy"><option value="">— Sin proyecto —</option></select></div>
+      <div class="fg"><label>DNI</label><input id="wDni" placeholder="12345678" maxlength="8"></div>
+      <div class="fg"><label>Apellidos</label><input id="wApe"></div>
+      <div class="fg"><label>Nombres</label><input id="wNom"></div>
+      <div class="fg"><label>Cargo</label><input id="wCargo"></div>
+      <div class="fg"><label>Categoría</label><select id="wCat"><option>Operador A</option><option>Operador B</option><option>Mecánico</option><option>Ayudante</option><option>Capataz</option><option>Ing. Supervisor</option><option>Administrador</option></select></div>
+      <div class="fg"><label>Procedencia</label><input id="wProc" placeholder="Ej: Lima, Oyón, Huacho..."></div>
+      <div class="fg"><label>Tipo</label><select id="wTipo"><option value="">— Seleccionar —</option><option>Staff</option><option>Obrero</option></select></div>
+      <div class="fg"><label>Guardia</label><select id="wGuardia"><option value="">— Seleccionar —</option><option>A</option><option>B</option><option>C</option></select></div>
+      <div class="fg"><label>F. Ingreso</label><input id="wIng" type="date"></div>
+      <div class="fg"><label>Sueldo Base S/</label><input id="wSue" type="number" placeholder="1800"></div>
+      <div class="fg"><label>Asig. Familiar</label><select id="wAsig"><option value="1">Sí (S/ 113.00)</option><option value="0">No</option></select></div>
+      <div class="fg"><label>Estado</label><select id="wEst"><option>Activo</option><option>De Permiso</option><option>Inactivo</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Notas</label><textarea id="wNotas" rows="2" style="resize:vertical" placeholder="Observaciones, condiciones especiales..."></textarea></div>
+    </div>
+    <div id="perP1" class="fg-grid" style="display:none">
+      <div class="fg"><label>AFP / SNP</label><select id="wAfp"><option value="">— Seleccionar —</option><option>SNP</option><option>Integra</option><option>Profuturo</option><option>Prima</option></select></div>
+      <div class="fg"><label>CUSPP</label><input id="wCuspp" placeholder="Ej: 671241LAREO9"></div>
+      <div class="fg"><label>Banco</label><select id="wBanco"><option value="">— Seleccionar —</option><option>BCP</option><option>BBVA</option><option>Interbank</option><option>Scotiabank</option><option>BanBif</option><option>Mibanco</option><option>Caja Huancayo</option><option>Caja Piura</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>N° Cuenta</label><input id="wCuenta" placeholder="Ej: 00110104840200456451"></div>
+      <div class="fg"><label>Movilidad S/</label><input id="wMovilidad" type="number" placeholder="0" value="0"></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mPersonal')">Cancelar</button>
+    <button id="perBPrev" class="btn btn-out" style="display:none" onclick="perGoTab(0)">◀ Anterior</button>
+    <button id="perBNext" class="btn btn-out" onclick="perGoTab(1)">Siguiente ▶</button>
+    <button id="perBSave" class="btn btn-a" style="--ba:var(--adm);display:none" onclick="gPersonal()">Guardar</button>
+  </div>
 </div></div>
 
 <!-- Social Modal -->
