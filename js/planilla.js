@@ -45,7 +45,8 @@ function _calcPlanRow(p,det){
   const diasTotal   =diasSubTotal+diasDL;
 
   // Jornal
-  const jornal=p.sue||0;
+  const jornal_mes=p.sue||0;
+  const jornal = r2(jornal_mes/30);
   const jHora =r2(jornal/8);
 
   // Horas extras
