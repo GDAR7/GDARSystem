@@ -1386,10 +1386,10 @@
 
 <!-- Equipo Modal -->
 <!-- Modal Ver Equipo -->
-<div class="mo" id="mEqVer"><div class="modal" style="max-width:700px">
+<div class="mo" id="mEqVer"><div class="modal" style="max-width:700px;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
   <div class="mh"><span class="mttl" id="eqVerTtl">🔍 Detalle Equipo</span><button class="mx" onclick="closeM('mEqVer')">✕</button></div>
-  <div class="mb" id="eqVerBody" style="font-size:.83rem"></div>
-  <div class="mf">
+  <div class="mb" id="eqVerBody" style="font-size:.83rem;flex:1;overflow-y:auto;"></div>
+  <div class="mf" style="flex-shrink:0;">
     <button class="btn btn-out" onclick="closeM('mEqVer')">Cerrar</button>
     <button class="btn btn-out" style="color:var(--mec);border-color:var(--mec)60" onclick="printEquipoFicha()">🖨️ Imprimir Ficha</button>
   </div>
