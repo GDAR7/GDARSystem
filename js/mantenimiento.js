@@ -439,10 +439,11 @@ ${imgHtml}${docHtml}
   <span>${e.codigo} | Generado: ${today()}</span>
 </div>
 </body></html>`;
-  const win=window.open('','_blank','width=900,height=700');
-  win.document.write(html);
-  win.document.close();
-  setTimeout(()=>win.print(),400);
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank','width=900,height=700');
+  if(!win){toast('Permite las ventanas emergentes en el navegador para imprimir',true);URL.revokeObjectURL(url);return;}
+  setTimeout(function(){try{win.print();}catch(err){} URL.revokeObjectURL(url);},800);
 }
 function editEquipo(id){
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
