@@ -1411,6 +1411,7 @@
     <button class="eq-tab" id="eqTab1" onclick="eqGoTab(1)">② Técnicos</button>
     <button class="eq-tab" id="eqTab2" onclick="eqGoTab(2)">③ Contrato</button>
     <button class="eq-tab" id="eqTab3" onclick="eqGoTab(3)">④ Costos</button>
+    <button class="eq-tab" id="eqTab4" onclick="eqGoTab(4)">⑤ Fotos / Docs</button>
   </div>
   <div class="mb">
     <div id="eqP0" class="fg-grid">
@@ -1467,6 +1468,39 @@
       <div class="fg"><label>C.C. Relleno Niveles S/</label><input id="eqCcrn" type="number" placeholder="0"></div>
       <div class="fg"><label>C.C. Mant. Preventivo S/</label><input id="eqCcmp" type="number" placeholder="0"></div>
       <div class="fg"><label>C.C. Mant. Correctivo S/</label><input id="eqCcmc" type="number" placeholder="0"></div>
+    </div>
+    <!-- TAB 5: Fotos / Documentos -->
+    <div id="eqP4" style="display:none;padding:.4rem 0">
+      <div id="eqMediaLock" style="text-align:center;padding:2.5rem 1rem;color:var(--muted2);font-size:.82rem">
+        💾 Guarda el equipo primero para poder subir imágenes y documentos.
+      </div>
+      <div id="eqMediaContent" style="display:none">
+        <!-- Imágenes -->
+        <div style="margin-bottom:1.2rem">
+          <div style="font-size:.72rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;padding:0 .2rem">📷 Imágenes del Equipo</div>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
+            <input type="file" id="eqImgInput" accept="image/*" multiple style="display:none" onchange="eqUploadImgs(this)">
+            <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('eqImgInput').click()">＋ Agregar Fotos</button>
+            <span id="eqImgStatus" style="font-size:.72rem;color:var(--muted2)"></span>
+          </div>
+          <div id="eqImgGallery" style="display:flex;flex-wrap:wrap;gap:.6rem;min-height:40px"></div>
+        </div>
+        <!-- Documentos -->
+        <div>
+          <div style="font-size:.72rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;padding:0 .2rem">📎 Documentos</div>
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+            <select id="eqDocTipo" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .55rem;color:var(--text);font-size:.78rem">
+              <option>SOAT</option><option>Revisión Técnica</option><option>RUAT</option>
+              <option>Seguro de Equipo</option><option>Permiso de Operación</option>
+              <option>Manual Técnico</option><option>Contrato Alquiler</option><option>Otro</option>
+            </select>
+            <input type="file" id="eqDocInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none" onchange="eqUploadDoc(this)">
+            <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('eqDocInput').click()">＋ Subir Documento</button>
+            <span id="eqDocStatus" style="font-size:.72rem;color:var(--muted2)"></span>
+          </div>
+          <div id="eqDocList" style="display:flex;flex-direction:column;gap:.35rem"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="mf">

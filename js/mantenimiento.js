@@ -168,6 +168,7 @@ function openEquipo(){
   _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
   if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}${p.nombre?' – '+p.nombre:''}</option>`).join('');
+  _renderEqMedia(null,null);
   openM('mEquipo');
 }
 function eqGoTab(n){
@@ -177,10 +178,101 @@ function eqGoTab(n){
     if(p)p.style.display=i===n?'grid':'none';
     if(t)t.classList.toggle('eq-tab-act',i===n);
   });
+  const p4=document.getElementById('eqP4'),t4=document.getElementById('eqTab4');
+  if(p4)p4.style.display=n===4?'block':'none';
+  if(t4)t4.classList.toggle('eq-tab-act',n===4);
   const prev=document.getElementById('eqBPrev'),next=document.getElementById('eqBNext'),save=document.getElementById('eqBSave');
   if(prev)prev.style.display=n>0?'':'none';
-  if(next)next.style.display=n<3?'':'none';
-  if(save)save.style.display=n===3?'':'none';
+  if(next)next.style.display=n<4?'':'none';
+  if(save)save.style.display=n===3||n===4?'':'none';
+}
+const _EQ_BUCKET='Equip_eco26';
+function _renderEqMedia(imagenes,documentos){
+  const lock=document.getElementById('eqMediaLock'),content=document.getElementById('eqMediaContent');
+  if(!_eqEditId){if(lock)lock.style.display='block';if(content)content.style.display='none';return;}
+  if(lock)lock.style.display='none';if(content)content.style.display='block';
+  const imgs=Array.isArray(imagenes)?imagenes:(typeof imagenes==='string'&&imagenes?JSON.parse(imagenes):[]);
+  const docs=Array.isArray(documentos)?documentos:(typeof documentos==='string'&&documentos?JSON.parse(documentos):[]);
+  const gallery=document.getElementById('eqImgGallery');
+  if(gallery)gallery.innerHTML=imgs.length?imgs.map((img,i)=>`
+    <div style="position:relative;width:90px;height:90px">
+      <img src="${img.url}" style="width:90px;height:90px;object-fit:cover;border-radius:7px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}','_blank')" title="${img.nombre||''}">
+      <button onclick="eqDelImg(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
+    </div>`).join(''):'<span style="font-size:.72rem;color:var(--muted2);opacity:.6">Sin imágenes</span>';
+  const docList=document.getElementById('eqDocList');
+  const docIcon=n=>{const ext=(n||'').split('.').pop().toLowerCase();return ext==='pdf'?'📄':['xls','xlsx'].includes(ext)?'📊':['doc','docx'].includes(ext)?'📝':'📎';};
+  if(docList)docList.innerHTML=docs.length?docs.map((d,i)=>`
+    <div style="display:flex;align-items:center;gap:.5rem;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.4rem .7rem">
+      <span style="font-size:1.1rem">${docIcon(d.nombre)}</span>
+      <span style="font-size:.72rem;flex:1"><strong>${d.tipo||'Documento'}</strong><br><span style="color:var(--muted2)">${d.nombre||''}</span></span>
+      <span style="font-size:.65rem;color:var(--muted2)">${d.fecha||''}</span>
+      <a href="${d.url}" target="_blank" class="btn btn-sm btn-out" style="font-size:.65rem;padding:2px 8px">↓</a>
+      <button onclick="eqDelDoc(${i})" class="btn btn-del btn-sm" style="font-size:.65rem;padding:2px 7px">🗑</button>
+    </div>`).join(''):'<span style="font-size:.72rem;color:var(--muted2);opacity:.6">Sin documentos</span>';
+}
+async function eqUploadImgs(input){
+  if(!_eqEditId){toast('Guarda el equipo primero',true);input.value='';return;}
+  const files=[...input.files];if(!files.length)return;
+  const st=document.getElementById('eqImgStatus');if(st)st.textContent='Subiendo...';
+  const eq=DB.equipos.find(e=>e.id===_eqEditId);if(!eq)return;
+  const imgs=eq.imagenes?(typeof eq.imagenes==='string'?JSON.parse(eq.imagenes):eq.imagenes):[];
+  for(const file of files){
+    const ext=file.name.split('.').pop();
+    const path=`equipos/${_eqEditId}/imgs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const{error}=await supa.storage.from(_EQ_BUCKET).upload(path,file,{upsert:false});
+    if(error){toast('Error: '+error.message,true);continue;}
+    const{data:{publicUrl}}=supa.storage.from(_EQ_BUCKET).getPublicUrl(path);
+    imgs.push({url:publicUrl,path,nombre:file.name});
+  }
+  eq.imagenes=JSON.stringify(imgs);
+  syncSheet('saveEquipo',eq);
+  _renderEqMedia(imgs,eq.documentos);
+  if(st)st.textContent='';input.value='';
+  toast(`${files.length} foto(s) subida(s)`);
+}
+async function eqUploadDoc(input){
+  if(!_eqEditId){toast('Guarda el equipo primero',true);input.value='';return;}
+  const file=input.files[0];if(!file)return;
+  const tipo=document.getElementById('eqDocTipo')?.value||'Documento';
+  const st=document.getElementById('eqDocStatus');if(st)st.textContent='Subiendo...';
+  const eq=DB.equipos.find(e=>e.id===_eqEditId);if(!eq)return;
+  const docs=eq.documentos?(typeof eq.documentos==='string'?JSON.parse(eq.documentos):eq.documentos):[];
+  const ext=file.name.split('.').pop();
+  const path=`equipos/${_eqEditId}/docs/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+  const{error}=await supa.storage.from(_EQ_BUCKET).upload(path,file,{upsert:false});
+  if(error){toast('Error: '+error.message,true);if(st)st.textContent='';input.value='';return;}
+  const{data:{publicUrl}}=supa.storage.from(_EQ_BUCKET).getPublicUrl(path);
+  const today_=new Date().toLocaleDateString('es-PE');
+  docs.push({url:publicUrl,path,nombre:file.name,tipo,fecha:today_});
+  eq.documentos=JSON.stringify(docs);
+  syncSheet('saveEquipo',eq);
+  _renderEqMedia(eq.imagenes,docs);
+  if(st)st.textContent='';input.value='';
+  toast('Documento subido: '+tipo);
+}
+async function eqDelImg(idx){
+  if(!_eqEditId)return;
+  const eq=DB.equipos.find(e=>e.id===_eqEditId);if(!eq)return;
+  const imgs=typeof eq.imagenes==='string'?JSON.parse(eq.imagenes):eq.imagenes||[];
+  const img=imgs[idx];if(!img)return;
+  await supa.storage.from(_EQ_BUCKET).remove([img.path]);
+  imgs.splice(idx,1);
+  eq.imagenes=JSON.stringify(imgs);
+  syncSheet('saveEquipo',eq);
+  _renderEqMedia(imgs,eq.documentos);
+  toast('Imagen eliminada');
+}
+async function eqDelDoc(idx){
+  if(!_eqEditId)return;
+  const eq=DB.equipos.find(e=>e.id===_eqEditId);if(!eq)return;
+  const docs=typeof eq.documentos==='string'?JSON.parse(eq.documentos):eq.documentos||[];
+  const doc=docs[idx];if(!doc)return;
+  await supa.storage.from(_EQ_BUCKET).remove([doc.path]);
+  docs.splice(idx,1);
+  eq.documentos=JSON.stringify(docs);
+  syncSheet('saveEquipo',eq);
+  _renderEqMedia(eq.imagenes,docs);
+  toast('Documento eliminado');
 }
 function gEquipo(){
   const cod=document.getElementById('eqCod').value.trim();
@@ -273,8 +365,8 @@ function verEquipo(id){
 }
 function editEquipo(id){
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
-  openEquipo();     // populates dropdowns (resets _eqEditId=null internally)
-  _eqEditId=id;    // restore AFTER openEquipo so gEquipo() sabe que es edición
+  openEquipo();
+  _eqEditId=id;
   document.querySelector('#mEquipo .mttl').textContent='✏️ Editar Equipo: '+e.codigo;
   // Tab 0
   document.getElementById('eqCod').value=e.codigo||'';
@@ -317,6 +409,8 @@ function editEquipo(id){
   document.getElementById('eqCcrn').value=e.ccRellenoNiveles||'';
   document.getElementById('eqCcmp').value=e.ccMantPreventivo||'';
   document.getElementById('eqCcmc').value=e.ccMantCorrectivo||'';
+  // Tab 4 - Media
+  _renderEqMedia(e.imagenes,e.documentos);
 }
 let _mantEditId=null;
 function _genOT(){
