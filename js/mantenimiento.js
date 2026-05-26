@@ -331,7 +331,9 @@ function gEquipo(){
     closeM('mEquipo');rMaster();toast('Equipo agregado');
   }
 }
+let _verEqId=null;
 function verEquipo(id){
+  _verEqId=id;
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
   const row=(l,v)=>`<div style="display:flex;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted2);min-width:170px;font-size:.74rem">${l}</span><span style="font-weight:500;font-size:.82rem">${v||'—'}</span></div>`;
   const sec=(t)=>`<div style="background:var(--mec);color:#fff;font-size:.69rem;font-weight:700;padding:.22rem .6rem;border-radius:4px;margin:.65rem 0 .25rem;letter-spacing:.06em;text-transform:uppercase">${t}</div>`;
@@ -362,6 +364,85 @@ function verEquipo(id){
     ${row('CC Mant. Correctivo',e.ccMantCorrectivo?fmt(e.ccMantCorrectivo):null)}
   `;
   openM('mEqVer');
+}
+function printEquipoFicha(){
+  const e=DB.equipos.find(x=>x.id===_verEqId);if(!e)return;
+  const base=window.location.href.split('index.html')[0];
+  const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const row=(l,v)=>v?`<tr><td class="lbl">${l}</td><td>${v}</td></tr>`:'';
+  const sec=(t)=>`<tr><td colspan="2" class="sec">${t}</td></tr>`;
+  const imgs=(e.imagenes||[]);
+  const docs=(e.documentos||[]);
+  const imgHtml=imgs.length?`<div class="sec-title">IMÁGENES</div><div class="gallery">${imgs.map(u=>`<img src="${u}" onerror="this.style.display='none'">`).join('')}</div>`:'';
+  const docHtml=docs.length?`<div class="sec-title">DOCUMENTOS</div><ul class="doc-list">${docs.map(d=>`<li><b>${d.tipo||'Archivo'}</b> — ${d.nombre||d.url}</li>`).join('')}</ul>`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ficha Técnica – ${e.codigo}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a2e;padding:18px 24px;}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0ea5e9;padding-bottom:10px;margin-bottom:14px;}
+  .header-left .title{font-size:20px;font-weight:700;color:#0369a1;letter-spacing:.03em;}
+  .header-left .subtitle{font-size:12px;color:#475569;margin-top:3px;}
+  .header-left .equipo{font-size:14px;font-weight:600;color:#1e293b;margin-top:5px;}
+  .header-right img{height:56px;object-fit:contain;}
+  .header-right .fecha{font-size:10px;color:#94a3b8;text-align:right;margin-top:4px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+  td{padding:4px 6px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+  td.lbl{color:#64748b;width:38%;font-size:10.5px;}
+  td.sec{background:#0369a1;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;letter-spacing:.07em;text-transform:uppercase;}
+  .gallery{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px;}
+  .gallery img{width:130px;height:90px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1;}
+  .sec-title{font-size:10px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 4px;}
+  .doc-list{padding-left:16px;margin-bottom:12px;}
+  .doc-list li{padding:2px 0;font-size:10.5px;}
+  .footer{margin-top:18px;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;color:#94a3b8;}
+  @media print{body{padding:12px 16px;}}
+</style></head><body>
+<div class="header">
+  <div class="header-left">
+    <div class="title">FICHA TÉCNICA DE EQUIPO</div>
+    <div class="subtitle">ECOSERMO – Gestión de Equipos</div>
+    <div class="equipo">${e.codigo} &nbsp;·&nbsp; ${e.nombre||''}</div>
+  </div>
+  <div class="header-right">
+    <img src="${logo}" alt="ECOSERMO">
+    <div class="fecha">Impreso: ${today()}</div>
+  </div>
+</div>
+<table>
+  ${sec('Generales')}
+  ${row('Código',e.codigo)}${row('Tipo / Línea',e.tipo)}${row('Subtipo',e.sub)}
+  ${row('Marca',e.marca)}${row('Modelo',e.modelo)}${row('Año',e.anio)}
+  ${row('Placa',e.placa)}${row('Horómetro',e.hr!=null?fmtN(e.hr)+' h':null)}${row('Kilometraje',e.km>0?fmtN(e.km)+' km':null)}
+  ${row('Estado',e.est)}${row('Proyecto',e.proyecto)}
+  ${sec('Técnicos')}
+  ${row('N° de Serie',e.numSerie)}${row('Potencia HP',e.potenciaHp)}
+  ${row('Capacidad M³',e.capacidadM3)}${row('Peso KG',e.pesoKg)}
+  ${row('Dimensiones',e.dimensiones)}${row('Ubicación',e.ubicacion)}
+  ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
+  ${row('Status',e.status)}${row('SOAT',e.soat)}
+  ${row('Póliza TREC',e.polizaTrec)}${row('Rev. Técnica',e.revisionTecnica)}${row('GPS',e.gps)}
+  ${sec('Contrato / Proveedor')}
+  ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
+  ${row('Celular',e.celular)}${row('Correo',e.correo)}
+  ${row('Horas Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}
+  ${row('Tarifa S/',e.tarifa?fmt(e.tarifa):null)}
+  ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
+  ${sec('Costos de Mantenimiento')}
+  ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
+  ${row('CC Relleno Niveles',e.ccRellenoNiveles?fmt(e.ccRellenoNiveles):null)}
+  ${row('CC Mant. Preventivo',e.ccMantPreventivo?fmt(e.ccMantPreventivo):null)}
+  ${row('CC Mant. Correctivo',e.ccMantCorrectivo?fmt(e.ccMantCorrectivo):null)}
+</table>
+${imgHtml}${docHtml}
+<div class="footer">
+  <span>Sistema GDAR – ECOSERMO S.A.C.</span>
+  <span>${e.codigo} | Generado: ${today()}</span>
+</div>
+</body></html>`;
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),400);
 }
 function editEquipo(id){
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
