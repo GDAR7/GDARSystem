@@ -522,7 +522,62 @@ function _aePickRqMat(){
   document.getElementById('aeUnd').value=opt.dataset.und||'';
   if(opt.dataset.falta&&+opt.dataset.falta>0)document.getElementById('aeCant').value=opt.dataset.falta;
 }
+const _MESES_NOM=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function _initAlmChart(){
+  const mesEl=document.getElementById('almChartMes');
+  const anioEl=document.getElementById('almChartAnio');
+  if(!mesEl||!anioEl||mesEl.options.length)return;
+  const now=new Date();
+  mesEl.innerHTML=_MESES_NOM.map((n,i)=>`<option value="${i+1}"${i+1===now.getMonth()+1?' selected':''}>${n}</option>`).join('');
+  const y=now.getFullYear();
+  anioEl.innerHTML=[y-1,y,y+1].map(a=>`<option value="${a}"${a===y?' selected':''}>${a}</option>`).join('');
+}
+function rAlmChart(){
+  const mesEl=document.getElementById('almChartMes');
+  const anioEl=document.getElementById('almChartAnio');
+  const body=document.getElementById('almChartBody');
+  if(!mesEl||!body)return;
+  const mes=+(mesEl.value),anio=+(anioEl.value);
+  const dias=new Date(anio,mes,0).getDate();
+  const mesStr=String(mes).padStart(2,'0'),anioStr=String(anio);
+  const data=Array.from({length:dias},(_,i)=>({d:i+1,e:0,s:0}));
+  DB.almacen.forEach(r=>{
+    if(!r.fecha)return;
+    const p=r.fecha.split('-');
+    if(p[0]!==anioStr||p[1]!==mesStr)return;
+    const idx=parseInt(p[2],10)-1;
+    if(idx<0||idx>=dias)return;
+    if(r.tipo==='E')data[idx].e+=+(r.cant||0);
+    else data[idx].s+=+(r.cant||0);
+  });
+  const maxV=Math.max(1,...data.flatMap(d=>[d.e,d.s]));
+  const CH=150;
+  let bars='';
+  data.forEach(({d,e,s})=>{
+    const he=Math.round((e/maxV)*CH);
+    const hs=Math.round((s/maxV)*CH);
+    const today_d=new Date().getDate(),today_m=new Date().getMonth()+1,today_y=new Date().getFullYear();
+    const isToday=d===today_d&&mes===today_m&&anio===today_y;
+    bars+=`<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:20px;${isToday?'background:var(--panel2);border-radius:4px;':''}">
+      <div style="display:flex;align-items:flex-end;gap:2px;height:${CH}px">
+        <div title="Entradas día ${d}: ${fmtN(e)} uds" style="width:9px;background:#10b981;border-radius:2px 2px 0 0;height:${he}px;min-height:${e>0?2:0}px;cursor:default"></div>
+        <div title="Salidas día ${d}: ${fmtN(s)} uds" style="width:9px;background:#ef4444;border-radius:2px 2px 0 0;height:${hs}px;min-height:${s>0?2:0}px;cursor:default"></div>
+      </div>
+      <div style="font-size:.58rem;color:${isToday?'var(--alm)':'var(--muted2)'};font-weight:${isToday?700:400};margin-top:3px">${d}</div>
+    </div>`;
+  });
+  const totE=data.reduce((a,d)=>a+d.e,0),totS=data.reduce((a,d)=>a+d.s,0);
+  const totEl=document.getElementById('almChartTotals');
+  if(totEl)totEl.innerHTML=`<span style="color:#10b981;font-weight:600">⬆ ${fmtN(totE)} uds</span><span style="color:#ef4444;font-weight:600">⬇ ${fmtN(totS)} uds</span>`;
+  body.innerHTML=`<div style="display:flex;align-items:flex-end;gap:1px;overflow-x:auto;padding-bottom:2px">${bars}</div>`
+    +`<div style="display:flex;gap:1.2rem;margin-top:.6rem;font-size:.72rem;color:var(--muted2)">`
+    +`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#10b981;border-radius:1px;display:inline-block"></span>Entradas</span>`
+    +`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#ef4444;border-radius:1px;display:inline-block"></span>Salidas</span>`
+    +`<span style="font-size:.67rem">Máx. del mes: ${fmtN(maxV)} uds/día</span></div>`;
+}
 function rAlm(){
+  _initAlmChart();
+  rAlmChart();
   const st=getStock(),items=Object.entries(st);
   document.getElementById('almKpis').innerHTML=[
     {l:'Tipos de Materiales',v:items.length,c:'#3b82f6'},

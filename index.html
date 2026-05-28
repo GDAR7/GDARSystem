@@ -339,6 +339,18 @@
     <div id="almPagNav" style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .75rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted2)"></div>
     </div>
   </div>
+  <div class="card" style="margin-top:1rem">
+    <div class="card-head">
+      <span class="card-title">📊 Movimiento Diario del Mes</span>
+      <div style="flex:1"></div>
+      <div id="almChartTotals" style="font-size:.74rem;display:flex;gap:.8rem;align-items:center"></div>
+      <select id="almChartMes" class="sel" style="width:124px;font-size:.74rem" onchange="rAlmChart()"></select>
+      <select id="almChartAnio" class="sel" style="width:82px;font-size:.74rem" onchange="rAlmChart()"></select>
+    </div>
+    <div class="card-body" style="padding:.75rem .9rem">
+      <div id="almChartBody"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ALMACÉN – COMBUSTIBLE -->
