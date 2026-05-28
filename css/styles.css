@@ -64,6 +64,7 @@ header{height:54px;background:#0d111e;border-bottom:1px solid var(--border);disp
 .hrefresh.spinning .ricon{animation:spin .6s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
 /* ── ASISTENCIA / TAREAJE ── */
 .scanner-status{text-align:center;padding:.75rem 1rem;font-size:.85rem;border-radius:8px;margin-bottom:.8rem;font-weight:600;}
 .scanner-wait{background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid #f59e0b30;}

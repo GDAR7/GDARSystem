@@ -652,4 +652,3 @@ function gAlm(tipo){
   }
   rAlm();toast('Guardado');
 }
-

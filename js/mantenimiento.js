@@ -396,7 +396,9 @@ function printEquipoFicha(){
   .doc-list li{padding:2px 0;font-size:10.5px;}
   .footer{margin-top:18px;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;color:#94a3b8;}
   @media print{body{padding:12px 16px;}}
-</style></head><body>
+</style>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</head><body>
 <div class="header">
   <div class="header-left">
     <div class="title">FICHA TÉCNICA DE EQUIPO</div>
@@ -443,7 +445,7 @@ ${imgHtml}${docHtml}
   const url=URL.createObjectURL(blob);
   const win=window.open(url,'_blank','width=900,height=700');
   if(!win){toast('Permite las ventanas emergentes en el navegador para imprimir',true);URL.revokeObjectURL(url);return;}
-  setTimeout(function(){try{win.print();}catch(err){} URL.revokeObjectURL(url);},800);
+  setTimeout(function(){URL.revokeObjectURL(url);},5000);
 }
 function editEquipo(id){
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
