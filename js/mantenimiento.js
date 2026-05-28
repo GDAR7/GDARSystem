@@ -371,10 +371,10 @@ function printEquipoFicha(){
   const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const row=(l,v)=>v?`<tr><td class="lbl">${l}</td><td>${v}</td></tr>`:'';
   const sec=(t)=>`<tr><td colspan="2" class="sec">${t}</td></tr>`;
-  const imgs=(e.imagenes||[]);
-  const docs=(e.documentos||[]);
-  const imgHtml=imgs.length?`<div class="sec-title">IMÁGENES</div><div class="gallery">${imgs.map(u=>`<img src="${u}" onerror="this.style.display='none'">`).join('')}</div>`:'';
-  const docHtml=docs.length?`<div class="sec-title">DOCUMENTOS</div><ul class="doc-list">${docs.map(d=>`<li><b>${d.tipo||'Archivo'}</b> — ${d.nombre||d.url}</li>`).join('')}</ul>`:'';
+  const imgs=Array.isArray(e.imagenes)?e.imagenes:(typeof e.imagenes==='string'&&e.imagenes?JSON.parse(e.imagenes):[]);
+  const docs=Array.isArray(e.documentos)?e.documentos:(typeof e.documentos==='string'&&e.documentos?JSON.parse(e.documentos):[]);
+  const imgHtml=imgs.length?'<div class="sec-title">IMÁGENES</div><div class="gallery">'+imgs.map(function(u){return '<img src="'+u+'" onerror="this.style.display=\'none\'">';}).join('')+'</div>':'';
+  const docHtml=docs.length?'<div class="sec-title">DOCUMENTOS</div><ul class="doc-list">'+docs.map(function(d){return '<li><b>'+(d.tipo||'Archivo')+'</b> &mdash; '+(d.nombre||d.url||'')+'</li>';}).join('')+'</ul>':'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ficha Técnica – ${e.codigo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -440,6 +440,7 @@ ${imgHtml}${docHtml}
 </div>
 <script>window.onload=()=>{window.print();}<\/script></body></html>`;
   const w=window.open('','_blank','width=900,height=700');
+  if(!w){toast('Permite ventanas emergentes en este sitio para exportar PDF',true);return;}
   w.document.write(html);
   w.document.close();
 }
