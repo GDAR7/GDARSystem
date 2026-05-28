@@ -335,34 +335,36 @@ let _verEqId=null;
 function verEquipo(id){
   _verEqId=id;
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
-  const row=(l,v)=>`<div style="display:flex;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted2);min-width:170px;font-size:.74rem">${l}</span><span style="font-weight:500;font-size:.82rem">${v||'—'}</span></div>`;
-  const sec=(t)=>`<div style="background:var(--mec);color:#fff;font-size:.69rem;font-weight:700;padding:.22rem .6rem;border-radius:4px;margin:.65rem 0 .25rem;letter-spacing:.06em;text-transform:uppercase">${t}</div>`;
+  const row=(l,v)=>`<div style="padding:.26rem 0;border-bottom:1px solid var(--border)"><div style="color:var(--muted2);font-size:.7rem">${l}</div><div style="font-weight:600;font-size:.82rem">${v||'—'}</div></div>`;
+  const sec=(t)=>`<div style="grid-column:1/-1;background:var(--mec);color:#fff;font-size:.68rem;font-weight:700;padding:.22rem .6rem;border-radius:4px;margin:.5rem 0 .1rem;letter-spacing:.06em;text-transform:uppercase">${t}</div>`;
   document.getElementById('eqVerTtl').textContent='🔍 '+e.codigo+' – '+e.nombre;
   document.getElementById('eqVerBody').innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.2rem;">
     ${sec('Generales')}
-    ${row('Código',e.codigo)}${row('Tipo / Línea',e.tipo)}${row('Subtipo',e.sub)}
-    ${row('Marca',e.marca)}${row('Modelo',e.modelo)}${row('Año',e.anio)}
-    ${row('Placa',e.placa)}${row('Horómetro',fmtN(e.hr)+' h')}${row('Kilometraje',e.km!=null&&e.km>0?fmtN(e.km)+' km':null)}${row('Estado',e.est)}
+    ${row('Código',e.codigo)}${row('Tipo / Línea',e.tipo)}
+    ${row('Subtipo',e.sub)}${row('Marca',e.marca)}
+    ${row('Modelo',e.modelo)}${row('Año',e.anio)}
+    ${row('Placa',e.placa)}${row('Horómetro',fmtN(e.hr)+' h')}
+    ${row('Kilometraje',e.km!=null&&e.km>0?fmtN(e.km)+' km':null)}${row('Estado',e.est)}
     ${row('Proyecto',e.proyecto)}
     ${sec('Técnicos')}
-    ${row('N° de Serie',e.numSerie)}${row('Potencia HP',e.potenciaHp)}
-    ${row('Capacidad M³',e.capacidadM3)}${row('Peso KG',e.pesoKg)}
+    ${row('N° de Serie',e.numSerie)}${row('Potencia HP',e.potenciaHp!=null?e.potenciaHp+' HP':null)}
+    ${row('Capacidad M³',e.capacidadM3)}${row('Peso KG',e.pesoKg!=null?fmtN(e.pesoKg)+' kg':null)}
     ${row('Dimensiones',e.dimensiones)}${row('Ubicación',e.ubicacion)}
     ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
-    ${row('Status',e.status)}${row('SOAT',e.soat)}${row('P. TREC',e.polizaTrec)}
-    ${row('Rev. Técnica',e.revisionTecnica)}${row('GPS',e.gps)}
+    ${row('Status',e.status)}${row('SOAT',e.soat)}
+    ${row('P. TREC',e.polizaTrec)}${row('Rev. Técnica',e.revisionTecnica)}
+    ${row('GPS',e.gps)}
     ${sec('Contrato / Proveedor')}
     ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
     ${row('Celular',e.celular)}${row('Correo',e.correo)}
-    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}
-    ${row('Tarifa S/',e.tarifa?fmt(e.tarifa):null)}
+    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
     ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
     ${sec('Costos Mantenimiento')}
-    ${row('CC GET\'S',e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
-    ${row('CC Relleno Niveles',e.ccRellenoNiveles?fmt(e.ccRellenoNiveles):null)}
-    ${row('CC Mant. Preventivo',e.ccMantPreventivo?fmt(e.ccMantPreventivo):null)}
+    ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
+    ${row('CC Relleno Niveles',e.ccRellenoNiveles?fmt(e.ccRellenoNiveles):null)}${row('CC Mant. Preventivo',e.ccMantPreventivo?fmt(e.ccMantPreventivo):null)}
     ${row('CC Mant. Correctivo',e.ccMantCorrectivo?fmt(e.ccMantCorrectivo):null)}
-  `;
+  </div>`;
   openM('mEqVer');
 }
 function printEquipoFicha(){
