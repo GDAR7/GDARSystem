@@ -395,12 +395,12 @@ function printEquipoFicha(){
   .doc-list{padding-left:16px;margin-bottom:12px;}
   .doc-list li{padding:2px 0;font-size:10.5px;}
   .footer{margin-top:18px;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;color:#94a3b8;}
-  @media print{body{padding:12px 16px;}}
+  @media print{body{padding:1cm}button{display:none}}
 </style></head><body>
 <div class="header">
   <div class="header-left">
     <div class="title">FICHA TÉCNICA DE EQUIPO</div>
-    <div class="subtitle">ECOSERMO – Gestión de Equipos</div>
+    <div class="subtitle">ECOSERMO – Sistema de Control de Equipos – GDAR</div>
     <div class="equipo">${e.codigo} &nbsp;·&nbsp; ${e.nombre||''}</div>
   </div>
   <div class="header-right">
@@ -425,7 +425,7 @@ function printEquipoFicha(){
   ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
   ${row('Celular',e.celular)}${row('Correo',e.correo)}
   ${row('Horas Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}
-  ${row('Tarifa S/',e.tarifa?fmt(e.tarifa):null)}
+  ${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
   ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
   ${sec('Costos de Mantenimiento')}
   ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
@@ -438,20 +438,10 @@ ${imgHtml}${docHtml}
   <span>Sistema GDAR – ECOSERMO S.A.C.</span>
   <span>${e.codigo} | Generado: ${today()}</span>
 </div>
-</body></html>`;
-  const old=document.getElementById('_printIframe');if(old)old.remove();
-  const fr=document.createElement('iframe');
-  fr.id='_printIframe';
-  fr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
-  document.body.appendChild(fr);
-  fr.contentDocument.open();
-  fr.contentDocument.write(html);
-  fr.contentDocument.close();
-  setTimeout(function(){
-    fr.contentWindow.focus();
-    fr.contentWindow.print();
-    setTimeout(function(){fr.remove();},2000);
-  },600);
+<script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(html);
+  w.document.close();
 }
 function editEquipo(id){
   const e=DB.equipos.find(x=>x.id===id);if(!e)return;
