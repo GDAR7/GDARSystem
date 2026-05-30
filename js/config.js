@@ -178,7 +178,7 @@ async function refreshData(){
 // ══ CARGA INICIAL DESDE SUPABASE ══
 async function loadSheetsData(){
   try{
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='catalogoItems'&&k!=='asistencia'&&k!=='almacen');
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='catalogoItems'&&k!=='asistencia'&&k!=='almacen'&&k!=='tareaje');
     const results=await Promise.all(
       simpleKeys.map(dbKey=>
         supa.from(SUPA_TABLES[dbKey]).select('*')
@@ -195,6 +195,17 @@ async function loadSheetsData(){
         if(data.length<pageSize)done=true;else from+=pageSize;
       }
       if(allMat.length>0)results.push({dbKey:'catalogoItems',data:allMat,error:null});
+    }
+    // Carga paginada de tareaje (crece rápido: N trabajadores × 31 días × meses)
+    {
+      let allTar=[],from=0,pageSize=1000,done=false;
+      while(!done){
+        const{data,error}=await supa.from('tareaje').select('*').range(from,from+pageSize-1).order('id');
+        if(error||!data||data.length===0){done=true;break;}
+        allTar=allTar.concat(data);
+        if(data.length<pageSize)done=true;else from+=pageSize;
+      }
+      if(allTar.length>0)results.push({dbKey:'tareaje',data:allTar,error:null});
     }
     const nxMap={personal:'personal',social:'social',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',

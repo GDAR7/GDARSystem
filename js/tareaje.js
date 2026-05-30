@@ -102,21 +102,19 @@ function _tarColClick(fecha){
   const td=document.getElementById('tarMultTypes');if(td)td.innerHTML='';
   _updateTarMultBar();
 }
-async function applyTareMult(tipo){
+function applyTareMult(tipo){
   const count=_tarSel.size;if(!count)return;
-  const toSave=[];
-  const toDel=[];
   _tarSel.forEach(key=>{
     const [pId,fecha]=key.split('|');
     const personalId=+pId;
     const existing=DB.tareaje.find(r=>r.personalId===personalId&&r.fecha===fecha);
     if(existing){
-      if(!tipo){DB.tareaje=DB.tareaje.filter(r=>r.id!==existing.id);toDel.push(existing.id);}
-      else{existing.tipo=tipo;toSave.push({...existing});}
+      if(!tipo){DB.tareaje=DB.tareaje.filter(r=>r.id!==existing.id);supaDelete('tareaje',existing.id);}
+      else{existing.tipo=tipo;syncSheet('saveTareaje',existing);}
     }else{
       if(!tipo)return;
       const rec={id:nid('tar'),personalId,fecha,tipo};
-      DB.tareaje.push(rec);toSave.push({...rec});
+      DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
     }
     const cell=document.getElementById(`tar-${personalId}-${fecha}`);
     if(cell){
@@ -126,18 +124,10 @@ async function applyTareMult(tipo){
       cell.style.color=t?t.tx:'';cell.title=t?t.l:fecha;cell.style.outline='';
     }
   });
-  // Upsert en un solo batch en vez de N peticiones simultáneas
-  if(toSave.length>0){
-    try{
-      const {error}=await supa.from(SUPA_TABLES.tareaje).upsert(toSave.map(toSnake));
-      if(error)toast('Error al guardar tareaje: '+error.message,true);
-    }catch(e){toast('Error de conexión al guardar',true);}
-  }
-  toDel.forEach(id=>supaDelete('tareaje',id));
   _tarSel.clear();
   clearTareSel();
   rTareaje();
-  toast(`✓ ${count} celda(s) guardadas`);
+  toast(`✓ ${count} celda(s) actualizadas`);
 }
 function rTareaje(){
   const pad=n=>String(n).padStart(2,'0');
