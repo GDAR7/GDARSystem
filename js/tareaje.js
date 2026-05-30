@@ -140,7 +140,8 @@ function rTareaje(){
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
   const persF=proyFiltro?DB.personal.filter(p=>p.proy===proyFiltro):DB.personal;
-  const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr));
+  const persFIds=new Set(persF.map(p=>p.id));
+  const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
     {l:'Trabajadores',v:persF.length,c:'var(--mec)',ic:'👷',sub:'en grilla'},
     {l:'Trabajo Día',v:monthRecs.filter(r=>r.tipo==='TD').length,c:'#10b981',ic:'☀️',sub:'jornadas TD'},
