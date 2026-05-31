@@ -1,7 +1,7 @@
 ﻿// ══ AREAS CONFIG ══
 const AREAS={
   administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
-    modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia / Tareaje',icon:'✅'},{key:'planilla',label:'Planilla',icon:'💵'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'}]},
+    modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia del día',icon:'✅'},{key:'planilla',label:'Planilla',icon:'💵'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'}]},
   bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
     modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'}]},
   almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
