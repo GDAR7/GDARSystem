@@ -80,8 +80,14 @@ function perGoTab(n){
   if(next)next.style.display=n<1?'':'none';
   if(save)save.style.display=n===1?'':'none';
 }
+function _fillCargoList(){
+  const dl=document.getElementById('wCargoList');if(!dl)return;
+  const cargos=[...new Set(DB.personal.map(p=>p.cargo||'').filter(Boolean))].sort();
+  dl.innerHTML=cargos.map(c=>`<option value="${c}">`).join('');
+}
 function openPersonalNew(){
   _editPersonalId=null;
+  _fillCargoList();
   ['wDni','wApe','wNom','wCargo','wSue','wProc','wNotas','wCuspp','wCuenta'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('wCat').value='Operador A';
   document.getElementById('wTipo').value='';
@@ -100,6 +106,7 @@ function openPersonalNew(){
 function openPersonalEdit(id){
   const p=DB.personal.find(x=>x.id===id);if(!p)return;
   _editPersonalId=id;
+  _fillCargoList();
   document.getElementById('wDni').value=p.dni||'';
   document.getElementById('wApe').value=p.ape||'';
   document.getElementById('wNom').value=p.nom||'';
