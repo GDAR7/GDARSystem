@@ -9,6 +9,7 @@ const AREAS={
   operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
     modules:[{key:'supervision',label:'Supervisión',icon:'🔍'}]},
   seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',prefix:'ECOSEG',
+    
     modules:[{key:'seguridad',label:'Seguridad',icon:'⛑️'},{key:'medioAmbiente',label:'Medio Ambiente',icon:'🌿'}]},
   mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
@@ -37,13 +38,14 @@ const USERS=[
   {codigo:'ECOBSW',dni:'11112222',nombre:'María Torres Díaz',cargo:'Asistenta Social',areas:['bienestarSocial']},
   {codigo:'FLOBEN',dni:'10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['almacenLogistica','seguridad']},
   {codigo:'ECOALM',dni:'11112222',nombre:'Logistica Central',cargo:'Ecosermo',areas:['almacenLogistica'],modules:['requerimientos','facturasPago']},
-  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['almacenLogistica','administracion']},
+  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['administracion']},
   {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
   {codigo:'ECOOPE',dni:'11223344',nombre:'Luis Flores Cóndor',cargo:'Residente de Obra',areas:['operaciones']},
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
   {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento',areas:['mantenimiento']},
-  {codigo:'ECOCTL',dni:'99887766',nombre:'Marco Valdivia Cruz',cargo:'Planner de Proyecto',areas:['controlProyecto','controlEquipos']},
+  {codigo:'ANT_CEV',dni:'72882951',nombre:'Antony M. Cevallos',cargo:'Data Enter - 01',areas:['administracion','controlProyecto','controlEquipos']},
+  {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos']},
   {codigo:'ECOOTRO',dni:'55667788',nombre:'Ana García Torres',cargo:'Asistente Contable',areas:['otros']},
 ];
 
