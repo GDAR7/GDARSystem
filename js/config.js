@@ -44,7 +44,7 @@ const USERS=[
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
   {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento',areas:['mantenimiento']},
-  {codigo:'ANT_CEV',dni:'72882951',nombre:'Antony M. Cevallos',cargo:'Data Enter - 01',areas:['administracion','controlProyecto','controlEquipos']},
+  {codigo:'ANT_CEV',dni:'72882951',nombre:'Antony M. Cevallos',cargo:'Data Enter - 01',areas:['administracion','controlProyecto','controlEquipos'],excludeModules:['planilla']},
   {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos']},
   {codigo:'ECOOTRO',dni:'55667788',nombre:'Ana García Torres',cargo:'Asistente Contable',areas:['otros']},
 ];

@@ -163,8 +163,10 @@ const nav = document.getElementById('sideNav');
     <span style="font-size:.9rem">📊</span> Panel General
   </div>`;
 
-  // CU.modules (opcional): array de keys de módulos permitidos; null = sin restricción
+  // CU.modules (opcional): lista blanca de módulos visibles
+  // CU.excludeModules (opcional): lista negra de módulos ocultos
   const allowedMods = CU.modules || null;
+  const excludedMods = CU.excludeModules ? new Set(CU.excludeModules) : null;
 
   CU.areas.forEach(ak => {
     const a = AREAS[ak];
@@ -172,9 +174,11 @@ const nav = document.getElementById('sideNav');
 
     a.modules.forEach(m => {
       if(m.isSubgroup){
-        // Filtrar hijos si hay restricción
-        const visibleChildren = m.children.filter(c => !allowedMods || allowedMods.includes(c.key));
-        if(allowedMods && visibleChildren.length === 0) return;
+        const visibleChildren = m.children.filter(c =>
+          (!allowedMods || allowedMods.includes(c.key)) &&
+          (!excludedMods || !excludedMods.has(c.key))
+        );
+        if(visibleChildren.length === 0) return;
         const children = visibleChildren.map(c =>
           `<div class="nav-submod" id="nm-${c.key}" style="--nc:${a.color}" onclick="setPage('${c.key}')">
             <span style="font-size:.78rem">${c.icon}</span>${c.label}
@@ -190,8 +194,8 @@ const nav = document.getElementById('sideNav');
             <div class="nav-submods">${children}</div>
           </div>`;
       } else {
-        // Módulo normal: omitir si hay restricción y no está en la lista
         if(allowedMods && !allowedMods.includes(m.key)) return;
+        if(excludedMods && excludedMods.has(m.key)) return;
         modsHtml += `
           <div class="nav-mod" id="nm-${m.key}" style="--nc:${a.color}" onclick="setPage('${m.key}')">
             <span class="nav-mod-icon">${m.icon}</span>${m.label}
