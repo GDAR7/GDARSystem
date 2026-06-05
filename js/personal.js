@@ -243,11 +243,12 @@ function iniciarScanner(){
   ).catch(err=>{setScannerStatus('Error de cámara: '+err,'err');});
 }
 async function procesarQR(texto){
+  let p=null;
   const match=texto.match(/ECO-PERSONAL-(\d+)/);
-  if(!match){setScannerStatus('⚠ QR no reconocido. Use los fotochecks del sistema.','err');return;}
-  const pId=parseInt(match[1]);
-  const p=DB.personal.find(x=>x.id===pId);
-  if(!p){setScannerStatus('⚠ Trabajador no encontrado en el sistema.','err');return;}
+  if(match){p=DB.personal.find(x=>x.id===parseInt(match[1]));}
+  if(!p){p=DB.personal.find(x=>x.dni===texto.trim());}
+  if(!p){setScannerStatus('⚠ QR no reconocido o trabajador no encontrado.','err');return;}
+  const pId=p.id;
   const fecha=today();
   const ahora=new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',hour12:false});
   await loadAsistenciaFecha(fecha);
