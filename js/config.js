@@ -244,6 +244,15 @@ async function loadSheetsData(){
     }
     // Carga inicial almacén: últimos 60 días
     await cargarAlmacen(false);
+    // Parche: estampar proy='EPY-003-26' en registros sin proy de PALMA ROMERO
+    {
+      const w=DB.personal.find(p=>p.ape&&p.ape.toUpperCase().includes('PALMA ROMERO'));
+      if(w){
+        const sinProy=DB.tareaje.filter(r=>r.personalId===w.id&&!r.proy);
+        sinProy.forEach(r=>{r.proy='EPY-003-26';syncSheet('saveTareaje',r);});
+        if(sinProy.length>0)console.log(`[Parche] ${sinProy.length} registros de ${w.ape} → EPY-003-26`);
+      }
+    }
     if(loaded){renderPage(AP);recalcularEstadosRQ();toast('✓ Datos cargados');}
   }catch(e){console.warn('Supabase load error:',e);}
 }

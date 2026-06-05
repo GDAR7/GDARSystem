@@ -136,7 +136,13 @@ function gPersonal(){
   const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0};
   if(_editPersonalId){
     const idx=DB.personal.findIndex(x=>x.id===_editPersonalId);
-    if(idx>-1){Object.assign(DB.personal[idx],rec);syncSheet('savePersonal',DB.personal[idx]);}
+    if(idx>-1){
+      const oldProy=DB.personal[idx].proy;
+      if(oldProy&&rec.proy&&oldProy!==rec.proy){
+        DB.tareaje.filter(r=>r.personalId===_editPersonalId&&!r.proy).forEach(r=>{r.proy=oldProy;syncSheet('saveTareaje',r);});
+      }
+      Object.assign(DB.personal[idx],rec);syncSheet('savePersonal',DB.personal[idx]);
+    }
     _editPersonalId=null;
     closeM('mPersonal');rPersonal();toast('Trabajador actualizado');
   }else{

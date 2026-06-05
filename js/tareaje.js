@@ -163,17 +163,18 @@ function rTareaje(){
     return`<th onclick="_tarColClick('${fecha}')" style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;cursor:pointer;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
+    const _matchProy=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
-      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_matchProy(r));
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
       return`<td id="tar-${p.id}-${fecha}" onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
     }).join('');
-    const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD').length;
-    const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN').length;
-    const totDL=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL').length;
+    const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD'&&_matchProy(r)).length;
+    const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_matchProy(r)).length;
+    const totDL=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_matchProy(r)).length;
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
@@ -271,17 +272,18 @@ function printTareaje(){
     return`<th style="text-align:center;width:18px;min-width:18px;padding:1px 0;font-size:6.5px;${isSun?'background:#fef3c7;color:#92400e':'background:#1e3a5f;color:#fff'}">${d}<br><span style="font-size:5.5px">${DN[dow]}</span></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
+    const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
-      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
       return`<td style="text-align:center;padding:0;border:1px solid #e2e8f0;height:18px;${t?`background:${t.bg};color:${t.tx};font-weight:700;font-size:6px`:''}${isSun&&!tipo?'background:#fffbeb;':''}">${tipo}</td>`;
     }).join('');
-    const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD').length;
-    const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN').length;
-    const totDL=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL').length;
+    const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD'&&_mp(r)).length;
+    const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_mp(r)).length;
+    const totDL=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_mp(r)).length;
     return`<tr><td style="text-align:center;font-size:7px;padding:1px 2px;border:1px solid #e2e8f0">${idx+1}</td><td style="font-size:7.5px;font-weight:700;padding:1px 4px;border:1px solid #e2e8f0;white-space:nowrap">${p.ape}, ${p.nom}</td><td style="font-size:6.5px;padding:1px 3px;border:1px solid #e2e8f0;white-space:nowrap;color:#64748b">${p.cargo||'—'}</td>${cells}<td style="text-align:center;font-size:7px;padding:1px 3px;border:1px solid #e2e8f0;background:#e0f2fe;line-height:1.6"><span style="color:#059669;font-weight:700">${totD}</span>TD <span style="color:#1e40af;font-weight:700">${totN}</span>TN<br><span style="color:#6b7280;font-weight:700">${totDL}</span>DL</td></tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tareaje ${mesNombre} ${y}</title>
