@@ -108,6 +108,7 @@ function openPersonalEdit(id){
   _editPersonalId=id;
   _fillCargoList();
   document.getElementById('wDni').value=p.dni||'';
+  document.getElementById('wCodigoQr').value=p.codigoQr||'';
   document.getElementById('wApe').value=p.ape||'';
   document.getElementById('wNom').value=p.nom||'';
   document.getElementById('wCargo').value=p.cargo||'';
@@ -133,7 +134,7 @@ function openPersonalEdit(id){
 function gPersonal(){
   const dni=document.getElementById('wDni').value.trim(),nom=document.getElementById('wNom').value.trim();
   if(!dni||!nom){toast('Ingrese DNI y nombre',true);return;}
-  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0};
+  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0,codigoQr:document.getElementById('wCodigoQr').value.trim()};
   if(_editPersonalId){
     const idx=DB.personal.findIndex(x=>x.id===_editPersonalId);
     if(idx>-1){
@@ -253,7 +254,8 @@ async function procesarQR(texto){
   const match=texto.match(/ECO-PERSONAL-(\d+)/);
   if(match){p=DB.personal.find(x=>x.id===parseInt(match[1]));}
   if(!p){p=DB.personal.find(x=>x.dni===texto.trim());}
-  if(!p){setScannerStatus('⚠ Trabajador no encontrado — DNI: '+texto.trim(),'err');return;}
+  if(!p){p=DB.personal.find(x=>x.codigoQr&&x.codigoQr===texto.trim());}
+  if(!p){setScannerStatus('⚠ Trabajador no encontrado — código: '+texto.trim(),'err');return;}
   // Detener cámara
   if(_html5QrScanner){await _html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
   document.getElementById('qr-reader').style.display='none';
