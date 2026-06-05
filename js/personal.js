@@ -157,7 +157,7 @@ function gPersonal(){
 let _html5QrScanner=null,_scannerCooldown=false;
 let _manualAsiPersonalId=null,_manualAsiFecha=null;
 let _scanWorker=null,_scanTipoSel='TD';
-let _barcodeDetector=null,_videoStream=null,_detectLoop=null,_zxingControls=null;
+let _barcodeDetector=null,_videoStream=null,_detectLoop=null;
 
 async function rAsistencia(){
   const dateEl=document.getElementById('asiDate');
@@ -227,7 +227,6 @@ function _detenerCamara(){
   if(_detectLoop){cancelAnimationFrame(_detectLoop);_detectLoop=null;}
   if(_videoStream){_videoStream.getTracks().forEach(t=>t.stop());_videoStream=null;}
   if(_html5QrScanner){_html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
-  if(_zxingControls){try{_zxingControls.stop();}catch(e){}; _zxingControls=null;}
   _barcodeDetector=null;
 }
 function closeScanner(){
@@ -239,11 +238,11 @@ function setScannerStatus(msg,type){
   el.textContent=msg;el.className='scanner-status scanner-'+type;
 }
 async function iniciarScanner(){
-  // Usar BarcodeDetector nativo si está disponible (Chrome Android — mucho más rápido)
+  // Motor 1: BarcodeDetector nativo (Android Chrome — rápido y preciso)
   if('BarcodeDetector' in window){
     try{
       const supported=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
-      const want=['qr_code','data_matrix','code_128','code_39','ean_13','aztec'];
+      const want=['qr_code','data_matrix','code_128','code_39','ean_13'];
       const fmts=want.filter(f=>supported.includes(f));
       _barcodeDetector=new BarcodeDetector({formats:fmts.length?fmts:['qr_code','code_128']});
       const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
@@ -255,43 +254,22 @@ async function iniciarScanner(){
       await new Promise(r=>vid.onloadedmetadata=r);
       vid.play();
       setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait');
-      let _lastDetect=0;
       const loop=async()=>{
         if(!_barcodeDetector)return;
-        const now=Date.now();
-        if(now-_lastDetect>120){
-          _lastDetect=now;
-          try{
-            const res=await _barcodeDetector.detect(vid);
-            if(res.length&&!_scannerCooldown){
-              _scannerCooldown=true;
-              procesarQR(res[0].rawValue);
-            }
-          }catch(e){}
-        }
+        try{
+          const res=await _barcodeDetector.detect(vid);
+          if(res.length&&!_scannerCooldown){
+            _scannerCooldown=true;
+            procesarQR(res[0].rawValue);
+          }
+        }catch(e){}
         _detectLoop=requestAnimationFrame(loop);
       };
       _detectLoop=requestAnimationFrame(loop);
       return;
     }catch(err){setScannerStatus('Error cámara: '+err,'err');return;}
   }
-  // Fallback 1: ZXing-js (iOS Safari y otros sin BarcodeDetector)
-  if(typeof ZXing!=='undefined'&&typeof ZXing.BrowserMultiFormatReader!=='undefined'){
-    try{
-      const reader=new ZXing.BrowserMultiFormatReader(null,200);
-      const qrDiv=document.getElementById('qr-reader');
-      qrDiv.innerHTML='<video id="scanVideo" autoplay playsinline muted style="width:100%;border-radius:8px;max-height:260px;object-fit:cover"></video>';
-      _zxingControls=await reader.decodeFromVideoDevice(undefined,'scanVideo',(result,err)=>{
-        if(result&&!_scannerCooldown){
-          _scannerCooldown=true;
-          procesarQR(result.getText());
-        }
-      });
-      setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait');
-      return;
-    }catch(err){setScannerStatus('Error de cámara: '+err,'err');return;}
-  }
-  // Fallback 2: Html5Qrcode
+  // Motor 2: Html5Qrcode (iOS Safari y otros)
   if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: escáner no disponible en este navegador','err');return;}
   const _fmts=typeof Html5QrcodeSupportedFormats!=='undefined'
     ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]}
