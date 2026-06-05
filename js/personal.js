@@ -155,6 +155,7 @@ function gPersonal(){
 // ══ ASISTENCIA / TAREAJE ══
 let _html5QrScanner=null,_scannerCooldown=false;
 let _manualAsiPersonalId=null,_manualAsiFecha=null;
+let _scanWorker=null,_scanTipoSel='TD';
 
 async function rAsistencia(){
   const dateEl=document.getElementById('asiDate');
@@ -213,9 +214,11 @@ async function loadAsistenciaFecha(fecha){
 
 // ── ESCÁNER QR ──
 function openScanner(){
+  _scanWorker=null;_scanTipoSel='TD';
   document.getElementById('mScanner').classList.add('open');
-  document.getElementById('scannerResult').style.display='none';
-  setScannerStatus('Iniciando cámara... apunte al QR del fotocheck','wait');
+  document.getElementById('scanWorkerPanel').style.display='none';
+  document.getElementById('qr-reader').style.display='block';
+  setScannerStatus('Iniciando cámara... apunte al código de barras del fotocheck','wait');
   setTimeout(iniciarScanner,400);
 }
 function closeScanner(){
@@ -228,10 +231,13 @@ function setScannerStatus(msg,type){
 }
 function iniciarScanner(){
   if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: librería QR no cargada. Verifica tu conexión a internet.','err');return;}
-  _html5QrScanner=new Html5Qrcode('qr-reader');
+  const _fmts=typeof Html5QrcodeSupportedFormats!=='undefined'
+    ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]}
+    :{};
+  _html5QrScanner=new Html5Qrcode('qr-reader',_fmts);
   _html5QrScanner.start(
     {facingMode:'environment'},
-    {fps:10,qrbox:{width:240,height:240}},
+    {fps:12,qrbox:{width:300,height:110}},
     (decoded)=>{
       if(_scannerCooldown)return;
       _scannerCooldown=true;
@@ -247,30 +253,71 @@ async function procesarQR(texto){
   const match=texto.match(/ECO-PERSONAL-(\d+)/);
   if(match){p=DB.personal.find(x=>x.id===parseInt(match[1]));}
   if(!p){p=DB.personal.find(x=>x.dni===texto.trim());}
-  if(!p){setScannerStatus('⚠ QR no reconocido o trabajador no encontrado.','err');return;}
-  const pId=p.id;
+  if(!p){setScannerStatus('⚠ Trabajador no encontrado — DNI: '+texto.trim(),'err');return;}
+  // Detener cámara
+  if(_html5QrScanner){await _html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
+  document.getElementById('qr-reader').style.display='none';
+  _scannerCooldown=false;
+  const _h=new Date().getHours();
+  const _autoTipo=(_h>=5&&_h<17)?'TD':'TN';
+  _scanWorker=p;_scanTipoSel=_autoTipo;
   const fecha=today();
-  const ahora=new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',hour12:false});
-  await loadAsistenciaFecha(fecha);
-  const existing=DB.asistencia.find(a=>a.personalId===pId&&a.fecha===fecha);
-  let rec,accion;
-  if(!existing){
-    rec={personalId:pId,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente',registradoPor:CU.nombre,obs:''};
-    const{data,error}=await supa.from('asistencia').insert(toSnake(rec)).select().single();
-    if(!error&&data){rec.id=data.id;DB.asistencia.push(rec);}
-    accion='✅ ENTRADA: '+ahora;
-  }else if(!existing.horaSalida){
-    existing.horaSalida=ahora;
-    await supa.from('asistencia').update({hora_salida:ahora}).eq('id',existing.id);
-    rec=existing;accion='🔴 SALIDA: '+ahora;
+  const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+  const proy=p.proy?(DB.proyectos.find(x=>x.codigo===p.proy)||null):null;
+  document.getElementById('swNombre').textContent=`${p.ape}, ${p.nom}`;
+  document.getElementById('swCargo').textContent=p.cargo||'—';
+  document.getElementById('swDni').textContent='DNI '+p.dni;
+  document.getElementById('swProy').textContent=proy?`[${proy.codigo}] ${proy.nombre}`:(p.proy||'Sin proyecto');
+  document.getElementById('swTipos').innerHTML=['TD','TN'].map(k=>{
+    const v=_TARE_T[k];
+    return`<button id="swT-${k}" onclick="_swSelTipo('${k}')" style="background:${k===_autoTipo?v.bg:'var(--panel2)'};color:${k===_autoTipo?v.tx:'var(--text)'};border:2px solid ${v.bg};border-radius:5px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer">${k} – ${v.l}</button>`;
+  }).join('');
+  const est=document.getElementById('swEstado');
+  const btn=document.getElementById('swBtnGuardar');
+  btn.disabled=false;
+  if(existente){
+    est.style.cssText='background:rgba(245,158,11,.15);color:#f59e0b;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
+    est.innerHTML=`⚠ Ya tiene <strong>${existente.tipo}</strong> registrado hoy`;
+    btn.textContent='🔄 Actualizar Tareaje';
   }else{
-    setScannerStatus(`${p.ape}, ${p.nom} — ya tiene jornada completa registrada`,'err');return;
+    est.style.cssText='background:rgba(16,185,129,.12);color:#10b981;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
+    est.innerHTML=`✅ Sin registro hoy — ${fecha}`;
+    btn.textContent='💾 Guardar en Tareaje';
   }
-  setScannerStatus(`${p.ape}, ${p.nom} — ${accion}`,'ok');
-  document.getElementById('scannerResult').style.display='block';
-  document.getElementById('scannerResultName').textContent=`${p.ape}, ${p.nom}`;
-  document.getElementById('scannerResultInfo').textContent=`${p.cargo} · DNI ${p.dni} · ${accion}`;
-  if(AP==='asistencia')rAsistencia();
+  setScannerStatus(`${p.ape}, ${p.nom} identificado ✓`,'ok');
+  document.getElementById('scanWorkerPanel').style.display='block';
+}
+function _swSelTipo(k){
+  _scanTipoSel=k;
+  ['TD','TN'].forEach(t=>{
+    const b=document.getElementById('swT-'+t);if(!b)return;
+    const v=_TARE_T[t];
+    b.style.background=t===k?v.bg:'var(--panel2)';
+    b.style.color=t===k?v.tx:'var(--text)';
+  });
+}
+async function guardarTareoEscaner(){
+  if(!_scanWorker||!_scanTipoSel)return;
+  const p=_scanWorker,tipo=_scanTipoSel,fecha=today();
+  const existing=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+  if(existing){existing.tipo=tipo;syncSheet('saveTareaje',existing);}
+  else{
+    const rec={id:nid('tar'),personalId:p.id,fecha,tipo,proy:p.proy||''};
+    DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
+  }
+  const btn=document.getElementById('swBtnGuardar');
+  btn.disabled=true;btn.textContent='✓ Guardado';
+  const est=document.getElementById('swEstado');
+  est.style.cssText='background:rgba(16,185,129,.18);color:#10b981;border-radius:6px;padding:.35rem .65rem;font-size:.72rem;font-weight:700';
+  est.innerHTML=`✅ ${tipo} guardado para ${fecha}`;
+  if(AP==='tareaje')rTareaje();
+}
+function reiniciarEscaner(){
+  _scanWorker=null;_scanTipoSel='TD';
+  document.getElementById('scanWorkerPanel').style.display='none';
+  document.getElementById('qr-reader').style.display='block';
+  setScannerStatus('Listo — apunte al código de barras del fotocheck','wait');
+  setTimeout(iniciarScanner,300);
 }
 
 // ── FOTOCHECK QR ──

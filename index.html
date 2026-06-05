@@ -910,15 +910,32 @@
 
 <!-- ══ MODALES ══ -->
 
-<!-- Modal: Escáner QR Asistencia -->
-<div class="mo" id="mScanner"><div class="modal" style="max-width:480px">
-  <div class="mh"><span class="mttl">📷 Escanear Fotocheck QR</span><button class="mx" onclick="closeScanner()">✕</button></div>
-  <div class="mb">
-    <div id="scannerStatus" class="scanner-status scanner-wait">Iniciando cámara... apunte al QR del fotocheck</div>
+<!-- Modal: Escáner Fotocheck -->
+<div class="mo" id="mScanner"><div class="modal" style="max-width:420px">
+  <div class="mh"><span class="mttl">📷 Escanear Fotocheck</span><button class="mx" onclick="closeScanner()">✕</button></div>
+  <div class="mb" style="padding:.8rem;display:flex;flex-direction:column;gap:.6rem">
+    <div id="scannerStatus" class="scanner-status scanner-wait">Iniciando cámara... apunte al código de barras</div>
     <div id="qr-reader" style="width:100%;"></div>
-    <div id="scannerResult" class="scan-result-card" style="display:none">
-      <div class="scan-result-name" id="scannerResultName"></div>
-      <div class="scan-result-info" id="scannerResultInfo"></div>
+    <!-- Panel trabajador (aparece tras escanear) -->
+    <div id="scanWorkerPanel" style="display:none">
+      <div style="display:flex;align-items:center;gap:.8rem;padding:.7rem;background:var(--panel2);border-radius:8px;border:1px solid var(--border)">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--mec)25;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">👷</div>
+        <div style="flex:1;min-width:0">
+          <div id="swNombre" style="font-weight:800;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div id="swCargo" style="font-size:.7rem;color:var(--muted2)"></div>
+          <div id="swProy" style="font-size:.67rem;color:#a78bfa;margin-top:.1rem"></div>
+        </div>
+        <div id="swDni" style="font-family:monospace;font-size:.72rem;color:var(--muted2);flex-shrink:0"></div>
+      </div>
+      <div style="margin-top:.6rem">
+        <div style="font-size:.65rem;color:var(--muted2);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.06em">Tipo de jornada</div>
+        <div style="display:flex;gap:.3rem;flex-wrap:wrap" id="swTipos"></div>
+      </div>
+      <div id="swEstado" style="font-size:.72rem;padding:.35rem .65rem;border-radius:6px;margin-top:.5rem"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.6rem">
+        <button id="swBtnGuardar" onclick="guardarTareoEscaner()" style="flex:1;background:var(--mec);color:#fff;border:none;border-radius:7px;padding:.5rem .8rem;font-size:.82rem;font-weight:700;cursor:pointer">💾 Guardar en Tareaje</button>
+        <button onclick="reiniciarEscaner()" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:.5rem .7rem;font-size:.8rem;cursor:pointer">📷 Otro</button>
+      </div>
     </div>
   </div>
   <div class="mf"><button class="btn btn-out" onclick="closeScanner()">Cerrar</button></div>
