@@ -250,8 +250,16 @@ let currentReporteTipo='Línea Amarilla';
 function openReporte(tipo){
   currentReporteTipo=tipo;
   document.getElementById('mRepTtl').textContent=`Nuevo Reporte – ${tipo}`;
-  const sel=document.getElementById('rpEq');
-  if(sel)sel.innerHTML=DB.equipos.filter(e=>e.tipo===tipo).map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+  // Poblar tipos desde el máster de equipos
+  const tipoSel=document.getElementById('rpTipo');
+  if(tipoSel){
+    const tipos=[...new Set(DB.equipos.map(e=>e.tipo).filter(Boolean))].sort();
+    tipoSel.innerHTML='<option value="">— Seleccionar —</option>'+tipos.map(t=>`<option${t===tipo?' selected':''}>${t}</option>`).join('');
+  }
+  // Poblar equipos del tipo correspondiente
+  const eqSel=document.getElementById('rpCodigo');
+  if(eqSel)eqSel.innerHTML='<option value="">— Seleccionar —</option>'+DB.equipos.filter(e=>e.tipo===tipo).map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+  filtrarEquipos();
   openM('mReporte');
 }
 // ── ESTADO FORMULARIO PARTE ──
