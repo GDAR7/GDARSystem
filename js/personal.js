@@ -254,16 +254,21 @@ async function iniciarScanner(){
       vid.srcObject=stream;
       await new Promise(r=>vid.onloadedmetadata=r);
       vid.play();
-      setScannerStatus('Listo — apunte al código de barras del fotocheck','wait');
+      setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait');
+      let _lastDetect=0;
       const loop=async()=>{
         if(!_barcodeDetector)return;
-        try{
-          const res=await _barcodeDetector.detect(vid);
-          if(res.length&&!_scannerCooldown){
-            _scannerCooldown=true;
-            procesarQR(res[0].rawValue);
-          }
-        }catch(e){}
+        const now=Date.now();
+        if(now-_lastDetect>120){
+          _lastDetect=now;
+          try{
+            const res=await _barcodeDetector.detect(vid);
+            if(res.length&&!_scannerCooldown){
+              _scannerCooldown=true;
+              procesarQR(res[0].rawValue);
+            }
+          }catch(e){}
+        }
         _detectLoop=requestAnimationFrame(loop);
       };
       _detectLoop=requestAnimationFrame(loop);
@@ -273,7 +278,13 @@ async function iniciarScanner(){
   // Fallback 1: ZXing-js (iOS Safari y otros sin BarcodeDetector)
   if(typeof ZXing!=='undefined'){
     try{
-      const reader=new ZXing.BrowserMultiFormatReader();
+      const hints=new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+        ZXing.BarcodeFormat.QR_CODE,ZXing.BarcodeFormat.DATA_MATRIX,
+        ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+      const reader=new ZXing.BrowserMultiFormatReader(hints,{delayBetweenScanAttempts:150});
       const qrDiv=document.getElementById('qr-reader');
       qrDiv.innerHTML='<video id="scanVideo" autoplay playsinline muted style="width:100%;border-radius:8px;max-height:260px;object-fit:cover"></video>';
       _zxingControls=await reader.decodeFromVideoDevice(undefined,'scanVideo',(result,err)=>{
@@ -282,7 +293,7 @@ async function iniciarScanner(){
           procesarQR(result.getText());
         }
       });
-      setScannerStatus('Listo — apunte al código de barras del fotocheck','wait');
+      setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait');
       return;
     }catch(err){setScannerStatus('Error de cámara: '+err,'err');return;}
   }
@@ -302,7 +313,7 @@ async function iniciarScanner(){
       setTimeout(()=>{_scannerCooldown=false;},3000);
     },
     ()=>{}
-  ).then(()=>setScannerStatus('Listo — apunte al código de barras del fotocheck','wait')
+  ).then(()=>setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait')
   ).catch(err=>setScannerStatus('Error de cámara: '+err,'err'));
 }
 async function procesarQR(texto){
