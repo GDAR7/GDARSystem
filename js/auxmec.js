@@ -292,10 +292,11 @@ function autoFillEquipo(){
 }
 
 function filtrarFrentes(){
-  const area = document.getElementById('rpArea').value;
-  const todos = [...new Set(DB.partes.filter(p=>p.areaT===area).map(p=>p.frenteT).filter(Boolean))];
   const sel = document.getElementById('rpFrente');
-  sel.innerHTML = '<option value="">— Seleccionar —</option>' + todos.map(f=>`<option>${f}</option>`).join('');
+  const fromDB=DB.frentesTrabajo.map(f=>f.nombre).filter(Boolean);
+  const fromPartes=[...new Set(DB.partes.map(p=>p.frenteT).filter(Boolean))];
+  const todos=[...new Set([...fromDB,...fromPartes])].sort();
+  sel.innerHTML='<option value="">— Seleccionar —</option>'+todos.map(f=>`<option>${f}</option>`).join('');
 }
 
 function calcHoras(){
