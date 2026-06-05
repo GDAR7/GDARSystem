@@ -243,8 +243,8 @@ async function iniciarScanner(){
     try{
       const supported=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
       const want=['qr_code','data_matrix','aztec','code_128','code_39','ean_13'];
-      const fmts=want.filter(f=>supported.includes(f));
-      _barcodeDetector=new BarcodeDetector({formats:fmts.length?fmts:['qr_code','code_128']});
+      const fmts=supported.length?want.filter(f=>supported.includes(f)):want;
+      _barcodeDetector=new BarcodeDetector({formats:fmts});
       const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
       _videoStream=stream;
       const qrDiv=document.getElementById('qr-reader');
