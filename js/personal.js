@@ -276,15 +276,9 @@ async function iniciarScanner(){
     }catch(err){setScannerStatus('Error cámara: '+err,'err');return;}
   }
   // Fallback 1: ZXing-js (iOS Safari y otros sin BarcodeDetector)
-  if(typeof ZXing!=='undefined'){
+  if(typeof ZXing!=='undefined'&&typeof ZXing.BrowserMultiFormatReader!=='undefined'){
     try{
-      const hints=new Map();
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
-        ZXing.BarcodeFormat.QR_CODE,ZXing.BarcodeFormat.DATA_MATRIX,
-        ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39
-      ]);
-      hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
-      const reader=new ZXing.BrowserMultiFormatReader(hints,{delayBetweenScanAttempts:150});
+      const reader=new ZXing.BrowserMultiFormatReader(null,200);
       const qrDiv=document.getElementById('qr-reader');
       qrDiv.innerHTML='<video id="scanVideo" autoplay playsinline muted style="width:100%;border-radius:8px;max-height:260px;object-fit:cover"></video>';
       _zxingControls=await reader.decodeFromVideoDevice(undefined,'scanVideo',(result,err)=>{
