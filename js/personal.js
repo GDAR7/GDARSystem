@@ -157,6 +157,7 @@ function gPersonal(){
 let _html5QrScanner=null,_scannerCooldown=false;
 let _manualAsiPersonalId=null,_manualAsiFecha=null;
 let _scanWorker=null,_scanTipoSel='TD';
+let _barcodeDetector=null,_videoStream=null,_detectLoop=null;
 
 async function rAsistencia(){
   const dateEl=document.getElementById('asiDate');
@@ -219,19 +220,57 @@ function openScanner(){
   document.getElementById('mScanner').classList.add('open');
   document.getElementById('scanWorkerPanel').style.display='none';
   document.getElementById('qr-reader').style.display='block';
-  setScannerStatus('Iniciando cámara... apunte al código de barras del fotocheck','wait');
-  setTimeout(iniciarScanner,400);
+  setScannerStatus('Iniciando cámara...','wait');
+  setTimeout(iniciarScanner,300);
+}
+function _detenerCamara(){
+  if(_detectLoop){cancelAnimationFrame(_detectLoop);_detectLoop=null;}
+  if(_videoStream){_videoStream.getTracks().forEach(t=>t.stop());_videoStream=null;}
+  if(_html5QrScanner){_html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
+  _barcodeDetector=null;
 }
 function closeScanner(){
-  if(_html5QrScanner){_html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
+  _detenerCamara();
   document.getElementById('mScanner').classList.remove('open');
 }
 function setScannerStatus(msg,type){
   const el=document.getElementById('scannerStatus');
   el.textContent=msg;el.className='scanner-status scanner-'+type;
 }
-function iniciarScanner(){
-  if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: librería QR no cargada. Verifica tu conexión a internet.','err');return;}
+async function iniciarScanner(){
+  // Usar BarcodeDetector nativo si está disponible (Chrome Android — mucho más rápido)
+  if('BarcodeDetector' in window){
+    try{
+      const supported=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
+      const want=['qr_code','data_matrix','code_128','code_39','ean_13','aztec'];
+      const fmts=want.filter(f=>supported.includes(f));
+      _barcodeDetector=new BarcodeDetector({formats:fmts.length?fmts:['qr_code','code_128']});
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
+      _videoStream=stream;
+      const qrDiv=document.getElementById('qr-reader');
+      qrDiv.innerHTML='<video id="scanVideo" autoplay playsinline muted style="width:100%;border-radius:8px;max-height:260px;object-fit:cover"></video>';
+      const vid=document.getElementById('scanVideo');
+      vid.srcObject=stream;
+      await new Promise(r=>vid.onloadedmetadata=r);
+      vid.play();
+      setScannerStatus('Listo — apunte al código de barras del fotocheck','wait');
+      const loop=async()=>{
+        if(!_barcodeDetector)return;
+        try{
+          const res=await _barcodeDetector.detect(vid);
+          if(res.length&&!_scannerCooldown){
+            _scannerCooldown=true;
+            procesarQR(res[0].rawValue);
+          }
+        }catch(e){}
+        _detectLoop=requestAnimationFrame(loop);
+      };
+      _detectLoop=requestAnimationFrame(loop);
+      return;
+    }catch(err){setScannerStatus('Error cámara: '+err,'err');return;}
+  }
+  // Fallback: Html5Qrcode
+  if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: escáner no disponible en este navegador','err');return;}
   const _fmts=typeof Html5QrcodeSupportedFormats!=='undefined'
     ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]}
     :{};
@@ -246,8 +285,8 @@ function iniciarScanner(){
       setTimeout(()=>{_scannerCooldown=false;},3000);
     },
     ()=>{}
-  ).then(()=>{setScannerStatus('Listo — apunte al QR del fotocheck','wait');}
-  ).catch(err=>{setScannerStatus('Error de cámara: '+err,'err');});
+  ).then(()=>setScannerStatus('Listo — apunte al código de barras del fotocheck','wait')
+  ).catch(err=>setScannerStatus('Error de cámara: '+err,'err'));
 }
 async function procesarQR(texto){
   let p=null;
@@ -257,7 +296,7 @@ async function procesarQR(texto){
   if(!p){p=DB.personal.find(x=>x.codigoQr&&x.codigoQr===texto.trim());}
   if(!p){setScannerStatus('⚠ Trabajador no encontrado — código: '+texto.trim(),'err');return;}
   // Detener cámara
-  if(_html5QrScanner){await _html5QrScanner.stop().catch(()=>{});_html5QrScanner=null;}
+  _detenerCamara();
   document.getElementById('qr-reader').style.display='none';
   _scannerCooldown=false;
   const _h=new Date().getHours();
@@ -315,10 +354,12 @@ async function guardarTareoEscaner(){
   if(AP==='tareaje')rTareaje();
 }
 function reiniciarEscaner(){
-  _scanWorker=null;_scanTipoSel='TD';
+  _detenerCamara();
+  _scanWorker=null;_scanTipoSel='TD';_scannerCooldown=false;
   document.getElementById('scanWorkerPanel').style.display='none';
-  document.getElementById('qr-reader').style.display='block';
-  setScannerStatus('Listo — apunte al código de barras del fotocheck','wait');
+  const qrDiv=document.getElementById('qr-reader');
+  qrDiv.style.display='block';qrDiv.innerHTML='';
+  setScannerStatus('Reiniciando cámara...','wait');
   setTimeout(iniciarScanner,300);
 }
 
