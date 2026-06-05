@@ -247,21 +247,7 @@ function gAct(){const nom=document.getElementById('acNom').value.trim();if(!nom)
 // ══ CONTROL EQUIPOS POR LÍNEA ══
 const lineaMap={'Línea Amarilla':'lineaAmarilla','Línea Blanca':'lineaBlanca','Vehículo Menor':'vehiculosMenores','Equipos Menores':'equiposMenores'};
 let currentReporteTipo='Línea Amarilla';
-function openReporte(tipo){
-  currentReporteTipo=tipo;
-  document.getElementById('mRepTtl').textContent=`Nuevo Reporte – ${tipo}`;
-  // Poblar tipos desde el máster de equipos
-  const tipoSel=document.getElementById('rpTipo');
-  if(tipoSel){
-    const tipos=[...new Set(DB.equipos.map(e=>e.tipo).filter(Boolean))].sort();
-    tipoSel.innerHTML='<option value="">— Seleccionar —</option>'+tipos.map(t=>`<option${t===tipo?' selected':''}>${t}</option>`).join('');
-  }
-  // Poblar equipos del tipo correspondiente
-  const eqSel=document.getElementById('rpCodigo');
-  if(eqSel)eqSel.innerHTML='<option value="">— Seleccionar —</option>'+DB.equipos.filter(e=>e.tipo===tipo).map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
-  filtrarEquipos();
-  openM('mReporte');
-}
+
 // ── ESTADO FORMULARIO PARTE ──
 let parteState = { turno:'DIA', guardia:'A', viajeCount:0, tipo:'' };
 
@@ -282,15 +268,15 @@ function setToggle(grupo, val){
 }
 
 function filtrarEquipos(){
-  const tipo = document.getElementById('rpTipo').value;
-  parteState.tipo = tipo;
+  const sub = document.getElementById('rpTipo').value;
+  parteState.tipo = sub;
   const sel = document.getElementById('rpCodigo');
-  const eq = DB.equipos.filter(e => !tipo || e.tipo === tipo);
+  const linea = currentReporteTipo;
+  const eq = DB.equipos.filter(e=>e.tipo===linea&&(!sub||e.sub===sub));
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
-  // Mostrar tab viajes si es volquete
   const tabV = document.getElementById('tab2');
-  if(tabV) tabV.style.display = tipo==='VOLQUETE' ? 'block' : 'none';
+  if(tabV) tabV.style.display = sub==='VOLQUETE' ? 'block' : 'none';
 }
 
 function autoFillEquipo(){
@@ -350,25 +336,24 @@ function openReporte(tipo){
   parteState.tipo = tipo;
   viajeCount = 0;
   document.getElementById('viajesContainer').innerHTML = '';
-  // Poblar áreas únicas
+  // Equipos de esta línea
+  const eqsLinea = DB.equipos.filter(e=>e.tipo===tipo);
+  // Poblar rpTipo con subtipos únicos de esta línea (e.sub)
+  const tipoSel = document.getElementById('rpTipo');
+  const subs = [...new Set(eqsLinea.map(e=>e.sub).filter(Boolean))].sort();
+  tipoSel.innerHTML = '<option value="">— Seleccionar —</option>' + subs.map(s=>`<option>${s}</option>`).join('');
+  // Poblar equipos (todos de esta línea inicialmente)
+  const selEq = document.getElementById('rpCodigo');
+  selEq.innerHTML = '<option value="">— Seleccionar —</option>' + eqsLinea.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+  // Poblar áreas
   const areas = [...new Set(DB.partes.map(p=>p.areaT).filter(Boolean))];
   if(areas.length === 0) areas.push('R3','NINGUNO');
-  const selA = document.getElementById('rpArea');
-  selA.innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option>${a}</option>`).join('');
-  // Filtrar equipos por tipo
-  const selEq = document.getElementById('rpCodigo');
-  const eqs = DB.equipos.filter(e=> tipo==='all' || e.tipo===tipo ||
-    (tipo==='Línea Amarilla' && ['Línea Amarilla'].includes(e.tipo)) ||
-    (tipo==='Línea Blanca' && e.tipo==='Línea Blanca') ||
-    (tipo==='Vehículo Menor' && e.tipo==='Vehículo Menor') ||
-    e.tipo.toUpperCase().includes(tipo.toUpperCase()));
-  selEq.innerHTML = '<option value="">— Seleccionar —</option>' + eqs.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+  document.getElementById('rpArea').innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option>${a}</option>`).join('');
   // Operadores
   document.getElementById('rpOperador').innerHTML = DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   // Tab viajes
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = tipo==='Línea Blanca'||tipo==='VOLQUETE' ? 'block' : 'none';
-  // Reset toggles
   setToggle('turno','DIA');
   setToggle('guardia','A');
   switchTab(1);
