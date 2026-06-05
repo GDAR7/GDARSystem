@@ -277,7 +277,7 @@ function filtrarEquipos(){
   const tipo = document.getElementById('rpTipo').value;
   parteState.tipo = tipo;
   const sel = document.getElementById('rpCodigo');
-  const eq = DB.equipos.filter(e => !tipo || e.tipo === tipo || e.nombre.toUpperCase().includes(tipo));
+  const eq = DB.equipos.filter(e => !tipo || e.tipo === tipo);
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
   // Mostrar tab viajes si es volquete
