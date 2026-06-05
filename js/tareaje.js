@@ -113,7 +113,10 @@ function applyTareMult(tipo){
       else{existing.tipo=tipo;syncSheet('saveTareaje',existing);}
     }else{
       if(!tipo)return;
-      const rec={id:nid('tar'),personalId,fecha,tipo};
+      const _pf2=document.getElementById('tareProy')?.value||'';
+      const _pp2=DB.personal.find(p=>p.id===personalId);
+      const proy=_pf2||(_pp2?_pp2.proy:'');
+      const rec={id:nid('tar'),personalId,fecha,tipo,proy};
       DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
     }
     const cell=document.getElementById(`tar-${personalId}-${fecha}`);
@@ -139,7 +142,11 @@ function rTareaje(){
   const proyEl=document.getElementById('tareProy');
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
-  const persF=proyFiltro?DB.personal.filter(p=>p.proy===proyFiltro):DB.personal;
+  let persF;
+  if(proyFiltro){
+    const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
+  }else{persF=DB.personal;}
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
@@ -218,7 +225,10 @@ function setTareaje(personalId,fecha,tipo){
     else{existing.tipo=tipo;syncSheet('saveTareaje',existing);}
   }else{
     if(!tipo)return;
-    const rec={id:nid('tar'),personalId,fecha,tipo};
+    const _pf=document.getElementById('tareProy')?.value||'';
+    const _pp=DB.personal.find(p=>p.id===personalId);
+    const proy=_pf||(_pp?_pp.proy:'');
+    const rec={id:nid('tar'),personalId,fecha,tipo,proy};
     DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
   }
   const cell=document.getElementById(`tar-${personalId}-${fecha}`);
@@ -250,7 +260,11 @@ function printTareaje(){
   const proyFiltro=proyEl?proyEl.value:'';
   const proyNombre=proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'— Todos —';
   const elab=document.getElementById('tareElab')?.value||'';
-  const persF=proyFiltro?DB.personal.filter(p=>p.proy===proyFiltro):DB.personal;
+  let persF;
+  if(proyFiltro){
+    const _wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    persF=DB.personal.filter(p=>p.proy===proyFiltro||_wids.has(p.id));
+  }else{persF=DB.personal;}
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
