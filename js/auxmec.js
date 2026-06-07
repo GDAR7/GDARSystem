@@ -351,6 +351,9 @@ function openReporte(tipo){
   document.getElementById('rpArea').innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option>${a}</option>`).join('');
   // Operadores
   document.getElementById('rpOperador').innerHTML = DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  // Km solo visible en Línea Blanca y Vehículos Menores
+  const kmSec=document.getElementById('rpKmSection');
+  if(kmSec) kmSec.style.display=(['Línea Blanca','Vehículo Menor'].includes(tipo))?'contents':'none';
   // Tab viajes
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = tipo==='Línea Blanca'||tipo==='VOLQUETE' ? 'block' : 'none';
