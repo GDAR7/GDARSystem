@@ -413,15 +413,13 @@ async function gReporte(){
     viajes
   };
 
-  // Mostrar guardando...
   toast('Guardando en data...');
 
-  const result = await apiFetch('saveParte', parte);
-
-  if(result.error){
-    toast('Error: '+result.error, true);
-    return;
-  }
+  const parteSnake = toSnake({...parte, eqId});
+  delete parteSnake.viajes;
+  const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteSnake).select('id').single();
+  if(parteErr){ toast('Error: '+parteErr.message, true); return; }
+  const result = {id: parteRet.id};
 
   // Actualizar horómetro local
   if(eq && parte.hrFin > eq.hr) eq.hr = parte.hrFin;
