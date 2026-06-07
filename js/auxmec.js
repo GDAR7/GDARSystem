@@ -296,8 +296,13 @@ function filtrarFrentes(){
 function calcHoras(){
   const ini = +document.getElementById('rpHrIni').value||0;
   const fin = +document.getElementById('rpHrFin').value||0;
-  const diff = fin > ini ? (fin-ini).toFixed(1) : 0;
+  const diff = fin > ini ? parseFloat((fin-ini).toFixed(1)) : 0;
   document.getElementById('rpHrsTrab').value = diff;
+  const cond = document.getElementById('rpCondicion')?.value||'';
+  if(cond==='OPERATIVO/INOPERATIVO'){
+    const inop = parseFloat(Math.max(0,10-diff).toFixed(1));
+    document.getElementById('rpHrsInop').value = inop;
+  }
 }
 
 function calcKm(){
