@@ -416,13 +416,32 @@ async function gReporte(){
   toast('Guardando en data...');
 
   const parteDB = {
-    fecha:  parte.fecha,
-    eq_id:  eqId,
-    op:     parte.operador,
-    ef:     parte.hrFin - parte.hrIni,
-    im:     parte.hrsInop,
-    comb:   0,
-    act:    parte.actividades
+    fecha:        parte.fecha,
+    eq_id:        eqId,
+    op:           parte.operador,
+    ef:           parte.hrFin - parte.hrIni,
+    im:           parte.hrsInop,
+    comb:         0,
+    act:          parte.actividades,
+    tipo_equipo:  parte.tipoEquipo,
+    turno:        parte.turno,
+    guardia:      parte.guardia,
+    condicion:    parte.condicion,
+    hr_ini:       parte.hrIni,
+    hr_fin:       parte.hrFin,
+    km_ini:       parte.kmIni||null,
+    km_fin:       parte.kmFin||null,
+    km_rec:       parte.kmFin>parte.kmIni?parte.kmFin-parte.kmIni:null,
+    descuentos:   parte.descuentos||null,
+    area_t:       parte.areaT||null,
+    frente_t:     parte.frenteT||null,
+    observaciones:parte.observaciones||null,
+    n_viajes:     parte.nViajes||null,
+    tiempo_trans: parte.tiempoTrans||null,
+    conclusion:   parte.conclusion||null,
+    colaborador:  parte.colaborador||null,
+    viajes:       viajes.length?viajes:null,
+    created_at:   new Date().toISOString()
   };
   console.log('[Partes] Enviando a Supabase:', parteDB);
   const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteDB).select('id').single();
