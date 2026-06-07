@@ -55,7 +55,7 @@ const SUPA_KEY = 'sb_publishable_2vedvLuUivaSULcoSGJcpQ_Womkq8ST';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // ══ FIELD MAPPERS (camelCase ↔ snake_case) ══
-const _RENAME_TO   = {desc:'descripcion', con:'concepto', img:'imagen'};
+const _RENAME_TO   = {desc:'descripcion', con:'concepto', img:'imagen', actividades:'act', operador:'op', hrsInop:'im'};
 const _RENAME_FROM = {descripcion:'desc', concepto:'con', imagen:'img'};
 
 function toSnake(obj){
