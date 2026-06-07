@@ -415,9 +415,16 @@ async function gReporte(){
 
   toast('Guardando en data...');
 
-  const parteSnake = toSnake({...parte, eqId});
-  delete parteSnake.viajes;
-  const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteSnake).select('id').single();
+  const parteDB = {
+    fecha:  parte.fecha,
+    eq_id:  eqId,
+    op:     parte.operador,
+    ef:     parte.hrFin - parte.hrIni,
+    im:     parte.hrsInop,
+    comb:   0,
+    act:    parte.actividades
+  };
+  const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteDB).select('id').single();
   if(parteErr){ toast('Error: '+parteErr.message, true); return; }
   const result = {id: parteRet.id};
 
