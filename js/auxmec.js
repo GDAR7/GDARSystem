@@ -424,8 +424,10 @@ async function gReporte(){
     comb:   0,
     act:    parte.actividades
   };
+  console.log('[Partes] Enviando a Supabase:', parteDB);
   const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteDB).select('id').single();
-  if(parteErr){ toast('Error: '+parteErr.message, true); return; }
+  console.log('[Partes] Respuesta:', parteRet, parteErr);
+  if(parteErr){ alert('Error Supabase:\n'+parteErr.message+'\n\nCódigo: '+parteErr.code); toast('Error: '+parteErr.message, true); return; }
   const result = {id: parteRet.id};
 
   // Actualizar horómetro local
