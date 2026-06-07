@@ -349,8 +349,11 @@ function openReporte(tipo){
   const areas = [...new Set(DB.partes.map(p=>p.areaT).filter(Boolean))];
   if(areas.length === 0) areas.push('R3','NINGUNO');
   document.getElementById('rpArea').innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option>${a}</option>`).join('');
-  // Operadores
-  document.getElementById('rpOperador').innerHTML = DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  // Operadores filtrados por categoría según línea
+  const _catOp={'Línea Amarilla':'Operador LA','Línea Blanca':'Operador LB'};
+  const _catFiltro=_catOp[tipo];
+  const _opList=DB.personal.filter(p=>p.est==='Activo'&&(!_catFiltro||p.cat===_catFiltro));
+  document.getElementById('rpOperador').innerHTML=_opList.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   // Km solo visible en Línea Blanca y Vehículos Menores
   const kmSec=document.getElementById('rpKmSection');
   if(kmSec) kmSec.style.display=(['Línea Blanca','Vehículo Menor'].includes(tipo))?'contents':'none';
@@ -439,18 +442,18 @@ function rLinea(tipo){
   const tb=document.getElementById(tbMap[tipo]);
   if(!tb)return;
   if(tipo==='Línea Amarilla'){
-    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td><td class="mono">${e.ultMant||'—'}</td><td class="mono">${e.proxMant||'—'}</td><td><button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})">🗑</button></td></tr>`).join('');
+    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td><td class="mono">${e.ultMant||'—'}</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     const tbP=document.getElementById('tbPartesLA');
     if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ')[1]:''}</td><td>${p.op}</td><td class="mono text-acc">${p.ef}h</td><td class="mono">${p.im}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
   }else if(tipo==='Línea Blanca'){
-    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td><td><button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})">🗑</button></td></tr>`).join('');
+    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     const tbP=document.getElementById('tbPartesLB');
     if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo:''}</td><td>${p.op}</td><td class="mono tr">—</td><td class="mono tr">—</td><td class="mono tr">—</td><td class="mono tr">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
   }else if(tipo==='Vehículo Menor'){
-    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">—</td><td><button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})">🗑</button></td></tr>`).join('');
+    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">—</td></tr>`).join('');
     const tbS=document.getElementById('tbSalidasVM');if(tbS)tbS.innerHTML='<tr><td colspan="8" class="text-muted" style="text-align:center;padding:1rem">Registre salidas usando ＋ Reporte Diario</td></tr>';
   }else{
-    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${e.marca}</td><td>${e.modelo}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td><td><button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})">🗑</button></td></tr>`).join('');
+    tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${e.marca}</td><td>${e.modelo}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td></tr>`).join('');
   }
 }
 

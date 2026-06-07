@@ -260,7 +260,7 @@ function printTareaje(){
   const proyEl=document.getElementById('tareProy');
   const proyFiltro=proyEl?proyEl.value:'';
   const proyNombre=proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'— Todos —';
-  const elab=document.getElementById('tareElab')?.value||'';
+  const elab='';
   let persF;
   if(proyFiltro){
     const _wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
@@ -305,5 +305,13 @@ td{border:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{backgrou
 </body></html>`;
   const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
   win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),500);
+}
+function fltTareaje(){
+  const v=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
+  const tbody=document.querySelector('#tbTareaje tbody');if(!tbody)return;
+  Array.from(tbody.rows).forEach(r=>{
+    const txt=(r.cells[1]?.textContent||'')+(r.cells[2]?.textContent||'');
+    r.style.display=!v||txt.toLowerCase().includes(v)?'':'none';
+  });
 }
 

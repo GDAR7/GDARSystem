@@ -642,7 +642,7 @@
     <div class="card-head"><span class="card-title">Grilla de Tareaje</span>
       <div class="card-head-right" style="gap:.5rem;flex-wrap:wrap;align-items:center">
         <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
-        <input type="text" id="tareElab" placeholder="Elaborado por..." style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:155px">
+        <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre o cargo..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
@@ -688,11 +688,12 @@
     <div class="card-head"><span class="card-title">Equipos Línea Amarilla</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbLA')"></div>
+        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbLA',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Amarilla')">＋ Reporte Diario</button>
       </div>
     </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Subtipo</th><th>Estado</th><th>Horometro</th><th>Último Mant.</th><th>Prox. Mant.</th><th></th></tr></thead>
+    <div id="cbLA" class="card-body"><div class="tbl-wrap"><table>
+      <thead><tr><th>Código</th><th>Equipo</th><th>Subtipo</th><th>Estado</th><th>Horometro</th><th>Último Mant.</th><th>Prox. Mant.</th></tr></thead>
       <tbody id="tbLA"></tbody>
     </table></div></div>
   </div>
@@ -714,11 +715,12 @@
     <div class="card-head"><span class="card-title">Volquetes y Camiones</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbLB')"></div>
+        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbLB',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Blanca')">＋ Reporte Diario</button>
       </div>
     </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Placa</th><th>Cap. m³</th><th>Estado</th><th>Kilometraje</th><th>Prox. Mant.</th><th></th></tr></thead>
+    <div id="cbLB" class="card-body"><div class="tbl-wrap"><table>
+      <thead><tr><th>Código</th><th>Equipo</th><th>Placa</th><th>Cap. m³</th><th>Estado</th><th>Kilometraje</th><th>Prox. Mant.</th></tr></thead>
       <tbody id="tbLB"></tbody>
     </table></div></div>
   </div>
@@ -740,11 +742,12 @@
     <div class="card-head"><span class="card-title">Vehículos Livianos</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbVM')"></div>
+        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbVM',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Vehículo Menor')">＋ Reporte Diario</button>
       </div>
     </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Vehículo</th><th>Placa</th><th>Tipo</th><th>Estado</th><th>Kilometraje</th><th>SOAT Vence</th><th></th></tr></thead>
+    <div id="cbVM" class="card-body"><div class="tbl-wrap"><table>
+      <thead><tr><th>Código</th><th>Vehículo</th><th>Placa</th><th>Tipo</th><th>Estado</th><th>Kilometraje</th><th>SOAT Vence</th></tr></thead>
       <tbody id="tbVM"></tbody>
     </table></div></div>
   </div>
@@ -766,11 +769,12 @@
     <div class="card-head"><span class="card-title">Equipos Menores</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbEC')"></div>
+        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbEC',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Equipos Menores')">＋ Reporte</button>
       </div>
     </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Marca</th><th>Capacidad</th><th>Estado</th><th>Horometro</th><th></th></tr></thead>
+    <div id="cbEC" class="card-body"><div class="tbl-wrap"><table>
+      <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Marca</th><th>Capacidad</th><th>Estado</th><th>Horometro</th></tr></thead>
       <tbody id="tbEC"></tbody>
     </table></div></div>
   </div>

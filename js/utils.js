@@ -6,6 +6,12 @@ const nid=k=>DB.nx[k]++;
 function toast(m,e=false){const t=document.getElementById('toast');t.textContent=(e?'✗ ':'✔ ')+m;t.className='show'+(e?' err':'');setTimeout(()=>t.className='',2500);}
 function openM(id){document.getElementById(id).classList.add('open');refreshSelects();}
 function closeM(id){document.getElementById(id).classList.remove('open');}
+function toggleCardBody(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const collapsed=el.style.display==='none';
+  el.style.display=collapsed?'':'none';
+  if(btn){btn.textContent=collapsed?'▲ Contraer':'▼ Expandir';}
+}
 
 function bge(e){
   const m={'Activo':'b-green','Operativo':'b-green','Pagada':'b-green','Conforme':'b-green','Resuelto':'b-green','Completado':'b-green','Levantado':'b-green','Cerrado':'b-green','Entregado':'b-green','Finalizado':'b-green',
