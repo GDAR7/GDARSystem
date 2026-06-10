@@ -336,15 +336,19 @@ function _doExportTareaje(){
     const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=DB.personal;}
+  // colores por tipo (hex sin #)
+  const _BG={TD:'10b981',TN:'1e3a8a',DL:'38bdf8',P:'f59e0b',F:'ef4444',DM:'8b5cf6',LP:'3b82f6',LM:'ec4899',LF:'374151',V:'0ea5e9',DLT:'84cc16',A5:'f97316',R:'7f1d1d'};
+  const _FG={TD:'FFFFFF',TN:'FFFFFF',DL:'000000',P:'000000',F:'FFFFFF',DM:'FFFFFF',LP:'FFFFFF',LM:'FFFFFF',LF:'FFFFFF',V:'FFFFFF',DLT:'000000',A5:'FFFFFF',R:'FFFFFF'};
+  const _hdrS={fill:{patternType:'solid',fgColor:{rgb:'1E3A5F'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center'}};
+  const _fixS=(even)=>({fill:{patternType:'solid',fgColor:{rgb:even?'EFF6FF':'FFFFFF'}},font:{sz:9},alignment:{vertical:'center'}});
+  const _totS={fill:{patternType:'solid',fgColor:{rgb:'DBEAFE'}},font:{bold:true,sz:9},alignment:{horizontal:'center',vertical:'center'}};
+  const _emptyS=(even)=>({fill:{patternType:'solid',fgColor:{rgb:even?'F8FAFC':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'}});
+  const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
   const dayNums=Array.from({length:days},(_,i)=>i+1);
   const headers=['N°','DNI','APELLIDOS Y NOMBRES','CARGO',...dayNums,'TD','TN','DL','F','P','DM','OTROS'];
   const dataRows=persF.map((p,idx)=>{
     const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
-    const dayCells=dayNums.map(d=>{
-      const fecha=`${y}-${pad(m)}-${pad(d)}`;
-      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));
-      return rec?rec.tipo:'';
-    });
+    const dayCells=dayNums.map(d=>{const fecha=`${y}-${pad(m)}-${pad(d)}`;const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));return rec?rec.tipo:'';});
     const ct=t=>DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo===t&&_mp(r)).length;
     const otros=['DM','LP','LM','LF','V','DLT','A5','R'].reduce((s,t)=>s+ct(t),0);
     return[idx+1,p.dni||'',`${p.ape}, ${p.nom}`,p.cargo||'',...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
@@ -354,9 +358,32 @@ function _doExportTareaje(){
   const ws=XLSX.utils.aoa_to_sheet(wsData);
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}}];
   ws['!cols']=[{wch:4},{wch:12},{wch:32},{wch:22},...Array(days).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
+  ws['!rows']=[{hpt:20},{hpt:4},...Array(dataRows.length+1).fill({hpt:14})];
+  // Estilo título (fila 0)
+  const tc=ws[addr(0,0)];
+  if(tc)tc.s={fill:{patternType:'solid',fgColor:{rgb:'1E3A5F'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:11},alignment:{horizontal:'center',vertical:'center'}};
+  // Estilo encabezados (fila 2)
+  headers.forEach((_,ci)=>{const c=ws[addr(2,ci)];if(c)c.s=_hdrS;});
+  // Filas de datos (desde fila 3)
+  dataRows.forEach((row,ri)=>{
+    const er=3+ri,even=ri%2===0;
+    // columnas fijas
+    for(let ci=0;ci<4;ci++){const c=ws[addr(er,ci)];if(c){c.s=_fixS(even);if(ci===2||ci===3)c.s.alignment={...c.s.alignment,horizontal:'left'};}}
+    // celdas de días
+    dayNums.forEach((_,di)=>{
+      const ci=4+di;
+      let c=ws[addr(er,ci)];
+      const tipo=c?c.v:'';
+      if(!c){ws[addr(er,ci)]=c={t:'s',v:''};}
+      if(tipo&&_BG[tipo]){c.s={fill:{patternType:'solid',fgColor:{rgb:_BG[tipo]}},font:{bold:true,color:{rgb:_FG[tipo]},sz:8},alignment:{horizontal:'center',vertical:'center'}};}
+      else{c.s=_emptyS(even);}
+    });
+    // columnas de totales
+    for(let ci=4+days;ci<4+days+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
+  });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${mesNombre} ${y}`.substring(0,31));
   XLSX.writeFile(wb,`Tareaje_${monthStr}_${proyFiltro||'TODOS'}.xlsx`);
-  toast('✓ Excel descargado correctamente');
+  toast('✓ Excel con colores descargado');
 }
 
