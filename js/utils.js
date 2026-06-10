@@ -37,7 +37,7 @@ function refreshSelects(){
   const eqList=DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
   const eqListOpt='<option value="">— Ninguno —</option>'+eqList;
   const mecList=DB.personal.filter(p=>p.cat==='Mecánico'||p.cargo.toLowerCase().includes('mecán')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
-  const persItemList=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  const persItemList=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}${p.dni?' – '+p.dni:''}</option>`).join('');
   const eqNomList=DB.equipos.map(e=>`<option>${e.codigo} – ${e.nombre}</option>`).join('');
   const allPersEq=persItemList+'<optgroup label="──Equipos──">'+eqNomList+'</optgroup>';
   // stock items for salida
