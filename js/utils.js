@@ -34,7 +34,7 @@ function flt(inp,tid){
 // ══ SELECTS REFRESH ══
 function refreshSelects(){
   const trabList=DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
-  const eqList=DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
+  const eqList=DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}${e.placa?' ['+e.placa+']':''}</option>`).join('');
   const eqListOpt='<option value="">— Ninguno —</option>'+eqList;
   const mecList=DB.personal.filter(p=>p.cat==='Mecánico'||p.cargo.toLowerCase().includes('mecán')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
   const persItemList=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}${p.dni?' – '+p.dni:''}</option>`).join('');
