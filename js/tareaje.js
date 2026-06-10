@@ -314,4 +314,49 @@ function fltTareaje(){
     r.style.display=!v||txt.toLowerCase().includes(v)?'':'none';
   });
 }
+function exportTareaje(){
+  const ov=document.getElementById('tareExportOverlay');
+  if(ov){ov.style.display='flex';document.getElementById('tareExportPwd').value='';setTimeout(()=>document.getElementById('tareExportPwd').focus(),50);}
+}
+function _doExportTareaje(){
+  const pwd=document.getElementById('tareExportPwd').value;
+  if(pwd!=='adr32026'){toast('Clave incorrecta',true);return;}
+  document.getElementById('tareExportOverlay').style.display='none';
+  const pad=n=>String(n).padStart(2,'0');
+  const mv=document.getElementById('tareMes')?.value||new Date().toISOString().slice(0,7);
+  const [y,m]=mv.split('-').map(Number);
+  const days=new Date(y,m,0).getDate();
+  const monthStr=`${y}-${pad(m)}`;
+  const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
+  const proyEl=document.getElementById('tareProy');
+  const proyFiltro=proyEl?proyEl.value:'';
+  const proyNombre=proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'Todos los proyectos';
+  let persF;
+  if(proyFiltro){
+    const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
+  }else{persF=DB.personal;}
+  const dayNums=Array.from({length:days},(_,i)=>i+1);
+  const headers=['N°','DNI','APELLIDOS Y NOMBRES','CARGO',...dayNums,'TD','TN','DL','F','P','DM','OTROS'];
+  const dataRows=persF.map((p,idx)=>{
+    const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
+    const dayCells=dayNums.map(d=>{
+      const fecha=`${y}-${pad(m)}-${pad(d)}`;
+      const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));
+      return rec?rec.tipo:'';
+    });
+    const ct=t=>DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo===t&&_mp(r)).length;
+    const otros=['DM','LP','LM','LF','V','DLT','A5','R'].reduce((s,t)=>s+ct(t),0);
+    return[idx+1,p.dni||'',`${p.ape}, ${p.nom}`,p.cargo||'',...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
+  });
+  const titulo=[`TAREAJE DE PERSONAL – ${mesNombre} ${y}  |  Proyecto: ${proyNombre}  |  Generado: ${new Date().toLocaleString('es-PE')}`];
+  const wsData=[titulo,[],headers,...dataRows];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}}];
+  ws['!cols']=[{wch:4},{wch:12},{wch:32},{wch:22},...Array(days).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${mesNombre} ${y}`.substring(0,31));
+  XLSX.writeFile(wb,`Tareaje_${monthStr}_${proyFiltro||'TODOS'}.xlsx`);
+  toast('✓ Excel descargado correctamente');
+}
 

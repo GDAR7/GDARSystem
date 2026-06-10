@@ -647,6 +647,7 @@
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
+        <button class="btn btn-out btn-sm" onclick="exportTareaje()" style="color:#10b981;border-color:#10b98160;font-size:.78rem">📥 Excel</button>
       </div>
     </div>
     <div class="card-body" style="overflow-x:auto;padding:0">
@@ -654,6 +655,18 @@
     </div>
   </div>
   <div id="tarePicker" style="display:none;position:fixed;z-index:9999"></div>
+  <!-- OVERLAY CLAVE EXPORT EXCEL -->
+  <div id="tareExportOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);align-items:center;justify-content:center">
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.5rem 2rem;min-width:300px;box-shadow:0 16px 48px rgba(0,0,0,.7);text-align:center">
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:.3rem;color:var(--text)">🔒 Exportar Excel</div>
+      <div style="font-size:.78rem;color:var(--muted2);margin-bottom:1rem">Ingresa la clave de descarga</div>
+      <input id="tareExportPwd" type="password" placeholder="Clave..." onkeydown="if(event.key==='Enter')_doExportTareaje()" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.5rem .8rem;color:var(--text);font-size:.9rem;margin-bottom:.9rem;outline:none;text-align:center;letter-spacing:.15em">
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button class="btn btn-out btn-sm" onclick="document.getElementById('tareExportOverlay').style.display='none'" style="min-width:80px">Cancelar</button>
+        <button class="btn btn-sm" onclick="_doExportTareaje()" style="min-width:80px;background:#10b981;color:#fff;border:none">⬇ Descargar</button>
+      </div>
+    </div>
+  </div>
   <!-- BARRA MULTI-SELECCIÓN -->
   <div id="tarMultBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:9998;background:var(--panel);border:1px solid var(--mec);border-radius:10px;padding:.6rem 1rem;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
     <span id="tarMultCnt" style="font-size:.78rem;font-weight:700;color:var(--mec);white-space:nowrap">0 celdas</span>
