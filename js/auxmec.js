@@ -564,7 +564,11 @@ async function gReporte(){
   toast('✓ Parte #'+parteId+' '+(_wasEdit?'actualizado':'guardado'));
 }
 function rLinea(tipo){
-  const eqs=DB.equipos.filter(e=>e.tipo===tipo);
+  const _isLum=e=>(e.sub||'').toLowerCase().includes('luminaria');
+  let eqs;
+  if(tipo==='Vehículo Menor')       eqs=DB.equipos.filter(e=>e.tipo===tipo&&!_isLum(e));
+  else if(tipo==='Equipos Menores') eqs=DB.equipos.filter(e=>e.tipo===tipo||(e.tipo==='Vehículo Menor'&&_isLum(e)));
+  else                              eqs=DB.equipos.filter(e=>e.tipo===tipo);
   const partes=DB.partes.filter(p=>eqs.some(e=>e.id===p.eqId));
   // map to right tbodies
   const tbMap={'Línea Amarilla':'tbLA','Línea Blanca':'tbLB','Vehículo Menor':'tbVM','Equipos Menores':'tbEC'};
