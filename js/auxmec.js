@@ -596,6 +596,8 @@ function rLinea(tipo){
         <td class="mono text-acc">${+p.nViajes||0}</td>
         <td class="mono">${m3>0?m3+'m³':'—'}</td>
         <td class="mono">${+p.kmRec>0?parseFloat((+p.kmRec).toFixed(1))+'km':'—'}</td>
+        <td class="mono" style="color:#10b981;font-weight:600">${+p.ef>0?parseFloat((+p.ef).toFixed(2))+'h':'—'}</td>
+        <td class="mono">${+p.im>0?parseFloat((+p.im).toFixed(2))+'h':'—'}</td>
         <td class="mono" style="display:none">${p.comb} gal</td>
         <td>${p.act||'—'}</td>
       </tr>`;
