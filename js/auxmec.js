@@ -562,7 +562,7 @@ function rLinea(tipo){
     // KPIs LB
     const _totViajes=partesLB.reduce((s,p)=>s+(+p.nViajes||0),0);
     const _totKm=partesLB.reduce((s,p)=>s+(+p.kmRec||0),0);
-    const _totM3=partesLB.reduce((s,p)=>s+((p.viajes||[]).reduce((a,v)=>a+(+v.cant||0),0)),0);
+    const _totM3=partesLB.reduce((s,p)=>s+(+p.nViajes||0)*12.5,0);
     const _byEq={};
     partesLB.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.codigo:'Otros';if(!_byEq[k])_byEq[k]=0;_byEq[k]+=(+p.nViajes||0);});
     const kpiLB=document.getElementById('lbKpis');
@@ -588,13 +588,13 @@ function rLinea(tipo){
     const tbP=document.getElementById('tbPartesLB');
     if(tbP)tbP.innerHTML=partesLB.map(p=>{
       const eq=DB.equipos.find(x=>x.id===p.eqId);
-      const m3=(p.viajes||[]).reduce((a,v)=>a+(+v.cant||0),0);
+      const m3=(+p.nViajes||0)*12.5;
       return`<tr>
         <td class="mono">${p.fecha}</td>
         <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo}`:''}</td>
         <td>${p.op}</td>
         <td class="mono text-acc">${+p.nViajes||0}</td>
-        <td class="mono">${parseFloat(m3.toFixed(1))>0?parseFloat(m3.toFixed(1))+'m³':'—'}</td>
+        <td class="mono">${m3>0?m3+'m³':'—'}</td>
         <td class="mono">${+p.kmRec>0?parseFloat((+p.kmRec).toFixed(1))+'km':'—'}</td>
         <td class="mono" style="display:none">${p.comb} gal</td>
         <td>${p.act||'—'}</td>
