@@ -696,22 +696,14 @@
 <!-- C.EQUIPOS – LÍNEA AMARILLA -->
 <div class="page" id="page-lineaAmarilla">
   <div class="ph"><div class="ph-title" style="color:var(--ceq)">Línea Amarilla</div><div class="ph-sub">Excavadoras, motoniveladoras, tractores, rodillos, cargadores</div></div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Equipos Línea Amarilla</span>
-      <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbLA')"></div>
-        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbLA',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Amarilla')">＋ Reporte Diario</button>
-      </div>
-    </div>
-    <div id="cbLA" class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Subtipo</th><th>Estado</th><th>Horometro</th><th>Último Mant.</th><th>Prox. Mant.</th></tr></thead>
-      <tbody id="tbLA"></tbody>
-    </table></div></div>
-  </div>
+  <!-- tbLA oculto: mantiene compatibilidad con rLinea() pero no se muestra -->
+  <tbody id="tbLA" style="display:none"></tbody>
   <div class="card">
     <div class="card-head"><span class="card-title">Partes Diarios – Línea Amarilla</span>
-      <div class="card-head-right"><div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPartesLA')"></div></div>
+      <div class="card-head-right">
+        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPartesLA')"></div>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Amarilla')">＋ Reporte Diario</button>
+      </div>
     </div>
     <div style="padding:.5rem 1rem;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid var(--border)">
       <select id="laFiltTipo" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;min-width:170px">
@@ -739,22 +731,14 @@
 <!-- C.EQUIPOS – LÍNEA BLANCA -->
 <div class="page" id="page-lineaBlanca">
   <div class="ph"><div class="ph-title" style="color:var(--ceq)">Línea Blanca (Volquetes)</div><div class="ph-sub">Volquetes y camiones de carga</div></div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Volquetes y Camiones</span>
-      <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbLB')"></div>
-        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbLB',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Blanca')">＋ Reporte Diario</button>
-      </div>
-    </div>
-    <div id="cbLB" class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Placa</th><th>Cap. m³</th><th>Estado</th><th>Kilometraje</th><th>Prox. Mant.</th></tr></thead>
-      <tbody id="tbLB"></tbody>
-    </table></div></div>
-  </div>
+  <!-- tbLB oculto: mantiene compatibilidad con rLinea() pero no se muestra -->
+  <tbody id="tbLB" style="display:none"></tbody>
   <div class="card">
     <div class="card-head"><span class="card-title">Partes Diarios – Volquetes</span>
-      <div class="card-head-right"><div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPartesLB')"></div></div>
+      <div class="card-head-right">
+        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPartesLB')"></div>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Blanca')">＋ Reporte Diario</button>
+      </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
       <thead><tr><th>Fecha</th><th>Equipo</th><th>Conductor</th><th>Viajes</th><th>m³ Transp.</th><th>Km Recorrido</th><th>Comb. gal</th><th>Ruta</th></tr></thead>
@@ -804,6 +788,30 @@
     <div id="cbEC" class="card-body"><div class="tbl-wrap"><table>
       <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Marca</th><th>Capacidad</th><th>Estado</th><th>Horometro</th></tr></thead>
       <tbody id="tbEC"></tbody>
+    </table></div></div>
+  </div>
+</div>
+
+<!-- C.EQUIPOS – FLOTA DE EQUIPOS -->
+<div class="page" id="page-flotaEquipos">
+  <div class="ph"><div class="ph-title" style="color:var(--ceq)">Flota de Equipos</div><div class="ph-sub">Inventario, estado y programación de mantenimiento</div></div>
+  <div class="kpi-row" id="flotaKpis"></div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Equipos en Obra</span>
+      <div class="card-head-right">
+        <select id="flotaFiltTipo" onchange="rFlotaEquipos()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem">
+          <option value="">— Todas las líneas —</option>
+          <option>Línea Amarilla</option>
+          <option>Línea Blanca</option>
+          <option>Vehículo Menor</option>
+          <option>Equipos Menores</option>
+        </select>
+        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbFlota')"></div>
+      </div>
+    </div>
+    <div class="card-body"><div class="tbl-wrap"><table>
+      <thead><tr><th>Código</th><th>Equipo</th><th>Línea / Subtipo</th><th>Placa</th><th>Estado</th><th>Horómetro / Km</th><th>Último Mant.</th><th>Próx. Mant.</th><th>Días</th></tr></thead>
+      <tbody id="tbFlota"></tbody>
     </table></div></div>
   </div>
 </div>
