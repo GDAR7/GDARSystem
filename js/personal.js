@@ -182,6 +182,12 @@ async function rAsistencia(){
     const entrada=reg?.horaEntrada||'';
     const salida=reg?.horaSalida||'';
     const horas=entrada&&salida?calcHoras(entrada,salida):'';
+    const tareoRec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+    const tareoTipo=tareoRec?tareoRec.tipo:'';
+    const _tt=tareoTipo&&_TARE_T?_TARE_T[tareoTipo]:null;
+    const tareoBadge=_tt
+      ?`<span class="badge" style="background:${_tt.bg};color:${_tt.tx};font-size:.65rem">${tareoTipo}</span>`
+      :'<span style="color:var(--muted)">—</span>';
     const estadoBadge=!entrada
       ?'<span class="badge" style="background:rgba(239,68,68,.18);color:#ef4444;border:1px solid #ef444435">AUSENTE</span>'
       :!salida
@@ -196,6 +202,7 @@ async function rAsistencia(){
       <td class="mono" style="color:#10b981;font-weight:600">${entrada||'<span style="color:var(--muted)">—</span>'}</td>
       <td class="mono" style="color:#f59e0b;font-weight:600">${salida||'<span style="color:var(--muted)">—</span>'}</td>
       <td class="mono">${horas||'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${tareoBadge}</td>
       <td>${estadoBadge}</td>
       <td><button class="btn btn-sm" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#60a5fa" onclick="registrarManualAsistencia(${p.id},'${fecha}')" title="Editar manualmente">✏️</button></td>
     </tr>`;
@@ -302,7 +309,8 @@ async function procesarQR(texto){
   const _h=new Date().getHours();
   const _autoTipo=(_h>=5&&_h<17)?'TD':'TN';
   _scanWorker=p;_scanTipoSel=_autoTipo;
-  const fecha=today();
+  const fecha=document.getElementById('asiDate')?.value||today();
+  await loadAsistenciaFecha(fecha);
   const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
   const proy=p.proy?(DB.proyectos.find(x=>x.codigo===p.proy)||null):null;
   document.getElementById('swNombre').textContent=`${p.ape}, ${p.nom}`;
@@ -313,17 +321,20 @@ async function procesarQR(texto){
     const v=_TARE_T[k];
     return`<button id="swT-${k}" onclick="_swSelTipo('${k}')" style="background:${k===_autoTipo?v.bg:'var(--panel2)'};color:${k===_autoTipo?v.tx:'var(--text)'};border:2px solid ${v.bg};border-radius:5px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer">${k} – ${v.l}</button>`;
   }).join('');
+  const asiRec=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
   const est=document.getElementById('swEstado');
   const btn=document.getElementById('swBtnGuardar');
   btn.disabled=false;
   if(existente){
+    const asiInfo=asiRec?.horaEntrada?` | Entrada ya registrada ${asiRec.horaEntrada}`:'';
     est.style.cssText='background:rgba(245,158,11,.15);color:#f59e0b;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
-    est.innerHTML=`⚠ Ya tiene <strong>${existente.tipo}</strong> registrado hoy`;
-    btn.textContent='🔄 Actualizar Tareaje';
+    est.innerHTML=`⚠ Tareo: <strong>${existente.tipo}</strong> ya registrado${asiInfo}`;
+    btn.textContent='🔄 Actualizar Tareo';
   }else{
+    const asiInfo=asiRec?.horaEntrada?` | Entrada ${asiRec.horaEntrada}`:'';
     est.style.cssText='background:rgba(16,185,129,.12);color:#10b981;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
-    est.innerHTML=`✅ Sin registro hoy — ${fecha}`;
-    btn.textContent='💾 Guardar en Tareaje';
+    est.innerHTML=`✅ Sin tareo — ${fecha}${asiInfo}`;
+    btn.textContent='💾 Guardar Tareo + Asistencia';
   }
   setScannerStatus(`${p.ape}, ${p.nom} identificado ✓`,'ok');
   document.getElementById('scanWorkerPanel').style.display='block';
@@ -339,19 +350,32 @@ function _swSelTipo(k){
 }
 async function guardarTareoEscaner(){
   if(!_scanWorker||!_scanTipoSel)return;
-  const p=_scanWorker,tipo=_scanTipoSel,fecha=today();
+  const p=_scanWorker,tipo=_scanTipoSel;
+  const fecha=document.getElementById('asiDate')?.value||today();
+  // 1. Guardar / actualizar en tariaje
   const existing=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
   if(existing){existing.tipo=tipo;syncSheet('saveTareaje',existing);}
   else{
     const rec={id:nid('tar'),personalId:p.id,fecha,tipo,proy:p.proy||''};
     DB.tareaje.push(rec);syncSheet('saveTareaje',rec);
   }
+  // 2. Guardar entrada en asistencia (solo si no tiene registro aún)
+  const ahora=new Date().toTimeString().slice(0,5);
+  const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
+  let asiMsg='';
+  if(!asiExist){
+    const newRec={personalId:p.id,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente'};
+    const{data}=await supa.from('asistencia').insert(toSnake(newRec)).select().single();
+    if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
+    asiMsg=` | Entrada ${ahora}`;
+  }
   const btn=document.getElementById('swBtnGuardar');
   btn.disabled=true;btn.textContent='✓ Guardado';
   const est=document.getElementById('swEstado');
   est.style.cssText='background:rgba(16,185,129,.18);color:#10b981;border-radius:6px;padding:.35rem .65rem;font-size:.72rem;font-weight:700';
-  est.innerHTML=`✅ ${tipo} guardado para ${fecha}`;
+  est.innerHTML=`✅ ${tipo} guardado${asiMsg}`;
   if(AP==='tareaje')rTareaje();
+  if(AP==='asistencia')rAsistencia();
 }
 function reiniciarEscaner(){
   _detenerCamara();

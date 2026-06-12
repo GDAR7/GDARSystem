@@ -169,19 +169,23 @@ const nav = document.getElementById('sideNav');
     <span style="font-size:.9rem">📊</span> Panel General
   </div>`;
 
-  // CU.modules (opcional): lista blanca de módulos visibles
-  // CU.excludeModules (opcional): lista negra de módulos ocultos
+  // CU.modules (opcional): lista blanca global de módulos visibles
+  // CU.excludeModules (opcional): lista negra global de módulos ocultos
+  // CU.areaModules (opcional): {areaKey:[modKey,...]} lista blanca por área específica
   const allowedMods = CU.modules || null;
   const excludedMods = CU.excludeModules ? new Set(CU.excludeModules) : null;
 
   CU.areas.forEach(ak => {
     const a = AREAS[ak];
     let modsHtml = '';
+    // lista blanca específica de esta área (tiene prioridad sobre allowedMods global)
+    const areaMods = CU.areaModules && CU.areaModules[ak] ? CU.areaModules[ak] : null;
+    const effectiveMods = areaMods || allowedMods;
 
     a.modules.forEach(m => {
       if(m.isSubgroup){
         const visibleChildren = m.children.filter(c =>
-          (!allowedMods || allowedMods.includes(c.key)) &&
+          (!effectiveMods || effectiveMods.includes(c.key)) &&
           (!excludedMods || !excludedMods.has(c.key))
         );
         if(visibleChildren.length === 0) return;
@@ -200,7 +204,7 @@ const nav = document.getElementById('sideNav');
             <div class="nav-submods">${children}</div>
           </div>`;
       } else {
-        if(allowedMods && !allowedMods.includes(m.key)) return;
+        if(effectiveMods && !effectiveMods.includes(m.key)) return;
         if(excludedMods && excludedMods.has(m.key)) return;
         modsHtml += `
           <div class="nav-mod" id="nm-${m.key}" style="--nc:${a.color}" onclick="setPage('${m.key}')">
