@@ -285,7 +285,7 @@ function filtrarEquipos(){
   parteState.tipo = sub;
   const sel = document.getElementById('rpCodigo');
   const linea = currentReporteTipo;
-  const eq = DB.equipos.filter(e=>e.tipo===linea&&(!sub||e.sub===sub));
+  const eq = DB.equipos.filter(e=>e.tipo===linea&&(!sub||e.sub===sub)&&!(linea==='Vehículo Menor'&&(e.sub||'').toLowerCase().includes('luminaria')));
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
   const tabV = document.getElementById('tab2');
@@ -373,8 +373,9 @@ function openReporte(tipo){
   parteState.tipo = tipo;
   viajeCount = 0;
   document.getElementById('viajesContainer').innerHTML = '';
-  // Equipos de esta línea
-  const eqsLinea = DB.equipos.filter(e=>e.tipo===tipo);
+  // Equipos de esta línea (excluye luminarias de Vehículo Menor)
+  const _isLumRP=e=>(e.sub||'').toLowerCase().includes('luminaria');
+  const eqsLinea = DB.equipos.filter(e=>e.tipo===tipo&&!(tipo==='Vehículo Menor'&&_isLumRP(e)));
   // Poblar rpTipo con subtipos únicos de esta línea (e.sub)
   const tipoSel = document.getElementById('rpTipo');
   const subs = [...new Set(eqsLinea.map(e=>e.sub).filter(Boolean))].sort();
