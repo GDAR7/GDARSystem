@@ -474,8 +474,42 @@ function rLinea(tipo){
   if(!tb)return;
   if(tipo==='Línea Amarilla'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td><td class="mono">${e.ultMant||'—'}</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
+    // Filtros
+    const _fTipo=document.getElementById('laFiltTipo');
+    const _fDesde=document.getElementById('laFiltDesde');
+    const _fHasta=document.getElementById('laFiltHasta');
+    // Poblar combobox de tipos
+    if(_fTipo){
+      const curT=_fTipo.value;
+      const subs=[...new Set(eqs.map(e=>e.sub).filter(Boolean))].sort();
+      _fTipo.innerHTML='<option value="">— Todos los tipos —</option>'+subs.map(s=>`<option${s===curT?' selected':''}>${s}</option>`).join('');
+    }
+    const fTipo=_fTipo?_fTipo.value:'';
+    const fDesde=_fDesde?_fDesde.value:'';
+    const fHasta=_fHasta?_fHasta.value:'';
+    // Aplicar filtros
+    let partesF=partes;
+    if(fTipo)partesF=partesF.filter(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);return eq&&eq.sub===fTipo;});
+    if(fDesde)partesF=partesF.filter(p=>p.fecha>=fDesde);
+    if(fHasta)partesF=partesF.filter(p=>p.fecha<=fHasta);
+    // KPIs
+    const _totEf=partesF.reduce((s,p)=>s+(+p.ef||0),0);
+    const _totIm=partesF.reduce((s,p)=>s+(+p.im||0),0);
+    const _byTipo={};
+    partesF.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.nombre.split(' ')[0]:'Otros';if(!_byTipo[k])_byTipo[k]=0;_byTipo[k]+=(+p.ef||0);});
+    const kpiEl=document.getElementById('laKpis');
+    if(kpiEl)kpiEl.innerHTML=[
+      {l:'Total Registros',v:partesF.length,c:'var(--ceq)',ic:'📋'},
+      {l:'Hs Efectivas',v:parseFloat(_totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
+      {l:'Hs Inoperativas',v:parseFloat(_totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
+      ...Object.entries(_byTipo).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>({l:k,v:parseFloat(v.toFixed(2))+'h',c:'#f59e0b',ic:'🏗️'}))
+    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-left:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
+      <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
+      <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
+    </div>`).join('');
+    // Tabla
     const tbP=document.getElementById('tbPartesLA');
-    if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ')[1]:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
+    if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');
   }else if(tipo==='Línea Blanca'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     const tbP=document.getElementById('tbPartesLB');
