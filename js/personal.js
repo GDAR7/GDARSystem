@@ -63,7 +63,7 @@ function rPersonal(){
     <td class="mono">${p.ing}</td>
     <td>${bge(p.est)}</td>
     <td style="max-width:160px;font-size:.75rem;color:var(--muted2)">${p.notas||'<span style="color:var(--muted)">—</span>'}</td>
-    <td style="display:flex;gap:.3rem"><button class="btn btn-sm" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;color:#f59e0b" onclick="openPersonalEdit(${p.id})">✏️</button><button class="btn btn-del btn-sm" onclick="del('personal',${p.id})">🗑</button></td>
+    <td style="display:flex;gap:.3rem"><button class="btn btn-sm" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;color:#f59e0b" onclick="openPersonalEdit(${p.id})">✏️</button></td>
   </tr>`;}).join('');
 }
 function _poblarProyPersonal(sel){
