@@ -781,22 +781,13 @@
 <!-- C.EQUIPOS – VEHÍCULOS MENORES -->
 <div class="page" id="page-vehiculosMenores">
   <div class="ph"><div class="ph-title" style="color:var(--ceq)">Vehículos Menores</div><div class="ph-sub">Camionetas, buses, ambulancias y vehículos livianos</div></div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Vehículos Livianos</span>
-      <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbVM')"></div>
-        <button class="btn btn-out btn-sm" onclick="toggleCardBody('cbVM',this)" style="font-size:.72rem;min-width:80px">▲ Contraer</button>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Vehículo Menor')">＋ Reporte Diario</button>
-      </div>
-    </div>
-    <div id="cbVM" class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Vehículo</th><th>Placa</th><th>Tipo</th><th>Estado</th><th>Kilometraje</th><th>SOAT Vence</th></tr></thead>
-      <tbody id="tbVM"></tbody>
-    </table></div></div>
-  </div>
+  <table style="display:none"><tbody id="tbVM"></tbody></table>
   <div class="card">
     <div class="card-head"><span class="card-title">Control de Salidas</span>
-      <div class="card-head-right"><div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbSalidasVM')"></div></div>
+      <div class="card-head-right">
+        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbSalidasVM')"></div>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Vehículo Menor')">＋ Reporte Diario</button>
+      </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
       <thead><tr><th>Fecha</th><th>Vehículo</th><th>Conductor</th><th>Destino</th><th>Km Salida</th><th>Km Llegada</th><th>Km Total</th><th>Comb. gal</th></tr></thead>
