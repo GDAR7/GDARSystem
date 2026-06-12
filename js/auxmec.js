@@ -247,6 +247,7 @@ function gAct(){const nom=document.getElementById('acNom').value.trim();if(!nom)
 // ══ CONTROL EQUIPOS POR LÍNEA ══
 const lineaMap={'Línea Amarilla':'lineaAmarilla','Línea Blanca':'lineaBlanca','Vehículo Menor':'vehiculosMenores','Equipos Menores':'equiposMenores'};
 let currentReporteTipo='Línea Amarilla';
+let _editingParteId=null;
 
 // ── ESTADO FORMULARIO PARTE ──
 let parteState = { turno:'DIA', guardia:'A', viajeCount:0, tipo:'' };
@@ -367,6 +368,7 @@ function addViaje(){
 
 function openReporte(tipo){
   currentReporteTipo = tipo;
+  _editingParteId = null;
   document.getElementById('mRepTtl').textContent = '📋 Parte Diario – '+tipo;
   parteState.tipo = tipo;
   viajeCount = 0;
@@ -403,6 +405,59 @@ function openReporte(tipo){
   switchTab(1);
   openM('mReporte');
 }
+function editParte(id){
+  const p=DB.partes.find(x=>x.id===id);
+  if(!p){toast('Parte no encontrado',true);return;}
+  const eq=DB.equipos.find(x=>x.id===p.eqId);
+  if(!eq){toast('Equipo no encontrado',true);return;}
+  openReporte(eq.tipo);
+  _editingParteId=id;
+  document.getElementById('mRepTtl').textContent='📋 Editar Parte – '+eq.tipo;
+  // Tipo/subtipo y equipo
+  const rpTipo=document.getElementById('rpTipo');
+  if(rpTipo){rpTipo.value=eq.sub||'';filtrarEquipos();}
+  const rpCodigo=document.getElementById('rpCodigo');
+  if(rpCodigo){rpCodigo.value=eq.id;autoFillEquipo();}
+  // Campos básicos
+  document.getElementById('rpFecha').value=p.fecha;
+  document.getElementById('rpOperador').value=p.op||'';
+  setToggle('turno',p.turno||'DIA');
+  setToggle('guardia',p.guardia||'A');
+  const rpCond=document.getElementById('rpCondicion');
+  if(rpCond)rpCond.value=p.condicion||'OPERATIVO';
+  document.getElementById('rpHrIni').value=p.hrIni||0;
+  document.getElementById('rpHrFin').value=p.hrFin||0;
+  calcHoras();
+  const rpKmIni=document.getElementById('rpKmIni');
+  const rpKmFin=document.getElementById('rpKmFin');
+  if(rpKmIni)rpKmIni.value=p.kmIni||0;
+  if(rpKmFin){rpKmFin.value=p.kmFin||0;calcKm();}
+  document.getElementById('rpDescuentos').value=p.descuentos||0;
+  document.getElementById('rpHrsInop').value=p.im||0;
+  const rpArea=document.getElementById('rpArea');
+  if(rpArea)rpArea.value=p.areaT||'';
+  const rpFrente=document.getElementById('rpFrente');
+  if(rpFrente)rpFrente.value=p.frenteT||'';
+  document.getElementById('rpDescripcion').value=p.act||'';
+  document.getElementById('rpObservaciones').value=p.observaciones||'';
+  const rpConc=document.getElementById('rpConclusion');
+  if(rpConc)rpConc.value=p.conclusion||'';
+  const rpNV=document.getElementById('rpNViajes');
+  if(rpNV)rpNV.value=p.nViajes||0;
+  const rpTT=document.getElementById('rpTiempoTrans');
+  if(rpTT)rpTT.value=p.tiempoTrans||'';
+  // Viajes
+  if(p.viajes&&p.viajes.length){
+    p.viajes.forEach(v=>{
+      addViaje();
+      document.getElementById('vOrigen'+viajeCount).value=v.origen||'';
+      document.getElementById('vDestino'+viajeCount).value=v.destino||'';
+      document.getElementById('vCant'+viajeCount).value=v.cant||0;
+      document.getElementById('vMat'+viajeCount).value=v.material||'';
+    });
+  }
+}
+
 //REPORTE DE TRABAJO
 async function gReporte(){
   const eqId  = +document.getElementById('rpCodigo').value;
@@ -477,17 +532,27 @@ async function gReporte(){
     viajes:       viajes.length?viajes:null,
     created_at:   new Date().toISOString()
   };
-  console.log('[Partes] Enviando a Supabase:', parteDB);
-  const {data: parteRet, error: parteErr} = await supa.from('partes').insert(parteDB).select('id').single();
-  console.log('[Partes] Respuesta:', parteRet, parteErr);
-  if(parteErr){ alert('Error Supabase:\n'+parteErr.message+'\n\nCódigo: '+parteErr.code); toast('Error: '+parteErr.message, true); return; }
-  const result = {id: parteRet.id};
-
-  // Actualizar horómetro local
-  if(eq && parte.hrFin > eq.hr) eq.hr = parte.hrFin;
-
-  // Guardar también en memoria local
-  DB.partes.push({...parte, id:result.id, ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)), im:parte.hrsInop, comb:0, act:parte.actividades, eqId});
+  let parteId;
+  const _wasEdit=!!_editingParteId;
+  if(_editingParteId){
+    // ACTUALIZAR parte existente
+    const {error:updErr}=await supa.from('partes').update(parteDB).eq('id',_editingParteId);
+    if(updErr){alert('Error Supabase:\n'+updErr.message);toast('Error: '+updErr.message,true);return;}
+    parteId=_editingParteId;
+    const idx=DB.partes.findIndex(x=>x.id===parteId);
+    if(idx>=0)DB.partes[idx]={...DB.partes[idx],...parte,id:parteId,ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)),im:parte.hrsInop,comb:0,act:parte.actividades,eqId};
+    _editingParteId=null;
+  } else {
+    // INSERTAR parte nuevo
+    console.log('[Partes] Enviando a Supabase:', parteDB);
+    const {data:parteRet,error:parteErr}=await supa.from('partes').insert(parteDB).select('id').single();
+    console.log('[Partes] Respuesta:', parteRet, parteErr);
+    if(parteErr){alert('Error Supabase:\n'+parteErr.message+'\n\nCódigo: '+parteErr.code);toast('Error: '+parteErr.message,true);return;}
+    parteId=parteRet.id;
+    // Actualizar horómetro local
+    if(eq && parte.hrFin > eq.hr) eq.hr = parte.hrFin;
+    DB.partes.push({...parte,id:parteId,ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)),im:parte.hrsInop,comb:0,act:parte.actividades,eqId});
+  }
 
   closeM('mReporte');
   viajeCount = 0;
@@ -496,7 +561,7 @@ async function gReporte(){
   const pg = lineaMap[currentReporteTipo];
   if(pg) renderPage(pg); else renderPage(AP);
 
-  toast('✓ Parte #'+result.id+' guardado data');
+  toast('✓ Parte #'+parteId+' '+(_wasEdit?'actualizado':'guardado'));
 }
 function rLinea(tipo){
   const eqs=DB.equipos.filter(e=>e.tipo===tipo);
@@ -610,6 +675,7 @@ function rLinea(tipo){
         <td class="mono">${+p.im>0?parseFloat((+p.im).toFixed(2))+'h':'—'}</td>
         <td class="mono" style="display:none">${p.comb} gal</td>
         <td>${p.act||'—'}</td>
+        <td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td>
       </tr>`;
     }).join('');
   }else if(tipo==='Vehículo Menor'){
