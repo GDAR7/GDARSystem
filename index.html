@@ -100,15 +100,15 @@
   <div class="ph"><div class="ph-title" style="color:var(--adm)">Asistencia del día</div><div class="ph-sub">Control diario de asistencia del personal con QR</div></div>
   <div class="kpi-row" id="asiKpis"></div>
   <div class="card">
-    <div class="card-head">
+    <div class="card-head" style="flex-wrap:nowrap">
       <span class="card-title">Registro del Día</span>
-      <div class="card-head-right">
+      <div class="card-head-right" style="flex-wrap:nowrap">
         <input type="date" id="asiDate" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;color-scheme:dark" onchange="rAsistencia()">
-        <select id="asiGuardia" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;" onchange="rAsistencia()">
+        <select id="asiGuardia" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;max-width:140px" onchange="rAsistencia()">
           <option value="">Todas las Guardias</option>
           <option>A</option><option>B</option><option>C</option>
         </select>
-        <select id="asiTareo" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;" onchange="rAsistencia()">
+        <select id="asiTareo" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;max-width:140px" onchange="rAsistencia()">
           <option value="">Todos los Tareos</option>
           <option value="__sin__">Sin Tareo</option>
           <option value="TD">TD – Trabajo Día</option>
