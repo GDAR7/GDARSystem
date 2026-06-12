@@ -738,8 +738,24 @@
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Línea Blanca')">＋ Reporte Diario</button>
       </div>
     </div>
+    <div style="padding:.5rem 1rem;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid var(--border)">
+      <select id="lbFiltEq" onchange="rLinea('Línea Blanca')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;min-width:170px">
+        <option value="">— Todos los equipos —</option>
+      </select>
+      <span style="font-size:.75rem;color:var(--muted2)">Desde</span>
+      <input type="date" id="lbFiltDesde" onchange="rLinea('Línea Blanca')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark">
+      <span style="font-size:.75rem;color:var(--muted2)">Hasta</span>
+      <input type="date" id="lbFiltHasta" onchange="rLinea('Línea Blanca')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark">
+      <button onclick="document.getElementById('lbFiltEq').value='';document.getElementById('lbFiltDesde').value='';document.getElementById('lbFiltHasta').value='';rLinea('Línea Blanca')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.28rem .7rem;color:var(--muted2);font-size:.78rem;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+    </div>
+    <div id="lbKpis" style="display:flex;gap:.7rem;flex-wrap:wrap;padding:.7rem 1rem .4rem"></div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Equipo</th><th>Conductor</th><th>Viajes</th><th>m³ Transp.</th><th>Km Recorrido</th><th style="display:none">Comb. gal</th><th>Ruta</th></tr></thead>
+      <thead><tr>
+        <th id="thLBFecha" onclick="_lbSortBy('fecha')" style="cursor:pointer;user-select:none;white-space:nowrap">Fecha <span id="thLBFechaIco" style="opacity:.7">▼</span></th>
+        <th>Equipo</th><th>Conductor</th>
+        <th id="thLBViajes" onclick="_lbSortBy('viajes')" style="cursor:pointer;user-select:none;white-space:nowrap">Viajes <span id="thLBViajesIco" style="opacity:.5">⇅</span></th>
+        <th>m³ Transp.</th><th>Km Recorrido</th><th style="display:none">Comb. gal</th><th>Actividad</th>
+      </tr></thead>
       <tbody id="tbPartesLB"></tbody>
     </table></div></div>
   </div>

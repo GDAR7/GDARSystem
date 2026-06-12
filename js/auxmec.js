@@ -256,6 +256,12 @@ function _laSortBy(col){
   _laSort.col = col;
   rLinea('Línea Amarilla');
 }
+let _lbSort = {col:'fecha', dir:'desc'};
+function _lbSortBy(col){
+  _lbSort.dir = _lbSort.col===col ? (_lbSort.dir==='asc'?'desc':'asc') : 'desc';
+  _lbSort.col = col;
+  rLinea('Línea Blanca');
+}
 
 function switchTab(n){
   document.getElementById('tabContent1').style.display = n===1?'block':'none';
@@ -327,13 +333,16 @@ function addViaje(){
   const div = document.createElement('div');
   div.className = 'viaje-block';
   div.id = 'viaje-'+viajeCount;
+  const _ftOpts=DB.frentesTrabajo.map(f=>`<option value="${f.nombre}">`).join('');
   div.innerHTML = `<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
-    <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="fg"><label>Lugar de Traslado</label>
-        <input id="vLugar${viajeCount}" list="lugaresData" placeholder="Destino...">
-        <datalist id="lugaresData">
-          ${[...new Set(DB.partes.flatMap(p=>p.viajes||[]).map(v=>v.lugar).filter(Boolean))].map(l=>`<option value="${l}">`).join('')}
-        </datalist>
+    <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="fg"><label>Origen</label>
+        <input id="vOrigen${viajeCount}" list="frentesData${viajeCount}a" placeholder="Punto de origen...">
+        <datalist id="frentesData${viajeCount}a">${_ftOpts}</datalist>
+      </div>
+      <div class="fg"><label>Destino</label>
+        <input id="vDestino${viajeCount}" list="frentesData${viajeCount}b" placeholder="Punto de destino...">
+        <datalist id="frentesData${viajeCount}b">${_ftOpts}</datalist>
       </div>
       <div class="fg"><label>Cantidad</label><input id="vCant${viajeCount}" type="number" placeholder="0"></div>
       <div class="fg"><label>Material</label><input id="vMat${viajeCount}" placeholder="Tipo de material"></div>
@@ -396,7 +405,8 @@ async function gReporte(){
   const viajes=[];
   for(let i=1;i<=viajeCount;i++){
     viajes.push({
-      lugar:    document.getElementById('vLugar'+i)?.value||'',
+      origen:   document.getElementById('vOrigen'+i)?.value||'',
+      destino:  document.getElementById('vDestino'+i)?.value||'',
       cant:    +document.getElementById('vCant'+i)?.value||0,
       material: document.getElementById('vMat'+i)?.value||''
     });
@@ -534,8 +544,62 @@ function rLinea(tipo){
     if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');
   }else if(tipo==='Línea Blanca'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
+    // Filtros LB
+    const _fEq=document.getElementById('lbFiltEq');
+    const _fDesde=document.getElementById('lbFiltDesde');
+    const _fHasta=document.getElementById('lbFiltHasta');
+    if(_fEq){
+      const curE=_fEq.value;
+      _fEq.innerHTML='<option value="">— Todos los equipos —</option>'+eqs.map(e=>`<option value="${e.id}"${e.id==curE?' selected':''}>${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
+    }
+    const fEq=_fEq?+_fEq.value||0:0;
+    const fDesde=_fDesde?_fDesde.value:'';
+    const fHasta=_fHasta?_fHasta.value:'';
+    let partesLB=[...partes];
+    if(fEq)partesLB=partesLB.filter(p=>p.eqId===fEq);
+    if(fDesde)partesLB=partesLB.filter(p=>p.fecha>=fDesde);
+    if(fHasta)partesLB=partesLB.filter(p=>p.fecha<=fHasta);
+    // KPIs LB
+    const _totViajes=partesLB.reduce((s,p)=>s+(+p.nViajes||0),0);
+    const _totKm=partesLB.reduce((s,p)=>s+(+p.kmRec||0),0);
+    const _totM3=partesLB.reduce((s,p)=>s+((p.viajes||[]).reduce((a,v)=>a+(+v.cant||0),0)),0);
+    const _byEq={};
+    partesLB.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.codigo:'Otros';if(!_byEq[k])_byEq[k]=0;_byEq[k]+=(+p.nViajes||0);});
+    const kpiLB=document.getElementById('lbKpis');
+    if(kpiLB)kpiLB.innerHTML=[
+      {l:'Total Registros',v:partesLB.length,c:'var(--ceq)',ic:'📋'},
+      {l:'Total Viajes',v:_totViajes,c:'#10b981',ic:'🚛'},
+      {l:'m³ Transportados',v:parseFloat(_totM3.toFixed(1)),c:'#f59e0b',ic:'🪨'},
+      {l:'Km Recorridos',v:parseFloat(_totKm.toFixed(1))+'km',c:'#8b5cf6',ic:'🛣️'},
+      ...Object.entries(_byEq).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>({l:k,v:v+' viajes',c:'#06b6d4',ic:'🚚'}))
+    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
+      <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
+      <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
+    </div>`).join('');
+    // Ordenar LB
+    partesLB=[...partesLB].sort((a,b)=>{
+      const v=_lbSort.col==='viajes'?(+a.nViajes||0)-(+b.nViajes||0):a.fecha.localeCompare(b.fecha);
+      return _lbSort.dir==='asc'?v:-v;
+    });
+    const _fIcoLB=document.getElementById('thLBFechaIco'),_vIcoLB=document.getElementById('thLBViajesIco');
+    if(_fIcoLB)_fIcoLB.textContent=_lbSort.col==='fecha'?(_lbSort.dir==='asc'?'▲':'▼'):'⇅';
+    if(_vIcoLB)_vIcoLB.textContent=_lbSort.col==='viajes'?(_lbSort.dir==='asc'?'▲':'▼'):'⇅';
+    // Tabla LB
     const tbP=document.getElementById('tbPartesLB');
-    if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo:''}</td><td>${p.op}</td><td class="mono tr">—</td><td class="mono tr">—</td><td class="mono tr">—</td><td class="mono tr" style="display:none">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
+    if(tbP)tbP.innerHTML=partesLB.map(p=>{
+      const eq=DB.equipos.find(x=>x.id===p.eqId);
+      const m3=(p.viajes||[]).reduce((a,v)=>a+(+v.cant||0),0);
+      return`<tr>
+        <td class="mono">${p.fecha}</td>
+        <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo}`:''}</td>
+        <td>${p.op}</td>
+        <td class="mono text-acc">${+p.nViajes||0}</td>
+        <td class="mono">${parseFloat(m3.toFixed(1))>0?parseFloat(m3.toFixed(1))+'m³':'—'}</td>
+        <td class="mono">${+p.kmRec>0?parseFloat((+p.kmRec).toFixed(1))+'km':'—'}</td>
+        <td class="mono" style="display:none">${p.comb} gal</td>
+        <td>${p.act||'—'}</td>
+      </tr>`;
+    }).join('');
   }else if(tipo==='Vehículo Menor'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">—</td></tr>`).join('');
     const tbS=document.getElementById('tbSalidasVM');if(tbS)tbS.innerHTML='<tr><td colspan="8" class="text-muted" style="text-align:center;padding:1rem">Registre salidas usando ＋ Reporte Diario</td></tr>';
