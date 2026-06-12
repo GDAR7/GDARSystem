@@ -289,6 +289,16 @@ function filtrarEquipos(){
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = sub==='VOLQUETE' ? 'block' : 'none';
+  // Filtrar operadores por cargo según subtipo de Vehículo Menor
+  if(linea==='Vehículo Menor'){
+    const opEl=document.getElementById('rpOperador');
+    if(opEl){
+      const ops=sub
+        ? DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes(sub.toLowerCase()))
+        : DB.personal.filter(p=>p.est==='Activo');
+      opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+    }
+  }
 }
 
 function autoFillEquipo(){
@@ -541,7 +551,7 @@ function rLinea(tipo){
     if(_eIco)_eIco.textContent=_laSort.col==='ef'?(_laSort.dir==='asc'?'▲':'▼'):'⇅';
     // Tabla
     const tbP=document.getElementById('tbPartesLA');
-    if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');
+    if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');
   }else if(tipo==='Línea Blanca'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     // Filtros LB
@@ -596,7 +606,7 @@ function rLinea(tipo){
         <td class="mono text-acc">${+p.nViajes||0}</td>
         <td class="mono">${m3>0?m3+'m³':'—'}</td>
         <td class="mono">${+p.kmRec>0?parseFloat((+p.kmRec).toFixed(1))+'km':'—'}</td>
-        <td class="mono" style="color:#10b981;font-weight:600">${+p.ef>0?parseFloat((+p.ef).toFixed(2))+'h':'—'}</td>
+        <td class="mono" style="color:${(+p.ef)<0?'#ef4444':+p.ef>0?'#10b981':'#64748b'};font-weight:600">${+p.ef!==0?parseFloat((+p.ef).toFixed(2))+'h':'—'}</td>
         <td class="mono">${+p.im>0?parseFloat((+p.im).toFixed(2))+'h':'—'}</td>
         <td class="mono" style="display:none">${p.comb} gal</td>
         <td>${p.act||'—'}</td>
