@@ -37,6 +37,7 @@ function refreshSelects(){
   const eqList=DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}${e.placa?' ['+e.placa+']':''}</option>`).join('');
   const eqListOpt='<option value="">— Ninguno —</option>'+eqList;
   const mecList=DB.personal.filter(p=>p.cat==='Mecánico'||p.cargo.toLowerCase().includes('mecán')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
+  const almList=DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes('almacen')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
   const persItemList=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}${p.dni?' – '+p.dni:''}</option>`).join('');
   const eqNomList=DB.equipos.map(e=>`<option>${e.codigo} – ${e.nombre}</option>`).join('');
   const allPersEq=persItemList+'<optgroup label="──Equipos──">'+eqNomList+'</optgroup>';
@@ -52,7 +53,7 @@ function refreshSelects(){
    ['inTr',trabList],['ptR',trabList],['suS',trabList],['acRe',trabList],
    ['otEq',eqList],['otMec',mecList],['cbEq',eqList],['cbOp',trabList],
    ['coEq',eqListOpt],['rpEq',eqList],['rpOp',trabList],
-   ['aePers',trabList],['asPers',allPersEq],['smPers',allPersEq],['emPers',trabList],
+   ['aePers',trabList],['asPers',allPersEq],['smPers',allPersEq],['emPers',almList],
    ['asItem',stockOpts],
    ['rqSol',trabList],['rqArea',areaOpts],
    ['fpReq',reqOpts]
