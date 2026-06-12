@@ -419,7 +419,7 @@ async function gReporte(){
     fecha:        parte.fecha,
     eq_id:        eqId,
     op:           parte.operador,
-    ef:           parte.hrFin - parte.hrIni,
+    ef:           parseFloat((parte.hrFin - parte.hrIni).toFixed(2)),
     im:           parte.hrsInop,
     comb:         0,
     act:          parte.actividades,
@@ -453,7 +453,7 @@ async function gReporte(){
   if(eq && parte.hrFin > eq.hr) eq.hr = parte.hrFin;
 
   // Guardar también en memoria local
-  DB.partes.push({...parte, id:result.id, ef:parte.hrFin-parte.hrIni, im:parte.hrsInop, comb:0, act:parte.actividades, eqId});
+  DB.partes.push({...parte, id:result.id, ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)), im:parte.hrsInop, comb:0, act:parte.actividades, eqId});
 
   closeM('mReporte');
   viajeCount = 0;
@@ -475,7 +475,7 @@ function rLinea(tipo){
   if(tipo==='Línea Amarilla'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td><td class="mono">${e.ultMant||'—'}</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     const tbP=document.getElementById('tbPartesLA');
-    if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ')[1]:''}</td><td>${p.op}</td><td class="mono text-acc">${p.ef}h</td><td class="mono">${p.im}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
+    if(tbP)tbP.innerHTML=partes.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ')[1]:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;}).join('');
   }else if(tipo==='Línea Blanca'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     const tbP=document.getElementById('tbPartesLB');
@@ -539,7 +539,7 @@ function rPanelHoras(){
   // Detail table
   document.getElementById('tbPanelDet').innerHTML=DB.partes.map(p=>{
     const eq=DB.equipos.find(e=>e.id===p.eqId);
-    return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ').slice(0,2).join(' '):'—'}</td><td>${eq?`<span class="badge b-cyan">${eq.sub||eq.tipo}</span>`:'—'}</td><td>${p.op}</td><td class="mono text-acc">${p.ef}h</td><td class="mono">${p.im}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;
+    return`<tr><td class="mono">${p.fecha}</td><td>${eq?eq.codigo+' '+eq.nombre.split(' ').slice(0,2).join(' '):'—'}</td><td>${eq?`<span class="badge b-cyan">${eq.sub||eq.tipo}</span>`:'—'}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td></tr>`;
   }).join('');
 }
 
