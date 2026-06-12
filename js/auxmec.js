@@ -250,6 +250,12 @@ let currentReporteTipo='Línea Amarilla';
 
 // ── ESTADO FORMULARIO PARTE ──
 let parteState = { turno:'DIA', guardia:'A', viajeCount:0, tipo:'' };
+let _laSort = {col:'fecha', dir:'desc'};
+function _laSortBy(col){
+  _laSort.dir = _laSort.col===col ? (_laSort.dir==='asc'?'desc':'asc') : 'desc';
+  _laSort.col = col;
+  rLinea('Línea Amarilla');
+}
 
 function switchTab(n){
   document.getElementById('tabContent1').style.display = n===1?'block':'none';
@@ -507,6 +513,14 @@ function rLinea(tipo){
       <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
       <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
     </div>`).join('');
+    // Ordenar
+    partesF=[...partesF].sort((a,b)=>{
+      const v=_laSort.col==='ef'?(+a.ef||0)-(+b.ef||0):a.fecha.localeCompare(b.fecha);
+      return _laSort.dir==='asc'?v:-v;
+    });
+    const _fIco=document.getElementById('thLAFechaIco'),_eIco=document.getElementById('thLAEfIco');
+    if(_fIco)_fIco.textContent=_laSort.col==='fecha'?(_laSort.dir==='asc'?'▲':'▼'):'⇅';
+    if(_eIco)_eIco.textContent=_laSort.col==='ef'?(_laSort.dir==='asc'?'▲':'▼'):'⇅';
     // Tabla
     const tbP=document.getElementById('tbPartesLA');
     if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono text-acc">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');

@@ -726,7 +726,12 @@
     </div>
     <div id="laKpis" style="display:flex;gap:.7rem;flex-wrap:wrap;padding:.7rem 1rem .4rem"></div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Equipo</th><th>Operador</th><th>Hs Ef.</th><th>Hs Imp.</th><th>Comb. gal</th><th>Actividad</th><th></th></tr></thead>
+      <thead><tr>
+        <th id="thLAFecha" onclick="_laSortBy('fecha')" style="cursor:pointer;user-select:none;white-space:nowrap">Fecha <span id="thLAFechaIco" style="opacity:.7">▼</span></th>
+        <th>Equipo</th><th>Operador</th>
+        <th id="thLAEf" onclick="_laSortBy('ef')" style="cursor:pointer;user-select:none;white-space:nowrap">Hs Ef. <span id="thLAEfIco" style="opacity:.5">⇅</span></th>
+        <th>Hs Imp.</th><th>Comb. gal</th><th>Actividad</th><th></th>
+      </tr></thead>
       <tbody id="tbPartesLA"></tbody>
     </table></div></div>
   </div>
