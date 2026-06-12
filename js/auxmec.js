@@ -503,7 +503,7 @@ function rLinea(tipo){
       {l:'Hs Efectivas',v:parseFloat(_totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
       {l:'Hs Inoperativas',v:parseFloat(_totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
       ...Object.entries(_byTipo).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>({l:k,v:parseFloat(v.toFixed(2))+'h',c:'#f59e0b',ic:'🏗️'}))
-    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-left:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
+    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
       <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
       <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
     </div>`).join('');

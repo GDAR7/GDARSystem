@@ -714,15 +714,15 @@
     <div class="card-head"><span class="card-title">Partes Diarios – Línea Amarilla</span>
       <div class="card-head-right"><div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPartesLA')"></div></div>
     </div>
-    <div style="padding:.6rem 1rem .2rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border)">
-      <select id="laFiltTipo" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem">
+    <div style="padding:.5rem 1rem;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid var(--border)">
+      <select id="laFiltTipo" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;min-width:170px">
         <option value="">— Todos los tipos —</option>
       </select>
-      <label style="font-size:.75rem;color:var(--muted2)">Desde</label>
-      <input type="date" id="laFiltDesde" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem">
-      <label style="font-size:.75rem;color:var(--muted2)">Hasta</label>
-      <input type="date" id="laFiltHasta" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem">
-      <button onclick="document.getElementById('laFiltTipo').value='';document.getElementById('laFiltDesde').value='';document.getElementById('laFiltHasta').value='';rLinea('Línea Amarilla')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.28rem .7rem;color:var(--muted2);font-size:.78rem;cursor:pointer">✕ Limpiar</button>
+      <span style="font-size:.75rem;color:var(--muted2)">Desde</span>
+      <input type="date" id="laFiltDesde" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark">
+      <span style="font-size:.75rem;color:var(--muted2)">Hasta</span>
+      <input type="date" id="laFiltHasta" onchange="rLinea('Línea Amarilla')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark">
+      <button onclick="document.getElementById('laFiltTipo').value='';document.getElementById('laFiltDesde').value='';document.getElementById('laFiltHasta').value='';rLinea('Línea Amarilla')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.28rem .7rem;color:var(--muted2);font-size:.78rem;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
     </div>
     <div id="laKpis" style="display:flex;gap:.7rem;flex-wrap:wrap;padding:.7rem 1rem .4rem"></div>
     <div class="card-body"><div class="tbl-wrap"><table>
