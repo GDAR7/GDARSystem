@@ -269,6 +269,19 @@ function gAlmEM(){
 }
 // ══ SALIDA MÚLTIPLE ══
 let smItemsArr=[];
+let _smAllStockArr=[];
+function _smMatShow(i){const dd=document.getElementById('smMatDd_'+i);if(dd){dd.style.display='block';_smMatFilter(i);}}
+function _smMatHide(i){setTimeout(()=>{const dd=document.getElementById('smMatDd_'+i);if(dd)dd.style.display='none';},200);}
+function _smMatFilter(i){
+  const inp=document.getElementById('smMatInp_'+i);
+  const dd=document.getElementById('smMatDd_'+i);
+  if(!inp||!dd)return;
+  const q=inp.value.toLowerCase();
+  const arr=_smAllStockArr[i]||[];
+  const fil=arr.filter(it=>!q||it.label.toLowerCase().includes(q));
+  dd.innerHTML=fil.length?fil.map(it=>`<div onmousedown="_smMatPick(${i},'${it.cod}')" style="padding:.38rem .65rem;cursor:pointer;font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onmouseover="this.style.background='rgba(59,130,246,.2)'" onmouseout="this.style.background=''">${it.label}</div>`).join(''):'<div style="padding:.38rem .65rem;font-size:.75rem;color:var(--muted)">Sin resultados</div>';
+}
+function _smMatPick(i,cod){smItemsArr[i].cod=cod;renderSMItems();}
 function _nextValeNum(codProy){
   const all=DB.almacen.filter(r=>r.tipo==='S'&&r.numVale&&/^VAL-\d+$/i.test(String(r.numVale).trim()));
   const vales=codProy?all.filter(r=>(r.codProy||'')===codProy):all;
@@ -318,18 +331,27 @@ function renderSMItems(){
     });
   }
   const b=document.getElementById('smItemsBody');if(!b)return;
+  _smAllStockArr=[];
   b.innerHTML=smItemsArr.map((it,i)=>{
     const sv=st[it.cod];
     const otherCods=new Set(smItemsArr.filter((_,j)=>j!==i&&_.cod).map(x=>x.cod));
-    const opts='<option value="">— Seleccionar material —</option>'+
-      allStock.filter(([cod])=>!otherCods.has(cod)||cod===it.cod)
-        .map(([cod,v])=>{
-          const proyTag=todoAlmacen&&proyStockMap[cod]?.length?` · [${proyStockMap[cod].join(', ')}]`:'';
-          return`<option value="${cod}"${cod===it.cod?' selected':''}>${cod} – ${v.nombre} (Stock: ${fmtN(v.stock)} ${v.unidad})${proyTag}</option>`;
-        }).join('');
+    const rowStock=allStock.filter(([cod])=>!otherCods.has(cod)||cod===it.cod);
+    _smAllStockArr[i]=rowStock.map(([cod,v])=>{
+      const proyTag=todoAlmacen&&proyStockMap[cod]?.length?` · [${proyStockMap[cod].join(', ')}]`:'';
+      return{cod,label:`${cod} – ${v.nombre} (Stock: ${fmtN(v.stock)} ${v.unidad})${proyTag}`};
+    });
+    const selLabel=it.cod?(_smAllStockArr[i].find(x=>x.cod===it.cod)?.label||it.cod):'';
     return`<tr>
       <td style="padding:.28rem .4rem;color:var(--muted2);font-size:.7rem;text-align:center">${i+1}</td>
-      <td style="padding:.28rem .4rem"><select onchange="smItemsArr[${i}].cod=this.value;renderSMItems()" style="${ISS};width:100%;min-width:280px">${opts}</select></td>
+      <td style="padding:.28rem .4rem;position:relative">
+        <div style="position:relative;width:100%;min-width:280px">
+          <span style="position:absolute;left:.55rem;top:50%;transform:translateY(-50%);pointer-events:none;font-size:.8rem;z-index:1">🔍</span>
+          <input id="smMatInp_${i}" value="${selLabel.replace(/"/g,'&quot;')}" placeholder="Buscar material..." autocomplete="off"
+            oninput="_smMatFilter(${i})" onfocus="_smMatShow(${i})" onblur="_smMatHide(${i})"
+            style="${ISS};width:100%;padding-left:1.9rem">
+          <div id="smMatDd_${i}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;z-index:999;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+        </div>
+      </td>
       <td style="padding:.28rem .4rem;text-align:center;font-size:.78rem;font-weight:600;color:${sv&&sv.stock<5?'#ef4444':sv?'#10b981':'#64748b'}">${sv?fmtN(sv.stock)+' '+sv.unidad:'—'}</td>
       <td style="padding:.28rem .4rem"><input type="number" value="${it.cant}" min="0.01" step="0.01" oninput="smItemsArr[${i}].cant=+this.value" style="${ISS};width:80px;text-align:right"></td>
       <td style="padding:.28rem .4rem"><button class="btn btn-del btn-sm" onclick="removeSMItem(${i})">✕</button></td>
