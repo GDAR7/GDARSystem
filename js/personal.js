@@ -164,8 +164,16 @@ async function rAsistencia(){
   if(!dateEl.value) dateEl.value=today();
   const fecha=dateEl.value;
   const guardia=document.getElementById('asiGuardia').value;
+  const tareoFilt=document.getElementById('asiTareo')?.value||'';
   await loadAsistenciaFecha(fecha);
-  const trabajadores=DB.personal.filter(p=>p.est==='Activo'&&(!guardia||p.guardia===guardia));
+  let trabajadores=DB.personal.filter(p=>p.est==='Activo'&&(!guardia||p.guardia===guardia));
+  if(tareoFilt){
+    trabajadores=trabajadores.filter(p=>{
+      const tr=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+      if(tareoFilt==='__sin__') return !tr||!tr.tipo;
+      return tr&&tr.tipo===tareoFilt;
+    });
+  }
   const registros=DB.asistencia.filter(a=>a.fecha===fecha);
   const presentes=registros.filter(a=>a.horaEntrada).length;
   const conSalida=registros.filter(a=>a.horaEntrada&&a.horaSalida).length;

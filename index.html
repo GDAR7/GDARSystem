@@ -108,6 +108,23 @@
           <option value="">Todas las Guardias</option>
           <option>A</option><option>B</option><option>C</option>
         </select>
+        <select id="asiTareo" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;" onchange="rAsistencia()">
+          <option value="">Todos los Tareos</option>
+          <option value="__sin__">Sin Tareo</option>
+          <option value="TD">TD – Trabajo Día</option>
+          <option value="TN">TN – Trabajo Noche</option>
+          <option value="DL">DL – Día Libre</option>
+          <option value="P">P – Permiso</option>
+          <option value="F">F – Falta</option>
+          <option value="DM">DM – Descanso Médico</option>
+          <option value="LP">LP – Lic. Paternidad</option>
+          <option value="LM">LM – Lic. Maternidad</option>
+          <option value="LF">LF – Lic. Fallecim.</option>
+          <option value="V">V – Vacaciones</option>
+          <option value="DLT">DLT – DL Trabajado</option>
+          <option value="A5">A5 – Anexo 5</option>
+          <option value="R">R – Retirado</option>
+        </select>
         <button class="btn btn-a" style="--ba:#10b981" onclick="openScanner()">📷 Escanear QR</button>
         <button class="btn btn-out" onclick="exportTareajePDF()">🖨 Exportar PDF</button>
       </div>
