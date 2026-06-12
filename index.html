@@ -720,7 +720,7 @@
         <th id="thLAFecha" onclick="_laSortBy('fecha')" style="cursor:pointer;user-select:none;white-space:nowrap">Fecha <span id="thLAFechaIco" style="opacity:.7">▼</span></th>
         <th>Equipo</th><th>Operador</th>
         <th id="thLAEf" onclick="_laSortBy('ef')" style="cursor:pointer;user-select:none;white-space:nowrap">Hs Ef. <span id="thLAEfIco" style="opacity:.5">⇅</span></th>
-        <th>Hs Imp.</th><th>Comb. gal</th><th>Actividad</th><th></th>
+        <th>Hs Imp.</th><th style="display:none">Comb. gal</th><th>Actividad</th><th></th>
       </tr></thead>
       <tbody id="tbPartesLA"></tbody>
     </table></div></div>
@@ -739,7 +739,7 @@
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Equipo</th><th>Conductor</th><th>Viajes</th><th>m³ Transp.</th><th>Km Recorrido</th><th>Comb. gal</th><th>Ruta</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Equipo</th><th>Conductor</th><th>Viajes</th><th>m³ Transp.</th><th>Km Recorrido</th><th style="display:none">Comb. gal</th><th>Ruta</th></tr></thead>
       <tbody id="tbPartesLB"></tbody>
     </table></div></div>
   </div>
@@ -1971,7 +1971,7 @@
 
     <div class="mf">
       <button class="btn btn-out" onclick="closeM('mReporte')">Cancelar</button>
-      <button class="btn btn-a" style="--ba:var(--ceq)" onclick="gReporte()">💾 Guardar Parte</button>
+      <button id="btnGuardarRP" class="btn btn-a" style="--ba:var(--ceq)" onclick="gReporte()">💾 Guardar Parte</button>
     </div>
   </div>
 </div>
