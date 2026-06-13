@@ -380,6 +380,7 @@ function addViaje(){
   div.className = 'viaje-block';
   div.id = 'viaje-'+viajeCount;
   const _ftOpts=DB.frentesTrabajo.map(f=>`<option value="${f.nombre}">`).join('');
+  const _matOpts=DB.tipoMaterial.map(m=>`<option value="${m.nombre}">`).join('');
   div.innerHTML = `<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
     <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
       <div class="fg"><label>Origen</label>
@@ -391,7 +392,10 @@ function addViaje(){
         <datalist id="frentesData${viajeCount}b">${_ftOpts}</datalist>
       </div>
       <div class="fg"><label>Cantidad</label><input id="vCant${viajeCount}" type="number" placeholder="0"></div>
-      <div class="fg"><label>Material</label><input id="vMat${viajeCount}" placeholder="Tipo de material"></div>
+      <div class="fg"><label>Material</label>
+        <input id="vMat${viajeCount}" list="matData${viajeCount}" placeholder="Tipo de material">
+        <datalist id="matData${viajeCount}">${_matOpts}</datalist>
+      </div>
     </div>`;
   c.appendChild(div);
 }
