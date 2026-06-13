@@ -290,15 +290,21 @@ function filtrarEquipos(){
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = sub==='VOLQUETE' ? 'block' : 'none';
-  // Filtrar operadores por cargo según subtipo de Vehículo Menor
-  if(linea==='Vehículo Menor'){
-    const opEl=document.getElementById('rpOperador');
-    if(opEl){
-      const ops=sub
+  // Filtrar operadores por cargo según subtipo (LA, LB, VM)
+  const _catFiltro={'Línea Amarilla':'Operador LA','Línea Blanca':'Operador LB'};
+  const opEl=document.getElementById('rpOperador');
+  if(opEl){
+    let ops;
+    if(linea==='Vehículo Menor'){
+      ops=sub
         ? DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes(sub.toLowerCase()))
         : DB.personal.filter(p=>p.est==='Activo');
-      opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+    }else if(linea==='Línea Amarilla'||linea==='Línea Blanca'){
+      const cat=_catFiltro[linea];
+      ops=DB.personal.filter(p=>p.est==='Activo'&&p.cat===cat&&(!sub||p.cargo.toLowerCase().includes(sub.toLowerCase())));
+      if(!ops.length) ops=DB.personal.filter(p=>p.est==='Activo'&&p.cat===cat);
     }
+    if(ops) opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   }
 }
 
