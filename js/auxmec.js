@@ -289,7 +289,7 @@ function filtrarEquipos(){
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
     eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
   const tabV = document.getElementById('tab2');
-  if(tabV) tabV.style.display = sub==='VOLQUETE' ? 'block' : 'none';
+  if(tabV) tabV.style.display = (currentReporteTipo==='Línea Blanca' || sub.toUpperCase()==='VOLQUETE') ? 'block' : 'none';
   // Filtrar operadores por cargo según subtipo (LA, LB, VM)
   const _catFiltro={'Línea Amarilla':'Operador LA','Línea Blanca':'Operador LB'};
   const opEl=document.getElementById('rpOperador');
@@ -394,11 +394,6 @@ function addViaje(){
       <div class="fg"><label>Material</label><input id="vMat${viajeCount}" placeholder="Tipo de material"></div>
     </div>`;
   c.appendChild(div);
-  // Mostrar botón Guardar al agregar el primer viaje (Línea Blanca)
-  if(viajeCount===1){
-    const btnG=document.getElementById('btnGuardarRP');
-    if(btnG)btnG.style.display='';
-  }
 }
 
 function openReporte(tipo){
@@ -439,9 +434,8 @@ function openReporte(tipo){
   // Tab viajes
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = tipo==='Línea Blanca'||tipo==='VOLQUETE' ? 'block' : 'none';
-  // Ocultar Guardar hasta que haya al menos un viaje (solo Línea Blanca/volquetes)
   const btnG=document.getElementById('btnGuardarRP');
-  if(btnG) btnG.style.display=tipo==='Línea Blanca'?'none':'';
+  if(btnG) btnG.style.display='';
   setToggle('turno','DIA');
   setToggle('guardia','A');
   switchTab(1);
