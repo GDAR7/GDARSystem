@@ -108,12 +108,15 @@ const ACTION_MAP={
   savePlanillaMes:'planillaMes'
 };
 
+let _pendingSaves=0;
 async function supaUpsert(dbKey,record){
   const table=SUPA_TABLES[dbKey];if(!table)return;
+  _pendingSaves++;
   try{
     const {error}=await supa.from(table).upsert(toSnake(record));
     if(error){console.warn('[Supabase upsert]',table,error.message);toast('Error al guardar: '+error.message,true);}
   }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);}
+  finally{_pendingSaves--;}
 }
 
 async function supaDelete(dbKey,id){
@@ -171,6 +174,11 @@ async function supaGuardarRequerimiento(req){
 
 // ══ ACTUALIZAR DATOS SIN CERRAR SESIÓN ══
 async function refreshData(){
+  if(_pendingSaves>0){
+    toast('Guardando cambios pendientes...');
+    let waited=0;
+    while(_pendingSaves>0&&waited<8000){await new Promise(r=>setTimeout(r,150));waited+=150;}
+  }
   const btn=document.getElementById('btnRefresh');
   if(btn){btn.classList.add('spinning');btn.disabled=true;}
   try{await loadSheetsData();}finally{
