@@ -197,6 +197,7 @@ select option{background:var(--panel2);}
 .b-red{background:#ef444414;color:#ef4444;border:1px solid #ef444430;}
 .b-blue{background:#3b82f614;color:#3b82f6;border:1px solid #3b82f630;}
 .b-purple{background:#8b5cf614;color:#8b5cf6;border:1px solid #8b5cf630;}
+
 /* ── EQ TABS ── */
 .eq-tab{flex:1;padding:.5rem .4rem;font-size:.72rem;font-weight:600;letter-spacing:.04em;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted2);cursor:pointer;transition:color .15s,border-color .15s;}
 .eq-tab:hover{color:var(--mec);}
@@ -252,6 +253,10 @@ select option{background:var(--panel2);}
 .parte-tab{flex:1;padding:.6rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted2);font-family:'Barlow',sans-serif;font-size:.8rem;cursor:pointer;transition:all .15s;}
 .parte-tab.active{color:var(--ceq);border-bottom-color:var(--ceq);font-weight:600;}
 .parte-tab:hover{background:#ffffff05;color:var(--text);}
+/* ── LPS TABS ── */
+.lps-tab{padding:.55rem 1.1rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted2);font-family:'Barlow',sans-serif;font-size:.82rem;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.lps-tab.active{color:#10b981;border-bottom-color:#10b981;font-weight:600;}
+.lps-tab:hover{background:#ffffff05;color:var(--text);}
 .btn-toggle{flex:1;padding:.42rem .5rem;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--muted2);font-size:.78rem;font-family:'Barlow',sans-serif;cursor:pointer;transition:all .15s;}
 .btn-toggle.active{background:var(--ceq);border-color:var(--ceq);color:#000;font-weight:700;}
 .viaje-block{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.8rem;margin-bottom:.6rem;}

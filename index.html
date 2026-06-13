@@ -692,6 +692,76 @@
   </div>
 </div>
 
+<!-- LPS – LAST PLANNER SYSTEM -->
+<div class="page" id="page-lps">
+  <div class="ph">
+    <div class="ph-title" style="color:var(--ctl)">Planning &amp; Monitoring</div>
+    <div class="ph-sub">Last Planner System · R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div>
+  </div>
+  <!-- Tab bar -->
+  <div style="display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="lps-tab active" onclick="_lpsTabSwitch(1)">📚 Biblioteca WBS</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(2)">📅 Lookahead 4 Semanas</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(3)">✅ Plan Semanal / PPC</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(4)">🚧 Restricciones</button>
+  </div>
+  <!-- Contenido dinámico -->
+  <div id="lpsBody"></div>
+</div>
+
+<!-- MODAL: WBS -->
+<div class="modal" id="mLpsWbs">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-head"><span id="lpsWbsMtl">Actividad WBS</span><button class="modal-close" onclick="closeM('mLpsWbs')">✕</button></div>
+    <div class="mb">
+      <div class="fg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="fg" style="grid-column:1/-1"><label>Código</label><input id="lpsWbsCod" placeholder="01.01.01"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="lpsWbsDesc" placeholder="Relleno hidráulico Zona A..."></div>
+        <div class="fg"><label>Unidad</label><select id="lpsWbsUnd"><option>m³</option><option>ml</option><option>m²</option><option>kg</option><option>und</option><option>Hs</option><option>gl</option></select></div>
+        <div class="fg"><label>Cantidad Total</label><input id="lpsWbsCant" type="number" min="0" step="0.01" placeholder="0"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Sector</label>
+          <select id="lpsWbsSect"><option value="">— Seleccionar —</option>
+            <option>Dique Principal</option><option>Mesa de Plata</option><option>Dique Intermedio</option><option>Dique Auxiliar</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeM('mLpsWbs')">Cancelar</button><button class="btn btn-a" style="--ba:#10b981" onclick="_lpsSaveWbs()">💾 Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Restricción -->
+<div class="modal" id="mLpsRestr">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-head"><span id="lpsRestrMtl">Restricción</span><button class="modal-close" onclick="closeM('mLpsRestr')">✕</button></div>
+    <div class="mb">
+      <div class="fg-grid">
+        <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="lpsRestrDesc" placeholder="Falta aprobación de..."></div>
+        <div class="fg"><label>Responsable</label><input id="lpsRestrResp" placeholder="Nombre responsable..."></div>
+        <div class="fg"><label>Fecha Límite</label><input id="lpsRestrFecha" type="date" style="color-scheme:dark"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Actividad que bloquea</label><select id="lpsRestrWbs"><option value="">— Sin actividad específica —</option></select></div>
+        <div class="fg"><label>Estado</label><select id="lpsRestrEst"><option>ABIERTA</option><option>CERRADA</option></select></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeM('mLpsRestr')">Cancelar</button><button class="btn btn-a" style="--ba:#10b981" onclick="_lpsSaveRestr()">💾 Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: CNC (Causa No Cumplimiento) -->
+<div class="modal" id="mLpsCnc">
+  <div class="modal-box" style="max-width:680px">
+    <div class="modal-head"><span>🔴 Registro de CNC – Causas No Cumplidas</span><button class="modal-close" onclick="closeM('mLpsCnc')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:.8rem;color:var(--muted2);margin-bottom:.7rem">Las siguientes actividades no fueron cumplidas. Seleccione la causa para cada una:</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Actividad</th><th>Categoría CNC</th><th>Descripción</th></tr></thead>
+        <tbody id="lpsCncBody"></tbody>
+      </table></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeM('mLpsCnc')">Cancelar</button><button class="btn btn-a" style="--ba:#ef4444" onclick="_lpsGuardarCnc()">✓ Registrar CNC y Cerrar Semana</button></div>
+  </div>
+</div>
+
 <!-- PLANNER -->
 <div class="page" id="page-planner">
   <div class="ph"><div class="ph-title" style="color:var(--ctl)">Planner de Proyecto</div><div class="ph-sub">Programación y avance de actividades</div></div>
@@ -2016,6 +2086,7 @@
 <script src="js/tareaje.js"></script>
 <script src="js/engrase.js"></script>
 <script src="js/auxmec.js?v=3"></script>
+<script src="js/lps.js"></script>
 <script src="js/datos.js"></script>
 
 <!-- Autocomplete Requerimiento Ítems -->

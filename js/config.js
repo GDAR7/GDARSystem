@@ -14,7 +14,7 @@ const AREAS={
   mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
   controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'}]},
+    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'}]},
     //-Menu para control de equipos.
   controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
     modules:[{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{
@@ -89,7 +89,11 @@ const SUPA_TABLES={
   asistencia:'asistencia',proyectos:'proyectos',auxiliosMecanicos:'auxilios_mecanicos',
   auxMecInsumos:'aux_mec_insumos',engrase:'engrase',tareaje:'tareaje',
   subtiposEquipo:'subtipos_equipo',
-  planillaMes:'planilla_mes'
+  planillaMes:'planilla_mes',
+  lpsWbs:'lps_wbs',
+  lpsLookahead:'lps_lookahead',
+  lpsPlanSemanal:'lps_plan_semanal',
+  lpsRestricciones:'lps_restricciones'
 };
 
 const ACTION_MAP={
@@ -105,7 +109,11 @@ const ACTION_MAP={
   saveFacturaPago:'facturasPago',saveAsistencia:'asistencia',saveProyecto:'proyectos',
   saveAuxMec:'auxiliosMecanicos',saveAuxMecInsumo:'auxMecInsumos',saveEngrase:'engrase',saveTareaje:'tareaje',
   saveSubtipoEquipo:'subtiposEquipo',
-  savePlanillaMes:'planillaMes'
+  savePlanillaMes:'planillaMes',
+  saveLpsWbs:'lpsWbs',
+  saveLpsLookahead:'lpsLookahead',
+  saveLpsPlan:'lpsPlanSemanal',
+  saveLpsRestr:'lpsRestricciones'
 };
 
 let _pendingSaves=0;
@@ -223,7 +231,8 @@ async function loadSheetsData(){
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
-      tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm'};
+      tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -346,7 +355,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],planillaMes:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1}
 };
 
 // ══ STATE ══
