@@ -870,7 +870,7 @@ function rDashEquipos(){
       const eq=DB.equipos.find(e=>e.id===p.eqId);if(!eq)return;
       const sub=eq.sub||'Sin clasificar';
       if(!bySubEq[sub])bySubEq[sub]={};
-      if(!bySubEq[sub][eq.id])bySubEq[sub][eq.id]={nombre:eq.nombre,codigo:eq.codigo,ef:0,im:0};
+      if(!bySubEq[sub][eq.id])bySubEq[sub][eq.id]={eqId:eq.id,nombre:eq.nombre,codigo:eq.codigo,ef:0,im:0};
       bySubEq[sub][eq.id].ef+=+p.ef||0;
       bySubEq[sub][eq.id].im+=+p.im||0;
     });
@@ -934,7 +934,7 @@ function rDashEquipos(){
               <span style="color:#ef4444">Inop total: <strong>${stIm.toFixed(1)}h</strong></span>
             </div>
           </div>
-          <div class="mb">${_deChart(items,maxVal,color)}</div>
+          <div class="mb">${_deChart(items,maxVal,color,S.periodo)}</div>
         </div>`;
       });
     }
@@ -945,18 +945,19 @@ function rDashEquipos(){
   _deRender();
 }
 
-function _deChart(items,maxVal,color){
+function _deChart(items,maxVal,color,periodo){
   const H=170;
   const bars=items.map(item=>{
     const efH=maxVal>0?Math.max(item.ef>0?4:0,Math.round((item.ef/maxVal)*H)):0;
     const imH=maxVal>0?Math.max(item.im>0?4:0,Math.round((item.im/maxVal)*H)):0;
     const lbl=item.codigo||(item.nombre.split(' ').slice(0,2).join(' '));
-    return `<div style="flex:1;min-width:58px;max-width:96px">
+    const safeColor=color.replace(/'/g,"\\'");
+    return `<div style="flex:1;min-width:58px;max-width:96px;cursor:pointer;user-select:none" title="Doble clic para ver detalle diario de ${lbl}" ondblclick="openDrillDown('${item.eqId}','${lbl}','${safeColor}','${periodo||'mes'}')">
       <div style="height:${H}px;display:flex;align-items:flex-end;justify-content:center;gap:3px;border-bottom:1px solid #1e2740">
-        <div style="width:22px;height:${efH}px;background:${color};border-radius:3px 3px 0 0;position:relative;cursor:default" title="Ef: ${item.ef.toFixed(1)}h">
+        <div style="width:22px;height:${efH}px;background:${color};border-radius:3px 3px 0 0;position:relative" title="Ef: ${item.ef.toFixed(1)}h">
           <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:${color};white-space:nowrap;padding-bottom:2px">${item.ef>0?item.ef.toFixed(1):''}</span>
         </div>
-        <div style="width:22px;height:${imH}px;background:#ef4444;border-radius:3px 3px 0 0;position:relative;cursor:default" title="Inop: ${item.im.toFixed(1)}h">
+        <div style="width:22px;height:${imH}px;background:#ef4444;border-radius:3px 3px 0 0;position:relative" title="Inop: ${item.im.toFixed(1)}h">
           <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:#ef4444;white-space:nowrap;padding-bottom:2px">${item.im>0?item.im.toFixed(1):''}</span>
         </div>
       </div>
@@ -966,6 +967,90 @@ function _deChart(items,maxVal,color){
 
   return `<div style="display:flex;gap:6px;overflow-x:auto;padding:1.4rem .5rem .2rem;min-height:${H+60}px">${bars}</div>
     <div style="display:flex;gap:1.2rem;margin-top:.6rem">
+      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:${color};border-radius:2px"></span>Hs Efectivas</span>
+      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:#ef4444;border-radius:2px"></span>Hs Inoperativas</span>
+    </div>`;
+}
+
+// ══ DRILL-DOWN HORAS DIARIAS ══
+function openDrillDown(eqId, codigo, color, periodo){
+  const hoy=new Date();
+  let year=hoy.getFullYear(), month=hoy.getMonth();
+  if(periodo==='mesAnt'){const p=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);year=p.getFullYear();month=p.getMonth();}
+
+  // Poblar selector de años con los años presentes en partes + año actual
+  const years=[...new Set(DB.partes.map(p=>p.fecha?p.fecha.substring(0,4):null).filter(Boolean).map(Number))];
+  if(!years.includes(year))years.push(year);
+  years.sort((a,b)=>b-a);
+  const yrSel=document.getElementById('ddYear');
+  yrSel.innerHTML=years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('');
+
+  document.getElementById('ddEqId').value=eqId;
+  document.getElementById('ddColor').value=color;
+  document.getElementById('ddCodigo').textContent=codigo;
+  document.getElementById('ddMonth').value=month;
+  _renderDrillDown();
+  openM('mDrillDown');
+}
+
+function _renderDrillDown(){
+  const eqId=document.getElementById('ddEqId').value;
+  const color=document.getElementById('ddColor').value||'var(--ceq)';
+  const year=+document.getElementById('ddYear').value;
+  const month=+document.getElementById('ddMonth').value;
+  const codigo=document.getElementById('ddCodigo').textContent;
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('ddTitle').textContent=`${codigo} — ${MESES[month]} ${year}`;
+
+  const partes=DB.partes.filter(p=>{
+    if(String(p.eqId)!==String(eqId))return false;
+    const d=new Date((p.fecha||'')+'T12:00:00');
+    return d.getFullYear()===year&&d.getMonth()===month;
+  });
+
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const byDay={};
+  for(let d=1;d<=daysInMonth;d++)byDay[d]={ef:0,im:0,partes:0};
+  partes.forEach(p=>{
+    const d=new Date((p.fecha||'')+'T12:00:00').getDate();
+    if(byDay[d]){byDay[d].ef+=+p.ef||0;byDay[d].im+=+p.im||0;byDay[d].partes++;}
+  });
+
+  const maxVal=Math.max(...Object.values(byDay).map(v=>v.ef+v.im),1);
+  const H=150;
+  const bars=Object.entries(byDay).map(([day,v])=>{
+    const efH=v.ef>0?Math.max(4,Math.round((v.ef/maxVal)*H)):0;
+    const imH=v.im>0?Math.max(4,Math.round((v.im/maxVal)*H)):0;
+    const hasData=v.ef>0||v.im>0;
+    return `<div style="flex:1;min-width:26px;max-width:46px" title="${hasData?`Día ${day}: Ef ${v.ef.toFixed(1)}h · Inop ${v.im.toFixed(1)}h`:`Día ${day}: sin parte`}">
+      <div style="height:${H}px;display:flex;align-items:flex-end;justify-content:center;gap:2px;border-bottom:1px solid #1e2740">
+        ${efH>0?`<div style="width:10px;height:${efH}px;background:${color};border-radius:2px 2px 0 0;position:relative">
+          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.42rem;color:${color};white-space:nowrap;padding-bottom:1px">${v.ef.toFixed(1)}</span>
+        </div>`:'<div style="width:10px"></div>'}
+        ${imH>0?`<div style="width:10px;height:${imH}px;background:#ef4444;border-radius:2px 2px 0 0;position:relative">
+          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.42rem;color:#ef4444;white-space:nowrap;padding-bottom:1px">${v.im.toFixed(1)}</span>
+        </div>`:''}
+      </div>
+      <div style="font-size:.55rem;text-align:center;padding:3px 1px;color:${hasData?'var(--text)':'var(--muted2)'};font-weight:${hasData?'700':'400'}">${day}</div>
+    </div>`;
+  }).join('');
+
+  const totEf=partes.reduce((s,p)=>s+(+p.ef||0),0);
+  const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
+  const kpis=[
+    {l:'Hs Efectivas',v:totEf.toFixed(1)+'h',c:color},
+    {l:'Hs Inoperativas',v:totIm.toFixed(1)+'h',c:'#ef4444'},
+    {l:'Partes registrados',v:partes.length,c:'var(--muted)'},
+    {l:'Días trabajados',v:Object.values(byDay).filter(v=>v.ef>0).length,c:'#10b981'}
+  ];
+  document.getElementById('ddChart').innerHTML=`
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      ${kpis.map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .8rem;font-size:.75rem">
+        ${k.l}: <strong style="color:${k.c}">${k.v}</strong>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:3px;overflow-x:auto;padding:1.8rem .3rem .3rem;min-height:${H+50}px">${bars||'<div style="color:var(--muted2);padding:2rem">Sin datos para este mes</div>'}</div>
+    <div style="display:flex;gap:1.2rem;margin-top:.7rem">
       <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:${color};border-radius:2px"></span>Hs Efectivas</span>
       <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:#ef4444;border-radius:2px"></span>Hs Inoperativas</span>
     </div>`;
