@@ -263,3 +263,6 @@ select option{background:var(--panel2);}
 .viaje-title{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;color:var(--ceq);margin-bottom:.5rem;}
 /* Panel Horas grid */
 .ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1.2rem;}
+/* Ícono calendario de inputs tipo date — fondo oscuro */
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.7;cursor:pointer;}
+input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
