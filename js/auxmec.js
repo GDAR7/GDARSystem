@@ -392,6 +392,12 @@ function openReporte(tipo){
   const _catFiltro=_catOp[tipo];
   const _opList=DB.personal.filter(p=>p.est==='Activo'&&(!_catFiltro||p.cat===_catFiltro));
   document.getElementById('rpOperador').innerHTML=_opList.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  // Horómetros: ocultar en Vehículo Menor
+  const hrSec=document.getElementById('rpHrSection');
+  const hrTit=document.getElementById('rpHorTitle');
+  const _isVM=tipo==='Vehículo Menor';
+  if(hrSec) hrSec.style.display=_isVM?'none':'contents';
+  if(hrTit) hrTit.style.display=_isVM?'none':'';
   // Km solo visible en Línea Blanca y Vehículos Menores
   const kmSec=document.getElementById('rpKmSection');
   if(kmSec) kmSec.style.display=(['Línea Blanca','Vehículo Menor'].includes(tipo))?'contents':'none';

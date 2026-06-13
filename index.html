@@ -1916,8 +1916,9 @@
       </div>
 
       <!-- AZUL: horómetros / km -->
-      <div style="font-size:.6rem;letter-spacing:.12em;color:#3b82f6;text-transform:uppercase;margin:.7rem 0 .5rem;font-weight:700">▸ Horómetros / Kilometraje</div>
+      <div id="rpHorTitle" style="font-size:.6rem;letter-spacing:.12em;color:#3b82f6;text-transform:uppercase;margin:.7rem 0 .5rem;font-weight:700">▸ Horómetros / Kilometraje</div>
       <div class="fg-grid">
+        <div id="rpHrSection" style="display:contents">
         <div class="fg">
           <label>Horómetro Inicial 🔵</label>
           <input id="rpHrIni" type="number" step="0.1" placeholder="0.0" oninput="calcHoras()">
@@ -1933,6 +1934,7 @@
         <div class="fg">
           <label>Hs Inoperatividad 🔵</label>
           <input id="rpHrsInop" type="number" step="0.1" placeholder="0.0">
+        </div>
         </div>
         <div id="rpKmSection" style="display:contents">
         <div class="fg">
