@@ -2070,34 +2070,32 @@
 </div>
 
 <!-- DRILL-DOWN HORAS DIARIAS -->
-<div class="modal" id="mDrillDown">
-  <div class="modal-box" style="max-width:920px;width:96vw">
-    <div class="mh">
-      <div>
-        <div class="mh-title" id="ddTitle">Detalle Diario</div>
-        <div class="mh-sub">Horas trabajadas por día del mes</div>
-        <input type="hidden" id="ddEqId">
-        <input type="hidden" id="ddColor">
-        <span id="ddCodigo" style="display:none"></span>
-      </div>
-      <button class="mh-close" onclick="closeM('mDrillDown')">✕</button>
+<div class="mo" id="mDrillDown"><div class="modal" style="max-width:920px;width:96vw">
+  <div class="mh">
+    <div>
+      <span class="mttl" id="ddTitle">Detalle Diario</span>
+      <div style="font-size:.72rem;color:var(--muted2);margin-top:.15rem">Horas trabajadas por día del mes</div>
+      <input type="hidden" id="ddEqId">
+      <input type="hidden" id="ddColor">
+      <span id="ddCodigo" style="display:none"></span>
     </div>
-    <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
-      <label style="font-size:.72rem;color:var(--muted2);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase">Mes:</label>
-      <select id="ddMonth" onchange="_renderDrillDown()" style="max-width:140px">
-        <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-        <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-        <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-        <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-      </select>
-      <select id="ddYear" onchange="_renderDrillDown()" style="max-width:90px"></select>
-    </div>
-    <div id="ddChart" style="overflow-x:auto"></div>
-    <div class="mf">
-      <button class="btn btn-out" onclick="closeM('mDrillDown')">Cerrar</button>
-    </div>
+    <button class="mx" onclick="closeM('mDrillDown')">✕</button>
   </div>
-</div>
+  <div style="padding:.8rem 1.3rem;border-bottom:1px solid var(--border);display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;background:var(--panel2)">
+    <label style="font-size:.72rem;color:var(--muted2);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase">Mes:</label>
+    <select id="ddMonth" onchange="_renderDrillDown()" style="max-width:140px">
+      <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+      <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+      <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+      <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+    </select>
+    <select id="ddYear" onchange="_renderDrillDown()" style="max-width:90px"></select>
+  </div>
+  <div id="ddChart" style="overflow-x:auto;padding:1rem 1.3rem"></div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mDrillDown')">Cerrar</button>
+  </div>
+</div></div>
 
 <div id="toast"></div>
 
