@@ -837,3 +837,139 @@ function rPanelHoras(){
   }).join('');
 }
 
+// ══ DASHBOARD EQUIPOS ══
+function rDashEquipos(){
+  const el=document.getElementById('page-dashEquipos');
+  if(!el)return;
+  const S={tab:'Línea Amarilla',periodo:'mes',guardia:''};
+  window._deTab=t=>{S.tab=t;_deRender();};
+  window._dePeriod=v=>{S.periodo=v;_deRender();};
+  window._deGuardia=v=>{S.guardia=v;_deRender();};
+
+  function _inPeriodo(fecha){
+    if(!fecha)return false;
+    const d=new Date(fecha+'T12:00:00'),hoy=new Date();
+    if(S.periodo==='mes')return d.getFullYear()===hoy.getFullYear()&&d.getMonth()===hoy.getMonth();
+    if(S.periodo==='mesAnt'){const p=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);return d.getFullYear()===p.getFullYear()&&d.getMonth()===p.getMonth();}
+    if(S.periodo==='semana'){return(hoy-d)/86400000>=0&&(hoy-d)/86400000<7;}
+    return true;
+  }
+
+  function _deRender(){
+    const tipo=S.tab;
+    const color=tipo==='Línea Amarilla'?'#f59e0b':'#06b6d4';
+
+    const partes=DB.partes.filter(p=>{
+      const eq=DB.equipos.find(e=>e.id===p.eqId);
+      if(!eq||eq.tipo!==tipo)return false;
+      if(S.guardia&&p.guardia!==S.guardia)return false;
+      return _inPeriodo(p.fecha);
+    });
+
+    // Agrupar: subtipo → equipo
+    const bySubEq={};
+    partes.forEach(p=>{
+      const eq=DB.equipos.find(e=>e.id===p.eqId);if(!eq)return;
+      const sub=eq.sub||'Sin clasificar';
+      if(!bySubEq[sub])bySubEq[sub]={};
+      if(!bySubEq[sub][eq.id])bySubEq[sub][eq.id]={nombre:eq.nombre,codigo:eq.codigo,ef:0,im:0};
+      bySubEq[sub][eq.id].ef+=+p.ef||0;
+      bySubEq[sub][eq.id].im+=+p.im||0;
+    });
+
+    const subtypes=Object.keys(bySubEq).sort();
+    const totEf=partes.reduce((s,p)=>s+(+p.ef||0),0);
+    const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
+    const disp=(totEf+totIm)>0?((totEf/(totEf+totIm))*100).toFixed(1):'—';
+
+    let html=`
+      <div class="ph">
+        <div class="ph-title" style="color:${color}">📊 Dashboard – Control de Equipos</div>
+        <div class="ph-sub">Horas efectivas e inoperativas por equipo</div>
+      </div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-head" style="gap:.7rem;flex-wrap:nowrap">
+          <div style="display:flex;gap:.4rem">
+            <button class="btn ${S.tab==='Línea Amarilla'?'btn-a':'btn-out'}" style="${S.tab==='Línea Amarilla'?'--ba:#f59e0b':''}" onclick="_deTab('Línea Amarilla')">🟡 Línea Amarilla</button>
+            <button class="btn ${S.tab==='Línea Blanca'?'btn-a':'btn-out'}" style="${S.tab==='Línea Blanca'?'--ba:#06b6d4':''}" onclick="_deTab('Línea Blanca')">⚪ Línea Blanca</button>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <select onchange="_dePeriod(this.value)" style="max-width:150px">
+              <option value="mes" ${S.periodo==='mes'?'selected':''}>Mes actual</option>
+              <option value="mesAnt" ${S.periodo==='mesAnt'?'selected':''}>Mes anterior</option>
+              <option value="semana" ${S.periodo==='semana'?'selected':''}>Última semana</option>
+              <option value="todo" ${S.periodo==='todo'?'selected':''}>Todo</option>
+            </select>
+            <select onchange="_deGuardia(this.value)" style="max-width:130px">
+              <option value="">Todas guardias</option>
+              <option value="A" ${S.guardia==='A'?'selected':''}>Guardia A</option>
+              <option value="B" ${S.guardia==='B'?'selected':''}>Guardia B</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.8rem;margin-bottom:1rem">
+        ${[
+          {l:'PARTES',v:partes.length,c:color,u:''},
+          {l:'HS EFECTIVAS',v:totEf.toFixed(1),c:color,u:'h'},
+          {l:'HS INOPERATIVAS',v:totIm.toFixed(1),c:'#ef4444',u:'h'},
+          {l:'DISPONIBILIDAD',v:disp,c:'#10b981',u:'%'}
+        ].map(k=>`<div class="card" style="text-align:center;padding:.9rem">
+          <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);margin-bottom:.4rem">${k.l}</div>
+          <div style="font-size:1.7rem;font-weight:800;color:${k.c};line-height:1">${k.v}<span style="font-size:.9rem">${k.u}</span></div>
+        </div>`).join('')}
+      </div>`;
+
+    if(!subtypes.length){
+      html+=`<div class="card"><div class="mb" style="text-align:center;color:var(--muted2);padding:2.5rem 1rem;font-size:.9rem">Sin datos para el período seleccionado</div></div>`;
+    } else {
+      subtypes.forEach(sub=>{
+        const items=Object.values(bySubEq[sub]).sort((a,b)=>b.ef-a.ef);
+        const maxVal=Math.max(...items.map(i=>i.ef+i.im),1);
+        const stEf=items.reduce((s,i)=>s+i.ef,0);
+        const stIm=items.reduce((s,i)=>s+i.im,0);
+        html+=`<div class="card" style="margin-bottom:1rem">
+          <div class="card-head">
+            <div class="card-title" style="color:${color}">${sub} <span style="font-weight:400;color:var(--muted2);font-size:.75rem">(${items.length} equipo${items.length!==1?'s':''})</span></div>
+            <div style="display:flex;gap:1.2rem;font-size:.75rem">
+              <span style="color:${color}">Ef total: <strong>${stEf.toFixed(1)}h</strong></span>
+              <span style="color:#ef4444">Inop total: <strong>${stIm.toFixed(1)}h</strong></span>
+            </div>
+          </div>
+          <div class="mb">${_deChart(items,maxVal,color)}</div>
+        </div>`;
+      });
+    }
+
+    el.innerHTML=html;
+  }
+
+  _deRender();
+}
+
+function _deChart(items,maxVal,color){
+  const H=170;
+  const bars=items.map(item=>{
+    const efH=maxVal>0?Math.max(item.ef>0?4:0,Math.round((item.ef/maxVal)*H)):0;
+    const imH=maxVal>0?Math.max(item.im>0?4:0,Math.round((item.im/maxVal)*H)):0;
+    const lbl=item.codigo||(item.nombre.split(' ').slice(0,2).join(' '));
+    return `<div style="flex:1;min-width:58px;max-width:96px">
+      <div style="height:${H}px;display:flex;align-items:flex-end;justify-content:center;gap:3px;border-bottom:1px solid #1e2740">
+        <div style="width:22px;height:${efH}px;background:${color};border-radius:3px 3px 0 0;position:relative;cursor:default" title="Ef: ${item.ef.toFixed(1)}h">
+          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:${color};white-space:nowrap;padding-bottom:2px">${item.ef>0?item.ef.toFixed(1):''}</span>
+        </div>
+        <div style="width:22px;height:${imH}px;background:#ef4444;border-radius:3px 3px 0 0;position:relative;cursor:default" title="Inop: ${item.im.toFixed(1)}h">
+          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:#ef4444;white-space:nowrap;padding-bottom:2px">${item.im>0?item.im.toFixed(1):''}</span>
+        </div>
+      </div>
+      <div style="font-size:.58rem;color:var(--muted2);text-align:center;padding:5px 2px;line-height:1.2">${lbl}</div>
+    </div>`;
+  }).join('');
+
+  return `<div style="display:flex;gap:6px;overflow-x:auto;padding:1.4rem .5rem .2rem;min-height:${H+60}px">${bars}</div>
+    <div style="display:flex;gap:1.2rem;margin-top:.6rem">
+      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:${color};border-radius:2px"></span>Hs Efectivas</span>
+      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:#ef4444;border-radius:2px"></span>Hs Inoperativas</span>
+    </div>`;
+}
+
