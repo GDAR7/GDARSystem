@@ -312,6 +312,35 @@ function autoFillEquipo(){
   const id = +document.getElementById('rpCodigo').value;
   const eq = DB.equipos.find(e=>e.id===id);
   if(eq && eq.hr) document.getElementById('rpHrIni').value = eq.hr;
+  _checkStandby();
+}
+
+function _checkStandby(){
+  const cond=document.getElementById('rpCondicion')?.value||'';
+  if(cond!=='OPERATIVO (STANDBY)'){calcHoras();return;}
+  const eqId=+document.getElementById('rpCodigo').value;
+  if(!eqId){calcHoras();return;}
+  // Último horómetro: mayor hrFin registrado en partes para este equipo
+  const partesEq=DB.partes.filter(p=>p.eqId===eqId&&+p.hrFin>0);
+  let lastHr=partesEq.length?Math.max(...partesEq.map(p=>+p.hrFin||0)):0;
+  if(!lastHr){const eq=DB.equipos.find(e=>e.id===eqId);lastHr=+eq?.hr||0;}
+  if(lastHr>0){
+    document.getElementById('rpHrIni').value=lastHr;
+    document.getElementById('rpHrFin').value=lastHr;
+  }
+  // Para Línea Blanca y Vehículo Menor: también último km
+  if(['Línea Blanca','Vehículo Menor'].includes(currentReporteTipo)){
+    const partesKm=DB.partes.filter(p=>p.eqId===eqId&&+p.kmFin>0);
+    let lastKm=partesKm.length?Math.max(...partesKm.map(p=>+p.kmFin||0)):0;
+    if(!lastKm){const eq=DB.equipos.find(e=>e.id===eqId);lastKm=+eq?.hr||0;}
+    if(lastKm>0){
+      const ini=document.getElementById('rpKmIni');
+      const fin=document.getElementById('rpKmFin');
+      if(ini)ini.value=lastKm;
+      if(fin){fin.value=lastKm;calcKm();}
+    }
+  }
+  calcHoras();
 }
 
 function filtrarFrentes(){
