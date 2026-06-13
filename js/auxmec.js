@@ -990,7 +990,8 @@ function openDrillDown(eqId, codigo, color, periodo){
   document.getElementById('ddCodigo').textContent=codigo;
   document.getElementById('ddMonth').value=month;
   _renderDrillDown();
-  openM('mDrillDown');
+  const el=document.getElementById('mDrillDown');
+  if(el){el.style.display='flex';}
 }
 
 function _renderDrillDown(){
