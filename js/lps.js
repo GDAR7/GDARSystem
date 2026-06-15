@@ -643,7 +643,11 @@ function _lpsRenderPlan(c){
       const pct=planTotal>0?Math.min(100,Math.round(realTotal/planTotal*100)):0;
       const cumplCol=cumplido?'#10b981':pct>=50?'#f59e0b':'#ef4444';
 
-      const respSel=p?`<select onchange="_lpsPlanUpd(${p.id},'responsable',this.value)" style="${ctrl};max-width:140px">${USERS.map(u=>`<option${p.responsable===u.nombre?' selected':''}>${u.nombre}</option>`).join('')}</select>`:'-';
+      const _staff=(DB.personal||[]).filter(x=>x.tipo==='Staff');
+      const respSel=p?`<select onchange="_lpsPlanUpd(${p.id},'responsable',this.value)" style="${ctrl};max-width:160px">
+        <option value="">— Responsable —</option>
+        ${_staff.map(u=>{const nombre=`${u.ape||''}, ${u.nom||''}`.trim().replace(/^,\s*/,'');return`<option value="${nombre}"${p.responsable===nombre?' selected':''}>${nombre}</option>`;}).join('')}
+      </select>`:'-';
 
       tbody+=`
         <tr style="border-top:2px solid #1e2740">
