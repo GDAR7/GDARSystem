@@ -2059,9 +2059,11 @@
           </select>
         </div>
         <div class="fg" style="grid-column:1/-1">
-          <label>Frente de Trabajo 🔴</label>
-          <select id="rpFrente">
-            <option value="">— Seleccionar área primero —</option>
+          <label>Frente de Trabajo 🔴 <span style="font-size:.65rem;color:var(--muted2);font-weight:400">(máx. 3 frentes)</span></label>
+          <input type="hidden" id="rpFrente">
+          <div id="rpFrenteChips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.35rem;min-height:4px"></div>
+          <select id="rpFrenteSel" onchange="_rpFrenteAdd(this.value);this.value=''">
+            <option value="">— Agregar frente —</option>
           </select>
         </div>
         <div class="fg" style="grid-column:1/-1">

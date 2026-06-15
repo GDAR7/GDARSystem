@@ -355,12 +355,40 @@ function _checkStandby(){
   calcHoras();
 }
 
+// ── FRENTES MULTI-SELECCIÓN ───────────────────────────────────────────────────
+let _rpFrenteSelected=[];
+
+function _rpFrenteRender(){
+  const chips=document.getElementById('rpFrenteChips');
+  const sel=document.getElementById('rpFrenteSel');
+  const inp=document.getElementById('rpFrente');
+  if(!chips)return;
+  chips.innerHTML=_rpFrenteSelected.map(v=>`
+    <span style="display:inline-flex;align-items:center;gap:.35rem;background:rgba(14,165,233,.15);border:1px solid #0ea5e940;border-radius:5px;padding:.2rem .6rem;font-size:.76rem;color:var(--text)">
+      ${v}
+      <button type="button" onclick="_rpFrenteRemove(this)" data-v="${v.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0;line-height:1">✕</button>
+    </span>`).join('');
+  if(inp)inp.value=_rpFrenteSelected.join(', ');
+  if(sel)sel.disabled=_rpFrenteSelected.length>=3;
+}
+function _rpFrenteAdd(val){
+  if(!val||_rpFrenteSelected.includes(val)||_rpFrenteSelected.length>=3)return;
+  _rpFrenteSelected.push(val);
+  _rpFrenteRender();
+}
+function _rpFrenteRemove(btn){
+  const val=btn.dataset.v;
+  _rpFrenteSelected=_rpFrenteSelected.filter(v=>v!==val);
+  _rpFrenteRender();
+}
+
 function filtrarFrentes(){
-  const sel = document.getElementById('rpFrente');
+  const sel=document.getElementById('rpFrenteSel');
+  if(!sel)return;
   const fromDB=DB.frentesTrabajo.map(f=>f.nombre).filter(Boolean);
-  const fromPartes=[...new Set(DB.partes.map(p=>p.frenteT).filter(Boolean))];
+  const fromPartes=[...new Set(DB.partes.map(p=>p.frenteT).filter(Boolean).flatMap(f=>f.split(', ')))];
   const todos=[...new Set([...fromDB,...fromPartes])].sort();
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+todos.map(f=>`<option>${f}</option>`).join('');
+  sel.innerHTML='<option value="">— Agregar frente —</option>'+todos.map(f=>`<option>${f}</option>`).join('');
 }
 
 function calcHoras(){
@@ -466,6 +494,8 @@ function openReporte(tipo){
   document.getElementById('rpDescripcion').value='';
   const _ki=document.getElementById('rpKmIni'),_kf=document.getElementById('rpKmFin'),_kr=document.getElementById('rpKmRec');
   if(_ki)_ki.value='';if(_kf)_kf.value='';if(_kr)_kr.value=0;
+  _rpFrenteSelected=[];_rpFrenteRender();
+  filtrarFrentes();
   switchTab(1);
   openM('mReporte');
 }
@@ -518,8 +548,8 @@ function editParte(id){
   document.getElementById('rpHrsInop').value=p.im||0;
   const rpArea=document.getElementById('rpArea');
   if(rpArea)rpArea.value=p.areaT||'';
-  const rpFrente=document.getElementById('rpFrente');
-  if(rpFrente)rpFrente.value=p.frenteT||'';
+  _rpFrenteSelected=(p.frenteT||'').split(', ').map(s=>s.trim()).filter(Boolean);
+  _rpFrenteRender();
   document.getElementById('rpDescripcion').value=p.act||'';
   document.getElementById('rpObservaciones').value=p.observaciones||'';
   const rpConc=document.getElementById('rpConclusion');
