@@ -122,18 +122,19 @@ function _lpsRenderWBS(c){
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th style="width:52px"></th><th>Código</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
+    <thead><tr><th style="width:52px"></th><th>Código</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map((w,idx)=>{
       const movBtns=_btnMove(w.id,idx);
       const recsW=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===w.id);
       const recsBadge=recsW.length
         ?`<button onclick="_lpsOpenRecursos(${w.id})" title="Ver/editar recursos" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid #818cf840;border-radius:5px;padding:1px 8px;font-size:.68rem;cursor:pointer;white-space:nowrap">📦 ${recsW.length} recurso${recsW.length>1?'s':''}</button>`
         :'';
+      const notaIcon=w.desc?`<span title="${w.desc.replace(/"/g,'&quot;')}" style="font-size:.75rem;opacity:.55;cursor:help;margin-left:.35rem">📝</span>`:'';
       if(w.tipo==='TITULO'){
         return`<tr style="background:rgba(16,185,129,.09)">
           <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-          <td class="mono" style="color:${LPS_COLOR};font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.05em">${w.codigo}</td>
-          <td colspan="3" style="font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em;text-transform:uppercase">${w.desc}</td>
+          <td colspan="2" class="mono" style="color:${LPS_COLOR};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${w.codigo}${notaIcon}</td>
+          <td></td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
           <td></td>
           <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
@@ -143,8 +144,7 @@ function _lpsRenderWBS(c){
       }
       return`<tr>
         <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-        <td class="mono" style="color:${LPS_COLOR}">${w.codigo}</td>
-        <td><strong>${w.desc}</strong></td>
+        <td class="mono" style="color:${LPS_COLOR}">${w.codigo}${notaIcon}</td>
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
@@ -155,7 +155,7 @@ function _lpsRenderWBS(c){
         <td style="white-space:nowrap"><button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
             <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
+    }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -271,7 +271,7 @@ function _lpsSaveWbs(){
   const unidad=esTitulo?'—':document.getElementById('lpsWbsUnd').value.trim();
   const cantTotal=esTitulo?0:(+document.getElementById('lpsWbsCant').value||0);
   const sector=document.getElementById('lpsWbsSect').value;
-  if(!codigo||!desc||!sector){toast('Complete código, descripción y sector',true);return;}
+  if(!codigo||!sector){toast('Complete código y sector',true);return;}
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
     if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo});syncSheet('saveLpsWbs',w);}
