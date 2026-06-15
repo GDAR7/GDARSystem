@@ -399,7 +399,6 @@ function _lpsRenderPlan(c){
       tbody+=`
         <tr style="border-top:2px solid #1e2740">
           <td rowspan="2" class="mono" style="color:${LPS_COLOR};font-size:.68rem;vertical-align:middle;padding:.3rem .5rem">${w.codigo}</td>
-          <td rowspan="2" style="font-size:.76rem;vertical-align:middle;max-width:180px"><strong>${w.desc}</strong></td>
           <td rowspan="2" style="font-size:.65rem;color:var(--muted2);vertical-align:middle">${w.sector}</td>
           <td rowspan="2" style="vertical-align:middle;padding:.2rem">${respSel}</td>
           <td style="padding:.12rem .4rem"><span style="font-size:.58rem;font-weight:700;color:#10b981;background:rgba(16,185,129,.15);border:1px solid #10b98130;border-radius:3px;padding:1px 6px">PLAN</span></td>
@@ -437,7 +436,6 @@ function _lpsRenderPlan(c){
   <div class="tbl-wrap" style="overflow-x:auto"><table style="white-space:nowrap">
     <thead><tr>
       <th style="min-width:95px">Código</th>
-      <th style="min-width:170px">Actividad</th>
       <th style="min-width:85px">Sector</th>
       <th style="min-width:145px">Responsable</th>
       <th style="min-width:44px"></th>
