@@ -355,40 +355,15 @@ function _checkStandby(){
   calcHoras();
 }
 
-// ── FRENTES MULTI-SELECCIÓN ───────────────────────────────────────────────────
-let _rpFrenteSelected=[];
-
-function _rpFrenteRender(){
-  const chips=document.getElementById('rpFrenteChips');
-  const sel=document.getElementById('rpFrenteSel');
-  const inp=document.getElementById('rpFrente');
-  if(!chips)return;
-  chips.innerHTML=_rpFrenteSelected.map(v=>`
-    <span style="display:inline-flex;align-items:center;gap:.35rem;background:rgba(14,165,233,.15);border:1px solid #0ea5e940;border-radius:5px;padding:.2rem .6rem;font-size:.76rem;color:var(--text)">
-      ${v}
-      <button type="button" onclick="_rpFrenteRemove(this)" data-v="${v.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0;line-height:1">✕</button>
-    </span>`).join('');
-  if(inp)inp.value=_rpFrenteSelected.join(', ');
-  if(sel)sel.disabled=_rpFrenteSelected.length>=3;
-}
-function _rpFrenteAdd(val){
-  if(!val||_rpFrenteSelected.includes(val)||_rpFrenteSelected.length>=3)return;
-  _rpFrenteSelected.push(val);
-  _rpFrenteRender();
-}
-function _rpFrenteRemove(btn){
-  const val=btn.dataset.v;
-  _rpFrenteSelected=_rpFrenteSelected.filter(v=>v!==val);
-  _rpFrenteRender();
-}
-
 function filtrarFrentes(){
-  const sel=document.getElementById('rpFrenteSel');
+  const sel=document.getElementById('rpFrente');
   if(!sel)return;
-  const fromDB=DB.frentesTrabajo.map(f=>f.nombre).filter(Boolean);
-  const fromPartes=[...new Set(DB.partes.map(p=>p.frenteT).filter(Boolean).flatMap(f=>f.split(', ')))];
+  const fromDB=(DB.frentesTrabajo||[]).map(f=>f.nombre||f.nom||'').filter(Boolean);
+  const fromPartes=[];
+  (DB.partes||[]).forEach(p=>{if(p.frenteT){p.frenteT.split(', ').forEach(v=>{const t=v.trim();if(t)fromPartes.push(t);});}});
   const todos=[...new Set([...fromDB,...fromPartes])].sort();
-  sel.innerHTML='<option value="">— Agregar frente —</option>'+todos.map(f=>`<option>${f}</option>`).join('');
+  const prev=Array.from(sel.selectedOptions).map(o=>o.value);
+  sel.innerHTML=todos.map(f=>`<option value="${f}"${prev.includes(f)?' selected':''}>${f}</option>`).join('');
 }
 
 function calcHoras(){
@@ -494,8 +469,8 @@ function openReporte(tipo){
   document.getElementById('rpDescripcion').value='';
   const _ki=document.getElementById('rpKmIni'),_kf=document.getElementById('rpKmFin'),_kr=document.getElementById('rpKmRec');
   if(_ki)_ki.value='';if(_kf)_kf.value='';if(_kr)_kr.value=0;
-  _rpFrenteSelected=[];_rpFrenteRender();
   filtrarFrentes();
+  const _rpf=document.getElementById('rpFrente');if(_rpf)Array.from(_rpf.options).forEach(o=>o.selected=false);
   switchTab(1);
   openM('mReporte');
 }
@@ -548,8 +523,9 @@ function editParte(id){
   document.getElementById('rpHrsInop').value=p.im||0;
   const rpArea=document.getElementById('rpArea');
   if(rpArea)rpArea.value=p.areaT||'';
-  _rpFrenteSelected=(p.frenteT||'').split(', ').map(s=>s.trim()).filter(Boolean);
-  _rpFrenteRender();
+  filtrarFrentes();
+  const _rfSel=document.getElementById('rpFrente');
+  if(_rfSel){const _fv=(p.frenteT||'').split(', ').map(s=>s.trim()).filter(Boolean);Array.from(_rfSel.options).forEach(o=>o.selected=_fv.includes(o.value));}
   document.getElementById('rpDescripcion').value=p.act||'';
   document.getElementById('rpObservaciones').value=p.observaciones||'';
   const rpConc=document.getElementById('rpConclusion');
@@ -604,7 +580,7 @@ async function gReporte(){
     descuentos:   +document.getElementById('rpDescuentos').value||0,
     hrsInop:      +document.getElementById('rpHrsInop').value||0,
     areaT:         document.getElementById('rpArea').value,
-    frenteT:       document.getElementById('rpFrente').value,
+    frenteT:       Array.from((document.getElementById('rpFrente')||{selectedOptions:[]}).selectedOptions).map(o=>o.value).join(', '),
     actividades:   document.getElementById('rpDescripcion').value,
     observaciones: document.getElementById('rpObservaciones').value,
     nViajes:      +document.getElementById('rpNViajes').value||0,
