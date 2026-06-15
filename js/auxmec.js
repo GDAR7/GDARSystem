@@ -445,6 +445,24 @@ function openReporte(tipo){
   switchTab(1);
   openM('mReporte');
 }
+async function delParte(id){
+  const p=DB.partes.find(x=>x.id===id);
+  if(!p){toast('Parte no encontrado',true);return;}
+  // Validación 48 horas
+  const created=p.createdAt?new Date(p.createdAt):null;
+  if(!created||isNaN(created.getTime())){toast('No se puede eliminar: fecha de registro desconocida',true);return;}
+  const diffHs=(Date.now()-created.getTime())/3600000;
+  if(diffHs>48){toast(`⛔ Eliminación bloqueada: el parte fue registrado hace ${Math.round(diffHs)} horas (límite 48 h)`,true);return;}
+  const eq=DB.equipos.find(x=>x.id===p.eqId);
+  const label=`${p.fecha} – ${eq?eq.codigo:'equipo #'+p.eqId}`;
+  if(!confirm(`¿Eliminar el parte del ${label}?\n\nEsta acción no se puede deshacer.`))return;
+  toast('Eliminando...');
+  await supaDelete('partes',id);
+  DB.partes=DB.partes.filter(x=>x.id!==id);
+  rLinea(currentReporteTipo);
+  toast('✓ Parte eliminado');
+}
+
 function editParte(id){
   const p=DB.partes.find(x=>x.id===id);
   if(!p){toast('Parte no encontrado',true);return;}
@@ -660,7 +678,15 @@ function rLinea(tipo){
     if(_eIco)_eIco.textContent=_laSort.col==='ef'?(_laSort.dir==='asc'?'▲':'▼'):'⇅';
     // Tabla
     const tbP=document.getElementById('tbPartesLA');
-    if(tbP)tbP.innerHTML=partesF.map(p=>{const eq=DB.equipos.find(x=>x.id===p.eqId);return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td><td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td></tr>`;}).join('');
+    if(tbP)tbP.innerHTML=partesF.map(p=>{
+      const eq=DB.equipos.find(x=>x.id===p.eqId);
+      const _can48=p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
+      return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
+        ${_can48?`<button class="btn btn-out btn-sm" onclick="delParte(${p.id})" style="color:#ef4444;border-color:#ef444460" title="Eliminar (disponible 48h)">🗑️</button>`:`<button class="btn btn-out btn-sm" disabled style="color:#3d5070;border-color:#2a3a5a;cursor:not-allowed" title="Eliminación bloqueada (+48h)">🔒</button>`}
+      </td></tr>`;
+    }).join('');
   }else if(tipo==='Línea Blanca'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td>${e.modelo||'—'}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">${e.proxMant||'—'}</td></tr>`).join('');
     // Filtros LB
@@ -708,6 +734,7 @@ function rLinea(tipo){
     if(tbP)tbP.innerHTML=partesLB.map(p=>{
       const eq=DB.equipos.find(x=>x.id===p.eqId);
       const m3=(+p.nViajes||0)*12.5;
+      const _can48=p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
       return`<tr>
         <td class="mono">${p.fecha}</td>
         <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo}`:''}</td>
@@ -719,7 +746,10 @@ function rLinea(tipo){
         <td class="mono">${+p.im>0?parseFloat((+p.im).toFixed(2))+'h':'—'}</td>
         <td class="mono" style="display:none">${p.comb} gal</td>
         <td>${p.act||'—'}</td>
-        <td><button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button></td>
+        <td style="display:flex;gap:4px">
+          <button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
+          ${_can48?`<button class="btn btn-out btn-sm" onclick="delParte(${p.id})" style="color:#ef4444;border-color:#ef444460" title="Eliminar (disponible 48h)">🗑️</button>`:`<button class="btn btn-out btn-sm" disabled style="color:#3d5070;border-color:#2a3a5a;cursor:not-allowed" title="Eliminación bloqueada (+48h)">🔒</button>`}
+        </td>
       </tr>`;
     }).join('');
   }else if(tipo==='Vehículo Menor'){
