@@ -189,20 +189,24 @@ function _lpsRenderLookahead(c){
   const sF=document.getElementById('lpsLaSector')?.value||'';
   const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&(!sF||w.sector===sF));
   const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
-  const allDays=_lpsDaysRange(_lpsSemana,28);
 
-  // Cabecera de columnas
-  let hdrs='<th style="min-width:60px">Código</th><th style="min-width:200px">Actividad</th><th>Sector</th>';
+  // Cabecera
+  let hdrs=`<th style="min-width:80px">Código</th>
+    <th style="min-width:115px;text-align:center">F. Inicio</th>
+    <th style="min-width:115px;text-align:center">F. Fin</th>
+    <th style="min-width:58px;text-align:center">Días</th>
+    <th style="min-width:72px;text-align:right">Cant/día</th>
+    <th style="min-width:70px">Sector</th>`;
   semanas.forEach((sw,si)=>{
     const days=_lpsDaysRange(sw,7);
     days.forEach(d=>{
       const dow=_lpsDow(d);
       const isWe=dow==='SÁB'||dow==='DOM';
-      hdrs+=`<th style="font-size:.6rem;min-width:30px;padding:.2rem;text-align:center;${isWe?'background:rgba(255,255,255,.03);color:var(--muted2)':''}">
+      hdrs+=`<th style="font-size:.58rem;min-width:34px;padding:.2rem;text-align:center;${isWe?'background:rgba(255,255,255,.03);color:var(--muted2)':''}">
         <div>${dow}</div><div>${_lpsFmt(d)}</div>
       </th>`;
     });
-    hdrs+=`<th style="font-size:.62rem;min-width:70px;text-align:center;background:rgba(16,185,129,.07);color:#10b981">Cant.<br>S${si+1}</th>`;
+    hdrs+=`<th style="font-size:.6rem;min-width:72px;text-align:center;background:rgba(16,185,129,.07);color:#10b981">Cant.<br>S${si+1}</th>`;
   });
 
   // Filas
@@ -211,28 +215,50 @@ function _lpsRenderLookahead(c){
     tbodyRows=`<tr><td colspan="100" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades. Agregue en la Biblioteca WBS.</td></tr>`;
   }else{
     wbs.forEach(w=>{
+      const fechaIni=w.fechaIni||'';
+      const fechaFin=w.fechaFin||'';
+      // Usar cantDias guardado; si no existe, calcularlo de las fechas
+      let cantDias=+w.cantDias||0;
+      if(!cantDias&&fechaIni&&fechaFin){
+        const d1=new Date(fechaIni+'T12:00:00'),d2=new Date(fechaFin+'T12:00:00');
+        cantDias=Math.max(1,Math.round((d2-d1)/86400000)+1);
+      }
+      const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+      const fmtV=v=>v===0?'':v%1===0?String(v):v.toFixed(1);
+      const ctrl=`background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.2rem .4rem;font-size:.75rem`;
+
       let cells='';
-      semanas.forEach((sw,si)=>{
-        const la=_lpsGetLa(w.id,sw);
-        const dias=la?.diasProg||[];
+      semanas.forEach(sw=>{
         const days=_lpsDaysRange(sw,7);
+        let cantSem=0;
         days.forEach(d=>{
-          const on=dias.includes(d);
+          const inRange=fechaIni&&fechaFin&&d>=fechaIni&&d<=fechaFin;
           const dow=_lpsDow(d);
           const isWe=dow==='SÁB'||dow==='DOM';
-          cells+=`<td onclick="_lpsCellToggle(${w.id},'${sw}','${d}')" style="text-align:center;cursor:pointer;padding:.15rem;${isWe?'background:rgba(255,255,255,.02)':''}">
-            <div style="width:22px;height:22px;border-radius:4px;margin:auto;${on?`background:${LPS_COLOR}`:' background:rgba(255,255,255,.05);border:1px solid var(--border)'}"></div>
+          if(inRange&&cantDiaria>0)cantSem+=cantDiaria;
+          cells+=`<td style="text-align:center;padding:.15rem;${isWe?'background:rgba(255,255,255,.02)':''}${inRange?';background:rgba(16,185,129,.10)':''}">
+            ${inRange&&cantDiaria>0
+              ?`<div style="font-size:.62rem;font-weight:700;color:#10b981;line-height:1.3">${fmtV(cantDiaria)}</div>`
+              :`<div style="width:22px;height:18px;border-radius:3px;margin:auto;background:rgba(255,255,255,.03);border:1px solid var(--border)"></div>`}
           </td>`;
         });
-        cells+=`<td style="background:rgba(16,185,129,.04);padding:.2rem .3rem">
-          <input type="number" min="0" step="0.1" value="${la?.cantSemana||''}"
-            placeholder="0" oninput="_lpsCantSem(${w.id},'${sw}',+this.value)"
-            style="width:65px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:right;padding:.2rem .3rem;font-size:.75rem">
+        cells+=`<td style="background:rgba(16,185,129,.04);padding:.25rem .4rem;text-align:right;font-size:.75rem;font-weight:600;color:${cantSem>0?'#10b981':'var(--muted2)'}">
+          ${cantSem>0?fmtV(cantSem):'—'}
         </td>`;
       });
+
       tbodyRows+=`<tr>
         <td class="mono" style="color:${LPS_COLOR};font-size:.72rem">${w.codigo}</td>
-        <td style="font-size:.78rem"><strong>${w.desc}</strong></td>
+        <td style="padding:.25rem"><input type="date" value="${fechaIni}" style="color-scheme:dark;${ctrl};width:125px"
+          onchange="_lpsLaFecha(${w.id},'ini',this.value)"></td>
+        <td style="padding:.25rem"><input type="date" value="${fechaFin}" style="color-scheme:dark;${ctrl};width:125px"
+          onchange="_lpsLaFecha(${w.id},'fin',this.value)"></td>
+        <td style="padding:.25rem"><input type="number" min="1" value="${cantDias||''}" placeholder="—"
+          style="${ctrl};width:52px;text-align:center"
+          onchange="_lpsLaDias(${w.id},+this.value)"></td>
+        <td style="text-align:right;padding-right:.5rem;font-size:.78rem;font-weight:600;color:${cantDiaria>0?LPS_COLOR:'var(--muted2)'}">
+          ${cantDiaria>0?fmtV(cantDiaria)+(w.unidad&&w.unidad!=='—'?' '+w.unidad:''):'—'}
+        </td>
         <td><span style="font-size:.65rem;color:var(--muted2)">${w.sector}</span></td>
         ${cells}
       </tr>`;
@@ -255,27 +281,26 @@ function _lpsRenderLookahead(c){
   </table></div>`;
 }
 
-function _lpsGetLa(wbsId,semanaInicio){
-  return (DB.lpsLookahead||[]).find(r=>r.wbsId===wbsId&&r.semanaInicio===semanaInicio);
-}
-
-function _lpsCellToggle(wbsId,semanaInicio,fecha){
-  let la=_lpsGetLa(wbsId,semanaInicio);
-  if(la){
-    const idx=la.diasProg.indexOf(fecha);
-    if(idx>-1)la.diasProg.splice(idx,1);else la.diasProg.push(fecha);
-    syncSheet('saveLpsLookahead',la);
-  }else{
-    la={id:nid('lpsL'),wbsId,semanaInicio,diasProg:[fecha],cantSemana:0};
-    DB.lpsLookahead.push(la);syncSheet('saveLpsLookahead',la);
+function _lpsLaFecha(wbsId,tipo,val){
+  const w=DB.lpsWbs.find(x=>x.id===wbsId);if(!w)return;
+  if(tipo==='ini')w.fechaIni=val;else w.fechaFin=val;
+  // Recalcular y guardar cantDias cuando ambas fechas están definidas
+  if(w.fechaIni&&w.fechaFin){
+    const d1=new Date(w.fechaIni+'T12:00:00'),d2=new Date(w.fechaFin+'T12:00:00');
+    if(d2>=d1) w.cantDias=Math.round((d2-d1)/86400000)+1;
   }
+  syncSheet('saveLpsWbs',w);
   _lpsRenderTab();
 }
 
-function _lpsCantSem(wbsId,semanaInicio,val){
-  let la=_lpsGetLa(wbsId,semanaInicio);
-  if(la){la.cantSemana=val;syncSheet('saveLpsLookahead',la);}
-  else{la={id:nid('lpsL'),wbsId,semanaInicio,diasProg:[],cantSemana:val};DB.lpsLookahead.push(la);syncSheet('saveLpsLookahead',la);}
+function _lpsLaDias(wbsId,dias){
+  const w=DB.lpsWbs.find(x=>x.id===wbsId);
+  if(!w||dias<1)return;
+  w.cantDias=dias;
+  // Calcular fechaFin a partir de fechaIni + cantDias
+  if(w.fechaIni) w.fechaFin=_lpsAddDays(w.fechaIni,dias-1);
+  syncSheet('saveLpsWbs',w);
+  _lpsRenderTab();
 }
 
 function _lpsRodarSemana(){
@@ -344,16 +369,30 @@ function _lpsRenderPlan(c){
 }
 
 function _lpsSincPlan(){
-  const laActivos=(DB.lpsLookahead||[]).filter(r=>r.semanaInicio===_lpsSemana&&(r.diasProg||[]).length>0);
+  // Actividades cuyo rango de fechas se cruza con la semana activa
+  const semFin=_lpsAddDays(_lpsSemana,6);
+  const wbsEnSem=_lpsWbsSorted().filter(w=>{
+    if(w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return false;
+    return w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin;
+  });
   let added=0;
-  laActivos.forEach(la=>{
-    const exists=(DB.lpsPlanSemanal||[]).find(p=>p.semanaInicio===_lpsSemana&&p.wbsId===la.wbsId);
+  wbsEnSem.forEach(w=>{
+    const exists=(DB.lpsPlanSemanal||[]).find(p=>p.semanaInicio===_lpsSemana&&p.wbsId===w.id);
     if(!exists){
-      const rec={id:nid('lpsP'),semanaInicio:_lpsSemana,wbsId:la.wbsId,responsable:'',programado:la.cantSemana||0,ejecutado:0,cumplido:'N',cncCategoria:'',cncDesc:''};
+      // Cantidad programada para esta semana = cantDiaria × días en semana
+      let cantDias=+w.cantDias||0;
+      if(!cantDias&&w.fechaIni&&w.fechaFin){
+        const d1=new Date(w.fechaIni+'T12:00:00'),d2=new Date(w.fechaFin+'T12:00:00');
+        cantDias=Math.max(1,Math.round((d2-d1)/86400000)+1);
+      }
+      const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+      const diasEnSemana=_lpsDaysRange(_lpsSemana,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
+      const programado=parseFloat((cantDiaria*diasEnSemana).toFixed(2));
+      const rec={id:nid('lpsP'),semanaInicio:_lpsSemana,wbsId:w.id,responsable:'',programado,ejecutado:0,cumplido:'N',cncCategoria:'',cncDesc:''};
       DB.lpsPlanSemanal.push(rec);syncSheet('saveLpsPlan',rec);added++;
     }
   });
-  _lpsRenderTab();toast(added?`✓ ${added} actividad(es) sincronizadas`:'Sin nuevas actividades en lookahead');
+  _lpsRenderTab();toast(added?`✓ ${added} actividad(es) sincronizadas`:'Sin nuevas actividades con fechas en esta semana');
 }
 
 function _lpsPlanUpd(id,campo,val){
