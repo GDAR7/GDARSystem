@@ -122,15 +122,20 @@ function _lpsRenderWBS(c){
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th style="width:52px"></th><th>Código</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th></th></tr></thead>
+    <thead><tr><th style="width:52px"></th><th>Código</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map((w,idx)=>{
       const movBtns=_btnMove(w.id,idx);
+      const recsW=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===w.id);
+      const recsBadge=recsW.length
+        ?`<button onclick="_lpsOpenRecursos(${w.id})" title="Ver/editar recursos" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid #818cf840;border-radius:5px;padding:1px 8px;font-size:.68rem;cursor:pointer;white-space:nowrap">📦 ${recsW.length} recurso${recsW.length>1?'s':''}</button>`
+        :'';
       if(w.tipo==='TITULO'){
         return`<tr style="background:rgba(16,185,129,.09)">
           <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
           <td class="mono" style="color:${LPS_COLOR};font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.05em">${w.codigo}</td>
           <td colspan="3" style="font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em;text-transform:uppercase">${w.desc}</td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
+          <td></td>
           <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
               <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
               <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
@@ -143,14 +148,82 @@ function _lpsRenderWBS(c){
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
+        <td style="padding:.2rem .4rem">
+          ${recsBadge}
+          <button onclick="_lpsOpenRecursos(${w.id})" title="Agregar recursos" style="background:none;border:1px dashed #2a3a5a;border-radius:5px;color:#3d5070;padding:1px 7px;font-size:.68rem;cursor:pointer">＋ Recursos</button>
+        </td>
         <td style="white-space:nowrap"><button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
             <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
+    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
 }
 
 function _lpsCtrl(){return'background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem';}
+
+// ── RECURSOS POR ACTIVIDAD WBS ────────────────────────────────────────────────
+let _lpsRecursosWbsId=null;
+const _TIPO_REC_COLOR={Equipo:'#f59e0b',Personal:'#10b981',Material:'#818cf8'};
+const _TIPO_REC_IC={Equipo:'🚧',Personal:'👷',Material:'🧱'};
+
+function _lpsOpenRecursos(wbsId){
+  _lpsRecursosWbsId=wbsId;
+  const w=DB.lpsWbs.find(x=>x.id===wbsId);
+  document.getElementById('lpsRecursosMtl').textContent=`📦 Recursos — ${w?.codigo||''} ${w?.desc||''}`;
+  _lpsRenderRecursosList();
+  openM('mLpsRecursos');
+}
+
+function _lpsRenderRecursosList(){
+  const lista=document.getElementById('lpsRecursosLista');if(!lista)return;
+  const recs=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===_lpsRecursosWbsId);
+  if(!recs.length){
+    lista.innerHTML=`<p style="font-size:.78rem;color:var(--muted2);text-align:center;padding:.6rem">Sin recursos asignados. Agrega uno abajo.</p>`;
+    return;
+  }
+  // Agrupar por tipo
+  const grupos={Equipo:[],Personal:[],Material:[]};
+  recs.forEach(r=>{const g=grupos[r.tipo]||grupos['Material'];g.push(r);});
+  lista.innerHTML=Object.entries(grupos).filter(([,v])=>v.length).map(([tipo,items])=>`
+    <div style="margin-bottom:.6rem">
+      <div style="font-size:.65rem;font-weight:700;color:${_TIPO_REC_COLOR[tipo]};letter-spacing:.08em;margin-bottom:.3rem">${_TIPO_REC_IC[tipo]} ${tipo.toUpperCase()}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem">
+        ${items.map(r=>`
+          <div style="display:flex;align-items:center;gap:.4rem;background:rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.1);border:1px solid rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.25);border-radius:6px;padding:.25rem .6rem">
+            <span style="font-size:.78rem;font-weight:600;color:var(--text)">${r.nombre}</span>
+            <span style="font-size:.72rem;color:var(--muted2)">${r.cantidad} ${r.unidad||'und'}</span>
+            <button onclick="_lpsDelRecurso(${r.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0;line-height:1" title="Eliminar">✕</button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function _lpsAddRecurso(){
+  const tipo=document.getElementById('lpsRTipo').value;
+  const nombre=document.getElementById('lpsRNombre').value.trim();
+  const cantidad=+document.getElementById('lpsRCant').value||1;
+  const unidad=document.getElementById('lpsRUnd').value.trim()||'und';
+  if(!nombre){toast('Ingresa el nombre del recurso',true);return;}
+  const rec={id:nid('lpsWbsR'),wbsId:_lpsRecursosWbsId,tipo,nombre,cantidad,unidad};
+  if(!DB.lpsWbsRecursos)DB.lpsWbsRecursos=[];
+  DB.lpsWbsRecursos.push(rec);
+  syncSheet('saveLpsRecurso',rec);
+  document.getElementById('lpsRNombre').value='';
+  document.getElementById('lpsRCant').value='';
+  document.getElementById('lpsRUnd').value='';
+  _lpsRenderRecursosList();
+  _lpsRenderTab();
+  toast('✓ Recurso agregado');
+}
+
+function _lpsDelRecurso(id){
+  if(!confirm('¿Eliminar este recurso?'))return;
+  DB.lpsWbsRecursos=DB.lpsWbsRecursos.filter(r=>r.id!==id);
+  supaDelete('lpsWbsRecursos',id);
+  _lpsRenderRecursosList();
+  _lpsRenderTab();
+  toast('Recurso eliminado');
+}
 
 function _lpsSetProyFecha(tipo,val){
   if(tipo==='ini') _lpsProyInicio=val;
