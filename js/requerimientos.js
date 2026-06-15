@@ -308,9 +308,8 @@ function rProyectos(){
       <td style="color:var(--muted2);font-size:.8rem">${p.descripcion||'—'}</td>
       <td>${bge(p.estado)}</td>
       <td style="text-align:center;color:${nReqs?'var(--alm)':'var(--muted)'};font-weight:600">${nReqs||'0'}</td>
-      <td style="display:flex;gap:.3rem">
+      <td>
         <button class="btn btn-sm" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;color:#f59e0b" onclick="openProyectoEdit(${p.id})">✏️</button>
-        <button class="btn btn-del btn-sm" onclick="del('proyectos',${p.id})">🗑</button>
       </td>
     </tr>`;
   }).join('');
