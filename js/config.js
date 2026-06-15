@@ -93,7 +93,8 @@ const SUPA_TABLES={
   lpsWbs:'lps_wbs',
   lpsLookahead:'lps_lookahead',
   lpsPlanSemanal:'lps_plan_semanal',
-  lpsRestricciones:'lps_restricciones'
+  lpsRestricciones:'lps_restricciones',
+  lpsConfig:'lps_config'
 };
 
 const ACTION_MAP={
@@ -113,7 +114,8 @@ const ACTION_MAP={
   saveLpsWbs:'lpsWbs',
   saveLpsLookahead:'lpsLookahead',
   saveLpsPlan:'lpsPlanSemanal',
-  saveLpsRestr:'lpsRestricciones'
+  saveLpsRestr:'lpsRestricciones',
+  saveLpsConfig:'lpsConfig'
 };
 
 let _pendingSaves=0;
@@ -355,7 +357,7 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],
   nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1}
 };
 

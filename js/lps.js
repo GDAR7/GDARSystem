@@ -6,7 +6,9 @@ const LPS_CNC=['Prerequisitos','Materiales','Equipos','Subcontratistas','Clima',
 const LPS_COLOR='#10b981';
 
 let _lpsTab=1;
-let _lpsSemana=null;   // ISO Monday de la semana activa del lookahead
+let _lpsSemana=null;
+let _lpsProyInicio='';
+let _lpsProyFin='';
 let _lpsSectorFilt='';
 let _lpsEditWbsId=null;
 
@@ -27,6 +29,10 @@ function _lpsDaysRange(isoStart,n){return Array.from({length:n},(_,i)=>_lpsAddDa
 // ── entrada principal ─────────────────────────────────────────────────────────
 function rLps(){
   if(!_lpsSemana){_lpsSemana=localStorage.getItem('_lpsSemana')||_lpsMonday();}
+  // Cargar fechas de proyecto desde Supabase (DB.lpsConfig), fallback a localStorage
+  const cfg=(DB.lpsConfig||[])[0];
+  _lpsProyInicio=cfg?.proyectoInicio||localStorage.getItem('_lpsProyInicio')||'';
+  _lpsProyFin=cfg?.proyectoFin||localStorage.getItem('_lpsProyFin')||'';
   _lpsRenderShell();
   _lpsRenderTab();
 }
@@ -93,7 +99,20 @@ function _lpsRenderWBS(c){
     <button onclick="_lpsWbsMover(${id},+1)" ${idx===last?'disabled':''} title="Bajar"
       style="background:none;border:1px solid ${idx===last?'#1e2740':'#2a3a5a'};border-radius:4px;color:${idx===last?'#2a3a5a':'#6b85a8'};width:22px;height:22px;cursor:${idx===last?'default':'pointer'};font-size:.7rem;line-height:1;padding:0">▼</button>`;
 
+  const _dateCtrl=`color-scheme:dark;${_lpsCtrl()};padding:.25rem .5rem`;
   c.innerHTML=`
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.55rem .9rem;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:8px">
+    <span style="font-size:.72rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em">📅 RANGO DEL PROYECTO</span>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted2)">Inicio
+      <input type="date" value="${_lpsProyInicio}" onchange="_lpsSetProyFecha('ini',this.value)" style="${_dateCtrl}">
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted2)">Fin
+      <input type="date" value="${_lpsProyFin}" onchange="_lpsSetProyFecha('fin',this.value)" style="${_dateCtrl}">
+    </label>
+    ${_lpsProyInicio&&_lpsProyFin?`<span style="font-size:.72rem;color:var(--muted2)">
+      ${(()=>{const d1=new Date(_lpsProyInicio+'T12:00:00'),d2=new Date(_lpsProyFin+'T12:00:00');const sem=Math.ceil((d2-d1)/604800000);return`${sem} semana(s) · ${Math.round((d2-d1)/86400000)+1} días`;})()}
+    </span>`:''}
+  </div>
   <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <select id="lpsWbsSector" style="${_lpsCtrl()}" onchange="_lpsRenderTab()">
       <option value="">— Todos los sectores —</option>
@@ -132,6 +151,22 @@ function _lpsRenderWBS(c){
 }
 
 function _lpsCtrl(){return'background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem';}
+
+function _lpsSetProyFecha(tipo,val){
+  if(tipo==='ini') _lpsProyInicio=val;
+  else _lpsProyFin=val;
+  // Guardar en Supabase (registro único id=1)
+  if(!DB.lpsConfig) DB.lpsConfig=[];
+  let cfg=DB.lpsConfig[0];
+  if(!cfg){cfg={id:1,proyectoInicio:'',proyectoFin:''};DB.lpsConfig.push(cfg);}
+  cfg.proyectoInicio=_lpsProyInicio;
+  cfg.proyectoFin=_lpsProyFin;
+  syncSheet('saveLpsConfig',cfg);
+  // Mantener localStorage como caché local
+  localStorage.setItem('_lpsProyInicio',_lpsProyInicio);
+  localStorage.setItem('_lpsProyFin',_lpsProyFin);
+  _lpsRenderTab();
+}
 
 function _lpsWbsToggleTitulo(esTitulo){
   const undWrap=document.getElementById('lpsWbsUndWrap');
@@ -265,15 +300,21 @@ function _lpsRenderLookahead(c){
     });
   }
 
+  const _canAtras=!_lpsProyInicio||_lpsAddDays(_lpsSemana,-7)>=_lpsProyInicio;
+  const _canAdelante=!_lpsProyFin||_lpsAddDays(_lpsSemana,7)<=_lpsProyFin;
+  const _btnStyle=(ok)=>`background:${ok?'rgba(245,158,11,.15)':'rgba(255,255,255,.04)'};color:${ok?'#f59e0b':'#3d5070'};border:1px solid ${ok?'#f59e0b50':'#1e2740'};border-radius:6px;padding:.3rem .85rem;font-size:.8rem;font-weight:700;cursor:${ok?'pointer':'not-allowed'}`;
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <select id="lpsLaSector" style="${_lpsCtrl()}" onchange="_lpsRenderTab()">
       <option value="">— Todos los sectores —</option>
       ${LPS_SECTORES.map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
     </select>
-    <span style="font-size:.78rem;color:var(--muted2)">Semana activa desde:</span>
-    <strong style="color:${LPS_COLOR};font-size:.85rem">${_lpsFmtSem(_lpsSemana)}</strong>
-    <button class="btn btn-a" style="--ba:#f59e0b;margin-left:auto" onclick="_lpsRodarSemana()">▶ Rodar Semana</button>
+    ${_lpsProyInicio&&_lpsProyFin?`<span style="font-size:.7rem;color:var(--muted2);background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.18);border-radius:5px;padding:.2rem .6rem">📅 ${_lpsFmt(_lpsProyInicio)} → ${_lpsFmt(_lpsProyFin)}</span>`:''}
+    <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto">
+      <button onclick="_lpsRodarAtras()" ${_canAtras?'':' disabled'} style="${_btnStyle(_canAtras)}" title="${_canAtras?'Retroceder semana':'Límite de inicio de proyecto'}">◀ Atrás</button>
+      <span style="font-size:.82rem;font-weight:700;color:${LPS_COLOR};min-width:130px;text-align:center">${_lpsFmtSem(_lpsSemana)}</span>
+      <button onclick="_lpsRodarSemana()" ${_canAdelante?'':' disabled'} style="${_btnStyle(_canAdelante)}" title="${_canAdelante?'Avanzar semana':'Límite de fin de proyecto'}">Adelante ▶</button>
+    </div>
   </div>
   <div class="tbl-wrap" style="overflow-x:auto"><table style="white-space:nowrap">
     <thead><tr>${hdrs}</tr></thead>
@@ -304,10 +345,19 @@ function _lpsLaDias(wbsId,dias){
 }
 
 function _lpsRodarSemana(){
-  if(!confirm(`¿Rodar semana? La semana activa pasará a ${_lpsFmtSem(_lpsAddDays(_lpsSemana,7))}`))return;
-  _lpsSemana=_lpsAddDays(_lpsSemana,7);
+  const newSem=_lpsAddDays(_lpsSemana,7);
+  if(_lpsProyFin&&newSem>_lpsProyFin){toast('⚠ Límite de fin de proyecto alcanzado',true);return;}
+  _lpsSemana=newSem;
   localStorage.setItem('_lpsSemana',_lpsSemana);
-  _lpsRenderTab();toast('✓ Semana rodada');
+  _lpsRenderTab();toast('✓ Semana avanzada');
+}
+
+function _lpsRodarAtras(){
+  const newSem=_lpsAddDays(_lpsSemana,-7);
+  if(_lpsProyInicio&&newSem<_lpsProyInicio){toast('⚠ Límite de inicio de proyecto alcanzado',true);return;}
+  _lpsSemana=newSem;
+  localStorage.setItem('_lpsSemana',_lpsSemana);
+  _lpsRenderTab();toast('✓ Semana retrocedida');
 }
 
 function _lpsFmtSem(iso){
