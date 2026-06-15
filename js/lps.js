@@ -319,57 +319,152 @@ function _lpsFmtSem(iso){
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsRenderPlan(c){
   const semFin=_lpsAddDays(_lpsSemana,6);
+  const days=_lpsDaysRange(_lpsSemana,7);
   const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana);
-  // Actividades con lookahead en esta semana
-  const laActivos=(DB.lpsLookahead||[]).filter(r=>r.semanaInicio===_lpsSemana&&(r.diasProg||[]).length>0);
-  const wbsEnSemana=[...new Set(laActivos.map(r=>r.wbsId))].map(id=>DB.lpsWbs?.find(w=>w.id===id)).filter(w=>w&&w.tipo!=='TITULO');
 
-  const total=planes.length;
-  const cumplidas=planes.filter(p=>p.cumplido==='S').length;
-  const ppc=total?Math.round(cumplidas/total*100):0;
+  // Actividades con rango de fecha en esta semana (ordenadas por WBS)
+  const wbsEnSem=_lpsWbsSorted().filter(w=>{
+    if(w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return false;
+    return w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin;
+  });
+
+  // PPC: actividades donde real >= plan (sobre las que tienen plan > 0)
+  let planCount=0,cumplCount=0;
+  wbsEnSem.forEach(w=>{
+    const p=planes.find(x=>x.wbsId===w.id);if(!p)return;
+    const cantDias=+w.cantDias||0;
+    const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+    const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDiaria;
+    if(planSem<=0)return;
+    const rd=p.realDias||{};
+    const realSem=Object.values(rd).reduce((s,v)=>s+(+v||0),0);
+    planCount++;
+    if(realSem>=planSem*0.999)cumplCount++; // 0.999 evita errores de punto flotante
+  });
+  const ppc=planCount?Math.round(cumplCount/planCount*100):0;
   const ppcCol=ppc>=80?'#10b981':ppc>=60?'#f59e0b':'#ef4444';
 
-  const respOpts=USERS.map(u=>`<option>${u.nombre}</option>`).join('');
+  // Cabecera de días
+  const ctrl=`background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.18rem .35rem;font-size:.72rem`;
+  const dayHdrs=days.map(d=>{
+    const dow=_lpsDow(d);const isWe=dow==='SÁB'||dow==='DOM';
+    return`<th style="font-size:.58rem;min-width:48px;text-align:center;padding:.3rem .15rem;${isWe?'background:rgba(255,255,255,.03);color:var(--muted2)':''}"><div>${dow}</div><div>${_lpsFmt(d)}</div></th>`;
+  }).join('');
+
+  const fmtV=v=>v===0?'':v%1===0?String(v):parseFloat(v.toFixed(2)).toString();
+
+  let tbody='';
+  if(!wbsEnSem.length){
+    tbody=`<tr><td colspan="100" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades con fechas en esta semana. Use "Sincronizar Lookahead".</td></tr>`;
+  }else{
+    wbsEnSem.forEach(w=>{
+      const p=planes.find(x=>x.wbsId===w.id);
+      const rd=p?p.realDias||{}:{};
+      const cantDias=+w.cantDias||0;
+      const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+      const und=w.unidad&&w.unidad!=='—'?w.unidad:'';
+
+      let planTotal=0,realTotal=0;
+
+      const planCells=days.map(d=>{
+        const inR=d>=w.fechaIni&&d<=w.fechaFin;
+        const pv=inR&&cantDiaria>0?cantDiaria:0;
+        if(pv)planTotal+=pv;
+        const dow=_lpsDow(d);const isWe=dow==='SÁB'||dow==='DOM';
+        return`<td style="text-align:center;padding:.15rem;${isWe?'background:rgba(255,255,255,.02)':''}${inR?';background:rgba(16,185,129,.07)':''}">
+          ${pv>0?`<span style="font-size:.72rem;font-weight:700;color:#10b981">${fmtV(pv)}</span>`:`<span style="color:#1e2740;font-size:.7rem">—</span>`}
+        </td>`;
+      }).join('');
+
+      const realCells=days.map(d=>{
+        const inR=d>=w.fechaIni&&d<=w.fechaFin;
+        const rv=+rd[d]||0;
+        if(rv)realTotal+=rv;
+        const dow=_lpsDow(d);const isWe=dow==='SÁB'||dow==='DOM';
+        return`<td style="padding:.12rem;text-align:center;${isWe?'background:rgba(255,255,255,.02)':''}">
+          ${inR
+            ?`<input type="number" min="0" step="0.1" value="${rv||''}" placeholder="0"
+                onchange="_lpsPlanReal(${p?p.id:0},${w.id},'${d}',+this.value)"
+                style="width:46px;${ctrl};background:${rv>0?'rgba(245,158,11,.12)':'transparent'};border-color:${rv>0?'#f59e0b60':'var(--border)'};color:${rv>0?'#f59e0b':'var(--text)'};text-align:center">`
+            :`<span style="color:#1e2740;font-size:.7rem">—</span>`}
+        </td>`;
+      }).join('');
+
+      const cumplido=planTotal>0&&realTotal>=planTotal*0.999;
+      const pct=planTotal>0?Math.min(100,Math.round(realTotal/planTotal*100)):0;
+      const cumplCol=cumplido?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+
+      const respSel=p?`<select onchange="_lpsPlanUpd(${p.id},'responsable',this.value)" style="${ctrl};max-width:140px">${USERS.map(u=>`<option${p.responsable===u.nombre?' selected':''}>${u.nombre}</option>`).join('')}</select>`:'-';
+
+      tbody+=`
+        <tr style="border-top:2px solid #1e2740">
+          <td rowspan="2" class="mono" style="color:${LPS_COLOR};font-size:.68rem;vertical-align:middle;padding:.3rem .5rem">${w.codigo}</td>
+          <td rowspan="2" style="font-size:.76rem;vertical-align:middle;max-width:180px"><strong>${w.desc}</strong></td>
+          <td rowspan="2" style="font-size:.65rem;color:var(--muted2);vertical-align:middle">${w.sector}</td>
+          <td rowspan="2" style="vertical-align:middle;padding:.2rem">${respSel}</td>
+          <td style="padding:.12rem .4rem"><span style="font-size:.58rem;font-weight:700;color:#10b981;background:rgba(16,185,129,.15);border:1px solid #10b98130;border-radius:3px;padding:1px 6px">PLAN</span></td>
+          ${planCells}
+          <td style="text-align:right;font-weight:700;font-size:.75rem;color:#10b981;padding:.2rem .5rem;white-space:nowrap">${fmtV(planTotal)} ${und}</td>
+          <td rowspan="2" style="text-align:center;vertical-align:middle;padding:.3rem">
+            <div style="font-size:1.1rem;font-weight:800;color:${cumplCol}">${pct}%</div>
+            <div style="font-size:.58rem;margin-top:2px;color:${cumplCol}">${cumplido?'✓ Cumplido':pct>0?'En curso':'Sin datos'}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:.12rem .4rem"><span style="font-size:.58rem;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.15);border:1px solid #f59e0b30;border-radius:3px;padding:1px 6px">REAL</span></td>
+          ${realCells}
+          <td style="text-align:right;font-weight:700;font-size:.75rem;color:${realTotal>0?'#f59e0b':'var(--muted2)'};padding:.2rem .5rem;white-space:nowrap">${realTotal>0?fmtV(realTotal)+' '+und:'—'}</td>
+        </tr>`;
+    });
+  }
 
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
     <div>
-      <span style="font-size:.7rem;color:var(--muted2)">SEMANA ACTIVA</span>
+      <span style="font-size:.65rem;color:var(--muted2);letter-spacing:.08em">SEMANA ACTIVA</span>
       <div style="font-size:.95rem;font-weight:700;color:${LPS_COLOR}">${_lpsFmtSem(_lpsSemana)}</div>
     </div>
-    <div style="display:flex;align-items:center;gap:.5rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.4rem .9rem">
-      <span style="font-size:.7rem;color:var(--muted2)">PPC</span>
-      <span style="font-size:1.6rem;font-weight:800;color:${ppcCol}">${ppc}%</span>
-      <span style="font-size:.72rem;color:var(--muted2)">${cumplidas}/${total}</span>
+    <div style="display:flex;align-items:center;gap:.6rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.4rem 1rem">
+      <span style="font-size:.65rem;color:var(--muted2)">PPC</span>
+      <span style="font-size:1.7rem;font-weight:800;color:${ppcCol}">${ppc}%</span>
+      <span style="font-size:.72rem;color:var(--muted2)">${cumplCount}/${planCount} act.</span>
     </div>
-    <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsSincPlan()">⟳ Sincronizar Lookahead</button>
-    <button class="btn btn-out" style="color:#ef4444;border-color:#ef444460" onclick="_lpsCerrarSemana()">✓ Cerrar Semana</button>
+    <div style="display:flex;gap:.5rem;margin-left:auto">
+      <button class="btn btn-a" style="--ba:${LPS_COLOR}" onclick="_lpsSincPlan()">⟳ Sincronizar Lookahead</button>
+      <button class="btn btn-out" style="color:#ef4444;border-color:#ef444460" onclick="_lpsCerrarSemana()">✓ Cerrar Semana</button>
+    </div>
   </div>
-  <div class="tbl-wrap"><table>
-    <thead><tr><th>Código</th><th>Actividad</th><th>Sector</th><th>Responsable</th><th style="text-align:right">Programado</th><th style="text-align:right">Ejecutado</th><th style="text-align:center">Cumplido</th></tr></thead>
-    <tbody id="lpsPlanBody">
-    ${planes.length?planes.map(p=>{
-      const w=DB.lpsWbs?.find(x=>x.id===p.wbsId);
-      return`<tr>
-        <td class="mono" style="color:${LPS_COLOR};font-size:.72rem">${w?.codigo||'—'}</td>
-        <td style="font-size:.78rem">${w?.desc||'—'}</td>
-        <td style="font-size:.68rem;color:var(--muted2)">${w?.sector||'—'}</td>
-        <td><select onchange="_lpsPlanUpd(${p.id},'responsable',this.value)" style="${_lpsCtrl()};max-width:180px">${USERS.map(u=>`<option${p.responsable===u.nombre?' selected':''}>${u.nombre}</option>`).join('')}</select></td>
-        <td><input type="number" value="${p.programado||0}" min="0" step="0.1" oninput="_lpsPlanUpd(${p.id},'programado',+this.value)" style="${_lpsCtrl()};width:80px;text-align:right"></td>
-        <td><input type="number" value="${p.ejecutado||0}" min="0" step="0.1" oninput="_lpsPlanUpd(${p.id},'ejecutado',+this.value)" style="${_lpsCtrl()};width:80px;text-align:right"></td>
-        <td style="text-align:center">
-          <button onclick="_lpsPlanToggle(${p.id})" style="background:${p.cumplido==='S'?'rgba(16,185,129,.2)':'rgba(239,68,68,.15)'};color:${p.cumplido==='S'?'#10b981':'#ef4444'};border:1px solid ${p.cumplido==='S'?'#10b98140':'#ef444440'};border-radius:6px;padding:.2rem .7rem;font-size:.75rem;font-weight:700;cursor:pointer">
-            ${p.cumplido==='S'?'✓ Sí':'✗ No'}
-          </button>
-        </td>
-      </tr>`;
-    }).join(''):`<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades en el plan. Use "Sincronizar Lookahead".</td></tr>`}
-    </tbody>
+  <div class="tbl-wrap" style="overflow-x:auto"><table style="white-space:nowrap">
+    <thead><tr>
+      <th style="min-width:95px">Código</th>
+      <th style="min-width:170px">Actividad</th>
+      <th style="min-width:85px">Sector</th>
+      <th style="min-width:145px">Responsable</th>
+      <th style="min-width:44px"></th>
+      ${dayHdrs}
+      <th style="min-width:70px;text-align:right">Total</th>
+      <th style="min-width:80px;text-align:center">PPC</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
   </table></div>`;
 }
 
+function _lpsPlanReal(planId,wbsId,fecha,val){
+  let p=(DB.lpsPlanSemanal||[]).find(x=>x.id===planId);
+  if(!p){
+    // Crear registro si no existe aún
+    const w=DB.lpsWbs?.find(x=>x.id===wbsId);
+    const rec={id:nid('lpsP'),semanaInicio:_lpsSemana,wbsId,responsable:'',programado:0,ejecutado:0,cumplido:'N',cncCategoria:'',cncDesc:'',realDias:{}};
+    DB.lpsPlanSemanal.push(rec);p=rec;
+  }
+  if(!p.realDias)p.realDias={};
+  if(val>0)p.realDias[fecha]=val;else delete p.realDias[fecha];
+  p.ejecutado=parseFloat(Object.values(p.realDias).reduce((s,v)=>s+(+v||0),0).toFixed(2));
+  syncSheet('saveLpsPlan',p);
+  _lpsRenderTab();
+}
+
 function _lpsSincPlan(){
-  // Actividades cuyo rango de fechas se cruza con la semana activa
   const semFin=_lpsAddDays(_lpsSemana,6);
   const wbsEnSem=_lpsWbsSorted().filter(w=>{
     if(w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return false;
@@ -379,16 +474,15 @@ function _lpsSincPlan(){
   wbsEnSem.forEach(w=>{
     const exists=(DB.lpsPlanSemanal||[]).find(p=>p.semanaInicio===_lpsSemana&&p.wbsId===w.id);
     if(!exists){
-      // Cantidad programada para esta semana = cantDiaria × días en semana
       let cantDias=+w.cantDias||0;
       if(!cantDias&&w.fechaIni&&w.fechaFin){
         const d1=new Date(w.fechaIni+'T12:00:00'),d2=new Date(w.fechaFin+'T12:00:00');
         cantDias=Math.max(1,Math.round((d2-d1)/86400000)+1);
       }
       const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
-      const diasEnSemana=_lpsDaysRange(_lpsSemana,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
-      const programado=parseFloat((cantDiaria*diasEnSemana).toFixed(2));
-      const rec={id:nid('lpsP'),semanaInicio:_lpsSemana,wbsId:w.id,responsable:'',programado,ejecutado:0,cumplido:'N',cncCategoria:'',cncDesc:''};
+      const diasEnSem=_lpsDaysRange(_lpsSemana,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
+      const programado=parseFloat((cantDiaria*diasEnSem).toFixed(2));
+      const rec={id:nid('lpsP'),semanaInicio:_lpsSemana,wbsId:w.id,responsable:'',programado,ejecutado:0,cumplido:'N',cncCategoria:'',cncDesc:'',realDias:{}};
       DB.lpsPlanSemanal.push(rec);syncSheet('saveLpsPlan',rec);added++;
     }
   });
@@ -400,33 +494,45 @@ function _lpsPlanUpd(id,campo,val){
   if(p){p[campo]=val;syncSheet('saveLpsPlan',p);}
 }
 
-function _lpsPlanToggle(id){
-  const p=(DB.lpsPlanSemanal||[]).find(x=>x.id===id);
-  if(p){p.cumplido=p.cumplido==='S'?'N':'S';syncSheet('saveLpsPlan',p);_lpsRenderTab();}
-}
-
 function _lpsCerrarSemana(){
-  const incump=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana&&p.cumplido!=='S');
+  // Identificar incumplidas: realTotal < planTotal
+  const semFin=_lpsAddDays(_lpsSemana,6);
+  const days=_lpsDaysRange(_lpsSemana,7);
+  const incump=[];
+  _lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.fechaFin&&w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin).forEach(w=>{
+    const p=(DB.lpsPlanSemanal||[]).find(x=>x.semanaInicio===_lpsSemana&&x.wbsId===w.id);
+    if(!p)return;
+    const cantDias=+w.cantDias||0;
+    const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+    const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDiaria;
+    const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+    if(planSem>0&&realSem<planSem*0.999)incump.push({p,w});
+  });
   if(!incump.length){toast('✓ Todas las actividades cumplidas');return;}
-  // Modal CNC
-  document.getElementById('lpsCncBody').innerHTML=incump.map(p=>{
-    const w=DB.lpsWbs?.find(x=>x.id===p.wbsId);
-    return`<tr>
-      <td style="font-size:.78rem">${w?.codigo||'?'} – ${w?.desc||'?'}</td>
-      <td><select id="cnc_cat_${p.id}" style="${_lpsCtrl()}">
-        ${LPS_CNC.map(c=>`<option>${c}</option>`).join('')}
-      </select></td>
-      <td><input id="cnc_desc_${p.id}" placeholder="Descripción breve..." style="${_lpsCtrl()};width:200px"></td>
-    </tr>`;
-  }).join('');
+  document.getElementById('lpsCncBody').innerHTML=incump.map(({p,w})=>`<tr>
+    <td style="font-size:.78rem">${w.codigo} – ${w.desc}</td>
+    <td><select id="cnc_cat_${p.id}" style="${_lpsCtrl()}">${LPS_CNC.map(cv=>`<option>${cv}</option>`).join('')}</select></td>
+    <td><input id="cnc_desc_${p.id}" placeholder="Descripción breve..." style="${_lpsCtrl()};width:200px"></td>
+  </tr>`).join('');
   openM('mLpsCnc');
 }
 
 function _lpsGuardarCnc(){
-  const incump=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana&&p.cumplido!=='S');
+  const semFin=_lpsAddDays(_lpsSemana,6);
+  const days=_lpsDaysRange(_lpsSemana,7);
+  const incump=(DB.lpsPlanSemanal||[]).filter(p=>{
+    if(p.semanaInicio!==_lpsSemana)return false;
+    const w=DB.lpsWbs?.find(x=>x.id===p.wbsId);if(!w)return false;
+    const cantDias=+w.cantDias||0;
+    const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+    const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDiaria;
+    const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+    return planSem>0&&realSem<planSem*0.999;
+  });
   incump.forEach(p=>{
     p.cncCategoria=document.getElementById('cnc_cat_'+p.id)?.value||'';
     p.cncDesc=document.getElementById('cnc_desc_'+p.id)?.value||'';
+    p.cumplido='N';
     syncSheet('saveLpsPlan',p);
   });
   closeM('mLpsCnc');
