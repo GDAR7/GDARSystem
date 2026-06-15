@@ -330,9 +330,15 @@ function _checkStandby(){
   let lastKm=partesKm.length?Math.max(...partesKm.map(p=>+p.kmFin||0)):0;
 
   if(cond==='OPERATIVO (TRABAJADO)'){
-    // Solo pre-llenar INICIAL con el máximo registrado; el usuario ingresa el FINAL al terminar el turno
     if(lastHr>0) document.getElementById('rpHrIni').value=lastHr;
-    if(_esKm){const ini=document.getElementById('rpKmIni');if(ini&&lastKm>0) ini.value=lastKm;}
+    document.getElementById('rpHrFin').value='';
+    document.getElementById('rpHrsTrab').value=0;
+    document.getElementById('rpHrsInop').value='';
+    if(_esKm){
+      const ini=document.getElementById('rpKmIni');if(ini&&lastKm>0)ini.value=lastKm;
+      const fin=document.getElementById('rpKmFin');if(fin)fin.value='';
+      const rec=document.getElementById('rpKmRec');if(rec)rec.value=0;
+    }
   }else if(cond==='OPERATIVO (STANDBY)'){
     // hrIni = hrFin = último valor (no hay movimiento)
     if(lastHr>0){
