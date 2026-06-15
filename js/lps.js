@@ -54,11 +54,45 @@ function _lpsRenderTab(){
 // ══════════════════════════════════════════════════════════════════════════════
 // VISTA 1 – BIBLIOTECA WBS
 // ══════════════════════════════════════════════════════════════════════════════
-function _lpsRenderWBS(c){
+function _lpsWbsSorted(){
   const wbs=DB.lpsWbs||[];
+  // Normalizar orden si no existe
+  const needsNorm=wbs.some(w=>w.orden==null);
+  if(needsNorm) wbs.forEach((w,i)=>{if(w.orden==null)w.orden=i*10;});
+  return [...wbs].sort((a,b)=>a.orden-b.orden);
+}
+
+function _lpsWbsMover(id,dir){
+  // dir: -1=subir, +1=bajar
+  const sorted=_lpsWbsSorted();
+  // Normalizar a múltiplos de 10
+  sorted.forEach((w,i)=>{w.orden=i*10;});
+  const idx=sorted.findIndex(w=>w.id===id);
+  if(idx<0)return;
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=sorted.length)return;
+  // Intercambiar orden
+  const tmp=sorted[idx].orden;
+  sorted[idx].orden=sorted[swapIdx].orden;
+  sorted[swapIdx].orden=tmp;
+  syncSheet('saveLpsWbs',sorted[idx]);
+  syncSheet('saveLpsWbs',sorted[swapIdx]);
+  _lpsRenderTab();
+}
+
+function _lpsRenderWBS(c){
   const sF=document.getElementById('lpsWbsSector')?.value||'';
   const qF=(document.getElementById('lpsWbsQ')?.value||'').toLowerCase();
-  const rows=wbs.filter(w=>(!sF||w.sector===sF)&&(!qF||w.codigo.toLowerCase().includes(qF)||(w.desc||'').toLowerCase().includes(qF)));
+  const allSorted=_lpsWbsSorted();
+  const rows=allSorted.filter(w=>(!sF||w.sector===sF)&&(!qF||w.codigo.toLowerCase().includes(qF)||(w.desc||'').toLowerCase().includes(qF)));
+  const last=rows.length-1;
+
+  const _btnMove=(id,idx)=>`
+    <button onclick="_lpsWbsMover(${id},-1)" ${idx===0?'disabled':''} title="Subir"
+      style="background:none;border:1px solid ${idx===0?'#1e2740':'#2a3a5a'};border-radius:4px;color:${idx===0?'#2a3a5a':'#6b85a8'};width:22px;height:22px;cursor:${idx===0?'default':'pointer'};font-size:.7rem;line-height:1;padding:0">▲</button>
+    <button onclick="_lpsWbsMover(${id},+1)" ${idx===last?'disabled':''} title="Bajar"
+      style="background:none;border:1px solid ${idx===last?'#1e2740':'#2a3a5a'};border-radius:4px;color:${idx===last?'#2a3a5a':'#6b85a8'};width:22px;height:22px;cursor:${idx===last?'default':'pointer'};font-size:.7rem;line-height:1;padding:0">▼</button>`;
+
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <select id="lpsWbsSector" style="${_lpsCtrl()}" onchange="_lpsRenderTab()">
@@ -69,28 +103,31 @@ function _lpsRenderWBS(c){
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th></th></tr></thead>
-    <tbody>${rows.length?rows.map(w=>{
+    <thead><tr><th style="width:52px"></th><th>Código</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th></th></tr></thead>
+    <tbody>${rows.length?rows.map((w,idx)=>{
+      const movBtns=_btnMove(w.id,idx);
       if(w.tipo==='TITULO'){
         return`<tr style="background:rgba(16,185,129,.09)">
+          <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
           <td class="mono" style="color:${LPS_COLOR};font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.05em">${w.codigo}</td>
           <td colspan="3" style="font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em;text-transform:uppercase">${w.desc}</td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
-          <td><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
+          <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
               <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
               <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
         </tr>`;
       }
       return`<tr>
+        <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
         <td class="mono" style="color:${LPS_COLOR}">${w.codigo}</td>
         <td><strong>${w.desc}</strong></td>
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
-        <td><button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
+        <td style="white-space:nowrap"><button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
             <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
+    }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -131,7 +168,8 @@ function _lpsSaveWbs(){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
     if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo});syncSheet('saveLpsWbs',w);}
   }else{
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo};
+    const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
   }
   closeM('mLpsWbs');_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
@@ -149,7 +187,7 @@ function _lpsDelWbs(id){
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsRenderLookahead(c){
   const sF=document.getElementById('lpsLaSector')?.value||'';
-  const wbs=(DB.lpsWbs||[]).filter(w=>w.tipo!=='TITULO'&&(!sF||w.sector===sF));
+  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&(!sF||w.sector===sF));
   const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
   const allDays=_lpsDaysRange(_lpsSemana,28);
 
