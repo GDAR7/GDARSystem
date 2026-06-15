@@ -256,7 +256,7 @@ function _lpsRTab(tipo){
         <button class="btn btn-a" style="--ba:#f59e0b" onclick="_lpsAddRecurso()">＋ Agregar</button>
       </div>`;
   }else if(tipo==='Personal'){
-    const pers=DB.personal||[];
+    const pers=(DB.personal||[]).filter(p=>p.tipo!=='Staff');
     const cargos={};
     pers.forEach(p=>{const c=p.cargo||'Sin cargo';if(!cargos[c])cargos[c]=[];cargos[c].push(p);});
     const opts=Object.entries(cargos).map(([c,items])=>
