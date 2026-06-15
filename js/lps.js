@@ -6,6 +6,11 @@ const _LPS_SECT_FALLBACK=['Dique Principal','Mesa de Plata','Dique Intermedio','
 function _lpsSects(){const s=DB.lpsSectores||[];return s.length?s.map(x=>x.nombre):_LPS_SECT_FALLBACK;}
 const LPS_CNC=['Prerequisitos','Materiales','Equipos','Subcontratistas','Clima','Administración'];
 const LPS_COLOR='#10b981';
+let _lpsWbsQTimer=null;
+function _lpsWbsQInput(){
+  clearTimeout(_lpsWbsQTimer);
+  _lpsWbsQTimer=setTimeout(()=>_lpsRenderTab(),220);
+}
 
 let _lpsTab=1;
 let _lpsSemana=null;
@@ -121,7 +126,7 @@ function _lpsRenderWBS(c){
       ${_lpsSects().map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
     </select>
     <button onclick="_lpsOpenSectores()" title="Gestionar sectores" style="background:none;border:1px solid #2a3a5a;border-radius:6px;color:#6b85a8;padding:.3rem .6rem;font-size:.78rem;cursor:pointer">⚙️ Sectores</button>
-    <input id="lpsWbsQ" placeholder="🔍 Buscar..." value="${qF}" oninput="_lpsRenderTab()" style="${_lpsCtrl()};min-width:180px">
+    <input id="lpsWbsQ" placeholder="🔍 Buscar..." value="${qF}" oninput="_lpsWbsQInput()" style="${_lpsCtrl()};min-width:180px">
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
   <div class="tbl-wrap"><table>
