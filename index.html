@@ -713,11 +713,17 @@
 <div class="mo" id="mLpsWbs"><div class="modal" style="max-width:500px">
   <div class="mh"><span class="mttl" id="lpsWbsMtl">Actividad WBS</span><button class="mx" onclick="closeM('mLpsWbs')">✕</button></div>
   <div class="mb">
+    <!-- Toggle título -->
+    <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;background:rgba(16,185,129,.08);border:1px solid #10b98130;border-radius:7px;padding:.5rem .8rem;margin-bottom:.9rem">
+      <input type="checkbox" id="lpsWbsEsTitulo" onchange="_lpsWbsToggleTitulo(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981">
+      <span style="font-size:.82rem;font-weight:600;color:#10b981">Título de sección</span>
+      <span style="font-size:.72rem;color:var(--muted2);margin-left:.2rem">(cabecera visual, sin lookahead)</span>
+    </label>
     <div class="fg-grid" style="grid-template-columns:1fr 1fr">
       <div class="fg" style="grid-column:1/-1"><label>Código</label><input id="lpsWbsCod" placeholder="01.01.01"></div>
       <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="lpsWbsDesc" placeholder="Relleno hidráulico Zona A..."></div>
-      <div class="fg"><label>Unidad</label><select id="lpsWbsUnd"><option>m³</option><option>ml</option><option>m²</option><option>kg</option><option>und</option><option>Hs</option><option>gl</option></select></div>
-      <div class="fg"><label>Cantidad Total</label><input id="lpsWbsCant" type="number" min="0" step="0.01" placeholder="0"></div>
+      <div id="lpsWbsUndWrap" class="fg"><label>Unidad</label><select id="lpsWbsUnd"><option>m³</option><option>ml</option><option>m²</option><option>kg</option><option>und</option><option>Hs</option><option>gl</option></select></div>
+      <div id="lpsWbsCantWrap" class="fg"><label>Cantidad Total</label><input id="lpsWbsCant" type="number" min="0" step="0.01" placeholder="0"></div>
       <div class="fg" style="grid-column:1/-1"><label>Sector</label>
         <select id="lpsWbsSect"><option value="">— Seleccionar —</option>
           <option>Dique Principal</option><option>Mesa de Plata</option><option>Dique Intermedio</option><option>Dique Auxiliar</option>
