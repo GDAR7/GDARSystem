@@ -260,7 +260,11 @@ function _lpsRTab(tipo){
     const cargos={};
     pers.forEach(p=>{const c=p.cargo||'Sin cargo';if(!cargos[c])cargos[c]=[];cargos[c].push(p);});
     const opts=Object.entries(cargos).map(([c,items])=>
-      `<optgroup label="${c}">${items.map(p=>`<option value="${(p.apellidos||p.nombre||'').trim()} – ${p.cargo||''}">${p.apellidos||p.nombre}</option>`).join('')}</optgroup>`
+      `<optgroup label="${c}">${items.map(p=>{
+        const label=`${p.ape||''}, ${p.nom||''} · DNI ${p.dni||''}`;
+        const val=`${p.ape||''}, ${p.nom||''} (DNI:${p.dni||''}) – ${p.cargo||''}`;
+        return`<option value="${val}">${label}</option>`;
+      }).join('')}</optgroup>`
     ).join('');
     form.innerHTML=`
       <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
