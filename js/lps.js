@@ -1,7 +1,9 @@
 // ══ LPS – LAST PLANNER SYSTEM ══
 // Proyecto: R3 Cota 4416 – Recrecimiento Dique Relavera R3 · Buenaventura · UM Uchuchacua
 
-const LPS_SECTORES=['Dique Principal','Mesa de Plata','Dique Intermedio','Dique Auxiliar'];
+// LPS_SECTORES se carga dinámicamente desde DB.lpsSectores; esto es solo fallback inicial
+const _LPS_SECT_FALLBACK=['Dique Principal','Mesa de Plata','Dique Intermedio','Dique Auxiliar'];
+function _lpsSects(){const s=DB.lpsSectores||[];return s.length?s.map(x=>x.nombre):_LPS_SECT_FALLBACK;}
 const LPS_CNC=['Prerequisitos','Materiales','Equipos','Subcontratistas','Clima','Administración'];
 const LPS_COLOR='#10b981';
 
@@ -116,8 +118,9 @@ function _lpsRenderWBS(c){
   <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <select id="lpsWbsSector" style="${_lpsCtrl()}" onchange="_lpsRenderTab()">
       <option value="">— Todos los sectores —</option>
-      ${LPS_SECTORES.map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
+      ${_lpsSects().map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
     </select>
+    <button onclick="_lpsOpenSectores()" title="Gestionar sectores" style="background:none;border:1px solid #2a3a5a;border-radius:6px;color:#6b85a8;padding:.3rem .6rem;font-size:.78rem;cursor:pointer">⚙️ Sectores</button>
     <input id="lpsWbsQ" placeholder="🔍 Buscar..." value="${qF}" oninput="_lpsRenderTab()" style="${_lpsCtrl()};min-width:180px">
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
@@ -161,56 +164,173 @@ function _lpsRenderWBS(c){
 
 function _lpsCtrl(){return'background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem';}
 
+// ── GESTIÓN DE SECTORES ───────────────────────────────────────────────────────
+function _lpsOpenSectores(){
+  _lpsRenderSectoresList();
+  openM('mLpsSectores');
+}
+function _lpsRenderSectoresList(){
+  const el=document.getElementById('lpsSecList');if(!el)return;
+  const sects=DB.lpsSectores||[];
+  if(!sects.length){el.innerHTML=`<p style="font-size:.78rem;color:var(--muted2);text-align:center">Sin sectores definidos. Agrega el primero abajo.</p>`;return;}
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:.4rem">`+sects.map(s=>`
+    <div style="display:flex;align-items:center;gap:.35rem;background:rgba(16,185,129,.1);border:1px solid #10b98135;border-radius:6px;padding:.25rem .6rem">
+      <span style="font-size:.82rem;color:var(--text)">${s.nombre}</span>
+      <button onclick="_lpsDelSector(${s.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0">✕</button>
+    </div>`).join('')+`</div>`;
+}
+function _lpsAddSector(){
+  const inp=document.getElementById('lpsSecNuevo');
+  const nombre=(inp?.value||'').trim();
+  if(!nombre){toast('Escribe el nombre del sector',true);return;}
+  if((DB.lpsSectores||[]).find(s=>s.nombre.toLowerCase()===nombre.toLowerCase())){toast('Ese sector ya existe',true);return;}
+  const rec={id:nid('lpsS'),nombre};
+  if(!DB.lpsSectores)DB.lpsSectores=[];
+  DB.lpsSectores.push(rec);
+  syncSheet('saveLpsSector',rec);
+  if(inp)inp.value='';
+  _lpsRenderSectoresList();
+  _lpsRenderTab();
+  toast('✓ Sector agregado');
+}
+function _lpsDelSector(id){
+  if(!confirm('¿Eliminar este sector?'))return;
+  DB.lpsSectores=(DB.lpsSectores||[]).filter(s=>s.id!==id);
+  supaDelete('lpsSectores',id);
+  _lpsRenderSectoresList();
+  _lpsRenderTab();
+  toast('Sector eliminado');
+}
+
 // ── RECURSOS POR ACTIVIDAD WBS ────────────────────────────────────────────────
 let _lpsRecursosWbsId=null;
+let _lpsRTabActivo='Equipo';
 const _TIPO_REC_COLOR={Equipo:'#f59e0b',Personal:'#10b981',Material:'#818cf8'};
 const _TIPO_REC_IC={Equipo:'🚧',Personal:'👷',Material:'🧱'};
 
 function _lpsOpenRecursos(wbsId){
   _lpsRecursosWbsId=wbsId;
   const w=DB.lpsWbs.find(x=>x.id===wbsId);
-  document.getElementById('lpsRecursosMtl').textContent=`📦 Recursos — ${w?.codigo||''} ${w?.desc||''}`;
+  document.getElementById('lpsRecursosMtl').textContent=`📦 Recursos — ${w?.codigo||''}`;
+  _lpsRTab(_lpsRTabActivo);
   _lpsRenderRecursosList();
   openM('mLpsRecursos');
+}
+
+function _lpsRTab(tipo){
+  _lpsRTabActivo=tipo;
+  const tabs=document.getElementById('lpsRTabs');
+  const form=document.getElementById('lpsRForm');
+  if(!tabs||!form)return;
+  const tipos=['Equipo','Personal','Material'];
+  const C=_TIPO_REC_COLOR; const IC=_TIPO_REC_IC;
+  tabs.innerHTML=tipos.map(t=>`
+    <button onclick="_lpsRTab('${t}')" style="background:${t===tipo?`rgba(${t==='Equipo'?'245,158,11':t==='Personal'?'16,185,129':'129,140,248'},.18)`:'var(--panel2)'};color:${t===tipo?C[t]:'var(--muted2)'};border:1px solid ${t===tipo?C[t]+'60':'var(--border)'};border-radius:7px;padding:.3rem .9rem;font-size:.78rem;font-weight:${t===tipo?700:400};cursor:pointer">
+      ${IC[t]} ${t}
+    </button>`).join('');
+
+  const ctrl=`background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .5rem;font-size:.8rem`;
+
+  if(tipo==='Equipo'){
+    // Agrupar equipos por tipo (Línea Amarilla / Línea Blanca) y sub
+    const eqs=DB.equipos||[];
+    const grupos={};
+    eqs.forEach(e=>{const g=e.tipo||'Otros';if(!grupos[g])grupos[g]=[];grupos[g].push(e);});
+    const opts=Object.entries(grupos).map(([g,items])=>
+      `<optgroup label="${g}">${items.map(e=>`<option value="${e.codigo} – ${e.nombre}">[${e.codigo}] ${e.nombre}${e.sub?' ('+e.sub+')':''}</option>`).join('')}</optgroup>`
+    ).join('');
+    form.innerHTML=`
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:.2rem;flex:2;min-width:200px">
+          <label style="font-size:.68rem;color:#f59e0b">Equipo del sistema</label>
+          <select id="lpsRNombre" style="${ctrl};flex:1">${opts||'<option value="">Sin equipos registrados</option>'}</select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;min-width:70px">
+          <label style="font-size:.68rem;color:var(--muted2)">Cantidad</label>
+          <input id="lpsRCant" type="number" min="1" step="1" value="1" style="${ctrl};width:70px;text-align:center">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;min-width:80px">
+          <label style="font-size:.68rem;color:var(--muted2)">Unidad</label>
+          <select id="lpsRUnd" style="${ctrl}"><option>turno</option><option>hrs</option><option>día</option><option>und</option></select>
+        </div>
+        <button class="btn btn-a" style="--ba:#f59e0b" onclick="_lpsAddRecurso()">＋ Agregar</button>
+      </div>`;
+  }else if(tipo==='Personal'){
+    const pers=DB.personal||[];
+    const cargos={};
+    pers.forEach(p=>{const c=p.cargo||'Sin cargo';if(!cargos[c])cargos[c]=[];cargos[c].push(p);});
+    const opts=Object.entries(cargos).map(([c,items])=>
+      `<optgroup label="${c}">${items.map(p=>`<option value="${(p.apellidos||p.nombre||'').trim()} – ${p.cargo||''}">${p.apellidos||p.nombre}</option>`).join('')}</optgroup>`
+    ).join('');
+    form.innerHTML=`
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:.2rem;flex:2;min-width:220px">
+          <label style="font-size:.68rem;color:#10b981">Personal del sistema</label>
+          <select id="lpsRNombre" style="${ctrl}">${opts||'<option value="">Sin personal registrado</option>'}</select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;min-width:70px">
+          <label style="font-size:.68rem;color:var(--muted2)">Cantidad</label>
+          <input id="lpsRCant" type="number" min="1" step="1" value="1" style="${ctrl};width:70px;text-align:center">
+        </div>
+        <input type="hidden" id="lpsRUnd" value="pers">
+        <button class="btn btn-a" style="--ba:#10b981" onclick="_lpsAddRecurso()">＋ Agregar</button>
+      </div>`;
+  }else{
+    // Material — datalist desde catálogo + texto libre
+    const mats=DB.catalogoItems||[];
+    const dataOpts=mats.map(m=>`<option value="${m.descripcion||m.cod}">${m.cod} – ${m.descripcion||''} (${m.und||''})</option>`).join('');
+    form.innerHTML=`
+      <datalist id="lpsRMatList">${dataOpts}</datalist>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:.2rem;flex:2;min-width:220px">
+          <label style="font-size:.68rem;color:#818cf8">Material (catálogo o descripción libre)</label>
+          <input id="lpsRNombre" list="lpsRMatList" placeholder="Buscar en catálogo o escribir..." style="${ctrl}">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;min-width:70px">
+          <label style="font-size:.68rem;color:var(--muted2)">Cantidad</label>
+          <input id="lpsRCant" type="number" min="0.01" step="0.01" placeholder="1" style="${ctrl};width:70px;text-align:center">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;min-width:70px">
+          <label style="font-size:.68rem;color:var(--muted2)">Unidad</label>
+          <input id="lpsRUnd" placeholder="m³, kg, gl..." style="${ctrl};width:70px">
+        </div>
+        <button class="btn btn-a" style="--ba:#818cf8" onclick="_lpsAddRecurso()">＋ Agregar</button>
+      </div>`;
+  }
 }
 
 function _lpsRenderRecursosList(){
   const lista=document.getElementById('lpsRecursosLista');if(!lista)return;
   const recs=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===_lpsRecursosWbsId);
-  if(!recs.length){
-    lista.innerHTML=`<p style="font-size:.78rem;color:var(--muted2);text-align:center;padding:.6rem">Sin recursos asignados. Agrega uno abajo.</p>`;
-    return;
-  }
-  // Agrupar por tipo
+  if(!recs.length){lista.innerHTML=`<p style="font-size:.76rem;color:var(--muted2);text-align:center;padding:.4rem">Sin recursos asignados aún.</p>`;return;}
   const grupos={Equipo:[],Personal:[],Material:[]};
-  recs.forEach(r=>{const g=grupos[r.tipo]||grupos['Material'];g.push(r);});
-  lista.innerHTML=Object.entries(grupos).filter(([,v])=>v.length).map(([tipo,items])=>`
-    <div style="margin-bottom:.6rem">
-      <div style="font-size:.65rem;font-weight:700;color:${_TIPO_REC_COLOR[tipo]};letter-spacing:.08em;margin-bottom:.3rem">${_TIPO_REC_IC[tipo]} ${tipo.toUpperCase()}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:.35rem">
-        ${items.map(r=>`
-          <div style="display:flex;align-items:center;gap:.4rem;background:rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.1);border:1px solid rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.25);border-radius:6px;padding:.25rem .6rem">
-            <span style="font-size:.78rem;font-weight:600;color:var(--text)">${r.nombre}</span>
-            <span style="font-size:.72rem;color:var(--muted2)">${r.cantidad} ${r.unidad||'und'}</span>
-            <button onclick="_lpsDelRecurso(${r.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0;line-height:1" title="Eliminar">✕</button>
-          </div>`).join('')}
-      </div>
-    </div>`).join('');
+  recs.forEach(r=>{(grupos[r.tipo]||grupos['Material']).push(r);});
+  lista.innerHTML=`<div style="font-size:.65rem;font-weight:700;color:var(--muted2);letter-spacing:.08em;margin-bottom:.4rem">ASIGNADOS</div>`+
+    Object.entries(grupos).filter(([,v])=>v.length).map(([tipo,items])=>`
+      <div style="margin-bottom:.5rem">
+        <div style="font-size:.62rem;font-weight:700;color:${_TIPO_REC_COLOR[tipo]};letter-spacing:.07em;margin-bottom:.25rem">${_TIPO_REC_IC[tipo]} ${tipo.toUpperCase()}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.3rem">
+          ${items.map(r=>`
+            <div style="display:flex;align-items:center;gap:.35rem;background:rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.1);border:1px solid rgba(${tipo==='Equipo'?'245,158,11':tipo==='Personal'?'16,185,129':'129,140,248'},.22);border-radius:6px;padding:.2rem .55rem">
+              <span style="font-size:.76rem;font-weight:600;color:var(--text)">${r.nombre}</span>
+              <span style="font-size:.7rem;color:var(--muted2)">${r.cantidad} ${r.unidad||'und'}</span>
+              <button onclick="_lpsDelRecurso(${r.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.72rem;padding:0;line-height:1">✕</button>
+            </div>`).join('')}
+        </div>
+      </div>`).join('');
 }
 
 function _lpsAddRecurso(){
-  const tipo=document.getElementById('lpsRTipo').value;
-  const nombre=document.getElementById('lpsRNombre').value.trim();
-  const cantidad=+document.getElementById('lpsRCant').value||1;
-  const unidad=document.getElementById('lpsRUnd').value.trim()||'und';
-  if(!nombre){toast('Ingresa el nombre del recurso',true);return;}
+  const tipo=_lpsRTabActivo;
+  const nombre=(document.getElementById('lpsRNombre')?.value||'').trim();
+  const cantidad=+document.getElementById('lpsRCant')?.value||1;
+  const unidad=(document.getElementById('lpsRUnd')?.value||'und').trim();
+  if(!nombre){toast('Selecciona o escribe el nombre del recurso',true);return;}
   const rec={id:nid('lpsWbsR'),wbsId:_lpsRecursosWbsId,tipo,nombre,cantidad,unidad};
   if(!DB.lpsWbsRecursos)DB.lpsWbsRecursos=[];
   DB.lpsWbsRecursos.push(rec);
   syncSheet('saveLpsRecurso',rec);
-  document.getElementById('lpsRNombre').value='';
-  document.getElementById('lpsRCant').value='';
-  document.getElementById('lpsRUnd').value='';
+  _lpsRTab(tipo);
   _lpsRenderRecursosList();
   _lpsRenderTab();
   toast('✓ Recurso agregado');
@@ -257,7 +377,9 @@ function _lpsOpenWbs(id){
   document.getElementById('lpsWbsDesc').value=w?.desc||'';
   document.getElementById('lpsWbsUnd').value=w?.unidad||'m³';
   document.getElementById('lpsWbsCant').value=w?.cantTotal||'';
-  document.getElementById('lpsWbsSect').value=w?.sector||'';
+  // Poblar sector select dinámicamente
+  const sel=document.getElementById('lpsWbsSect');
+  sel.innerHTML=`<option value="">— Seleccionar —</option>`+_lpsSects().map(s=>`<option${w?.sector===s?' selected':''}>${s}</option>`).join('');
   const chk=document.getElementById('lpsWbsEsTitulo');
   if(chk){chk.checked=esTitulo;_lpsWbsToggleTitulo(esTitulo);}
   openM('mLpsWbs');
@@ -380,7 +502,7 @@ function _lpsRenderLookahead(c){
   <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <select id="lpsLaSector" style="${_lpsCtrl()}" onchange="_lpsRenderTab()">
       <option value="">— Todos los sectores —</option>
-      ${LPS_SECTORES.map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
+      ${_lpsSects().map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
     </select>
     ${_lpsProyInicio&&_lpsProyFin?`<span style="font-size:.7rem;color:var(--muted2);background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.18);border-radius:5px;padding:.2rem .6rem">📅 ${_lpsFmt(_lpsProyInicio)} → ${_lpsFmt(_lpsProyFin)}</span>`:''}
     <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto">

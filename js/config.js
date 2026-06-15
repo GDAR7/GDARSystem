@@ -95,7 +95,8 @@ const SUPA_TABLES={
   lpsPlanSemanal:'lps_plan_semanal',
   lpsRestricciones:'lps_restricciones',
   lpsConfig:'lps_config',
-  lpsWbsRecursos:'lps_wbs_recursos'
+  lpsWbsRecursos:'lps_wbs_recursos',
+  lpsSectores:'lps_sectores'
 };
 
 const ACTION_MAP={
@@ -117,7 +118,8 @@ const ACTION_MAP={
   saveLpsPlan:'lpsPlanSemanal',
   saveLpsRestr:'lpsRestricciones',
   saveLpsConfig:'lpsConfig',
-  saveLpsRecurso:'lpsWbsRecursos'
+  saveLpsRecurso:'lpsWbsRecursos',
+  saveLpsSector:'lpsSectores'
 };
 
 let _pendingSaves=0;
@@ -236,7 +238,7 @@ async function loadSheetsData(){
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
       tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
-      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR'};
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -359,8 +361,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1}
 };
 
 // ══ STATE ══
