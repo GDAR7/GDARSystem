@@ -670,11 +670,18 @@ function _lpsRenderPlan(c){
     });
   }
 
+  const _canAtrasP=!_lpsProyInicio||_lpsAddDays(_lpsSemana,-7)>=_lpsProyInicio;
+  const _canAdelanteP=!_lpsProyFin||_lpsAddDays(_lpsSemana,7)<=_lpsProyFin;
+  const _btnNavP=(ok,lbl,fn)=>`<button onclick="${ok?fn:'void(0)'}" ${ok?'':'disabled'} style="background:${ok?'rgba(245,158,11,.12)':'rgba(255,255,255,.03)'};color:${ok?'#f59e0b':'#2a3a5a'};border:1px solid ${ok?'#f59e0b40':'#1e2740'};border-radius:6px;padding:.28rem .75rem;font-size:.78rem;font-weight:700;cursor:${ok?'pointer':'not-allowed'}">${lbl}</button>`;
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
     <div>
       <span style="font-size:.65rem;color:var(--muted2);letter-spacing:.08em">SEMANA ACTIVA</span>
-      <div style="font-size:.95rem;font-weight:700;color:${LPS_COLOR}">${_lpsFmtSem(_lpsSemana)}</div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.15rem">
+        ${_btnNavP(_canAtrasP,'◀','_lpsRodarAtras()')}
+        <span style="font-size:.92rem;font-weight:700;color:${LPS_COLOR}">${_lpsFmtSem(_lpsSemana)}</span>
+        ${_btnNavP(_canAdelanteP,'▶','_lpsRodarSemana()')}
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:.6rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.4rem 1rem">
       <span style="font-size:.65rem;color:var(--muted2)">PPC</span>
