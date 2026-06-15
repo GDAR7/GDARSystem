@@ -317,27 +317,41 @@ function autoFillEquipo(){
 
 function _checkStandby(){
   const cond=document.getElementById('rpCondicion')?.value||'';
-  if(cond!=='OPERATIVO (STANDBY)'){calcHoras();return;}
   const eqId=+document.getElementById('rpCodigo').value;
   if(!eqId){calcHoras();return;}
-  // Último horómetro: mayor hrFin registrado en partes para este equipo
+
+  // Obtener último hrFin y kmFin registrados para este equipo
   const partesEq=DB.partes.filter(p=>p.eqId===eqId&&+p.hrFin>0);
   let lastHr=partesEq.length?Math.max(...partesEq.map(p=>+p.hrFin||0)):0;
   if(!lastHr){const eq=DB.equipos.find(e=>e.id===eqId);lastHr=+eq?.hr||0;}
-  if(lastHr>0){
-    document.getElementById('rpHrIni').value=lastHr;
-    document.getElementById('rpHrFin').value=lastHr;
-  }
-  // Para Línea Blanca y Vehículo Menor: también último km
-  if(['Línea Blanca','Vehículo Menor'].includes(currentReporteTipo)){
-    const partesKm=DB.partes.filter(p=>p.eqId===eqId&&+p.kmFin>0);
-    let lastKm=partesKm.length?Math.max(...partesKm.map(p=>+p.kmFin||0)):0;
-    if(!lastKm){const eq=DB.equipos.find(e=>e.id===eqId);lastKm=+eq?.hr||0;}
-    if(lastKm>0){
+
+  const _esKm=['Línea Blanca','Vehículo Menor'].includes(currentReporteTipo);
+  const partesKm=_esKm?DB.partes.filter(p=>p.eqId===eqId&&+p.kmFin>0):[];
+  let lastKm=partesKm.length?Math.max(...partesKm.map(p=>+p.kmFin||0)):0;
+
+  if(cond==='OPERATIVO (TRABAJADO)'){
+    // hrIni = último hrFin; hrFin vacío para que el usuario lo ingrese
+    if(lastHr>0) document.getElementById('rpHrIni').value=lastHr;
+    document.getElementById('rpHrFin').value='';
+    document.getElementById('rpHrsTrab').value=0;
+    if(_esKm){
       const ini=document.getElementById('rpKmIni');
       const fin=document.getElementById('rpKmFin');
-      if(ini)ini.value=lastKm;
-      if(fin){fin.value=lastKm;calcKm();}
+      if(ini&&lastKm>0) ini.value=lastKm;
+      if(fin) fin.value='';
+      const kr=document.getElementById('rpKmRec');if(kr) kr.value=0;
+    }
+  }else if(cond==='OPERATIVO (STANDBY)'){
+    // hrIni = hrFin = último valor (no hay movimiento)
+    if(lastHr>0){
+      document.getElementById('rpHrIni').value=lastHr;
+      document.getElementById('rpHrFin').value=lastHr;
+    }
+    if(_esKm){
+      const ini=document.getElementById('rpKmIni');
+      const fin=document.getElementById('rpKmFin');
+      if(ini&&lastKm>0) ini.value=lastKm;
+      if(fin&&lastKm>0){fin.value=lastKm;calcKm();}
     }
   }
   calcHoras();
@@ -442,6 +456,18 @@ function openReporte(tipo){
   if(btnG) btnG.style.display='';
   setToggle('turno','DIA');
   setToggle('guardia','A');
+  // Limpiar todos los campos del formulario
+  document.getElementById('rpFecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('rpTipo').value='';
+  document.getElementById('rpCodigo').value='';
+  document.getElementById('rpHrIni').value='';
+  document.getElementById('rpHrFin').value='';
+  document.getElementById('rpHrsTrab').value=0;
+  document.getElementById('rpHrsInop').value='';
+  document.getElementById('rpDescuentos').value='';
+  document.getElementById('rpDescripcion').value='';
+  const _ki=document.getElementById('rpKmIni'),_kf=document.getElementById('rpKmFin'),_kr=document.getElementById('rpKmRec');
+  if(_ki)_ki.value='';if(_kf)_kf.value='';if(_kr)_kr.value=0;
   switchTab(1);
   openM('mReporte');
 }
