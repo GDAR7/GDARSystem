@@ -202,7 +202,7 @@ function _trDelInterf(idx){_trInterf.splice(idx,1);_trRenderInterf();}
 
 function rTramos(){
   const cols=['codigo','long','tCargado','tDescargado','demoras','ciclo'];
-  cols.forEach(c=>{const el=document.getElementById('trSortIco_'+c);if(el)el.textContent=_trSort.col===c?(_trSort.dir==='asc'?' ▲':' ▼'):' ⇅';});
+  cols.forEach(c=>{const el=document.getElementById('trSortIco_'+c);if(el)el.innerHTML=_trSort.col===c?(_trSort.dir==='asc'?' <b style="color:#fff">&#8593;</b>':' <b style="color:#fff">&#8595;</b>'):' <span style="color:#ffffff50;font-size:.7rem">&#8597;</span>';});
   const sorted=[...DB.tramos].sort((a,b)=>{
     const demA=Array.isArray(a.interferencias)?a.interferencias.reduce((s,x)=>s+(+x.tiempo||0),0):0;
     const demB=Array.isArray(b.interferencias)?b.interferencias.reduce((s,x)=>s+(+x.tiempo||0),0):0;
