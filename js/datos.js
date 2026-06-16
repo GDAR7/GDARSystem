@@ -162,7 +162,7 @@ function gTipoMat(){
 function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
-    <td><strong>${r.desc}</strong></td>
+    <td><strong>${r.anotacion||'—'}</strong></td>
     <td class="mono">${r.inicio||'—'}</td>
     <td class="mono">${r.fin||'—'}</td>
     <td class="mono tr">${r.long||0} m</td>
@@ -180,8 +180,8 @@ function _trCalcCiclo(){
 }
 function _openTramoModal(){
   document.getElementById('trCod').value='';
-  document.getElementById('trDesc').value='';
   document.getElementById('trLong').value='';
+  document.getElementById('trDesc').value='';
   document.getElementById('trTCarg').value='';
   document.getElementById('trTDesc').value='';
   document.getElementById('trCiclo').value='';
@@ -192,11 +192,12 @@ function _openTramoModal(){
   openM('mTramo');
 }
 function gTramo(){
-  const cod=document.getElementById('trCod').value.trim(),desc=document.getElementById('trDesc').value.trim();
-  if(!cod||!desc){toast('Ingrese código y descripción',true);return;}
+  const cod=document.getElementById('trCod').value.trim();
+  if(!cod){toast('Ingrese el código del tramo',true);return;}
+  const anotacion=document.getElementById('trDesc').value.trim();
   const tCarg=+document.getElementById('trTCarg').value||0;
   const tDesc_=+document.getElementById('trTDesc').value||0;
-  const rec={id:nid('tr'),codigo:cod,desc,
+  const rec={id:nid('tr'),codigo:cod,anotacion,
     inicio:document.getElementById('trIni').value,
     fin:document.getElementById('trFin').value,
     long:+document.getElementById('trLong').value||0,

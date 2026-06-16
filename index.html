@@ -1927,7 +1927,6 @@
   <div class="mh"><span class="mttl" id="mTramoTtl">Tramo</span><button class="mx" onclick="closeM('mTramo')">✕</button></div>
   <div class="mb"><div class="fg-grid">
     <div class="fg"><label>Código</label><input id="trCod" placeholder="TR-001"></div>
-    <div class="fg" style="grid-column:span 2"><label>Descripción</label><input id="trDesc" placeholder="Km 3+200 al Km 4+000"></div>
     <div class="fg"><label>Inicio (Frente)</label><select id="trIni"><option value="">— Seleccionar —</option></select></div>
     <div class="fg"><label>Fin (Frente)</label><select id="trFin"><option value="">— Seleccionar —</option></select></div>
     <div class="fg"><label>Longitud (m)</label><input id="trLong" type="number" placeholder="800"></div>
@@ -1936,6 +1935,7 @@
     <div class="fg"><label>T. Cargado (min)</label><input id="trTCarg" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
     <div class="fg"><label>T. Descargado (min)</label><input id="trTDesc" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
     <div class="fg"><label>Ciclo Total (min)</label><input id="trCiclo" type="number" readonly style="opacity:.65;cursor:default" placeholder="0"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Anotaciones <span style="font-size:.65rem;color:var(--muted2);font-weight:400">(opcional)</span></label><input id="trDesc" placeholder="Observación adicional..."></div>
   </div></div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mTramo')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="gTramo()">Guardar</button></div>
 </div></div>
