@@ -163,13 +163,13 @@ function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
     <td><strong>${r.anotacion||'—'}</strong></td>
-    <td class="mono">${r.inicio||'—'}</td>
-    <td class="mono">${r.fin||'—'}</td>
-    <td class="mono tr">${r.long||0} m</td>
-    <td class="mono tr">${r.tCargado||0} min</td>
-    <td class="mono tr">${r.tDescargado||0} min</td>
-    <td class="mono tr" style="color:#0ea5e9;font-weight:600">${r.ciclo||0} min</td>
-    <td>${bge(r.est)}</td>
+    <td class="mono" style="text-align:center">${r.inicio||'—'}</td>
+    <td class="mono" style="text-align:center">${r.fin||'—'}</td>
+    <td class="mono" style="text-align:center">${r.long||0} m</td>
+    <td class="mono" style="text-align:center">${r.tCargado||0} min</td>
+    <td class="mono" style="text-align:center">${r.tDescargado||0} min</td>
+    <td class="mono" style="text-align:center;color:#0ea5e9;font-weight:600">${r.ciclo||0} min</td>
+    <td style="text-align:center">${bge(r.est)}</td>
     <td><button class="btn btn-del btn-sm" onclick="del('tramos',${r.id})">🗑</button></td>
   </tr>`).join('');
 }
