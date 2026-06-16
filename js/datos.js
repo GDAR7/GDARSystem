@@ -16,6 +16,12 @@ function gCosto(){const d=document.getElementById('coDe').value.trim();if(!d){to
 const FT_EST_COLOR={'ACTIVO':'b-green','EN JECUCION':'b-yellow','DESACTIVADO':'b-red'};
 const SP_COLOR={'PROYECTOS':'b-blue','MINA':'b-orange','OTROS':'b-purple'};
 
+function _nextFtCod(){
+  const nums=(DB.frentesTrabajo||[]).map(f=>{const m=(f.codigo||'').match(/(\d+)$/);return m?parseInt(m[1]):0;});
+  const max=nums.length?Math.max(...nums):0;
+  return 'FT_'+String(max+1).padStart(3,'0');
+}
+
 function renderFrentesTable(){
   const tb=document.getElementById('tbFrentes');
   if(!tb)return;
@@ -53,7 +59,7 @@ function editFrente(codigo){
 function _resetFrenteModal(){
   _frenteEditCodigo = null;
   document.getElementById('mFrenteTtl').textContent = 'Frente de Trabajo';
-  document.getElementById('ftCod').value = '';
+  document.getElementById('ftCod').value = _nextFtCod();
   document.getElementById('ftCod').readOnly = false;
   document.getElementById('ftCod').style.opacity = '1';
   document.getElementById('ftNom').value = '';
@@ -109,21 +115,47 @@ async function delFrente(codigo){
 }
 
 // ══ DATA DE INGRESOS – TIPO DE MATERIAL ══
+let _tmEditId=null;
 function rTipoMaterial(){
   document.getElementById('tbTipoMat').innerHTML=DB.tipoMaterial.map(r=>`<tr>
     <td class="mono" style="color:var(--muted2)">${r.id}</td>
     <td><strong>${r.nombre}</strong></td>
     <td><span class="badge b-cyan">${r.abrev}</span></td>
     <td style="color:var(--muted2)">${r.anot||'—'}</td>
-    <td><button class="btn btn-del btn-sm" onclick="del('tipoMaterial',${r.id})">🗑</button></td>
+    <td><button class="btn btn-sm" style="background:#0ea5e920;border:1px solid #0ea5e940;color:#0ea5e9" onclick="_editTipoMat(${r.id})">✏️</button></td>
   </tr>`).join('');
+}
+function _editTipoMat(id){
+  const r=DB.tipoMaterial.find(x=>x.id===id);if(!r)return;
+  _tmEditId=id;
+  document.getElementById('tmNom').value=r.nombre;
+  document.getElementById('tmAbrev').value=r.abrev||'';
+  document.getElementById('tmAnot').value=r.anot||'';
+  document.querySelector('#mTipoMat .mttl').textContent='✏️ Editar Material';
+  document.querySelector('#mTipoMat .mf .btn-a').textContent='💾 Actualizar';
+  openM('mTipoMat');
+}
+function _resetTipoMat(){
+  _tmEditId=null;
+  document.getElementById('tmNom').value='';
+  document.getElementById('tmAbrev').value='';
+  document.getElementById('tmAnot').value='';
+  document.querySelector('#mTipoMat .mttl').textContent='Tipo de Material';
+  document.querySelector('#mTipoMat .mf .btn-a').textContent='Guardar';
 }
 function gTipoMat(){
   const nom=document.getElementById('tmNom').value.trim();
   if(!nom){toast('Ingrese el tipo de material',true);return;}
-  DB.tipoMaterial.push({id:nid('tm'),nombre:nom.toUpperCase(),abrev:document.getElementById('tmAbrev').value.toUpperCase(),anot:document.getElementById('tmAnot').value});
-  syncSheet('saveTipoMaterial',DB.tipoMaterial[DB.tipoMaterial.length-1]);
-  closeM('mTipoMat');rTipoMaterial();toast('Tipo de material registrado');
+  const esEdit=_tmEditId!==null;
+  if(esEdit){
+    const r=DB.tipoMaterial.find(x=>x.id===_tmEditId);
+    if(r){r.nombre=nom.toUpperCase();r.abrev=document.getElementById('tmAbrev').value.toUpperCase();r.anot=document.getElementById('tmAnot').value;syncSheet('saveTipoMaterial',r);}
+  }else{
+    DB.tipoMaterial.push({id:nid('tm'),nombre:nom.toUpperCase(),abrev:document.getElementById('tmAbrev').value.toUpperCase(),anot:document.getElementById('tmAnot').value});
+    syncSheet('saveTipoMaterial',DB.tipoMaterial[DB.tipoMaterial.length-1]);
+  }
+  _resetTipoMat();
+  closeM('mTipoMat');rTipoMaterial();toast(esEdit?'✓ Material actualizado':'✓ Tipo de material registrado');
 }
 
 // ══ DATA DE INGRESOS – TRAMOS ══
@@ -131,19 +163,48 @@ function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
     <td><strong>${r.desc}</strong></td>
-    <td class="mono">${r.inicio}</td>
-    <td class="mono">${r.fin}</td>
-    <td class="mono">${r.long} m</td>
+    <td class="mono">${r.inicio||'—'}</td>
+    <td class="mono">${r.fin||'—'}</td>
+    <td class="mono tr">${r.long||0} m</td>
+    <td class="mono tr">${r.tCargado||0} min</td>
+    <td class="mono tr">${r.tDescargado||0} min</td>
+    <td class="mono tr" style="color:#0ea5e9;font-weight:600">${r.ciclo||0} min</td>
     <td>${bge(r.est)}</td>
     <td><button class="btn btn-del btn-sm" onclick="del('tramos',${r.id})">🗑</button></td>
   </tr>`).join('');
 }
+function _trCalcCiclo(){
+  const c=+document.getElementById('trTCarg').value||0;
+  const d=+document.getElementById('trTDesc').value||0;
+  document.getElementById('trCiclo').value=+(c+d).toFixed(1);
+}
+function _openTramoModal(){
+  document.getElementById('trCod').value='';
+  document.getElementById('trDesc').value='';
+  document.getElementById('trLong').value='';
+  document.getElementById('trTCarg').value='';
+  document.getElementById('trTDesc').value='';
+  document.getElementById('trCiclo').value='';
+  document.getElementById('trEst').value='Activo';
+  const opts='<option value="">— Seleccionar —</option>'+(DB.frentesTrabajo||[]).map(f=>f.nombre||f.nom||'').filter(Boolean).sort().map(f=>`<option value="${f}">${f}</option>`).join('');
+  document.getElementById('trIni').innerHTML=opts;
+  document.getElementById('trFin').innerHTML=opts;
+  openM('mTramo');
+}
 function gTramo(){
   const cod=document.getElementById('trCod').value.trim(),desc=document.getElementById('trDesc').value.trim();
   if(!cod||!desc){toast('Ingrese código y descripción',true);return;}
-  DB.tramos.push({id:nid('tr'),codigo:cod,desc,inicio:document.getElementById('trIni').value,fin:document.getElementById('trFin').value,long:+document.getElementById('trLong').value||0,est:document.getElementById('trEst').value});
-  syncSheet('saveTramo',DB.tramos[DB.tramos.length-1]);
-  closeM('mTramo');rTramos();toast('Tramo registrado');
+  const tCarg=+document.getElementById('trTCarg').value||0;
+  const tDesc_=+document.getElementById('trTDesc').value||0;
+  const rec={id:nid('tr'),codigo:cod,desc,
+    inicio:document.getElementById('trIni').value,
+    fin:document.getElementById('trFin').value,
+    long:+document.getElementById('trLong').value||0,
+    est:document.getElementById('trEst').value,
+    tCargado:tCarg,tDescargado:tDesc_,ciclo:tCarg+tDesc_};
+  DB.tramos.push(rec);
+  syncSheet('saveTramo',rec);
+  closeM('mTramo');rTramos();toast('✓ Tramo registrado');
 }
 
 // ══ UNIDADES DE MEDIDA ══

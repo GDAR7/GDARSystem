@@ -979,7 +979,7 @@
     <div class="card-head"><span class="card-title">Tipo de Material</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbTipoMat')"></div>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openM('mTipoMat')">＋ Agregar</button>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="_resetTipoMat();openM('mTipoMat')">＋ Agregar</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
@@ -996,11 +996,11 @@
     <div class="card-head"><span class="card-title">Tramos</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbTramos')"></div>
-        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openM('mTramo')">＋ Agregar</button>
+        <button class="btn btn-a" style="--ba:var(--ceq)" onclick="_openTramoModal()">＋ Agregar</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Descripción</th><th>Inicio</th><th>Fin</th><th>Longitud (m)</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Código</th><th>Descripción</th><th>Inicio</th><th>Fin</th><th>Long. (m)</th><th>T.Carg.</th><th>T.Desc.</th><th>Ciclo</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbTramos"></tbody>
     </table></div></div>
   </div>
@@ -1902,7 +1902,7 @@
     <div class="fg"><label>Abreviatura</label><input id="tmAbrev" placeholder="COM" style="text-transform:uppercase"></div>
     <div class="fg" style="grid-column:1/-1"><label>Anotación</label><input id="tmAnot" placeholder="Observación o nota adicional (opcional)"></div>
   </div></div>
-  <div class="mf"><button class="btn btn-out" onclick="closeM('mTipoMat')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="gTipoMat()">Guardar</button></div>
+  <div class="mf"><button class="btn btn-out" onclick="_resetTipoMat();closeM('mTipoMat')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="gTipoMat()">Guardar</button></div>
 </div></div>
 
 <!-- Modal Gestión de Unidades -->
@@ -1924,14 +1924,18 @@
 
 <!-- Modal Tramo -->
 <div class="mo" id="mTramo"><div class="modal">
-  <div class="mh"><span class="mttl">Tramo</span><button class="mx" onclick="closeM('mTramo')">✕</button></div>
+  <div class="mh"><span class="mttl" id="mTramoTtl">Tramo</span><button class="mx" onclick="closeM('mTramo')">✕</button></div>
   <div class="mb"><div class="fg-grid">
     <div class="fg"><label>Código</label><input id="trCod" placeholder="TR-001"></div>
     <div class="fg" style="grid-column:span 2"><label>Descripción</label><input id="trDesc" placeholder="Km 3+200 al Km 4+000"></div>
-    <div class="fg"><label>Inicio (Km/Estación)</label><input id="trIni" placeholder="Km 3+200"></div>
-    <div class="fg"><label>Fin (Km/Estación)</label><input id="trFin" placeholder="Km 4+000"></div>
+    <div class="fg"><label>Inicio (Frente)</label><select id="trIni"><option value="">— Seleccionar —</option></select></div>
+    <div class="fg"><label>Fin (Frente)</label><select id="trFin"><option value="">— Seleccionar —</option></select></div>
     <div class="fg"><label>Longitud (m)</label><input id="trLong" type="number" placeholder="800"></div>
     <div class="fg"><label>Estado</label><select id="trEst"><option>Activo</option><option>En Ejecución</option><option>Completado</option><option>Suspendido</option></select></div>
+    <div class="fg" style="grid-column:1/-1"><span style="font-size:.78rem;font-weight:700;color:#0ea5e9;letter-spacing:.05em">► TIEMPO DE CICLO</span></div>
+    <div class="fg"><label>T. Cargado (min)</label><input id="trTCarg" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
+    <div class="fg"><label>T. Descargado (min)</label><input id="trTDesc" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
+    <div class="fg"><label>Ciclo Total (min)</label><input id="trCiclo" type="number" readonly style="opacity:.65;cursor:default" placeholder="0"></div>
   </div></div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mTramo')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="gTramo()">Guardar</button></div>
 </div></div>

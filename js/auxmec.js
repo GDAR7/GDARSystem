@@ -417,7 +417,7 @@ async function _rpFrenteNuevo(){
   const b=document.getElementById('rpFrenteBuscar');
   const nom=(b?b.value:'').trim();
   if(!nom){toast('Escriba el nombre en el buscador primero',true);return;}
-  const newRec={id:nid('ft'),codigo:'FT_'+Date.now().toString().slice(-6),nom,nombre:nom,abrev:'',sponsor:'PROYECTOS',est:'ACTIVO'};
+  const newRec={id:nid('ft'),codigo:_nextFtCod(),nom,nombre:nom,abrev:'',sponsor:'PROYECTOS',est:'ACTIVO'};
   syncSheet('saveFrenteTrabajo',newRec);
   DB.frentesTrabajo.push(newRec);
   if(!_rpFrenteSelected.includes(nom))_rpFrenteSelected.push(nom);
