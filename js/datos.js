@@ -163,6 +163,7 @@ function gTipoMat(){
 }
 
 // ══ DATA DE INGRESOS – TRAMOS ══
+let _trEditId=null;
 function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
@@ -174,7 +175,7 @@ function rTramos(){
     <td class="mono" style="text-align:center">${r.tDescargado||0} min</td>
     <td class="mono" style="text-align:center;color:#0ea5e9;font-weight:600">${r.ciclo||0} min</td>
     <td style="text-align:center">${bge(r.est)}</td>
-    <td><button class="btn btn-del btn-sm" onclick="del('tramos',${r.id})">🗑</button></td>
+    <td><button class="btn btn-sm" style="background:#0ea5e920;border:1px solid #0ea5e940;color:#0ea5e9" onclick="_editTramo(${r.id})">✏️</button></td>
   </tr>`).join('');
 }
 function _trCalcCiclo(){
@@ -182,17 +183,40 @@ function _trCalcCiclo(){
   const d=+document.getElementById('trTDesc').value||0;
   document.getElementById('trCiclo').value=+(c+d).toFixed(1);
 }
+function _trFrentesOpts(sel){
+  return '<option value="">— Seleccionar —</option>'+(DB.frentesTrabajo||[]).map(f=>f.nombre||f.nom||'').filter(Boolean).sort().map(f=>`<option value="${f}"${f===sel?' selected':''}>${f}</option>`).join('');
+}
 function _openTramoModal(){
+  _trEditId=null;
   document.getElementById('trCod').value='';
+  document.getElementById('trCod').readOnly=false;
+  document.getElementById('trCod').style.opacity='1';
   document.getElementById('trLong').value='';
   document.getElementById('trDesc').value='';
   document.getElementById('trTCarg').value='';
   document.getElementById('trTDesc').value='';
   document.getElementById('trCiclo').value='';
   document.getElementById('trEst').value='Activo';
-  const opts='<option value="">— Seleccionar —</option>'+(DB.frentesTrabajo||[]).map(f=>f.nombre||f.nom||'').filter(Boolean).sort().map(f=>`<option value="${f}">${f}</option>`).join('');
-  document.getElementById('trIni').innerHTML=opts;
-  document.getElementById('trFin').innerHTML=opts;
+  document.getElementById('mTramoTtl').textContent='Tramo';
+  document.getElementById('trIni').innerHTML=_trFrentesOpts('');
+  document.getElementById('trFin').innerHTML=_trFrentesOpts('');
+  openM('mTramo');
+}
+function _editTramo(id){
+  const r=DB.tramos.find(x=>x.id===id);if(!r)return;
+  _trEditId=id;
+  document.getElementById('mTramoTtl').textContent='✏️ Editar Tramo';
+  document.getElementById('trCod').value=r.codigo;
+  document.getElementById('trCod').readOnly=true;
+  document.getElementById('trCod').style.opacity='.55';
+  document.getElementById('trIni').innerHTML=_trFrentesOpts(r.inicio||'');
+  document.getElementById('trFin').innerHTML=_trFrentesOpts(r.fin||'');
+  document.getElementById('trLong').value=r.long||0;
+  document.getElementById('trEst').value=r.est||'Activo';
+  document.getElementById('trTCarg').value=r.tCargado||0;
+  document.getElementById('trTDesc').value=r.tDescargado||0;
+  document.getElementById('trCiclo').value=r.ciclo||0;
+  document.getElementById('trDesc').value=r.anotacion||'';
   openM('mTramo');
 }
 function gTramo(){
@@ -201,15 +225,16 @@ function gTramo(){
   const anotacion=document.getElementById('trDesc').value.trim();
   const tCarg=+document.getElementById('trTCarg').value||0;
   const tDesc_=+document.getElementById('trTDesc').value||0;
-  const rec={id:nid('tr'),codigo:cod,anotacion,
-    inicio:document.getElementById('trIni').value,
-    fin:document.getElementById('trFin').value,
-    long:+document.getElementById('trLong').value||0,
-    est:document.getElementById('trEst').value,
-    tCargado:tCarg,tDescargado:tDesc_,ciclo:tCarg+tDesc_};
-  DB.tramos.push(rec);
-  syncSheet('saveTramo',rec);
-  closeM('mTramo');rTramos();toast('✓ Tramo registrado');
+  const esEdit=_trEditId!==null;
+  if(esEdit){
+    const r=DB.tramos.find(x=>x.id===_trEditId);
+    if(r){r.anotacion=anotacion;r.inicio=document.getElementById('trIni').value;r.fin=document.getElementById('trFin').value;r.long=+document.getElementById('trLong').value||0;r.est=document.getElementById('trEst').value;r.tCargado=tCarg;r.tDescargado=tDesc_;r.ciclo=tCarg+tDesc_;syncSheet('saveTramo',r);}
+  }else{
+    const rec={id:nid('tr'),codigo:cod,anotacion,inicio:document.getElementById('trIni').value,fin:document.getElementById('trFin').value,long:+document.getElementById('trLong').value||0,est:document.getElementById('trEst').value,tCargado:tCarg,tDescargado:tDesc_,ciclo:tCarg+tDesc_};
+    DB.tramos.push(rec);syncSheet('saveTramo',rec);
+  }
+  _trEditId=null;
+  closeM('mTramo');rTramos();toast(esEdit?'✓ Tramo actualizado':'✓ Tramo registrado');
 }
 
 // ══ UNIDADES DE MEDIDA ══
