@@ -441,30 +441,65 @@ function calcKm(){
 }
 
 let viajeCount = 0;
+
+function _recalcViajes(){
+  let totalViajes=0, totalMins=0;
+  for(let i=1;i<=viajeCount;i++){
+    const cant=+document.getElementById('vCant'+i)?.value||0;
+    const tramoId=+document.getElementById('vTramo'+i)?.value||0;
+    const tramo=(DB.tramos||[]).find(t=>t.id===tramoId);
+    totalViajes+=cant;
+    totalMins+=cant*(tramo?(+tramo.ciclo||0):0);
+  }
+  const rpNV=document.getElementById('rpNViajes');
+  if(rpNV)rpNV.value=totalViajes||0;
+  const rpTT=document.getElementById('rpTiempoTrans');
+  if(rpTT){
+    if(totalMins>0){const h=Math.floor(totalMins/60),m=Math.round(totalMins%60);rpTT.value=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');}
+    else rpTT.value='';
+  }
+}
+
+function _vTramoChange(i){
+  const sel=document.getElementById('vTramo'+i);if(!sel)return;
+  const tramo=(DB.tramos||[]).find(t=>t.id===+sel.value);
+  const org=document.getElementById('vOrigen'+i);
+  const dst=document.getElementById('vDestino'+i);
+  if(org)org.value=tramo?(tramo.inicio||''):'';
+  if(dst)dst.value=tramo?(tramo.fin||''):'';
+  _recalcViajes();
+}
+
 function addViaje(){
   viajeCount++;
-  const nombres = ['PRIMER','SEGUNDO','TERCER','CUARTO','QUINTO'];
-  const n = Math.min(viajeCount, 5);
-  const c = document.getElementById('viajesContainer');
-  const div = document.createElement('div');
-  div.className = 'viaje-block';
-  div.id = 'viaje-'+viajeCount;
-  const _ftOpts=DB.frentesTrabajo.map(f=>`<option value="${f.nombre}">`).join('');
+  const nombres=['PRIMER','SEGUNDO','TERCER','CUARTO','QUINTO'];
+  const n=Math.min(viajeCount,5);
+  const c=document.getElementById('viajesContainer');
+  const div=document.createElement('div');
+  div.className='viaje-block';
+  div.id='viaje-'+viajeCount;
+  const _trOpts=(DB.tramos||[]).map(t=>`<option value="${t.id}">${t.codigo} (${t.inicio||''} → ${t.fin||''})</option>`).join('');
   const _matOpts=DB.tipoMaterial.map(m=>`<option value="${m.nombre}">`).join('');
-  div.innerHTML = `<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
+  const vi=viajeCount;
+  div.innerHTML=`<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
+    <div class="fg-grid" style="grid-template-columns:1fr">
+      <div class="fg"><label>Tramo</label>
+        <select id="vTramo${vi}" onchange="_vTramoChange(${vi})">
+          <option value="">— Seleccionar tramo —</option>${_trOpts}
+        </select>
+      </div>
+    </div>
     <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
       <div class="fg"><label>Origen</label>
-        <input id="vOrigen${viajeCount}" list="frentesData${viajeCount}a" placeholder="Punto de origen...">
-        <datalist id="frentesData${viajeCount}a">${_ftOpts}</datalist>
+        <input id="vOrigen${vi}" placeholder="Autocompletado" readonly style="opacity:.7;cursor:default">
       </div>
       <div class="fg"><label>Destino</label>
-        <input id="vDestino${viajeCount}" list="frentesData${viajeCount}b" placeholder="Punto de destino...">
-        <datalist id="frentesData${viajeCount}b">${_ftOpts}</datalist>
+        <input id="vDestino${vi}" placeholder="Autocompletado" readonly style="opacity:.7;cursor:default">
       </div>
-      <div class="fg"><label>Cantidad</label><input id="vCant${viajeCount}" type="number" placeholder="0"></div>
+      <div class="fg"><label>Cantidad</label><input id="vCant${vi}" type="number" placeholder="0" oninput="_recalcViajes()"></div>
       <div class="fg"><label>Material</label>
-        <input id="vMat${viajeCount}" list="matData${viajeCount}" placeholder="Tipo de material">
-        <datalist id="matData${viajeCount}">${_matOpts}</datalist>
+        <input id="vMat${vi}" list="matData${vi}" placeholder="Tipo de material">
+        <datalist id="matData${vi}">${_matOpts}</datalist>
       </div>
     </div>`;
   c.appendChild(div);
@@ -591,11 +626,14 @@ function editParte(id){
   if(p.viajes&&p.viajes.length){
     p.viajes.forEach(v=>{
       addViaje();
+      const tSel=document.getElementById('vTramo'+viajeCount);
+      if(tSel&&v.tramoId){tSel.value=v.tramoId;_vTramoChange(viajeCount);}
       document.getElementById('vOrigen'+viajeCount).value=v.origen||'';
       document.getElementById('vDestino'+viajeCount).value=v.destino||'';
       document.getElementById('vCant'+viajeCount).value=v.cant||0;
       document.getElementById('vMat'+viajeCount).value=v.material||'';
     });
+    _recalcViajes();
   }
 }
 
@@ -611,10 +649,11 @@ async function gReporte(){
   const viajes=[];
   for(let i=1;i<=viajeCount;i++){
     viajes.push({
-      origen:   document.getElementById('vOrigen'+i)?.value||'',
-      destino:  document.getElementById('vDestino'+i)?.value||'',
-      cant:    +document.getElementById('vCant'+i)?.value||0,
-      material: document.getElementById('vMat'+i)?.value||''
+      tramoId: +document.getElementById('vTramo'+i)?.value||0,
+      origen:  document.getElementById('vOrigen'+i)?.value||'',
+      destino: document.getElementById('vDestino'+i)?.value||'',
+      cant:   +document.getElementById('vCant'+i)?.value||0,
+      material:document.getElementById('vMat'+i)?.value||''
     });
   }
 
