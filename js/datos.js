@@ -198,12 +198,12 @@ function _trDelInterf(idx){_trInterf.splice(idx,1);_trRenderInterf();}
 function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
-    <td><strong>${r.anotacion||'—'}</strong></td>
     <td class="mono" style="text-align:center">${r.inicio||'—'}</td>
     <td class="mono" style="text-align:center">${r.fin||'—'}</td>
     <td class="mono" style="text-align:center">${r.long||0} m</td>
     <td class="mono" style="text-align:center">${r.tCargado||0} min</td>
     <td class="mono" style="text-align:center">${r.tDescargado||0} min</td>
+    <td class="mono" style="text-align:center;color:#f59e0b">${(Array.isArray(r.interferencias)?r.interferencias.reduce((a,x)=>a+(+x.tiempo||0),0):0)} min</td>
     <td class="mono" style="text-align:center;color:#0ea5e9;font-weight:600">${r.ciclo||0} min</td>
     <td style="text-align:center">${bge(r.est)}</td>
     <td><button class="btn btn-sm" style="background:#0ea5e920;border:1px solid #0ea5e940;color:#0ea5e9" onclick="_editTramo(${r.id})">✏️</button></td>
