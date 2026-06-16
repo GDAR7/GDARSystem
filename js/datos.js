@@ -163,7 +163,38 @@ function gTipoMat(){
 }
 
 // ══ DATA DE INGRESOS – TRAMOS ══
-let _trEditId=null;
+let _trEditId=null,_trInterf=[];
+
+function _trSwitchTab(n){
+  document.getElementById('trTabContent1').style.display=n===1?'block':'none';
+  document.getElementById('trTabContent2').style.display=n===2?'block':'none';
+  document.getElementById('trTab1').classList.toggle('active',n===1);
+  document.getElementById('trTab2').classList.toggle('active',n===2);
+}
+function _trRenderInterf(){
+  const list=document.getElementById('trInterfList');if(!list)return;
+  list.innerHTML=_trInterf.length?_trInterf.map((x,i)=>`<tr style="border-top:1px solid #ffffff10">
+    <td style="padding:.35rem .5rem">${x.nombre}</td>
+    <td style="text-align:center;padding:.35rem .5rem;color:#f59e0b;font-weight:600">${x.tiempo} min</td>
+    <td style="text-align:center"><button class="btn btn-del btn-sm" style="padding:.15rem .4rem;font-size:.75rem" onclick="_trDelInterf(${i})">✕</button></td>
+  </tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:var(--muted2);font-size:.8rem;padding:1rem">Sin interferencias</td></tr>`;
+  const total=_trInterf.reduce((a,x)=>a+(+x.tiempo||0),0);
+  const el=document.getElementById('trInterfTotal');if(el)el.textContent=total+' min';
+  const badge=document.getElementById('trInterfBadge');
+  if(badge){badge.style.display=_trInterf.length?'inline':'none';badge.textContent=_trInterf.length;}
+  _trCalcCiclo();
+}
+function _trAddInterf(){
+  const nom=(document.getElementById('trInterfNom').value||'').trim();
+  const t=+document.getElementById('trInterfTiempo').value||0;
+  if(!nom){toast('Ingrese el nombre de la interferencia',true);return;}
+  _trInterf.push({nombre:nom,tiempo:t});
+  document.getElementById('trInterfNom').value='';
+  document.getElementById('trInterfTiempo').value='';
+  _trRenderInterf();
+}
+function _trDelInterf(idx){_trInterf.splice(idx,1);_trRenderInterf();}
+
 function rTramos(){
   document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
@@ -181,13 +212,14 @@ function rTramos(){
 function _trCalcCiclo(){
   const c=+document.getElementById('trTCarg').value||0;
   const d=+document.getElementById('trTDesc').value||0;
-  document.getElementById('trCiclo').value=+(c+d).toFixed(1);
+  const interf=_trInterf.reduce((a,x)=>a+(+x.tiempo||0),0);
+  document.getElementById('trCiclo').value=+(c+d+interf).toFixed(1);
 }
 function _trFrentesOpts(sel){
   return '<option value="">— Seleccionar —</option>'+(DB.frentesTrabajo||[]).map(f=>f.nombre||f.nom||'').filter(Boolean).sort().map(f=>`<option value="${f}"${f===sel?' selected':''}>${f}</option>`).join('');
 }
 function _openTramoModal(){
-  _trEditId=null;
+  _trEditId=null;_trInterf=[];
   document.getElementById('trCod').value='';
   document.getElementById('trCod').readOnly=false;
   document.getElementById('trCod').style.opacity='1';
@@ -200,11 +232,13 @@ function _openTramoModal(){
   document.getElementById('mTramoTtl').textContent='Tramo';
   document.getElementById('trIni').innerHTML=_trFrentesOpts('');
   document.getElementById('trFin').innerHTML=_trFrentesOpts('');
+  _trRenderInterf();_trSwitchTab(1);
   openM('mTramo');
 }
 function _editTramo(id){
   const r=DB.tramos.find(x=>x.id===id);if(!r)return;
   _trEditId=id;
+  _trInterf=Array.isArray(r.interferencias)?r.interferencias.map(x=>({...x})):[];
   document.getElementById('mTramoTtl').textContent='✏️ Editar Tramo';
   document.getElementById('trCod').value=r.codigo;
   document.getElementById('trCod').readOnly=true;
@@ -215,8 +249,8 @@ function _editTramo(id){
   document.getElementById('trEst').value=r.est||'Activo';
   document.getElementById('trTCarg').value=r.tCargado||0;
   document.getElementById('trTDesc').value=r.tDescargado||0;
-  document.getElementById('trCiclo').value=r.ciclo||0;
   document.getElementById('trDesc').value=r.anotacion||'';
+  _trRenderInterf();_trSwitchTab(1);
   openM('mTramo');
 }
 function gTramo(){
@@ -225,12 +259,14 @@ function gTramo(){
   const anotacion=document.getElementById('trDesc').value.trim();
   const tCarg=+document.getElementById('trTCarg').value||0;
   const tDesc_=+document.getElementById('trTDesc').value||0;
+  const interf=_trInterf.reduce((a,x)=>a+(+x.tiempo||0),0);
+  const ciclo=tCarg+tDesc_+interf;
   const esEdit=_trEditId!==null;
   if(esEdit){
     const r=DB.tramos.find(x=>x.id===_trEditId);
-    if(r){r.anotacion=anotacion;r.inicio=document.getElementById('trIni').value;r.fin=document.getElementById('trFin').value;r.long=+document.getElementById('trLong').value||0;r.est=document.getElementById('trEst').value;r.tCargado=tCarg;r.tDescargado=tDesc_;r.ciclo=tCarg+tDesc_;syncSheet('saveTramo',r);}
+    if(r){Object.assign(r,{anotacion,inicio:document.getElementById('trIni').value,fin:document.getElementById('trFin').value,long:+document.getElementById('trLong').value||0,est:document.getElementById('trEst').value,tCargado:tCarg,tDescargado:tDesc_,ciclo,interferencias:_trInterf});syncSheet('saveTramo',r);}
   }else{
-    const rec={id:nid('tr'),codigo:cod,anotacion,inicio:document.getElementById('trIni').value,fin:document.getElementById('trFin').value,long:+document.getElementById('trLong').value||0,est:document.getElementById('trEst').value,tCargado:tCarg,tDescargado:tDesc_,ciclo:tCarg+tDesc_};
+    const rec={id:nid('tr'),codigo:cod,anotacion,inicio:document.getElementById('trIni').value,fin:document.getElementById('trFin').value,long:+document.getElementById('trLong').value||0,est:document.getElementById('trEst').value,tCargado:tCarg,tDescargado:tDesc_,ciclo,interferencias:_trInterf};
     DB.tramos.push(rec);syncSheet('saveTramo',rec);
   }
   _trEditId=null;

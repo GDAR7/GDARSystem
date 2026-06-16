@@ -1925,7 +1925,12 @@
 <!-- Modal Tramo -->
 <div class="mo" id="mTramo"><div class="modal">
   <div class="mh"><span class="mttl" id="mTramoTtl">Tramo</span><button class="mx" onclick="closeM('mTramo')">✕</button></div>
-  <div class="mb"><div class="fg-grid">
+  <div style="display:flex;border-bottom:1px solid var(--border);background:var(--panel2)">
+    <button class="parte-tab active" id="trTab1" onclick="_trSwitchTab(1)">📋 Datos</button>
+    <button class="parte-tab" id="trTab2" onclick="_trSwitchTab(2)">⚠️ Interferencias <span id="trInterfBadge" style="display:none;background:#f59e0b;color:#000;border-radius:10px;padding:0 .45rem;font-size:.7rem;font-weight:700;margin-left:.3rem">0</span></button>
+  </div>
+  <!-- Tab 1: Datos -->
+  <div id="trTabContent1" class="mb"><div class="fg-grid">
     <div class="fg"><label>Código</label><input id="trCod" placeholder="TR-001"></div>
     <div class="fg"><label>Inicio (Frente)</label><select id="trIni"><option value="">— Seleccionar —</option></select></div>
     <div class="fg"><label>Fin (Frente)</label><select id="trFin"><option value="">— Seleccionar —</option></select></div>
@@ -1934,9 +1939,28 @@
     <div class="fg" style="grid-column:1/-1"><span style="font-size:.78rem;font-weight:700;color:#0ea5e9;letter-spacing:.05em">► TIEMPO DE CICLO</span></div>
     <div class="fg"><label>T. Cargado (min)</label><input id="trTCarg" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
     <div class="fg"><label>T. Descargado (min)</label><input id="trTDesc" type="number" min="0" placeholder="0" oninput="_trCalcCiclo()"></div>
-    <div class="fg"><label>Ciclo Total (min)</label><input id="trCiclo" type="number" readonly style="opacity:.65;cursor:default" placeholder="0"></div>
+    <div class="fg"><label>Ciclo Total (min) <span style="font-size:.65rem;color:var(--muted2);font-weight:400">incl. demoras</span></label><input id="trCiclo" type="number" readonly style="opacity:.65;cursor:default" placeholder="0"></div>
     <div class="fg" style="grid-column:1/-1"><label>Anotaciones <span style="font-size:.65rem;color:var(--muted2);font-weight:400">(opcional)</span></label><input id="trDesc" placeholder="Observación adicional..."></div>
   </div></div>
+  <!-- Tab 2: Interferencias -->
+  <div id="trTabContent2" class="mb" style="display:none">
+    <div style="display:flex;gap:.5rem;align-items:flex-end;margin-bottom:.75rem">
+      <div style="flex:1"><label style="font-size:.72rem;color:var(--muted2);display:block;margin-bottom:.25rem">Interferencia</label><input id="trInterfNom" placeholder="Cruce en vía, semáforo, control..."></div>
+      <div style="width:120px"><label style="font-size:.72rem;color:var(--muted2);display:block;margin-bottom:.25rem">Tiempo (min)</label><input id="trInterfTiempo" type="number" min="0" placeholder="0"></div>
+      <button type="button" onclick="_trAddInterf()" style="flex-shrink:0;background:#f59e0b;border:none;border-radius:7px;padding:.46rem .9rem;color:#000;font-weight:700;cursor:pointer">+ Agregar</button>
+    </div>
+    <table style="width:100%;font-size:.83rem;border-collapse:collapse">
+      <thead><tr style="color:var(--muted2);font-size:.72rem;text-transform:uppercase;border-bottom:1px solid #ffffff15">
+        <th style="text-align:left;padding:.3rem .5rem">Interferencia</th>
+        <th style="text-align:center;padding:.3rem .5rem">Tiempo</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="trInterfList"><tr><td colspan="3" style="text-align:center;color:var(--muted2);font-size:.8rem;padding:1rem">Sin interferencias</td></tr></tbody>
+    </table>
+    <div style="text-align:right;margin-top:.5rem;font-size:.82rem;color:var(--muted2)">
+      Total demoras: <strong id="trInterfTotal" style="color:#f59e0b">0 min</strong>
+    </div>
+  </div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mTramo')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="gTramo()">Guardar</button></div>
 </div></div>
 
