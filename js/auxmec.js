@@ -413,17 +413,12 @@ function _rpFrenteUpdate(){
   if(inp)inp.value=_rpFrenteSelected.join(', ');
 }
 
-async function _rpFrenteNuevo(){
+function _rpFrenteNuevo(){
   const b=document.getElementById('rpFrenteBuscar');
   const nom=(b?b.value:'').trim();
-  if(!nom){toast('Escriba el nombre en el buscador primero',true);return;}
-  const newRec={id:nid('ft'),codigo:_nextFtCod(),nom,nombre:nom,abrev:'',sponsor:'PROYECTOS',est:'ACTIVO'};
-  syncSheet('saveFrenteTrabajo',newRec);
-  DB.frentesTrabajo.push(newRec);
-  if(!_rpFrenteSelected.includes(nom))_rpFrenteSelected.push(nom);
-  if(b)b.value='';
-  _rpFrenteUpdate();_rpFrenteRenderList('');
-  toast('✓ Frente agregado');
+  _resetFrenteModal();
+  if(nom){const ftNom=document.getElementById('ftNom');if(ftNom)ftNom.value=nom;}
+  openM('mFrente');
 }
 
 function calcHoras(){

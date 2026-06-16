@@ -60,8 +60,8 @@ function _resetFrenteModal(){
   _frenteEditCodigo = null;
   document.getElementById('mFrenteTtl').textContent = 'Frente de Trabajo';
   document.getElementById('ftCod').value = _nextFtCod();
-  document.getElementById('ftCod').readOnly = false;
-  document.getElementById('ftCod').style.opacity = '1';
+  document.getElementById('ftCod').readOnly = true;
+  document.getElementById('ftCod').style.opacity = '.55';
   document.getElementById('ftNom').value = '';
   document.getElementById('ftAbrev').value = '';
   document.getElementById('ftGuardarBtn').textContent = 'Guardar';
@@ -98,9 +98,13 @@ async function gFrente(){
     est:document.getElementById('ftEst').value
   });
   if(result&&result.error){toast('Error: '+result.error,true);return;}
+  if(!esEdicion){
+    DB.frentesTrabajo.push({codigo:cod,nombre:nom,abrev:document.getElementById('ftAbrev').value.toUpperCase(),sponsor:document.getElementById('ftSponsor').value,est:document.getElementById('ftEst').value});
+  }
   _resetFrenteModal();
   closeM('mFrente');
   await rFrentes();
+  if(typeof _rpFrenteRenderList==='function')_rpFrenteRenderList('');
   toast(esEdicion ? '✓ Frente actualizado' : '✓ Frente de trabajo guardado');
 }
 
