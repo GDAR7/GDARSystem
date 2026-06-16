@@ -383,8 +383,7 @@ function _rpFrenteRenderList(q){
   list.innerHTML=fil.map(f=>{
     const esc=f.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
     const chk=_rpFrenteSelected.includes(f);
-    const dis=!chk&&_rpFrenteSelected.length>=3;
-    return `<label style="display:flex;align-items:center;gap:.65rem;padding:.5rem .75rem;cursor:${dis?'not-allowed':'pointer'};opacity:${dis?.4:1};font-size:.85rem"><input type="checkbox"${chk?' checked':''}${dis?' disabled':''} onchange="_rpFrenteCheck('${esc}',this)" style="width:15px;height:15px;accent-color:#0ea5e9;cursor:inherit">${f}</label>`;
+    return `<label style="display:flex;align-items:center;gap:.65rem;padding:.5rem .75rem;cursor:pointer;font-size:.85rem"><input type="checkbox"${chk?' checked':''} onchange="_rpFrenteCheck('${esc}',this)" style="width:15px;height:15px;accent-color:#0ea5e9;cursor:inherit">${f}</label>`;
   }).join('');
   const sa=document.getElementById('rpFrenteSelAll');
   if(sa)sa.checked=fil.length>0&&fil.every(f=>_rpFrenteSelected.includes(f));
@@ -393,10 +392,8 @@ function _rpFrenteRenderList(q){
 function _rpFrenteFiltrar(){_rpFrenteRenderList(document.getElementById('rpFrenteBuscar')?.value||'');}
 
 function _rpFrenteCheck(val,cb){
-  if(cb.checked){
-    if(!_rpFrenteSelected.includes(val)&&_rpFrenteSelected.length<3){_rpFrenteSelected.push(val);}
-    else{cb.checked=false;toast('Máximo 3 frentes',true);return;}
-  }else{_rpFrenteSelected=_rpFrenteSelected.filter(v=>v!==val);}
+  if(cb.checked){if(!_rpFrenteSelected.includes(val))_rpFrenteSelected.push(val);}
+  else{_rpFrenteSelected=_rpFrenteSelected.filter(v=>v!==val);}
   _rpFrenteUpdate();
   _rpFrenteRenderList(document.getElementById('rpFrenteBuscar')?.value||'');
 }
@@ -405,7 +402,7 @@ function _rpFrenteSelAll(cb){
   const q=document.getElementById('rpFrenteBuscar')?.value||'';
   const todos=_rpFrenteGetTodos();
   const fil=q?todos.filter(f=>f.toLowerCase().includes(q.toLowerCase())):todos;
-  if(cb.checked){fil.forEach(f=>{if(!_rpFrenteSelected.includes(f)&&_rpFrenteSelected.length<3)_rpFrenteSelected.push(f);});}
+  if(cb.checked){fil.forEach(f=>{if(!_rpFrenteSelected.includes(f))_rpFrenteSelected.push(f);});}
   else{fil.forEach(f=>{_rpFrenteSelected=_rpFrenteSelected.filter(v=>v!==f);});}
   _rpFrenteUpdate();_rpFrenteRenderList(q);
 }
@@ -423,7 +420,7 @@ async function _rpFrenteNuevo(){
   const newRec={id:nid('ft'),codigo:'FT_'+Date.now().toString().slice(-6),nom,nombre:nom,abrev:'',sponsor:'PROYECTOS',est:'ACTIVO'};
   syncSheet('saveFrenteTrabajo',newRec);
   DB.frentesTrabajo.push(newRec);
-  if(!_rpFrenteSelected.includes(nom)&&_rpFrenteSelected.length<3)_rpFrenteSelected.push(nom);
+  if(!_rpFrenteSelected.includes(nom))_rpFrenteSelected.push(nom);
   if(b)b.value='';
   _rpFrenteUpdate();_rpFrenteRenderList('');
   toast('✓ Frente agregado');
