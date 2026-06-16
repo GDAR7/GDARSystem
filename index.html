@@ -1000,7 +1000,17 @@
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th style="text-align:center">Inicio</th><th style="text-align:center">Fin</th><th style="text-align:center">Long. (m)</th><th style="text-align:center">T. Carg.</th><th style="text-align:center">T. Desc.</th><th style="text-align:center">Demoras</th><th style="text-align:center">Ciclo</th><th style="text-align:center">Estado</th><th></th></tr></thead>
+      <thead><tr>
+        <th onclick="_trSortBy('codigo')" style="cursor:pointer;user-select:none">Código <span id="trSortIco_codigo"></span></th>
+        <th style="text-align:center">Inicio</th>
+        <th style="text-align:center">Fin</th>
+        <th onclick="_trSortBy('long')" style="text-align:center;cursor:pointer;user-select:none">Long. (m) <span id="trSortIco_long"></span></th>
+        <th onclick="_trSortBy('tCargado')" style="text-align:center;cursor:pointer;user-select:none">T. Carg. <span id="trSortIco_tCargado"></span></th>
+        <th onclick="_trSortBy('tDescargado')" style="text-align:center;cursor:pointer;user-select:none">T. Desc. <span id="trSortIco_tDescargado"></span></th>
+        <th onclick="_trSortBy('demoras')" style="text-align:center;cursor:pointer;user-select:none">Demoras <span id="trSortIco_demoras"></span></th>
+        <th onclick="_trSortBy('ciclo')" style="text-align:center;cursor:pointer;user-select:none">Ciclo <span id="trSortIco_ciclo"></span></th>
+        <th style="text-align:center">Estado</th><th></th>
+      </tr></thead>
       <tbody id="tbTramos"></tbody>
     </table></div></div>
   </div>

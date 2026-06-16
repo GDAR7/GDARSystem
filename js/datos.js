@@ -163,7 +163,12 @@ function gTipoMat(){
 }
 
 // ══ DATA DE INGRESOS – TRAMOS ══
-let _trEditId=null,_trInterf=[];
+let _trEditId=null,_trInterf=[],_trSort={col:'codigo',dir:'asc'};
+function _trSortBy(col){
+  _trSort.dir=_trSort.col===col?(_trSort.dir==='asc'?'desc':'asc'):'asc';
+  _trSort.col=col;
+  rTramos();
+}
 
 function _trSwitchTab(n){
   document.getElementById('trTabContent1').style.display=n===1?'block':'none';
@@ -196,7 +201,16 @@ function _trAddInterf(){
 function _trDelInterf(idx){_trInterf.splice(idx,1);_trRenderInterf();}
 
 function rTramos(){
-  document.getElementById('tbTramos').innerHTML=DB.tramos.map(r=>`<tr>
+  const cols=['codigo','long','tCargado','tDescargado','demoras','ciclo'];
+  cols.forEach(c=>{const el=document.getElementById('trSortIco_'+c);if(el)el.textContent=_trSort.col===c?(_trSort.dir==='asc'?' ▲':' ▼'):' ⇅';});
+  const sorted=[...DB.tramos].sort((a,b)=>{
+    const demA=Array.isArray(a.interferencias)?a.interferencias.reduce((s,x)=>s+(+x.tiempo||0),0):0;
+    const demB=Array.isArray(b.interferencias)?b.interferencias.reduce((s,x)=>s+(+x.tiempo||0),0):0;
+    const va=_trSort.col==='demoras'?demA:_trSort.col==='codigo'?(a.codigo||''):(+a[_trSort.col]||0);
+    const vb=_trSort.col==='demoras'?demB:_trSort.col==='codigo'?(b.codigo||''):(+b[_trSort.col]||0);
+    return _trSort.dir==='asc'?(va>vb?1:va<vb?-1:0):(va<vb?1:va>vb?-1:0);
+  });
+  document.getElementById('tbTramos').innerHTML=sorted.map(r=>`<tr>
     <td class="mono" style="color:var(--ceq)">${r.codigo}</td>
     <td class="mono" style="text-align:center">${r.inicio||'—'}</td>
     <td class="mono" style="text-align:center">${r.fin||'—'}</td>
