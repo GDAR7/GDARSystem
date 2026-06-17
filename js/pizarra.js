@@ -1,6 +1,7 @@
 // ══ PIZARRA DE DESPLIEGUE ══
 function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN.png';}
-let _pizTab=1,_pizMoving=null;
+let _pizTab=1,_pizMoving=null,_pizFecha=null;
+function _pizGetFecha(){return _pizFecha||today();}
 
 function rPizarra(){_pizRenderTab();}
 
@@ -99,26 +100,51 @@ function _pizRenderPlan(c){
   </div>`;
 }
 
-// ── VISTA 2: ESTADO REAL (desde partes de hoy) ─────────────────────────────
+// ── VISTA 2: ESTADO REAL (desde partes de la fecha seleccionada) ───────────
 function _pizRenderReal(c){
-  const hoy=today();
-  const partesHoy=(DB.partes||[]).filter(p=>p.fecha===hoy);
+  const fecha=_pizGetFecha();
+  const partesFecha=(DB.partes||[]).filter(p=>p.fecha===fecha);
   const pizEq=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='equipo');
   const pizFt=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='frente');
 
-  const ops=partesHoy.filter(p=>(p.condicion||'').toUpperCase().includes('OPERATIVO')).length;
-  const stdby=partesHoy.filter(p=>(p.condicion||'').toUpperCase()==='STANDBY').length;
-  const inop=partesHoy.length-ops-stdby;
-  const sinPos=partesHoy.filter(p=>!pizEq.find(i=>i.refId===p.eqId));
+  // Contador de slot por frente (para escalonar equipos sin taparse)
+  const _ftSlot={};
+  function _resolvePos(p){
+    // 1° posición manual del equipo
+    const manual=pizEq.find(i=>i.refId===p.eqId);
+    if(manual)return{x:manual.x,y:manual.y,auto:false};
+    // 2° auto: posición del frente registrado en el parte
+    const nomFt=(p.frenteT||'').trim();
+    if(!nomFt)return null;
+    const ft=(DB.frentesTrabajo||[]).find(f=>(f.nombre||f.nom||f.frente||'').trim()===nomFt);
+    if(!ft)return null;
+    const fpos=pizFt.find(i=>i.refId===ft.id);
+    if(!fpos)return null;
+    const totalFt=partesFecha.filter(px=>(px.frenteT||'').trim()===nomFt).length;
+    const slot=_ftSlot[ft.id]||0;_ftSlot[ft.id]=slot+1;
+    const offsetX=(slot-(totalFt-1)/2)*3;
+    return{x:fpos.x+offsetX,y:fpos.y+5,auto:true};
+  }
 
-  const eqMarkers=partesHoy.map(p=>{
+  const ops=partesFecha.filter(p=>(p.condicion||'').toUpperCase().includes('OPERATIVO')).length;
+  const stdby=partesFecha.filter(p=>(p.condicion||'').toUpperCase()==='STANDBY').length;
+  const inop=partesFecha.length-ops-stdby;
+
+  // Pre-calcular posiciones para saber quiénes quedan sin ubicar
+  const posCache=new Map();
+  partesFecha.forEach(p=>{posCache.set(p.eqId,_resolvePos(p));});
+  // Resetear slots para el render real
+  Object.keys(_ftSlot).forEach(k=>delete _ftSlot[k]);
+
+  const eqMarkers=partesFecha.map(p=>{
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
-    const pos=pizEq.find(i=>i.refId===p.eqId);if(!pos)return'';
+    const pos=_resolvePos(p);if(!pos)return'';
     const col=_pizCondColor(p.condicion);
     return`<div style="position:absolute;left:${pos.x}%;top:${pos.y}%;transform:translate(-50%,-100%);cursor:pointer;z-index:10"
-      onclick="_pizPopup(${p.eqId})">
+      title="${pos.auto?'Auto: '+p.frenteT:eq.codigo}"
+      onclick="_pizPopup(${p.eqId},'${fecha}')">
       <div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;align-items:center;gap:3px">
-        ${_pizEqIcon(eq.sub)} ${eq.codigo}
+        ${_pizEqIcon(eq.sub)} ${eq.codigo}${pos.auto?'<span style="font-size:.55rem;opacity:.75"> ⚙</span>':''}
       </div>
       <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
     </div>`;
@@ -135,37 +161,46 @@ function _pizRenderReal(c){
     </div>`;
   }).join('');
 
+  const sinPos=partesFecha.filter(p=>!posCache.get(p.eqId));
+
   c.innerHTML=`
+  <!-- SELECTOR DE FECHA + STATS -->
   <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap">
-    <span style="font-size:.72rem;font-weight:700;color:var(--muted2)">📅 HOY ${hoy} · ${partesHoy.length} parte(s)</span>
+    <label style="font-size:.72rem;color:var(--muted2);font-weight:700">📅 Fecha:</label>
+    <input type="date" value="${fecha}"
+      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.75rem;font-family:'Barlow',sans-serif;cursor:pointer"
+      onchange="_pizFecha=this.value;_pizRenderTab()">
+    <span style="font-size:.7rem;color:var(--muted2)">${partesFecha.length} parte(s)</span>
     <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${ops} Operativo</span>
     <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${stdby} Standby</span>
     <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${inop} Inoperativo</span>
-    ${sinPos.length?`<span style="font-size:.65rem;color:var(--muted2)">· ${sinPos.length} sin posición en mapa</span>`:''}
+    ${sinPos.length?`<span style="font-size:.65rem;color:var(--muted2)">· ${sinPos.length} sin ubicar</span>`:''}
+    <span style="margin-left:auto;font-size:.6rem;color:var(--muted2)">⚙ = posición por frente</span>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 170px':''};gap:.7rem;height:calc(100vh - 235px)">
+  <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 165px':''};gap:.7rem;height:calc(100vh - 240px)">
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a">
       <img src="${_pizImgUrl()}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" draggable="false">
       ${ftMarkers}${eqMarkers}
-      ${!partesHoy.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+      ${!partesFecha.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
         <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.78rem;text-align:center">
-          No hay partes registrados hoy
+          No hay partes registrados para ${fecha}
         </div></div>`:''}
     </div>
 
     ${sinPos.length?`<div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2)">
-      <div style="font-size:.62rem;color:#f59e0b;font-weight:700;text-transform:uppercase;margin-bottom:.4rem">Sin posición (${sinPos.length})</div>
+      <div style="font-size:.62rem;color:#ef4444;font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Sin ubicar (${sinPos.length})</div>
+      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.4rem;line-height:1.3">Frente no posicionado en el mapa</div>
       ${sinPos.map(p=>{
         const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
         const col=_pizCondColor(p.condicion);
-        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.67rem;cursor:pointer" onclick="_pizPopup(${p.eqId})">
+        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.67rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${fecha}')">
           ${_pizEqIcon(eq.sub)} <strong>${eq.codigo}</strong><br>
           <span style="color:${col};font-size:.62rem">${p.condicion||'—'}</span><br>
-          <span style="color:var(--muted2);font-size:.6rem">${p.frenteT||''}</span>
+          <span style="color:var(--muted2);font-size:.6rem">${p.frenteT||'Sin frente'}</span>
         </div>`;
       }).join('')}
-      <div style="font-size:.6rem;color:var(--muted2);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.4rem">Ubica estos equipos en la pestaña Planificación</div>
+      <div style="font-size:.6rem;color:var(--muted2);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.4rem">Ubica el frente en la pestaña Planificación</div>
     </div>`:''}
   </div>
 
@@ -258,9 +293,9 @@ function _pizAgregarNota(){
   _pizRenderTab();
 }
 
-function _pizPopup(eqId){
-  const hoy=today();
-  const p=(DB.partes||[]).find(x=>x.eqId===eqId&&x.fecha===hoy);
+function _pizPopup(eqId,fecha){
+  const f=fecha||_pizGetFecha();
+  const p=(DB.partes||[]).find(x=>x.eqId===eqId&&x.fecha===f);
   const eq=(DB.equipos||[]).find(e=>e.id===eqId);
   if(!p||!eq)return;
   const col=_pizCondColor(p.condicion);
