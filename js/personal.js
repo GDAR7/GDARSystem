@@ -208,11 +208,9 @@ async function rAsistencia(){
       <td><strong>${p.ape}, ${p.nom}</strong></td>
       <td>${tipoBadge}</td><td>${grdBadge}</td>
       <td class="mono" style="color:#10b981;font-weight:600">${entrada||'<span style="color:var(--muted)">—</span>'}</td>
-      <td class="mono" style="color:#f59e0b;font-weight:600">${salida||'<span style="color:var(--muted)">—</span>'}</td>
       <td class="mono">${horas||'<span style="color:var(--muted)">—</span>'}</td>
       <td>${tareoBadge}</td>
       <td>${estadoBadge}</td>
-      <td><button class="btn btn-sm" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#60a5fa" onclick="registrarManualAsistencia(${p.id},'${fecha}')" title="Editar manualmente">✏️</button></td>
     </tr>`;
   }).join('');
 }
