@@ -67,52 +67,43 @@ function _resetFrenteModal(){
   document.getElementById('ftGuardarBtn').textContent = 'Guardar';
 }
 
-async function rFrentes(){
-  const tb=document.getElementById('tbFrentes');
-  if(!tb)return;
-  tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted2);padding:1.5rem">⏳ Cargando data...</td></tr>';
-  try{
-    const r=await apiFetch('getFrentes');
-    if(r&&!r.error&&Array.isArray(r)&&r.length){
-      DB.frentesTrabajo=r.map(row=>({
-        codigo: row['CODIGO']||row.codigo||'',
-        nombre: row['FRENTE DE TRABAJO']||row.nombre||'',
-        abrev:  row['ABREVIATURA']||row.abrev||'',
-        sponsor:row['SPONSOR']||row.sponsor||'',
-        est:    row['ESTADO']||row.est||'ACTIVO'
-      }));
-    }
-  }catch(e){console.warn('Error cargando frentes:',e);}
+function rFrentes(){
   renderFrentesTable();
 }
 
-async function gFrente(){
-  const cod=document.getElementById('ftCod').value.trim(),nom=document.getElementById('ftNom').value.trim();
+function gFrente(){
+  const cod=document.getElementById('ftCod').value.trim();
+  const nom=document.getElementById('ftNom').value.trim();
   if(!cod||!nom){toast('Ingrese código y nombre',true);return;}
-  const esEdicion = _frenteEditCodigo !== null;
-  toast(esEdicion ? 'Actualizando data...' : 'Guardando data...');
-  const result=await apiFetch('saveFrente',{
-    codigo:cod, nom:nom,
-    abrev:document.getElementById('ftAbrev').value.toUpperCase(),
-    sponsor:document.getElementById('ftSponsor').value,
-    est:document.getElementById('ftEst').value
-  });
-  if(result&&result.error){toast('Error: '+result.error,true);return;}
-  if(!esEdicion){
-    DB.frentesTrabajo.push({codigo:cod,nombre:nom,abrev:document.getElementById('ftAbrev').value.toUpperCase(),sponsor:document.getElementById('ftSponsor').value,est:document.getElementById('ftEst').value});
+  const esEdicion=_frenteEditCodigo!==null;
+  const abrev=document.getElementById('ftAbrev').value.toUpperCase();
+  const sponsor=document.getElementById('ftSponsor').value;
+  const est=document.getElementById('ftEst').value;
+
+  if(esEdicion){
+    const ft=DB.frentesTrabajo.find(x=>x.codigo===cod);
+    if(ft){
+      if(!ft.id)ft.id=nid('ft');
+      ft.nombre=nom;ft.abrev=abrev;ft.sponsor=sponsor;ft.est=est;
+      syncSheet('saveFrenteTrabajo',ft);
+    }
+  }else{
+    const rec={id:nid('ft'),codigo:cod,nombre:nom,abrev,sponsor,est};
+    DB.frentesTrabajo.push(rec);
+    syncSheet('saveFrenteTrabajo',rec);
   }
+
   _resetFrenteModal();
   closeM('mFrente');
-  await rFrentes();
+  renderFrentesTable();
   if(typeof _rpFrenteRenderList==='function')_rpFrenteRenderList('');
-  toast(esEdicion ? '✓ Frente actualizado' : '✓ Frente de trabajo guardado');
+  toast(esEdicion?'✓ Frente actualizado':'✓ Frente de trabajo guardado');
 }
 
-async function delFrente(codigo){
+function delFrente(codigo){
   if(!confirm('¿Eliminar este frente de trabajo?'))return;
-  toast('Eliminando...');
-  const result=await apiFetch('deleteFrente',{id:codigo});
-  if(result&&result.error){toast('Error al eliminar: '+result.error,true);return;}
+  const ft=DB.frentesTrabajo.find(r=>r.codigo===codigo);
+  if(ft?.id)supaDelete('frentesTrabajo',ft.id);
   DB.frentesTrabajo=DB.frentesTrabajo.filter(r=>r.codigo!==codigo);
   renderFrentesTable();
   toast('✓ Frente eliminado');
