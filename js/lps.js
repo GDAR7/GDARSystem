@@ -391,8 +391,10 @@ function _lpsSetProyFecha(tipo,val){
 function _lpsWbsToggleTitulo(esTitulo){
   const undWrap=document.getElementById('lpsWbsUndWrap');
   const cantWrap=document.getElementById('lpsWbsCantWrap');
+  const cronoWrap=document.getElementById('lpsWbsCronoWrap');
   if(undWrap)undWrap.style.display=esTitulo?'none':'';
   if(cantWrap)cantWrap.style.display=esTitulo?'none':'';
+  if(cronoWrap)cronoWrap.style.display=esTitulo?'none':'';
 }
 
 function _lpsOpenWbs(id){
