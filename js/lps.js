@@ -22,7 +22,7 @@ function _wbsTitleBg(w){
   if(lv>=3) return 'rgba(147,197,253,.08)';
   return 'rgba(16,185,129,.09)';
 }
-let _lpsWbsQTimer=null;
+let _lpsWbsQTimer=null,_lpsGanttZoom='month';
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
   _lpsWbsQTimer=setTimeout(()=>_lpsRenderTab(),220);
@@ -75,9 +75,10 @@ function _lpsTabSwitch(n){
 function _lpsRenderTab(){
   const c=document.getElementById('lpsBody');if(!c)return;
   if(_lpsTab===1)_lpsRenderWBS(c);
-  else if(_lpsTab===2)_lpsRenderLookahead(c);
-  else if(_lpsTab===3)_lpsRenderPlan(c);
-  else if(_lpsTab===4)_lpsRenderRestr(c);
+  else if(_lpsTab===2)_lpsRenderCrono(c);
+  else if(_lpsTab===3)_lpsRenderLookahead(c);
+  else if(_lpsTab===4)_lpsRenderPlan(c);
+  else if(_lpsTab===5)_lpsRenderRestr(c);
   else _lpsRenderCnc(c);
 }
 
@@ -403,12 +404,46 @@ function _lpsOpenWbs(id){
   document.getElementById('lpsWbsDesc').value=w?.desc||'';
   document.getElementById('lpsWbsUnd').value=w?.unidad||'m³';
   document.getElementById('lpsWbsCant').value=w?.cantTotal||'';
-  // Poblar sector select dinámicamente
   const sel=document.getElementById('lpsWbsSect');
   sel.innerHTML=`<option value="">— Seleccionar —</option>`+_lpsSects().map(s=>`<option${w?.sector===s?' selected':''}>${s}</option>`).join('');
   const chk=document.getElementById('lpsWbsEsTitulo');
   if(chk){chk.checked=esTitulo;_lpsWbsToggleTitulo(esTitulo);}
+  // Campos de programación
+  document.getElementById('lpsWbsIni').value=w?.fechaIni||'';
+  document.getElementById('lpsWbsFin').value=w?.fechaFin||'';
+  document.getElementById('lpsWbsCantDias').value=w?.cantDias||'';
+  const predSel=document.getElementById('lpsWbsPred');
+  if(predSel){
+    const otros=(DB.lpsWbs||[]).filter(x=>x.id!==id&&x.tipo!=='TITULO');
+    predSel.innerHTML='<option value="">— Sin predecesora —</option>'+
+      otros.map(x=>`<option value="${x.id}"${w?.predId===x.id?' selected':''}>${x.codigo} – ${x.desc.slice(0,35)}</option>`).join('');
+  }
   openM('mLpsWbs');
+}
+
+function _lpsWbsPredChange(){
+  const predId=+document.getElementById('lpsWbsPred').value||0;
+  if(!predId)return;
+  const pred=(DB.lpsWbs||[]).find(x=>x.id===predId);
+  if(pred?.fechaFin){
+    const next=_lpsAddDays(pred.fechaFin,1);
+    document.getElementById('lpsWbsIni').value=next;
+    const dur=+document.getElementById('lpsWbsCantDias').value||0;
+    if(dur>0)document.getElementById('lpsWbsFin').value=_lpsAddDays(next,dur-1);
+  }
+}
+function _lpsWbsDatesChange(){
+  const ini=document.getElementById('lpsWbsIni').value;
+  const fin=document.getElementById('lpsWbsFin').value;
+  if(ini&&fin){
+    const d=Math.ceil((new Date(fin)-new Date(ini))/86400000)+1;
+    if(d>0)document.getElementById('lpsWbsCantDias').value=d;
+  }
+}
+function _lpsWbsDurChange(){
+  const ini=document.getElementById('lpsWbsIni').value;
+  const dur=+document.getElementById('lpsWbsCantDias').value||0;
+  if(ini&&dur>0)document.getElementById('lpsWbsFin').value=_lpsAddDays(ini,dur-1);
 }
 
 function _lpsSaveWbs(){
@@ -419,13 +454,17 @@ function _lpsSaveWbs(){
   const unidad=esTitulo?'—':document.getElementById('lpsWbsUnd').value.trim();
   const cantTotal=esTitulo?0:(+document.getElementById('lpsWbsCant').value||0);
   const sector=document.getElementById('lpsWbsSect').value;
+  const fechaIni=document.getElementById('lpsWbsIni')?.value||'';
+  const fechaFin=document.getElementById('lpsWbsFin')?.value||'';
+  const cantDias=+document.getElementById('lpsWbsCantDias')?.value||0;
+  const predId=+document.getElementById('lpsWbsPred')?.value||0;
   if(!codigo||!sector){toast('Complete código y sector',true);return;}
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
-    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo});syncSheet('saveLpsWbs',w);}
+    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId});syncSheet('saveLpsWbs',w);}
   }else{
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden};
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden,fechaIni,fechaFin,cantDias,predId};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
   }
   closeM('mLpsWbs');_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
@@ -977,16 +1016,17 @@ function _lpsDelRestr(id){
 // EXPORTAR A PDF
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsPrintCurrent(){
-  const tabNames=['Biblioteca WBS','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones','CNC – Causas de No Cumplimiento'];
+  const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones','CNC – Causas de No Cumplimiento'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
   const fechaExp=new Date().toLocaleString('es-PE');
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
 
   let body='';
   if(_lpsTab===1) body=_lpsPrintBodyWBS();
-  else if(_lpsTab===2) body=_lpsPrintBodyLookahead();
-  else if(_lpsTab===3) body=_lpsPrintBodyPlan();
-  else if(_lpsTab===4) body=_lpsPrintBodyRestrManual();
+  else if(_lpsTab===2) body=_lpsPrintBodyCrono();
+  else if(_lpsTab===3) body=_lpsPrintBodyLookahead();
+  else if(_lpsTab===4) body=_lpsPrintBodyPlan();
+  else if(_lpsTab===5) body=_lpsPrintBodyRestrManual();
   else body=_lpsPrintBodyRestr();
 
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
@@ -1130,4 +1170,207 @@ function _lpsPrintBodyRestr(){
   }).join('');
   return`<p style="font-size:8px;color:#555;margin-bottom:6px">Actividades del Plan Semanal con cumplimiento menor al 100% · Pendientes: ${pendientes.length} · Atendidas: ${resueltas.length}</p>
   <table><thead><tr><th>Código Actividad</th><th>Sector</th><th style="text-align:center">Semana</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th style="text-align:center">%</th><th>Causa (CNC)</th><th style="text-align:center">Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function _lpsPrintBodyCrono(){
+  const sorted=_lpsWbsSorted().filter(w=>w.fechaIni&&w.fechaFin);
+  if(!sorted.length)return'<p>Sin actividades con fechas programadas.</p>';
+  const rows=sorted.map(w=>{
+    const isT=w.tipo==='TITULO';
+    const predW=w.predId?(DB.lpsWbs||[]).find(x=>x.id===w.predId):null;
+    return`<tr${isT?' style="background:#f0f4f8;font-weight:700"':''}>
+      <td style="padding-left:${_wbsLvl(w.codigo||'')*10}px">${w.codigo}</td>
+      <td>${w.desc}</td>
+      <td style="text-align:center">${w.cantDias||'—'}</td>
+      <td style="text-align:center">${w.fechaIni||'—'}</td>
+      <td style="text-align:center">${w.fechaFin||'—'}</td>
+      <td style="text-align:center">${predW?predW.codigo:'—'}</td>
+      <td style="text-align:center">${w.avance?w.avance+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+  return`<p style="font-size:8px;color:#555;margin-bottom:6px">Actividades programadas: ${sorted.length}</p>
+  <table><thead><tr><th>Código</th><th>Descripción</th><th style="text-align:center">Días</th><th style="text-align:center">Inicio</th><th style="text-align:center">Fin</th><th style="text-align:center">Pred.</th><th style="text-align:center">Avance</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VISTA 6 – CRONOGRAMA (Gantt tipo MS Project)
+// ══════════════════════════════════════════════════════════════════════════════
+const _GANTT_PPD={week:10,month:3.8,quarter:1.4};
+
+function _lpsRenderCrono(c){
+  const sorted=_lpsWbsSorted();
+  const withDates=sorted.filter(w=>w.fechaIni&&w.fechaFin);
+  if(!withDates.length){
+    c.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--muted2);font-size:.82rem">
+      Sin actividades con fechas.<br><span style="font-size:.75rem">Edita cada actividad WBS y completa Inicio / Fin en la sección Programación.</span>
+    </div>`;return;
+  }
+  const PPD=_GANTT_PPD[_lpsGanttZoom]||3.8;
+  const ROW_H=30,LEFT_W=400;
+
+  // Rango de fechas → expandir a meses completos
+  const rIni=withDates.map(w=>w.fechaIni).reduce((a,b)=>a<b?a:b);
+  const rFin=withDates.map(w=>w.fechaFin).reduce((a,b)=>a>b?a:b);
+  const dS=new Date(rIni);dS.setDate(1);
+  const dE=new Date(rFin);dE.setMonth(dE.getMonth()+2);dE.setDate(0);
+  const totalDays=Math.ceil((dE-dS)/86400000);
+  const ganttW=Math.max(800,Math.ceil(totalDays*PPD));
+
+  function px(iso){if(!iso)return-1;return Math.round((new Date(iso)-dS)/86400000*PPD);}
+  function bw(ini,fin){return Math.max(4,Math.round((Math.ceil((new Date(fin)-new Date(ini))/86400000)+1)*PPD));}
+
+  // Cabecera meses
+  let mHdr='';
+  const dm=new Date(dS);
+  while(dm<=dE){
+    const mEnd=new Date(dm.getFullYear(),dm.getMonth()+1,0);
+    const eff=mEnd<dE?mEnd:dE;
+    const mW=Math.round((Math.floor((eff-dm)/86400000)+1)*PPD);
+    mHdr+=`<div style="width:${mW}px;flex-shrink:0;border-right:1px solid #2a3040;padding:0 6px;font-size:.62rem;font-weight:700;color:var(--muted2);display:flex;align-items:center;overflow:hidden;box-sizing:border-box">
+      ${dm.toLocaleDateString('es-PE',{month:'short',year:'numeric'}).toUpperCase()}
+    </div>`;
+    dm.setMonth(dm.getMonth()+1);dm.setDate(1);
+  }
+  // Cabecera semanas
+  let wHdr='';
+  if(_lpsGanttZoom!=='quarter'){
+    const dw=new Date(dS);
+    while(dw<=dE){
+      const wEnd=new Date(dw);wEnd.setDate(wEnd.getDate()+6);
+      const eff=wEnd<dE?wEnd:dE;
+      const wW=Math.round((Math.floor((eff-dw)/86400000)+1)*PPD);
+      const isEven=Math.floor((dw-dS)/86400000/7)%2===0;
+      wHdr+=`<div style="width:${wW}px;flex-shrink:0;border-right:1px solid #1e2535;font-size:.55rem;color:#4a5568;text-align:center;display:flex;align-items:center;justify-content:center;background:${isEven?'transparent':'rgba(255,255,255,.012)'};box-sizing:border-box">${dw.getDate()}/${dw.getMonth()+1}</div>`;
+      dw.setDate(dw.getDate()+7);
+    }
+  }
+  // Líneas grid alternadas
+  let grid='';
+  const dg=new Date(dS);let gi=0;
+  while(dg<=dE){
+    if(gi%2===1){const gx=px(dg.toISOString().slice(0,10));grid+=`<div style="position:absolute;left:${gx}px;top:0;bottom:0;width:${Math.round(7*PPD)}px;background:rgba(255,255,255,.014);pointer-events:none"></div>`;}
+    dg.setDate(dg.getDate()+7);gi++;
+  }
+  // Hoy
+  const todX=px(today());const todVis=todX>=0&&todX<=ganttW;
+
+  // Mapa de rowIndex por id (para flechas predecesoras)
+  const rowMap={};sorted.forEach((w,i)=>rowMap[w.id]=i);
+
+  let leftH='',rightH='',arrows='';
+  sorted.forEach((w,i)=>{
+    const isT=w.tipo==='TITULO';
+    const lv=_wbsLvl(w.codigo||'');
+    const ind=lv*12;
+    const bg=i%2===0?'rgba(255,255,255,.018)':'transparent';
+    const predW=w.predId?(DB.lpsWbs||[]).find(x=>x.id===w.predId):null;
+
+    // Panel izquierdo
+    leftH+=`<div style="height:${ROW_H}px;display:flex;align-items:center;background:${bg};border-bottom:1px solid #111927;padding:0 5px;gap:3px;box-sizing:border-box;overflow:hidden">
+      <span style="padding-left:${ind}px;flex:1;min-width:0;font-size:.68rem;${isT?'font-weight:700;color:#e2e8f0':'color:var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        title="${w.codigo} – ${w.desc}">
+        ${isT?'▸ ':''}<span style="color:var(--ceq);margin-right:2px;font-size:.6rem">${w.codigo}</span>${w.desc}
+      </span>
+      <span style="width:26px;flex-shrink:0;text-align:right;font-size:.62rem;color:var(--muted2)">${w.cantDias||''}</span>
+      <span style="width:50px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${w.fechaIni?w.fechaIni.slice(5):'—'}</span>
+      <span style="width:50px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${w.fechaFin?w.fechaFin.slice(5):'—'}</span>
+      <span style="width:46px;flex-shrink:0;font-size:.58rem;color:#4a6080;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${predW?predW.codigo:''}">
+        ${predW?predW.codigo:'—'}
+      </span>
+      <button onclick="event.stopPropagation();_lpsOpenWbs(${w.id})" style="background:none;border:none;color:#3d5272;cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0" title="Editar actividad">✏️</button>
+    </div>`;
+
+    // Panel derecho (barra Gantt)
+    let bar='';
+    if(w.fechaIni&&w.fechaFin){
+      const bx=px(w.fechaIni),barW=bw(w.fechaIni,w.fechaFin);
+      const barH=isT?10:16,barTop=Math.floor((ROW_H-barH)/2);
+      const col=isT?'#3d5272':_wbsCodeColor(w);
+      if(bx>=0){
+        bar=`<div style="position:absolute;left:${bx}px;top:${barTop}px;height:${barH}px;width:${barW}px;
+          background:${col};border-radius:${isT?'2px':'4px'};cursor:pointer;z-index:2;
+          ${isT?'clip-path:polygon(0 50%,4px 0%,calc(100% - 4px) 0%,100% 50%,calc(100% - 4px) 100%,4px 100%)':''}
+          opacity:.9" onclick="_lpsOpenWbs(${w.id})"
+          title="${w.codigo} – ${w.desc}&#10;📅 ${w.fechaIni} → ${w.fechaFin} (${w.cantDias||'?'} días)${predW?'&#10;⬅ Pred: '+predW.codigo:''}">
+          ${barW>50&&!isT?`<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:.57rem;color:#fff;white-space:nowrap;overflow:hidden;max-width:${barW-10}px;pointer-events:none">${w.desc.slice(0,Math.floor(barW/7))}</span>`:''}
+        </div>`;
+        // Flecha predecesora (FS)
+        if(predW?.fechaFin){
+          const pi=rowMap[predW.id];
+          if(pi!==undefined){
+            const ax=px(predW.fechaFin)+bw(predW.fechaIni,predW.fechaFin);
+            const ay=pi*ROW_H+ROW_H/2;
+            const by2=i*ROW_H+ROW_H/2;
+            const mx=Math.max(ax+6,bx-6);
+            arrows+=`<path d="M${ax},${ay} H${mx} V${by2} H${bx}" stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#lpsPredArrow)"/>`;
+          }
+        }
+      }
+    }
+    rightH+=`<div style="position:relative;height:${ROW_H}px;background:${bg};border-bottom:1px solid #111927;box-sizing:border-box">${bar}</div>`;
+  });
+
+  const svgH=sorted.length*ROW_H;
+  const predSVG=arrows?`<svg style="position:absolute;top:0;left:0;pointer-events:none;z-index:4;overflow:visible" width="${ganttW}" height="${svgH}">
+    <defs><marker id="lpsPredArrow" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#f59e0b"/>
+    </marker></defs>
+    ${arrows}
+  </svg>`:'';
+
+  c.innerHTML=`
+  <!-- Toolbar -->
+  <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap">
+    <span style="font-size:.7rem;color:var(--muted2);font-weight:700">Escala:</span>
+    ${[['Semana','week'],['Mes','month'],['Trimestre','quarter']].map(([l,z])=>`<button onclick="_lpsGanttZoom='${z}';_lpsRenderTab()"
+      style="padding:.22rem .75rem;font-size:.7rem;border-radius:5px;cursor:pointer;font-family:'Barlow',sans-serif;
+      background:${_lpsGanttZoom===z?'#10b981':'rgba(255,255,255,.06)'};color:${_lpsGanttZoom===z?'#fff':'var(--muted2)'};
+      border:1px solid ${_lpsGanttZoom===z?'#10b981':'var(--border)'}">${l}</button>`).join('')}
+    <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
+    <span style="font-size:.63rem;color:var(--muted2)">
+      <span style="color:#10b981">■</span> Nv1 &nbsp;<span style="color:#f87171">■</span> Nv2 &nbsp;
+      <span style="color:#93c5fd">■</span> Nv3+ &nbsp;<span style="color:#e2e8f0">■</span> Con avance &nbsp;
+      <span style="color:#f59e0b">→</span> Predecesora FS
+    </span>
+    <span style="margin-left:auto;font-size:.63rem;color:var(--muted2)">${rIni} → ${rFin} · ${sorted.length} item(s)</span>
+  </div>
+
+  <!-- Gantt -->
+  <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;height:calc(100vh - 228px)">
+    <!-- Panel izquierdo fijo -->
+    <div style="width:${LEFT_W}px;flex-shrink:0;display:flex;flex-direction:column;border-right:2px solid var(--border)">
+      <div style="height:44px;flex-shrink:0;background:var(--panel2);border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 5px;gap:3px">
+        <span style="flex:1;font-size:.6rem;font-weight:700;color:var(--muted2);text-transform:uppercase">Actividad</span>
+        <span style="width:26px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right" title="Duración días">Dur</span>
+        <span style="width:50px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Inicio</span>
+        <span style="width:50px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Fin</span>
+        <span style="width:46px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right">Pred.</span>
+        <span style="width:22px"></span>
+      </div>
+      <div id="gLeft" style="overflow-y:scroll;flex:1;scrollbar-width:thin"
+        onscroll="document.getElementById('gRight').scrollTop=this.scrollTop">
+        ${leftH}
+      </div>
+    </div>
+    <!-- Panel derecho Gantt -->
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:44px;flex-shrink:0;background:var(--panel2);border-bottom:2px solid var(--border);overflow:hidden">
+        <div id="gHdr" style="display:flex;flex-direction:column;width:${ganttW}px">
+          <div style="display:flex;height:22px;border-bottom:1px solid #2a3040">${mHdr}</div>
+          <div style="display:flex;height:22px">${wHdr}</div>
+        </div>
+      </div>
+      <div id="gRight" style="overflow:auto;flex:1"
+        onscroll="document.getElementById('gLeft').scrollTop=this.scrollTop;document.getElementById('gHdr').style.marginLeft='-'+this.scrollLeft+'px'">
+        <div style="position:relative;width:${ganttW}px;min-height:100%">
+          ${grid}
+          ${todVis?`<div style="position:absolute;top:0;bottom:0;left:${todX}px;width:2px;background:rgba(239,68,68,.85);z-index:6;pointer-events:none">
+            <div style="position:sticky;top:2px;background:#ef4444;color:#fff;font-size:.52rem;padding:1px 3px;border-radius:0 3px 3px 0;white-space:nowrap;font-weight:700">HOY</div>
+          </div>`:''}
+          ${predSVG}
+          ${rightH}
+        </div>
+      </div>
+    </div>
+  </div>`;
 }

@@ -701,10 +701,11 @@
   <!-- Tab bar -->
   <div style="display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0;align-items:flex-end">
     <button class="lps-tab active" onclick="_lpsTabSwitch(1)">📚 Biblioteca WBS</button>
-    <button class="lps-tab" onclick="_lpsTabSwitch(2)">📅 Lookahead 4 Semanas</button>
-    <button class="lps-tab" onclick="_lpsTabSwitch(3)">✅ Plan Semanal / PPC</button>
-    <button class="lps-tab" onclick="_lpsTabSwitch(4)">🚧 Restricciones</button>
-    <button class="lps-tab" onclick="_lpsTabSwitch(5)">⚠️ CNC</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(2)">📊 Cronograma</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(3)">📅 Lookahead 4 Semanas</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(4)">✅ Plan Semanal / PPC</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(5)">🚧 Restricciones</button>
+    <button class="lps-tab" onclick="_lpsTabSwitch(6)">⚠️ CNC</button>
     <button onclick="_lpsPrintCurrent()" title="Exportar tab actual a PDF" style="margin-left:auto;margin-bottom:4px;background:rgba(16,185,129,.12);border:1px solid #10b98150;border-radius:6px;color:#10b981;padding:.3rem .75rem;font-size:.75rem;cursor:pointer;font-weight:600;white-space:nowrap">📄 Exportar PDF</button>
   </div>
   <!-- Contenido dinámico -->
@@ -728,6 +729,18 @@
       <div id="lpsWbsCantWrap" class="fg"><label>Cantidad Total</label><input id="lpsWbsCant" type="number" min="0" step="0.01" placeholder="0"></div>
       <div class="fg" style="grid-column:1/-1"><label>Sector</label>
         <select id="lpsWbsSect"><option value="">— Seleccionar —</option></select>
+      </div>
+    </div>
+    <!-- Programación Cronograma -->
+    <div id="lpsWbsCronoWrap" style="margin-top:.6rem">
+      <div style="font-size:.65rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;border-top:1px solid var(--border);padding-top:.6rem">📊 Programación</div>
+      <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="fg"><label>Inicio</label><input id="lpsWbsIni" type="date" style="color-scheme:dark" onchange="_lpsWbsDatesChange()"></div>
+        <div class="fg"><label>Fin</label><input id="lpsWbsFin" type="date" style="color-scheme:dark" onchange="_lpsWbsDatesChange()"></div>
+        <div class="fg"><label>Duración (días)</label><input id="lpsWbsCantDias" type="number" min="1" placeholder="auto" onchange="_lpsWbsDurChange()"></div>
+      </div>
+      <div class="fg"><label>Predecesora (Finish-to-Start)</label>
+        <select id="lpsWbsPred" onchange="_lpsWbsPredChange()"><option value="">— Sin predecesora —</option></select>
       </div>
     </div>
   </div>
