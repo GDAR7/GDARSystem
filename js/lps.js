@@ -928,9 +928,14 @@ function _lpsOpenRestr(id){
   document.getElementById('lpsRestrDesc').value=r?.desc||'';
   document.getElementById('lpsRestrResp').value=r?.responsable||'';
   document.getElementById('lpsRestrFecha').value=r?.fechaLimite||'';
-  document.getElementById('lpsRestrWbs').value=r?.wbsId||'';
-  document.getElementById('lpsRestrWbs').innerHTML='<option value="">— Sin actividad específica —</option>'+(DB.lpsWbs||[]).map(w=>`<option value="${w.id}"${r?.wbsId===w.id?' selected':''}>${w.codigo} – ${w.desc.slice(0,40)}</option>`).join('');
+  document.getElementById('lpsRestrWbs').innerHTML='<option value="">— Sin actividad específica —</option>'+(DB.lpsWbs||[]).filter(w=>w.tipo!=='TITULO').map(w=>`<option value="${w.id}"${r?.wbsId===w.id?' selected':''}>${w.codigo} – ${w.desc.slice(0,40)}</option>`).join('');
   document.getElementById('lpsRestrEst').value=r?.estado||'ABIERTA';
+  // Poblar datalist con todo el staff activo
+  const dl=document.getElementById('lpsRestrRespList');
+  if(dl){
+    const staff=(DB.personal||[]).filter(p=>p.est==='Activo'||(p.est||'').toLowerCase()==='activo');
+    dl.innerHTML=staff.map(p=>`<option value="${p.ape}, ${p.nom}">${p.cargo||''}</option>`).join('');
+  }
   openM('mLpsRestr');
 }
 

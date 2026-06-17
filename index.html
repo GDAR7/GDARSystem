@@ -740,7 +740,10 @@
   <div class="mb">
     <div class="fg-grid">
       <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="lpsRestrDesc" placeholder="Falta aprobación de..."></div>
-      <div class="fg"><label>Responsable</label><input id="lpsRestrResp" placeholder="Nombre responsable..."></div>
+      <div class="fg"><label>Responsable</label>
+        <input id="lpsRestrResp" list="lpsRestrRespList" placeholder="Buscar en staff o escribir nombre...">
+        <datalist id="lpsRestrRespList"></datalist>
+      </div>
       <div class="fg"><label>Fecha Límite</label><input id="lpsRestrFecha" type="date" style="color-scheme:dark"></div>
       <div class="fg" style="grid-column:1/-1"><label>Actividad que bloquea</label><select id="lpsRestrWbs"><option value="">— Sin actividad específica —</option></select></div>
       <div class="fg"><label>Estado</label><select id="lpsRestrEst"><option>ABIERTA</option><option>CERRADA</option></select></div>
