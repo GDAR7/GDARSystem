@@ -2133,17 +2133,34 @@
       </div>
     </div>
 
-    <!-- TAB 2 (solo Volquetes) -->
+    <!-- TAB 2 (Línea Blanca: Volquetes / Cisternas) -->
     <div class="mb" id="tabContent2" style="display:none">
-      <div style="font-size:.6rem;letter-spacing:.12em;color:#06b6d4;text-transform:uppercase;margin-bottom:.8rem;font-weight:700">▸ Registro de Viajes (Volquete)</div>
-      <div class="fg-grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="fg"><label>N° Viajes Total</label><input id="rpNViajes" type="number" placeholder="0" readonly style="opacity:.7;cursor:default"></div>
-        <div class="fg"><label>Tiempo Transporte</label><input id="rpTiempoTrans" placeholder="hh:mm" readonly style="opacity:.7;cursor:default"></div>
-        <div class="fg"><label>Anotación (opcional)</label><input id="rpConclusion" placeholder="Observación del día"></div>
+      <div id="viajesTabHeader" style="font-size:.6rem;letter-spacing:.12em;color:#06b6d4;text-transform:uppercase;margin-bottom:.8rem;font-weight:700">▸ Registro de Viajes (Volquete)</div>
+
+      <!-- Solo Cisterna de agua -->
+      <div id="cistSection" style="display:none">
+        <div class="fg-grid" style="grid-template-columns:1fr 1fr">
+          <div class="fg"><label>N° Tanques Regados</label><input id="rpNTanques" type="number" placeholder="0" min="0"></div>
+          <div class="fg" style="visibility:hidden"></div>
+        </div>
       </div>
-      <hr style="border-color:var(--border);margin:.8rem 0">
-      <div id="viajesContainer"></div>
-      <button class="btn btn-out" style="width:100%;margin-top:.5rem" onclick="addViaje()">＋ Agregar Viaje</button>
+
+      <!-- Solo Volquete -->
+      <div id="volqSection">
+        <div class="fg-grid" style="grid-template-columns:1fr 1fr">
+          <div class="fg"><label>N° Viajes Total</label><input id="rpNViajes" type="number" placeholder="0" readonly style="opacity:.7;cursor:default"></div>
+          <div class="fg"><label>Tiempo Transporte</label><input id="rpTiempoTrans" placeholder="hh:mm" readonly style="opacity:.7;cursor:default"></div>
+        </div>
+        <hr style="border-color:var(--border);margin:.8rem 0">
+        <div id="viajesContainer"></div>
+        <button class="btn btn-out" style="width:100%;margin-top:.5rem" onclick="addViaje()">＋ Agregar Viaje</button>
+      </div>
+
+      <!-- Común: Anotación -->
+      <div class="fg" style="margin-top:.6rem">
+        <label>Anotación (opcional)</label>
+        <input id="rpConclusion" placeholder="Observación del día">
+      </div>
     </div>
 
     <div class="mf">

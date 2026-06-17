@@ -6,6 +6,22 @@ const _LPS_SECT_FALLBACK=['Dique Principal','Mesa de Plata','Dique Intermedio','
 function _lpsSects(){const s=DB.lpsSectores||[];return s.length?s.map(x=>x.nombre):_LPS_SECT_FALLBACK;}
 const LPS_CNC=['Prerequisitos','Materiales','Equipos','Subcontratistas','Clima','Administración'];
 const LPS_COLOR='#10b981';
+function _wbsLvl(cod){return(cod.split('-')[0].match(/\./g)||[]).length;}
+function _wbsCodeColor(w){
+  const lv=_wbsLvl(w.codigo||'');
+  const hasCont=!!(w.unidad&&+w.cantTotal>0);
+  if(lv>=2&&hasCont) return '#e2e8f0';
+  if(lv===1) return '#10b981';
+  if(lv===2) return '#f87171';
+  if(lv>=3) return '#93c5fd';
+  return LPS_COLOR;
+}
+function _wbsTitleBg(w){
+  const lv=_wbsLvl(w.codigo||'');
+  if(lv===2) return 'rgba(248,113,113,.08)';
+  if(lv>=3) return 'rgba(147,197,253,.08)';
+  return 'rgba(16,185,129,.09)';
+}
 let _lpsWbsQTimer=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
@@ -139,9 +155,9 @@ function _lpsRenderWBS(c){
         :'';
       const notaIcon=w.desc?`<span title="${w.desc.replace(/"/g,'&quot;')}" style="font-size:.75rem;opacity:.55;cursor:help;margin-left:.35rem">📝</span>`:'';
       if(w.tipo==='TITULO'){
-        return`<tr style="background:rgba(16,185,129,.09)">
+        return`<tr style="background:${_wbsTitleBg(w)}">
           <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-          <td colspan="2" class="mono" style="color:${LPS_COLOR};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${w.codigo}${notaIcon}</td>
+          <td colspan="2" class="mono" style="color:${_wbsCodeColor(w)};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${w.codigo}${notaIcon}</td>
           <td></td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
           <td></td>
@@ -152,7 +168,7 @@ function _lpsRenderWBS(c){
       }
       return`<tr>
         <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-        <td class="mono" style="color:${LPS_COLOR}">${w.codigo}${notaIcon}</td>
+        <td class="mono" style="color:${_wbsCodeColor(w)}">${w.codigo}${notaIcon}</td>
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>

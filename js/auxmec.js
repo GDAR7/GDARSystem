@@ -306,6 +306,7 @@ function filtrarEquipos(){
     }
     if(ops) opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   }
+  _setViajesMode(sub);
 }
 
 function autoFillEquipo(){
@@ -460,6 +461,17 @@ function _recalcViajes(){
   }
 }
 
+function _setViajesMode(sub){
+  const isCist=(sub||'').toLowerCase().includes('cistern');
+  const cistS=document.getElementById('cistSection');
+  const volqS=document.getElementById('volqSection');
+  const hdr=document.getElementById('viajesTabHeader');
+  if(cistS)cistS.style.display=isCist?'':'none';
+  if(volqS)volqS.style.display=isCist?'none':'';
+  if(hdr)hdr.textContent=isCist?'▸ Registro de Agua (Cisterna)':'▸ Registro de Viajes (Volquete)';
+  if(isCist){const e=document.getElementById('rpNTanques');if(e)e.value='';}
+}
+
 function _vTramoChange(i){
   const sel=document.getElementById('vTramo'+i);if(!sel)return;
   const tramo=(DB.tramos||[]).find(t=>t.id===+sel.value);
@@ -561,6 +573,11 @@ function openReporte(tipo){
   if(_ki)_ki.value='';if(_kf)_kf.value='';if(_kr)_kr.value=0;
   _rpFrenteSelected=[];_rpFrenteUpdate();
   const _rpfd=document.getElementById('rpFrenteDropdown');if(_rpfd)_rpfd.style.display='none';
+  _setViajesMode('');
+  const _rpNT=document.getElementById('rpNTanques');if(_rpNT)_rpNT.value='';
+  const _rpNV=document.getElementById('rpNViajes');if(_rpNV)_rpNV.value='';
+  const _rpTT=document.getElementById('rpTiempoTrans');if(_rpTT)_rpTT.value='';
+  document.getElementById('rpConclusion').value='';
   switchTab(1);
   openM('mReporte');
 }
@@ -622,6 +639,8 @@ function editParte(id){
   if(rpNV)rpNV.value=p.nViajes||0;
   const rpTT=document.getElementById('rpTiempoTrans');
   if(rpTT)rpTT.value=p.tiempoTrans||'';
+  const rpNT=document.getElementById('rpNTanques');
+  if(rpNT)rpNT.value=p.nTanques||'';
   // Viajes
   if(p.viajes&&p.viajes.length){
     p.viajes.forEach(v=>{
@@ -677,6 +696,7 @@ async function gReporte(){
     observaciones: document.getElementById('rpObservaciones').value,
     nViajes:      +document.getElementById('rpNViajes').value||0,
     tiempoTrans:   document.getElementById('rpTiempoTrans').value,
+    nTanques:     +document.getElementById('rpNTanques')?.value||0,
     conclusion:    document.getElementById('rpConclusion').value,
     colaborador:   CU.nombre,
     viajes
@@ -707,6 +727,7 @@ async function gReporte(){
     observaciones:parte.observaciones||null,
     n_viajes:     parte.nViajes||null,
     tiempo_trans: parte.tiempoTrans||null,
+    n_tanques:    parte.nTanques||null,
     conclusion:   parte.conclusion||null,
     colaborador:  parte.colaborador||null,
     viajes:       viajes.length?viajes:null,
