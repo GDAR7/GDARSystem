@@ -897,7 +897,34 @@ function rLinea(tipo){
     }).join('');
   }else if(tipo==='Vehículo Menor'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">—</td></tr>`).join('');
-    const tbS=document.getElementById('tbSalidasVM');if(tbS)tbS.innerHTML='<tr><td colspan="8" class="text-muted" style="text-align:center;padding:1rem">Registre salidas usando ＋ Reporte Diario</td></tr>';
+    const tbS=document.getElementById('tbSalidasVM');
+    if(tbS){
+      const partesVM=[...partes].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      if(!partesVM.length){
+        tbS.innerHTML='<tr><td colspan="8" class="text-muted" style="text-align:center;padding:1rem">Sin registros. Use ＋ Reporte Diario para agregar.</td></tr>';
+      }else{
+        const _can48=p=>p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
+        tbS.innerHTML=partesVM.map(p=>{
+          const eq=DB.equipos.find(x=>x.id===p.eqId);
+          const kmIni=+p.kmIni||0,kmFin=+p.kmFin||0;
+          const kmTot=kmFin>kmIni?kmFin-kmIni:0;
+          return`<tr>
+            <td class="mono">${p.fecha}</td>
+            <td>${eq?`<span class="badge b-cyan" style="font-size:.62rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo} ${(eq.nombre||'').split(' ').slice(0,3).join(' ')}`:''}</td>
+            <td>${p.op||'—'}</td>
+            <td>${p.act||'—'}</td>
+            <td class="mono">${kmIni>0?fmtN(kmIni)+' km':'—'}</td>
+            <td class="mono">${kmFin>0?fmtN(kmFin)+' km':'—'}</td>
+            <td class="mono" style="color:${kmTot>0?'#10b981':'var(--muted)'};font-weight:${kmTot>0?'700':'400'}">${kmTot>0?fmtN(kmTot)+' km':'—'}</td>
+            <td class="mono">${+p.comb>0?p.comb+' gal':'—'}</td>
+            <td style="display:flex;gap:4px">
+              <button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
+              ${_can48(p)?`<button class="btn btn-out btn-sm" onclick="delParte(${p.id})" style="color:#ef4444;border-color:#ef444460" title="Eliminar">🗑️</button>`:`<button class="btn btn-out btn-sm" disabled style="color:#3d5070;border-color:#2a3a5a;cursor:not-allowed" title="Bloqueado +48h">🔒</button>`}
+            </td>
+          </tr>`;
+        }).join('');
+      }
+    }
   }else{
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${e.marca}</td><td>${e.modelo}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td></tr>`).join('');
   }
