@@ -22,7 +22,7 @@ function _wbsTitleBg(w){
   if(lv>=3) return 'rgba(147,197,253,.08)';
   return 'rgba(16,185,129,.09)';
 }
-let _lpsWbsQTimer=null,_lpsGanttZoom='month';
+let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
   _lpsWbsQTimer=setTimeout(()=>_lpsRenderTab(),220);
@@ -418,6 +418,10 @@ function _lpsOpenWbs(id){
     predSel.innerHTML='<option value="">— Sin predecesora —</option>'+
       otros.map(x=>`<option value="${x.id}"${w?.predId===x.id?' selected':''}>${x.codigo} – ${x.desc.slice(0,35)}</option>`).join('');
   }
+  const predTipoEl=document.getElementById('lpsWbsPredTipo');
+  if(predTipoEl)predTipoEl.value=w?.predTipo||'FS';
+  const predLagEl=document.getElementById('lpsWbsPredLag');
+  if(predLagEl)predLagEl.value=w?.predLag||0;
   openM('mLpsWbs');
 }
 
@@ -425,11 +429,16 @@ function _lpsWbsPredChange(){
   const predId=+document.getElementById('lpsWbsPred').value||0;
   if(!predId)return;
   const pred=(DB.lpsWbs||[]).find(x=>x.id===predId);
-  if(pred?.fechaFin){
-    const next=_lpsAddDays(pred.fechaFin,1);
-    document.getElementById('lpsWbsIni').value=next;
+  if(!pred)return;
+  const tipo=document.getElementById('lpsWbsPredTipo')?.value||'FS';
+  const lag=+document.getElementById('lpsWbsPredLag')?.value||0;
+  let ini=null;
+  if(tipo==='FS'&&pred.fechaFin) ini=_lpsAddDays(pred.fechaFin,1+lag);
+  else if(tipo==='CC'&&pred.fechaIni) ini=_lpsAddDays(pred.fechaIni,lag);
+  if(ini){
+    document.getElementById('lpsWbsIni').value=ini;
     const dur=+document.getElementById('lpsWbsCantDias').value||0;
-    if(dur>0)document.getElementById('lpsWbsFin').value=_lpsAddDays(next,dur-1);
+    if(dur>0)document.getElementById('lpsWbsFin').value=_lpsAddDays(ini,dur-1);
   }
 }
 function _lpsWbsDatesChange(){
@@ -458,13 +467,15 @@ function _lpsSaveWbs(){
   const fechaFin=document.getElementById('lpsWbsFin')?.value||'';
   const cantDias=+document.getElementById('lpsWbsCantDias')?.value||0;
   const predId=+document.getElementById('lpsWbsPred')?.value||0;
+  const predTipo=document.getElementById('lpsWbsPredTipo')?.value||'FS';
+  const predLag=+document.getElementById('lpsWbsPredLag')?.value||0;
   if(!codigo||!sector){toast('Complete código y sector',true);return;}
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
-    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId});syncSheet('saveLpsWbs',w);}
+    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId,predTipo,predLag});syncSheet('saveLpsWbs',w);}
   }else{
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden,fechaIni,fechaFin,cantDias,predId};
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden,fechaIni,fechaFin,cantDias,predId,predTipo,predLag};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
   }
   closeM('mLpsWbs');_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
@@ -1197,6 +1208,9 @@ function _lpsPrintBodyCrono(){
 // ══════════════════════════════════════════════════════════════════════════════
 const _GANTT_PPD={week:10,month:3.8,quarter:1.4};
 
+function _fmtDMY(iso){if(!iso)return'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
+function _fmtDM(iso){if(!iso)return'—';const[,m,d]=iso.split('-');return`${d}/${m}`;}
+
 function _lpsRenderCrono(c){
   const sorted=_lpsWbsSorted();
   const withDates=sorted.filter(w=>w.fechaIni&&w.fechaFin);
@@ -1206,9 +1220,8 @@ function _lpsRenderCrono(c){
     </div>`;return;
   }
   const PPD=_GANTT_PPD[_lpsGanttZoom]||3.8;
-  const ROW_H=30,LEFT_W=400;
+  const ROW_H=30,LEFT_W=420;
 
-  // Rango de fechas → expandir a meses completos
   const rIni=withDates.map(w=>w.fechaIni).reduce((a,b)=>a<b?a:b);
   const rFin=withDates.map(w=>w.fechaFin).reduce((a,b)=>a>b?a:b);
   const dS=new Date(rIni);dS.setDate(1);
@@ -1244,18 +1257,27 @@ function _lpsRenderCrono(c){
       dw.setDate(dw.getDate()+7);
     }
   }
-  // Líneas grid alternadas
+  // Grid semanas alternadas
   let grid='';
   const dg=new Date(dS);let gi=0;
   while(dg<=dE){
     if(gi%2===1){const gx=px(dg.toISOString().slice(0,10));grid+=`<div style="position:absolute;left:${gx}px;top:0;bottom:0;width:${Math.round(7*PPD)}px;background:rgba(255,255,255,.014);pointer-events:none"></div>`;}
     dg.setDate(dg.getDate()+7);gi++;
   }
-  // Hoy
   const todX=px(today());const todVis=todX>=0&&todX<=ganttW;
-
-  // Mapa de rowIndex por id (para flechas predecesoras)
   const rowMap={};sorted.forEach((w,i)=>rowMap[w.id]=i);
+
+  // Helper etiqueta predecesora: "01.01 FC+2" o "02.01 CC-1"
+  function predLabel(w){
+    if(!w.predId)return'—';
+    const predW=(DB.lpsWbs||[]).find(x=>x.id===w.predId);
+    if(!predW)return'—';
+    const tipo=w.predTipo||'FS';
+    const lag=+w.predLag||0;
+    const tipoL=tipo==='CC'?'CC':'FC';
+    const lagStr=lag>0?`+${lag}`:lag<0?`${lag}`:'';
+    return`${predW.codigo} ${tipoL}${lagStr}`;
+  }
 
   let leftH='',rightH='',arrows='';
   sorted.forEach((w,i)=>{
@@ -1264,45 +1286,61 @@ function _lpsRenderCrono(c){
     const ind=lv*12;
     const bg=i%2===0?'rgba(255,255,255,.018)':'transparent';
     const predW=w.predId?(DB.lpsWbs||[]).find(x=>x.id===w.predId):null;
+    const pLabel=predLabel(w);
+    const isLinkSrc=_ganttLinkSrc===w.id;
 
     // Panel izquierdo
-    leftH+=`<div style="height:${ROW_H}px;display:flex;align-items:center;background:${bg};border-bottom:1px solid #111927;padding:0 5px;gap:3px;box-sizing:border-box;overflow:hidden">
+    const barClick=_ganttLinkMode
+      ?`_ganttBarClick(${w.id})`
+      :`_lpsOpenWbs(${w.id})`;
+    leftH+=`<div style="height:${ROW_H}px;display:flex;align-items:center;background:${bg};border-bottom:1px solid #111927;padding:0 5px;gap:3px;box-sizing:border-box;overflow:hidden${isLinkSrc?';outline:2px solid #f59e0b;outline-offset:-2px':''}">
       <span style="padding-left:${ind}px;flex:1;min-width:0;font-size:.68rem;${isT?'font-weight:700;color:#e2e8f0':'color:var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
         title="${w.codigo} – ${w.desc}">
         ${isT?'▸ ':''}<span style="color:var(--ceq);margin-right:2px;font-size:.6rem">${w.codigo}</span>${w.desc}
       </span>
       <span style="width:26px;flex-shrink:0;text-align:right;font-size:.62rem;color:var(--muted2)">${w.cantDias||''}</span>
-      <span style="width:50px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${w.fechaIni?w.fechaIni.slice(5):'—'}</span>
-      <span style="width:50px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${w.fechaFin?w.fechaFin.slice(5):'—'}</span>
-      <span style="width:46px;flex-shrink:0;font-size:.58rem;color:#4a6080;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${predW?predW.codigo:''}">
-        ${predW?predW.codigo:'—'}
+      <span style="width:52px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${_fmtDM(w.fechaIni)}</span>
+      <span style="width:52px;flex-shrink:0;font-size:.6rem;color:var(--muted2);text-align:center">${_fmtDM(w.fechaFin)}</span>
+      <span style="width:58px;flex-shrink:0;font-size:.56rem;color:#4a6080;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${pLabel}">
+        ${pLabel}
       </span>
-      <button onclick="event.stopPropagation();_lpsOpenWbs(${w.id})" style="background:none;border:none;color:#3d5272;cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0" title="Editar actividad">✏️</button>
+      <button onclick="event.stopPropagation();${barClick}" style="background:none;border:none;color:${_ganttLinkMode?'#f59e0b':'#3d5272'};cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0" title="${_ganttLinkMode?'Seleccionar como origen/destino del vínculo':'Editar actividad'}">${_ganttLinkMode?'🔗':'✏️'}</button>
     </div>`;
 
-    // Panel derecho (barra Gantt)
+    // Panel derecho (barra)
     let bar='';
     if(w.fechaIni&&w.fechaFin){
       const bx=px(w.fechaIni),barW=bw(w.fechaIni,w.fechaFin);
       const barH=isT?10:16,barTop=Math.floor((ROW_H-barH)/2);
       const col=isT?'#3d5272':_wbsCodeColor(w);
       if(bx>=0){
-        bar=`<div style="position:absolute;left:${bx}px;top:${barTop}px;height:${barH}px;width:${barW}px;
-          background:${col};border-radius:${isT?'2px':'4px'};cursor:pointer;z-index:2;
+        const lagStr=w.predLag&&+w.predLag!==0?(+w.predLag>0?`+${w.predLag}`:`${w.predLag}`):'';
+        const predTip=predW?`&#10;⬅ ${w.predTipo||'FS'}${lagStr}: ${predW.codigo}`:'';
+        bar=`<div id="gbar_${w.id}" style="position:absolute;left:${bx}px;top:${barTop}px;height:${barH}px;width:${barW}px;
+          background:${isLinkSrc?'#f59e0b':col};border-radius:${isT?'2px':'4px'};cursor:${_ganttLinkMode?'crosshair':'pointer'};z-index:2;
           ${isT?'clip-path:polygon(0 50%,4px 0%,calc(100% - 4px) 0%,100% 50%,calc(100% - 4px) 100%,4px 100%)':''}
-          opacity:.9" onclick="_lpsOpenWbs(${w.id})"
-          title="${w.codigo} – ${w.desc}&#10;📅 ${w.fechaIni} → ${w.fechaFin} (${w.cantDias||'?'} días)${predW?'&#10;⬅ Pred: '+predW.codigo:''}">
+          opacity:.9" onclick="_ganttBarClick(${w.id})"
+          title="${w.codigo} – ${w.desc}&#10;📅 ${_fmtDMY(w.fechaIni)} → ${_fmtDMY(w.fechaFin)} (${w.cantDias||'?'} días)${predTip}">
           ${barW>50&&!isT?`<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:.57rem;color:#fff;white-space:nowrap;overflow:hidden;max-width:${barW-10}px;pointer-events:none">${w.desc.slice(0,Math.floor(barW/7))}</span>`:''}
         </div>`;
-        // Flecha predecesora (FS)
-        if(predW?.fechaFin){
+        // Flechas predecesoras (FS o CC)
+        if(predW){
           const pi=rowMap[predW.id];
-          if(pi!==undefined){
-            const ax=px(predW.fechaFin)+bw(predW.fechaIni,predW.fechaFin);
-            const ay=pi*ROW_H+ROW_H/2;
+          if(pi!==undefined&&predW.fechaIni){
+            const tipo=w.predTipo||'FS';
+            let ax,ay;
+            if(tipo==='CC'){
+              ax=px(predW.fechaIni);
+              ay=pi*ROW_H+ROW_H/2;
+            }else{
+              ax=predW.fechaFin?px(predW.fechaFin)+bw(predW.fechaIni,predW.fechaFin):px(predW.fechaIni);
+              ay=pi*ROW_H+ROW_H/2;
+            }
             const by2=i*ROW_H+ROW_H/2;
-            const mx=Math.max(ax+6,bx-6);
-            arrows+=`<path d="M${ax},${ay} H${mx} V${by2} H${bx}" stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#lpsPredArrow)"/>`;
+            const mx=tipo==='CC'?Math.min(ax,bx)-8:Math.max(ax+6,bx-6);
+            const arrowCol=tipo==='CC'?'#8b5cf6':'#f59e0b';
+            const markId=tipo==='CC'?'lpsCCArrow':'lpsFSArrow';
+            arrows+=`<path d="M${ax},${ay} H${mx} V${by2} H${bx}" stroke="${arrowCol}" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#${markId})"/>`;
           }
         }
       }
@@ -1312,11 +1350,16 @@ function _lpsRenderCrono(c){
 
   const svgH=sorted.length*ROW_H;
   const predSVG=arrows?`<svg style="position:absolute;top:0;left:0;pointer-events:none;z-index:4;overflow:visible" width="${ganttW}" height="${svgH}">
-    <defs><marker id="lpsPredArrow" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0 0,7 2.5,0 5" fill="#f59e0b"/>
-    </marker></defs>
+    <defs>
+      <marker id="lpsFSArrow" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f59e0b"/></marker>
+      <marker id="lpsCCArrow" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#8b5cf6"/></marker>
+    </defs>
     ${arrows}
   </svg>`:'';
+
+  const linkBtnStyle=_ganttLinkMode
+    ?'background:#f59e0b;color:#000;border:1px solid #f59e0b'
+    :'background:rgba(255,255,255,.06);color:var(--muted2);border:1px solid var(--border)';
 
   c.innerHTML=`
   <!-- Toolbar -->
@@ -1327,12 +1370,15 @@ function _lpsRenderCrono(c){
       background:${_lpsGanttZoom===z?'#10b981':'rgba(255,255,255,.06)'};color:${_lpsGanttZoom===z?'#fff':'var(--muted2)'};
       border:1px solid ${_lpsGanttZoom===z?'#10b981':'var(--border)'}">${l}</button>`).join('')}
     <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
+    <button onclick="_ganttToggleLink()" style="padding:.22rem .75rem;font-size:.7rem;border-radius:5px;cursor:pointer;font-family:'Barlow',sans-serif;${linkBtnStyle}">🔗 ${_ganttLinkMode?'Cancelar vínculo':'Vincular'}</button>
+    ${_ganttLinkMode&&_ganttLinkSrc?`<span style="font-size:.65rem;color:#f59e0b;animation:pulse 1s infinite">🎯 Selecciona la actividad SUCESORA</span>`:''}
+    <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
     <span style="font-size:.63rem;color:var(--muted2)">
       <span style="color:#10b981">■</span> Nv1 &nbsp;<span style="color:#f87171">■</span> Nv2 &nbsp;
-      <span style="color:#93c5fd">■</span> Nv3+ &nbsp;<span style="color:#e2e8f0">■</span> Con avance &nbsp;
-      <span style="color:#f59e0b">→</span> Predecesora FS
+      <span style="color:#93c5fd">■</span> Nv3+ &nbsp;
+      <span style="color:#f59e0b">→</span> FC &nbsp;<span style="color:#8b5cf6">→</span> CC
     </span>
-    <span style="margin-left:auto;font-size:.63rem;color:var(--muted2)">${rIni} → ${rFin} · ${sorted.length} item(s)</span>
+    <span style="margin-left:auto;font-size:.63rem;color:var(--muted2)">${_fmtDMY(rIni)} → ${_fmtDMY(rFin)} · ${sorted.length} item(s)</span>
   </div>
 
   <!-- Gantt -->
@@ -1341,10 +1387,10 @@ function _lpsRenderCrono(c){
     <div style="width:${LEFT_W}px;flex-shrink:0;display:flex;flex-direction:column;border-right:2px solid var(--border)">
       <div style="height:44px;flex-shrink:0;background:var(--panel2);border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 5px;gap:3px">
         <span style="flex:1;font-size:.6rem;font-weight:700;color:var(--muted2);text-transform:uppercase">Actividad</span>
-        <span style="width:26px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right" title="Duración días">Dur</span>
-        <span style="width:50px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Inicio</span>
-        <span style="width:50px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Fin</span>
-        <span style="width:46px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right">Pred.</span>
+        <span style="width:26px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right" title="Días">Dur</span>
+        <span style="width:52px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Inicio</span>
+        <span style="width:52px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:center">Fin</span>
+        <span style="width:58px;font-size:.6rem;font-weight:700;color:var(--muted2);text-align:right">Pred.</span>
         <span style="width:22px"></span>
       </div>
       <div id="gLeft" style="overflow-y:scroll;flex:1;scrollbar-width:thin"
@@ -1373,4 +1419,87 @@ function _lpsRenderCrono(c){
       </div>
     </div>
   </div>`;
+}
+
+function _ganttToggleLink(){
+  _ganttLinkMode=!_ganttLinkMode;
+  _ganttLinkSrc=null;
+  _lpsRenderTab();
+}
+
+function _ganttBarClick(id){
+  if(!_ganttLinkMode){_lpsOpenWbs(id);return;}
+  if(!_ganttLinkSrc){
+    _ganttLinkSrc=id;
+    _lpsRenderTab();
+    return;
+  }
+  if(_ganttLinkSrc===id){toast('Selecciona una actividad diferente como sucesora',true);return;}
+  _ganttShowLinkForm(_ganttLinkSrc,id);
+}
+
+function _ganttShowLinkForm(srcId,tgtId){
+  const src=(DB.lpsWbs||[]).find(x=>x.id===srcId);
+  const tgt=(DB.lpsWbs||[]).find(x=>x.id===tgtId);
+  if(!src||!tgt)return;
+  const existing=document.getElementById('_ganttLinkDlg');
+  if(existing)existing.remove();
+  const dlg=document.createElement('div');
+  dlg.id='_ganttLinkDlg';
+  dlg.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.5rem;width:340px;box-shadow:0 8px 32px #0008;font-family:Barlow,sans-serif';
+  dlg.innerHTML=`
+    <div style="font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:.8rem">🔗 Definir Vínculo</div>
+    <div style="font-size:.7rem;color:var(--muted2);margin-bottom:.9rem">
+      <span style="color:#10b981">${src.codigo}</span> → <span style="color:#f59e0b">${tgt.codigo}</span><br>
+      <span style="font-size:.63rem;opacity:.7">${src.desc.slice(0,40)} → ${tgt.desc.slice(0,40)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 100px;gap:.6rem;margin-bottom:.9rem">
+      <div>
+        <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.25rem">Tipo de vínculo</label>
+        <select id="_glTipo" style="width:100%;background:var(--input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:.3rem .5rem;font-size:.75rem;color-scheme:dark">
+          <option value="FS">FC – Fin a Comienzo</option>
+          <option value="CC">CC – Comienzo a Comienzo</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.25rem">Desfase (días)</label>
+        <input id="_glLag" type="number" value="0" style="width:100%;background:var(--input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:.3rem .5rem;font-size:.75rem;color-scheme:dark;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="font-size:.63rem;color:var(--muted2);margin-bottom:.8rem;background:rgba(255,255,255,.04);border-radius:6px;padding:.5rem .7rem">
+      <b>FC+5</b>: sucesora empieza 5 días después del fin de la predecesora<br>
+      <b>CC-2</b>: sucesora empieza 2 días antes que la predecesora
+    </div>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end">
+      <button onclick="document.getElementById('_ganttLinkDlg').remove();_ganttToggleLink()"
+        style="padding:.3rem .9rem;font-size:.72rem;border-radius:6px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted2)">Cancelar</button>
+      <button onclick="_ganttConfirmLink(${srcId},${tgtId})"
+        style="padding:.3rem .9rem;font-size:.72rem;border-radius:6px;cursor:pointer;background:#10b981;border:1px solid #10b981;color:#fff;font-weight:700">✓ Confirmar</button>
+    </div>`;
+  document.body.appendChild(dlg);
+}
+
+function _ganttConfirmLink(srcId,tgtId){
+  const tipo=document.getElementById('_glTipo')?.value||'FS';
+  const lag=+document.getElementById('_glLag')?.value||0;
+  document.getElementById('_ganttLinkDlg')?.remove();
+  const tgt=(DB.lpsWbs||[]).find(x=>x.id===tgtId);
+  if(!tgt){toast('Actividad no encontrada',true);return;}
+  const src=(DB.lpsWbs||[]).find(x=>x.id===srcId);
+  tgt.predId=srcId;tgt.predTipo=tipo;tgt.predLag=lag;
+  // Recalcular fechas de la sucesora
+  if(src){
+    let ini=null;
+    if(tipo==='FS'&&src.fechaFin) ini=_lpsAddDays(src.fechaFin,1+lag);
+    else if(tipo==='CC'&&src.fechaIni) ini=_lpsAddDays(src.fechaIni,lag);
+    if(ini){
+      tgt.fechaIni=ini;
+      if(tgt.cantDias>0)tgt.fechaFin=_lpsAddDays(ini,tgt.cantDias-1);
+    }
+  }
+  syncSheet('saveLpsWbs',tgt);
+  _ganttLinkMode=false;_ganttLinkSrc=null;
+  _lpsRenderTab();
+  const lagStr=lag>0?`+${lag}`:lag<0?`${lag}`:'';
+  toast(`✓ Vínculo ${tipo}${lagStr} creado: ${src?.codigo||''}→${tgt.codigo}`);
 }

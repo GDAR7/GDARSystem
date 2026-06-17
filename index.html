@@ -739,8 +739,19 @@
         <div class="fg"><label>Fin</label><input id="lpsWbsFin" type="date" style="color-scheme:dark" onchange="_lpsWbsDatesChange()"></div>
         <div class="fg"><label>Duración (días)</label><input id="lpsWbsCantDias" type="number" min="1" placeholder="auto" onchange="_lpsWbsDurChange()"></div>
       </div>
-      <div class="fg"><label>Predecesora (Finish-to-Start)</label>
+      <div class="fg"><label>Predecesora</label>
         <select id="lpsWbsPred" onchange="_lpsWbsPredChange()"><option value="">— Sin predecesora —</option></select>
+      </div>
+      <div class="fg-grid" style="grid-template-columns:1fr 110px;gap:.5rem">
+        <div class="fg" style="margin:0"><label>Tipo de vínculo</label>
+          <select id="lpsWbsPredTipo" onchange="_lpsWbsPredChange()" style="color-scheme:dark">
+            <option value="FS">FC – Fin a Comienzo</option>
+            <option value="CC">CC – Comienzo a Comienzo</option>
+          </select>
+        </div>
+        <div class="fg" style="margin:0"><label>Desfase (días)</label>
+          <input id="lpsWbsPredLag" type="number" value="0" onchange="_lpsWbsPredChange()" style="color-scheme:dark">
+        </div>
       </div>
     </div>
   </div>
