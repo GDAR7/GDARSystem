@@ -1,5 +1,5 @@
 // ══ PIZARRA DE DESPLIEGUE ══
-const PIZ_IMG='09.-ERP/Imagenes/R3_2026_IMAGEN.PNG';
+function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN.png';}
 let _pizTab=1,_pizMoving=null;
 
 function rPizarra(){_pizRenderTab();}
@@ -88,7 +88,7 @@ function _pizRenderPlan(c){
     <div id="pizMapWrap" style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a"
       ondragover="event.preventDefault()"
       ondrop="_pizDrop(event)">
-      <img src="${PIZ_IMG}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none" draggable="false">
+      <img src="${_pizImgUrl()}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none" draggable="false">
       ${markers}
       ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
         <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.75rem;text-align:center;backdrop-filter:blur(4px)">
@@ -146,7 +146,7 @@ function _pizRenderReal(c){
 
   <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 170px':''};gap:.7rem;height:calc(100vh - 235px)">
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a">
-      <img src="${PIZ_IMG}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" draggable="false">
+      <img src="${_pizImgUrl()}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" draggable="false">
       ${ftMarkers}${eqMarkers}
       ${!partesHoy.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
         <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.78rem;text-align:center">
