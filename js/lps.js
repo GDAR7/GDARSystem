@@ -77,7 +77,8 @@ function _lpsRenderTab(){
   if(_lpsTab===1)_lpsRenderWBS(c);
   else if(_lpsTab===2)_lpsRenderLookahead(c);
   else if(_lpsTab===3)_lpsRenderPlan(c);
-  else _lpsRenderRestr(c);
+  else if(_lpsTab===4)_lpsRenderRestr(c);
+  else _lpsRenderCnc(c);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -820,9 +821,49 @@ function _lpsGuardarCnc(){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// VISTA 4 – RESTRICCIONES (actividades plan con cumplimiento < 100%)
+// VISTA 4 – RESTRICCIONES (entradas manuales de lps_restricciones)
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsRenderRestr(c){
+  const abiertas=(DB.lpsRestricciones||[]).filter(r=>r.estado!=='CERRADA');
+  const cerradas=(DB.lpsRestricciones||[]).filter(r=>r.estado==='CERRADA');
+  function _row(r,done){
+    const w=(DB.lpsWbs||[]).find(x=>x.id===r.wbsId);
+    const vence=r.fechaLimite&&r.fechaLimite<today()&&!done;
+    return`<tr style="${done?'opacity:.5':''}">
+      <td style="font-size:.75rem;max-width:280px">${r.desc||'—'}</td>
+      <td style="font-size:.74rem">${r.responsable||'—'}</td>
+      <td style="text-align:center;font-size:.74rem;${vence?'color:#ef4444;font-weight:700':''}">${r.fechaLimite||'—'}</td>
+      <td style="font-size:.7rem;color:var(--muted2)">${w?w.codigo+' – '+w.desc.slice(0,30):'—'}</td>
+      <td><span class="badge ${r.estado==='CERRADA'?'b-green':'b-yellow'}">${r.estado||'ABIERTA'}</span></td>
+      <td style="white-space:nowrap;display:flex;gap:.3rem">
+        <button class="btn btn-sm" onclick="_lpsOpenRestr(${r.id})" style="background:#1e3a5f;border:1px solid #2a5a8f;color:#6bb3f5">✏️</button>
+        ${!done?`<button class="btn btn-sm" onclick="_lpsRestrCerrar(${r.id})" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98140">✓ Cerrar</button>`:''}
+        <button class="btn btn-del btn-sm" onclick="_lpsDelRestr(${r.id})">🗑</button>
+      </td>
+    </tr>`;
+  }
+  const abiertasRows=abiertas.length
+    ?abiertas.map(r=>_row(r,false)).join('')
+    :`<tr><td colspan="6" style="text-align:center;color:var(--muted2);padding:1.2rem">✓ Sin restricciones abiertas</td></tr>`;
+  const cerradasRows=cerradas.length
+    ?`<tr><td colspan="6" style="font-size:.65rem;letter-spacing:.1em;color:var(--muted2);padding:.3rem .6rem;text-transform:uppercase">Cerradas (${cerradas.length})</td></tr>`+cerradas.map(r=>_row(r,true)).join('')
+    :'';
+  c.innerHTML=`
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem">
+    <div style="font-size:.72rem;color:var(--muted2)">Restricciones que impiden el avance de actividades</div>
+    ${abiertas.length?`<span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 10px;font-size:.72rem;font-weight:700">${abiertas.length} abierta(s)</span>`:''}
+    <button onclick="_lpsOpenRestr(null)" class="btn btn-a" style="--ba:#10b981;margin-left:auto">＋ Nueva Restricción</button>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Descripción</th><th>Responsable</th><th style="text-align:center">Fecha Límite</th><th>Actividad WBS</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${abiertasRows}${cerradasRows}</tbody>
+  </table></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VISTA 5 – CNC / CAUSAS DE NO CUMPLIMIENTO (auto-derivado de plan semanal)
+// ══════════════════════════════════════════════════════════════════════════════
+function _lpsRenderCnc(c){
   const pendientes=[],resueltas=[];
   const semanas=[...new Set((DB.lpsPlanSemanal||[]).map(p=>p.semanaInicio))].sort().reverse();
   semanas.forEach(sem=>{
@@ -931,7 +972,7 @@ function _lpsDelRestr(id){
 // EXPORTAR A PDF
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsPrintCurrent(){
-  const tabNames=['Biblioteca WBS','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones'];
+  const tabNames=['Biblioteca WBS','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones','CNC – Causas de No Cumplimiento'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
   const fechaExp=new Date().toLocaleString('es-PE');
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
@@ -940,6 +981,7 @@ function _lpsPrintCurrent(){
   if(_lpsTab===1) body=_lpsPrintBodyWBS();
   else if(_lpsTab===2) body=_lpsPrintBodyLookahead();
   else if(_lpsTab===3) body=_lpsPrintBodyPlan();
+  else if(_lpsTab===4) body=_lpsPrintBodyRestrManual();
   else body=_lpsPrintBodyRestr();
 
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
@@ -1037,6 +1079,22 @@ function _lpsPrintBodyPlan(){
   return`<div class="ppc-box"><strong>Semana: ${_lpsFmt(_lpsSemana)} – ${_lpsFmt(semFin)}</strong> &nbsp;|&nbsp; PPC: <strong style="color:${ppc>=80?'#065f46':'#991b1b'}">${ppc}%</strong> &nbsp;(${cumplTot} / ${planTot} actividades cumplidas)</div>
   <table><thead><tr><th>Código</th><th>Und</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th>Estado</th><th>CNC / Causa</th></tr></thead>
   <tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#999">Sin actividades en esta semana</td></tr>'}</tbody></table>`;
+}
+
+function _lpsPrintBodyRestrManual(){
+  const rows=(DB.lpsRestricciones||[]).map(r=>{
+    const w=(DB.lpsWbs||[]).find(x=>x.id===r.wbsId);
+    const vence=r.fechaLimite&&r.fechaLimite<today()&&r.estado!=='CERRADA';
+    return`<tr style="${r.estado==='CERRADA'?'opacity:.5':''}">
+      <td>${r.desc||'—'}</td>
+      <td>${r.responsable||'—'}</td>
+      <td style="text-align:center;${vence?'color:#c00;font-weight:700':''}">${r.fechaLimite||'—'}</td>
+      <td style="font-size:.8em">${w?w.codigo+' – '+w.desc.slice(0,35):'—'}</td>
+      <td style="text-align:center"><span style="background:${r.estado==='CERRADA'?'#d1fae5':'#fef3c7'};color:${r.estado==='CERRADA'?'#065f46':'#92400e'};border-radius:4px;padding:2px 8px;font-size:.85em">${r.estado||'ABIERTA'}</span></td>
+    </tr>`;
+  }).join('');
+  return`<table><thead><tr><th>Descripción</th><th>Responsable</th><th>Fecha Límite</th><th>Actividad WBS</th><th>Estado</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="5" style="text-align:center;color:#999">Sin restricciones registradas</td></tr>'}</tbody></table>`;
 }
 
 function _lpsPrintBodyRestr(){
