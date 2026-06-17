@@ -915,3 +915,158 @@ function _lpsDelRestr(id){
   supaDelete('lpsRestricciones',id);
   _lpsRenderTab();toast('Restricción eliminada');
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPORTAR A PDF – ventana de impresión limpia
+// ══════════════════════════════════════════════════════════════════════════════
+function _lpsPrintCurrent(){
+  const tabNames=['Biblioteca WBS','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones'];
+  const tabName=tabNames[_lpsTab-1]||'Planning';
+  const fecha=new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const header=`<div style="margin-bottom:14px">
+    <div style="font-size:16px;font-weight:700;color:#059669">Planning &amp; Monitoring – ${tabName}</div>
+    <div style="font-size:10px;color:#555;margin-top:2px">R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div>
+    <div style="font-size:9px;color:#999;margin-top:2px">Exportado: ${fecha}</div>
+    <hr style="border:none;border-top:2px solid #059669;margin-top:8px">
+  </div>`;
+
+  let content='';
+  if(_lpsTab===1) content=_lpsPrintWBS();
+  else if(_lpsTab===2) content=_lpsPrintLookahead();
+  else if(_lpsTab===3) content=_lpsPrintPlan();
+  else content=_lpsPrintRestr();
+
+  const css=`*{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;background:#fff;padding:16px 20px}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th{background:#e8f5e9;padding:5px 8px;text-align:left;font-weight:700;border:1px solid #ccc;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:4px 8px;border:1px solid #e0e0e0;vertical-align:middle;font-size:10px}
+  .lv1{background:#f0fdf4;color:#059669;font-weight:700;font-size:11px}
+  .lv2t{background:#fef2f2;color:#dc2626;font-weight:700}
+  .lv3t{background:#eff6ff;color:#1d4ed8;font-weight:700}
+  .lv-act{color:#111}
+  .mono{font-family:'Courier New',monospace;font-size:9.5px}
+  .badge-a{color:#dc2626;font-weight:700}.badge-c{color:#059669;font-weight:700}
+  .sec-hdr{background:#f1f5f9;font-weight:700;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#475569}
+  @media print{@page{margin:12mm;size:A4 landscape}body{padding:8px}}`;
+
+  const win=window.open('','_blank','width=1200,height=800,scrollbars=yes');
+  if(!win){alert('Habilita las ventanas emergentes del navegador para exportar PDF.');return;}
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+  <title>${tabName} – ECOSERMO</title><style>${css}</style></head>
+  <body>${header}${content}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),500);
+}
+
+function _lpsPrintWBS(){
+  const items=_lpsWbsSorted();
+  const q=(document.getElementById('lpsWbsQ')?.value||'').toLowerCase();
+  const sF=document.getElementById('lpsWbsSector')?.value||'';
+  const filtered=items.filter(w=>{
+    if(sF&&w.sector!==sF)return false;
+    if(q&&!(w.codigo||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+  if(!filtered.length)return'<p style="color:#666;margin-top:1rem">Sin actividades registradas.</p>';
+  let rows='';
+  filtered.forEach(w=>{
+    const lv=_wbsLvl(w.codigo||'');
+    const hasCont=!!(w.unidad&&+w.cantTotal>0);
+    let cls='lv-act';
+    if(lv===1)cls='lv1';
+    else if(lv===2&&!hasCont)cls='lv2t';
+    else if(lv>=3&&!hasCont)cls='lv3t';
+    rows+=`<tr class="${cls}">
+      <td class="mono">${w.codigo||''}</td>
+      <td>${w.unidad||''}</td>
+      <td style="text-align:right">${w.cantTotal?fmtN(+w.cantTotal):''}</td>
+      <td>${w.sector||''}</td>
+    </tr>`;
+  });
+  return`<table><thead><tr>
+    <th>Código / Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function _lpsPrintLookahead(){
+  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.fechaFin);
+  const sF=document.getElementById('lpsLaSector')?.value||'';
+  const filtered=sF?wbs.filter(w=>w.sector===sF):wbs;
+  if(!filtered.length)return'<p style="color:#666;margin-top:1rem">Sin actividades programadas.</p>';
+  const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
+  const semHdrs=semanas.map(sw=>`<th style="text-align:center">Sem ${_lpsFmt(sw)} – ${_lpsFmt(_lpsAddDays(sw,6))}</th>`).join('');
+  let rows='';
+  filtered.forEach(w=>{
+    const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+    const semCells=semanas.map(sw=>{
+      const days=_lpsDaysRange(sw,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
+      return`<td style="text-align:right">${days>0?fmtN(days*cantDia):''}</td>`;
+    }).join('');
+    rows+=`<tr><td class="mono">${w.codigo||''}</td>
+      <td>${w.unidad||''}</td><td style="text-align:right">${w.cantDias||''}</td>
+      <td>${w.sector||''}</td>${semCells}</tr>`;
+  });
+  return`<table><thead><tr>
+    <th>Código</th><th>Und</th><th style="text-align:right">Días</th><th>Sector</th>${semHdrs}
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function _lpsPrintPlan(){
+  const semFin=_lpsAddDays(_lpsSemana,6);
+  const days=_lpsDaysRange(_lpsSemana,7);
+  const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana);
+  const wbsEnSem=_lpsWbsSorted().filter(w=>{
+    if(w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return false;
+    return w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin;
+  });
+  let planTotal=0,cumplTotal=0;
+  let rows='';
+  wbsEnSem.forEach(w=>{
+    const p=planes.find(x=>x.wbsId===w.id);
+    const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+    const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
+    const realSem=Object.values(p?.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+    if(planSem>0){planTotal++;if(realSem>=planSem*0.999)cumplTotal++;}
+    rows+=`<tr><td class="mono">${w.codigo||''}</td>
+      <td>${w.unidad||''}</td>
+      <td style="text-align:right">${fmtN(planSem)}</td>
+      <td style="text-align:right">${realSem?fmtN(realSem):''}</td>
+      <td style="text-align:center">${planSem>0?(realSem>=planSem*0.999?'<span class="badge-c">✓ Cumplido</span>':'<span class="badge-a">✗ No cumplido</span>'):''}</td>
+      <td style="font-size:9px;color:#555">${p?.cncCategoria||''}${p?.cncDesc?' – '+p.cncDesc:''}</td>
+    </tr>`;
+  });
+  const ppc=planTotal>0?Math.round(cumplTotal/planTotal*100):0;
+  return`<div style="margin-bottom:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px">
+    <strong>Semana: ${_lpsFmt(_lpsSemana)} – ${_lpsFmt(semFin)}</strong>
+    &nbsp;&nbsp;|&nbsp;&nbsp; PPC: <strong style="color:${ppc>=80?'#059669':'#dc2626'}">${ppc}%</strong>
+    &nbsp; (${cumplTotal} / ${planTotal} actividades cumplidas)
+  </div>
+  <table><thead><tr>
+    <th>Código</th><th>Und</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th>Estado</th><th>CNC / Causa</th>
+  </tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#999">Sin actividades en esta semana</td></tr>'}</tbody></table>`;
+}
+
+function _lpsPrintRestr(){
+  const hoy=today();
+  const restr=(DB.lpsRestricciones||[]).sort((a,b)=>a.fechaLimite.localeCompare(b.fechaLimite));
+  if(!restr.length)return'<p style="color:#666;margin-top:1rem">Sin restricciones registradas.</p>';
+  const rows=restr.map(r=>{
+    const d=new Date(hoy+'T12:00:00'),lim=new Date(r.fechaLimite+'T12:00:00');
+    const dias=Math.round((lim-d)/(1000*60*60*24));
+    const w=DB.lpsWbs?.find(x=>x.id===r.wbsId);
+    let diasTxt=r.estado==='CERRADA'?'—':(dias<0?`Vencida ${Math.abs(dias)}d`:`${dias}d`);
+    return`<tr>
+      <td style="font-size:10px">${r.desc}</td>
+      <td>${r.responsable}</td>
+      <td class="mono">${r.fechaLimite}</td>
+      <td style="text-align:center;font-size:9px;color:${dias<0&&r.estado==='ABIERTA'?'#dc2626':'#555'}">${diasTxt}</td>
+      <td>${w?w.codigo:'—'}</td>
+      <td style="text-align:center"><span class="${r.estado==='ABIERTA'?'badge-a':'badge-c'}">${r.estado}</span></td>
+    </tr>`;
+  }).join('');
+  return`<table><thead><tr>
+    <th>Descripción</th><th>Responsable</th><th>F. Límite</th><th style="text-align:center">Días</th><th>Actividad WBS</th><th style="text-align:center">Estado</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}

@@ -699,11 +699,12 @@
     <div class="ph-sub">Last Planner System · R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div>
   </div>
   <!-- Tab bar -->
-  <div style="display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0">
+  <div style="display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0;align-items:flex-end">
     <button class="lps-tab active" onclick="_lpsTabSwitch(1)">📚 Biblioteca WBS</button>
     <button class="lps-tab" onclick="_lpsTabSwitch(2)">📅 Lookahead 4 Semanas</button>
     <button class="lps-tab" onclick="_lpsTabSwitch(3)">✅ Plan Semanal / PPC</button>
     <button class="lps-tab" onclick="_lpsTabSwitch(4)">🚧 Restricciones</button>
+    <button onclick="_lpsPrintCurrent()" title="Exportar tab actual a PDF" style="margin-left:auto;margin-bottom:4px;background:rgba(16,185,129,.12);border:1px solid #10b98150;border-radius:6px;color:#10b981;padding:.3rem .75rem;font-size:.75rem;cursor:pointer;font-weight:600;white-space:nowrap">📄 Exportar PDF</button>
   </div>
   <!-- Contenido dinámico -->
   <div id="lpsBody"></div>
