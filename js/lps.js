@@ -917,156 +917,127 @@ function _lpsDelRestr(id){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// EXPORTAR A PDF – ventana de impresión limpia
+// EXPORTAR A PDF
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsPrintCurrent(){
   const tabNames=['Biblioteca WBS','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
-  const fecha=new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  const header=`<div style="margin-bottom:14px">
-    <div style="font-size:16px;font-weight:700;color:#059669">Planning &amp; Monitoring – ${tabName}</div>
-    <div style="font-size:10px;color:#555;margin-top:2px">R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div>
-    <div style="font-size:9px;color:#999;margin-top:2px">Exportado: ${fecha}</div>
-    <hr style="border:none;border-top:2px solid #059669;margin-top:8px">
-  </div>`;
+  const fechaExp=new Date().toLocaleString('es-PE');
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
 
-  let content='';
-  if(_lpsTab===1) content=_lpsPrintWBS();
-  else if(_lpsTab===2) content=_lpsPrintLookahead();
-  else if(_lpsTab===3) content=_lpsPrintPlan();
-  else content=_lpsPrintRestr();
+  let body='';
+  if(_lpsTab===1) body=_lpsPrintBodyWBS();
+  else if(_lpsTab===2) body=_lpsPrintBodyLookahead();
+  else if(_lpsTab===3) body=_lpsPrintBodyPlan();
+  else body=_lpsPrintBodyRestr();
 
-  const css=`*{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;background:#fff;padding:16px 20px}
-  table{width:100%;border-collapse:collapse;margin-top:6px}
-  th{background:#e8f5e9;padding:5px 8px;text-align:left;font-weight:700;border:1px solid #ccc;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
-  td{padding:4px 8px;border:1px solid #e0e0e0;vertical-align:middle;font-size:10px}
-  .lv1{background:#f0fdf4;color:#059669;font-weight:700;font-size:11px}
-  .lv2t{background:#fef2f2;color:#dc2626;font-weight:700}
-  .lv3t{background:#eff6ff;color:#1d4ed8;font-weight:700}
-  .lv-act{color:#111}
-  .mono{font-family:'Courier New',monospace;font-size:9.5px}
-  .badge-a{color:#dc2626;font-weight:700}.badge-c{color:#059669;font-weight:700}
-  .sec-hdr{background:#f1f5f9;font-weight:700;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#475569}
-  @media print{@page{margin:12mm;size:A4 landscape}body{padding:8px}}`;
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${tabName} – Planning ECOSERMO</title>
+<style>
+@page{size:A4 landscape;margin:.8cm}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#111;background:#fff}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #059669;padding-bottom:5px;margin-bottom:8px}
+.hdr img{height:40px;object-fit:contain}
+.hdr-title{font-size:13px;font-weight:900;color:#059669;text-align:center}
+.hdr-sub{font-size:7.5px;color:#64748b;text-align:center;margin-top:2px}
+.hdr-right{font-size:7.5px;color:#64748b;text-align:right}
+table{width:100%;border-collapse:collapse;margin-top:4px}
+th{background:#064e3b;color:#fff;padding:4px 6px;text-align:left;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:1px solid #047857}
+td{padding:3px 6px;border:1px solid #d1fae5;vertical-align:middle;font-size:8px}
+tr:nth-child(even) td{background:#f0fdf4}
+.lv1{background:#d1fae5!important;color:#065f46;font-weight:700;font-size:9px}
+.lv2t{background:#fee2e2!important;color:#991b1b;font-weight:700}
+.lv3t{background:#dbeafe!important;color:#1e3a8a;font-weight:700}
+.lv-act{color:#111}
+.mono{font-family:'Courier New',monospace}
+.badge-ok{color:#065f46;font-weight:700}.badge-no{color:#991b1b;font-weight:700}
+.ppc-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:9px}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="hdr">
+  <img src="${_logoUrl}" alt="ECOSERMO">
+  <div><div class="hdr-title">PLANNING &amp; MONITORING – ${tabName.toUpperCase()}</div>
+  <div class="hdr-sub">R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div></div>
+  <div class="hdr-right"><div style="font-weight:700;color:#059669;font-size:9px">Generado:</div><div>${fechaExp}</div></div>
+</div>
+${body}
+</body></html>`;
 
-  const win=window.open('','_blank','width=1200,height=800,scrollbars=yes');
-  if(!win){alert('Habilita las ventanas emergentes del navegador para exportar PDF.');return;}
-  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
-  <title>${tabName} – ECOSERMO</title><style>${css}</style></head>
-  <body>${header}${content}</body></html>`);
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para exportar PDF',true);return;}
+  win.document.write(html);
   win.document.close();
   win.focus();
   setTimeout(()=>win.print(),500);
 }
 
-function _lpsPrintWBS(){
+function _lpsPrintBodyWBS(){
   const items=_lpsWbsSorted();
   const q=(document.getElementById('lpsWbsQ')?.value||'').toLowerCase();
   const sF=document.getElementById('lpsWbsSector')?.value||'';
-  const filtered=items.filter(w=>{
-    if(sF&&w.sector!==sF)return false;
-    if(q&&!(w.codigo||'').toLowerCase().includes(q))return false;
-    return true;
-  });
-  if(!filtered.length)return'<p style="color:#666;margin-top:1rem">Sin actividades registradas.</p>';
-  let rows='';
-  filtered.forEach(w=>{
+  const list=items.filter(w=>(!sF||w.sector===sF)&&(!q||(w.codigo||'').toLowerCase().includes(q)));
+  if(!list.length)return'<p style="margin-top:1rem;color:#555">Sin actividades registradas.</p>';
+  const rows=list.map(w=>{
     const lv=_wbsLvl(w.codigo||'');
     const hasCont=!!(w.unidad&&+w.cantTotal>0);
     let cls='lv-act';
     if(lv===1)cls='lv1';
     else if(lv===2&&!hasCont)cls='lv2t';
     else if(lv>=3&&!hasCont)cls='lv3t';
-    rows+=`<tr class="${cls}">
-      <td class="mono">${w.codigo||''}</td>
-      <td>${w.unidad||''}</td>
-      <td style="text-align:right">${w.cantTotal?fmtN(+w.cantTotal):''}</td>
-      <td>${w.sector||''}</td>
-    </tr>`;
-  });
-  return`<table><thead><tr>
-    <th>Código / Descripción</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+    return`<tr class="${cls}"><td class="mono">${w.codigo||''}</td><td>${w.unidad||''}</td><td style="text-align:right">${w.cantTotal?fmtN(+w.cantTotal):''}</td><td>${w.sector||''}</td></tr>`;
+  }).join('');
+  return`<table><thead><tr><th>Código / Descripción</th><th>Und</th><th style="text-align:right">Cant. Total</th><th>Sector</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function _lpsPrintLookahead(){
-  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.fechaFin);
+function _lpsPrintBodyLookahead(){
   const sF=document.getElementById('lpsLaSector')?.value||'';
-  const filtered=sF?wbs.filter(w=>w.sector===sF):wbs;
-  if(!filtered.length)return'<p style="color:#666;margin-top:1rem">Sin actividades programadas.</p>';
+  const list=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.fechaFin&&(!sF||w.sector===sF));
+  if(!list.length)return'<p style="margin-top:1rem;color:#555">Sin actividades programadas.</p>';
   const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
-  const semHdrs=semanas.map(sw=>`<th style="text-align:center">Sem ${_lpsFmt(sw)} – ${_lpsFmt(_lpsAddDays(sw,6))}</th>`).join('');
-  let rows='';
-  filtered.forEach(w=>{
+  const semHdrs=semanas.map(sw=>`<th style="text-align:center">Sem. ${_lpsFmt(sw)} – ${_lpsFmt(_lpsAddDays(sw,6))}</th>`).join('');
+  const rows=list.map(w=>{
     const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
-    const semCells=semanas.map(sw=>{
-      const days=_lpsDaysRange(sw,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
-      return`<td style="text-align:right">${days>0?fmtN(days*cantDia):''}</td>`;
+    const cells=semanas.map(sw=>{
+      const d=_lpsDaysRange(sw,7).filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length;
+      return`<td style="text-align:right">${d>0?fmtN(d*cantDia):''}</td>`;
     }).join('');
-    rows+=`<tr><td class="mono">${w.codigo||''}</td>
-      <td>${w.unidad||''}</td><td style="text-align:right">${w.cantDias||''}</td>
-      <td>${w.sector||''}</td>${semCells}</tr>`;
-  });
-  return`<table><thead><tr>
-    <th>Código</th><th>Und</th><th style="text-align:right">Días</th><th>Sector</th>${semHdrs}
-  </tr></thead><tbody>${rows}</tbody></table>`;
+    return`<tr><td class="mono">${w.codigo||''}</td><td>${w.unidad||''}</td><td style="text-align:right">${w.cantDias||''}</td><td>${w.sector||''}</td>${cells}</tr>`;
+  }).join('');
+  return`<table><thead><tr><th>Código</th><th>Und</th><th style="text-align:right">Días</th><th>Sector</th>${semHdrs}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function _lpsPrintPlan(){
+function _lpsPrintBodyPlan(){
   const semFin=_lpsAddDays(_lpsSemana,6);
   const days=_lpsDaysRange(_lpsSemana,7);
   const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana);
-  const wbsEnSem=_lpsWbsSorted().filter(w=>{
-    if(w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return false;
-    return w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin;
-  });
-  let planTotal=0,cumplTotal=0;
-  let rows='';
-  wbsEnSem.forEach(w=>{
+  const list=_lpsWbsSorted().filter(w=>!w.tipo||w.tipo!=='TITULO').filter(w=>w.fechaIni&&w.fechaFin&&w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin);
+  let planTot=0,cumplTot=0;
+  const rows=list.map(w=>{
     const p=planes.find(x=>x.wbsId===w.id);
     const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
     const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
     const realSem=Object.values(p?.realDias||{}).reduce((s,v)=>s+(+v||0),0);
-    if(planSem>0){planTotal++;if(realSem>=planSem*0.999)cumplTotal++;}
-    rows+=`<tr><td class="mono">${w.codigo||''}</td>
-      <td>${w.unidad||''}</td>
-      <td style="text-align:right">${fmtN(planSem)}</td>
-      <td style="text-align:right">${realSem?fmtN(realSem):''}</td>
-      <td style="text-align:center">${planSem>0?(realSem>=planSem*0.999?'<span class="badge-c">✓ Cumplido</span>':'<span class="badge-a">✗ No cumplido</span>'):''}</td>
-      <td style="font-size:9px;color:#555">${p?.cncCategoria||''}${p?.cncDesc?' – '+p.cncDesc:''}</td>
-    </tr>`;
-  });
-  const ppc=planTotal>0?Math.round(cumplTotal/planTotal*100):0;
-  return`<div style="margin-bottom:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px">
-    <strong>Semana: ${_lpsFmt(_lpsSemana)} – ${_lpsFmt(semFin)}</strong>
-    &nbsp;&nbsp;|&nbsp;&nbsp; PPC: <strong style="color:${ppc>=80?'#059669':'#dc2626'}">${ppc}%</strong>
-    &nbsp; (${cumplTotal} / ${planTotal} actividades cumplidas)
-  </div>
-  <table><thead><tr>
-    <th>Código</th><th>Und</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th>Estado</th><th>CNC / Causa</th>
-  </tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#999">Sin actividades en esta semana</td></tr>'}</tbody></table>`;
+    if(planSem>0){planTot++;if(realSem>=planSem*0.999)cumplTot++;}
+    const estado=planSem>0?(realSem>=planSem*0.999?'<span class="badge-ok">✓ Cumplido</span>':'<span class="badge-no">✗ No cumplido</span>'):'';
+    return`<tr><td class="mono">${w.codigo||''}</td><td>${w.unidad||''}</td><td style="text-align:right">${fmtN(planSem)}</td><td style="text-align:right">${realSem?fmtN(realSem):''}</td><td style="text-align:center">${estado}</td><td style="font-size:7.5px;color:#555">${p?.cncCategoria||''}${p?.cncDesc?' – '+p.cncDesc:''}</td></tr>`;
+  }).join('');
+  const ppc=planTot>0?Math.round(cumplTot/planTot*100):0;
+  return`<div class="ppc-box"><strong>Semana: ${_lpsFmt(_lpsSemana)} – ${_lpsFmt(semFin)}</strong> &nbsp;|&nbsp; PPC: <strong style="color:${ppc>=80?'#065f46':'#991b1b'}">${ppc}%</strong> &nbsp;(${cumplTot} / ${planTot} actividades cumplidas)</div>
+  <table><thead><tr><th>Código</th><th>Und</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th>Estado</th><th>CNC / Causa</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#999">Sin actividades en esta semana</td></tr>'}</tbody></table>`;
 }
 
-function _lpsPrintRestr(){
+function _lpsPrintBodyRestr(){
   const hoy=today();
-  const restr=(DB.lpsRestricciones||[]).sort((a,b)=>a.fechaLimite.localeCompare(b.fechaLimite));
-  if(!restr.length)return'<p style="color:#666;margin-top:1rem">Sin restricciones registradas.</p>';
-  const rows=restr.map(r=>{
-    const d=new Date(hoy+'T12:00:00'),lim=new Date(r.fechaLimite+'T12:00:00');
-    const dias=Math.round((lim-d)/(1000*60*60*24));
+  const list=(DB.lpsRestricciones||[]).sort((a,b)=>a.fechaLimite.localeCompare(b.fechaLimite));
+  if(!list.length)return'<p style="margin-top:1rem;color:#555">Sin restricciones registradas.</p>';
+  const rows=list.map(r=>{
+    const dias=Math.round((new Date(r.fechaLimite+'T12:00:00')-new Date(hoy+'T12:00:00'))/(864e5));
     const w=DB.lpsWbs?.find(x=>x.id===r.wbsId);
-    let diasTxt=r.estado==='CERRADA'?'—':(dias<0?`Vencida ${Math.abs(dias)}d`:`${dias}d`);
-    return`<tr>
-      <td style="font-size:10px">${r.desc}</td>
-      <td>${r.responsable}</td>
-      <td class="mono">${r.fechaLimite}</td>
-      <td style="text-align:center;font-size:9px;color:${dias<0&&r.estado==='ABIERTA'?'#dc2626':'#555'}">${diasTxt}</td>
-      <td>${w?w.codigo:'—'}</td>
-      <td style="text-align:center"><span class="${r.estado==='ABIERTA'?'badge-a':'badge-c'}">${r.estado}</span></td>
-    </tr>`;
+    const dTxt=r.estado==='CERRADA'?'—':(dias<0?`Vencida ${Math.abs(dias)}d`:`${dias}d`);
+    const dColor=dias<0&&r.estado==='ABIERTA'?'color:#991b1b;font-weight:700':'color:#555';
+    return`<tr><td>${r.desc}</td><td>${r.responsable}</td><td class="mono">${r.fechaLimite}</td><td style="text-align:center;${dColor}">${dTxt}</td><td class="mono" style="font-size:7.5px">${w?w.codigo:'—'}</td><td style="text-align:center"><span class="${r.estado==='ABIERTA'?'badge-no':'badge-ok'}">${r.estado}</span></td></tr>`;
   }).join('');
-  return`<table><thead><tr>
-    <th>Descripción</th><th>Responsable</th><th>F. Límite</th><th style="text-align:center">Días</th><th>Actividad WBS</th><th style="text-align:center">Estado</th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+  return`<table><thead><tr><th>Descripción</th><th>Responsable</th><th>F. Límite</th><th style="text-align:center">Días</th><th>Actividad WBS</th><th style="text-align:center">Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
