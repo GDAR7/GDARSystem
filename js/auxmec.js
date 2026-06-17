@@ -847,12 +847,18 @@ function rLinea(tipo){
     if(fEq)partesLB=partesLB.filter(p=>p.eqId===fEq);
     if(fDesde)partesLB=partesLB.filter(p=>p.fecha>=fDesde);
     if(fHasta)partesLB=partesLB.filter(p=>p.fecha<=fHasta);
+    // Helper: viajes con material (excluye transporte sin material)
+    const _vMat=p=>{
+      if(p.viajes&&p.viajes.length)
+        return p.viajes.filter(v=>v.material&&v.material.trim()).reduce((s,v)=>s+(+v.cant||0),0);
+      return +p.nViajes||0;
+    };
     // KPIs LB
-    const _totViajes=partesLB.reduce((s,p)=>s+(+p.nViajes||0),0);
+    const _totViajes=partesLB.reduce((s,p)=>s+_vMat(p),0);
     const _totKm=partesLB.reduce((s,p)=>s+(+p.kmRec||0),0);
-    const _totM3=partesLB.reduce((s,p)=>s+(+p.nViajes||0)*12.5,0);
+    const _totM3=_totViajes*12.5;
     const _byEq={};
-    partesLB.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.codigo:'Otros';if(!_byEq[k])_byEq[k]=0;_byEq[k]+=(+p.nViajes||0);});
+    partesLB.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.codigo:'Otros';if(!_byEq[k])_byEq[k]=0;_byEq[k]+=_vMat(p);});
     const kpiLB=document.getElementById('lbKpis');
     if(kpiLB)kpiLB.innerHTML=[
       {l:'Total Registros',v:partesLB.length,c:'var(--ceq)',ic:'📋'},
@@ -866,7 +872,7 @@ function rLinea(tipo){
     </div>`).join('');
     // Ordenar LB
     partesLB=[...partesLB].sort((a,b)=>{
-      const v=_lbSort.col==='viajes'?(+a.nViajes||0)-(+b.nViajes||0):a.fecha.localeCompare(b.fecha);
+      const v=_lbSort.col==='viajes'?_vMat(a)-_vMat(b):a.fecha.localeCompare(b.fecha);
       return _lbSort.dir==='asc'?v:-v;
     });
     const _fIcoLB=document.getElementById('thLBFechaIco'),_vIcoLB=document.getElementById('thLBViajesIco');
@@ -876,13 +882,13 @@ function rLinea(tipo){
     const tbP=document.getElementById('tbPartesLB');
     if(tbP)tbP.innerHTML=partesLB.map(p=>{
       const eq=DB.equipos.find(x=>x.id===p.eqId);
-      const m3=(+p.nViajes||0)*12.5;
+      const vMat=_vMat(p);const m3=vMat*12.5;
       const _can48=p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
       return`<tr>
         <td class="mono">${p.fecha}</td>
         <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo}`:''}</td>
         <td>${p.op}</td>
-        <td class="mono text-acc">${+p.nViajes||0}</td>
+        <td class="mono text-acc">${vMat}${vMat<(+p.nViajes||0)?`<span style="color:#64748b;font-size:.6rem"> /${+p.nViajes||0}</span>`:''}</td>
         <td class="mono">${m3>0?m3+'m³':'—'}</td>
         <td class="mono">${+p.kmRec>0?parseFloat((+p.kmRec).toFixed(1))+'km':'—'}</td>
         <td class="mono" style="color:${(+p.ef)<0?'#ef4444':+p.ef>0?'#10b981':'#64748b'};font-weight:600">${+p.ef!==0?parseFloat((+p.ef).toFixed(2))+'h':'—'}</td>
