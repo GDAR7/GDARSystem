@@ -490,7 +490,7 @@ function addViaje(){
   const div=document.createElement('div');
   div.className='viaje-block';
   div.id='viaje-'+viajeCount;
-  const _trOpts=(DB.tramos||[]).map(t=>`<option value="${t.id}">${t.codigo} (${t.inicio||''} → ${t.fin||''})${t.desc?` · ${t.desc}`:''}</option>`).join('');
+  const _trOpts=(DB.tramos||[]).map(t=>`<option value="${t.id}">${t.codigo} (${t.inicio||''} → ${t.fin||''})${t.anotacion?` · ${t.anotacion}`:''}</option>`).join('');
   const _matOpts=DB.tipoMaterial.map(m=>`<option value="${m.nombre}">`).join('');
   const vi=viajeCount;
   div.innerHTML=`<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
