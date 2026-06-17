@@ -820,56 +820,62 @@ function _lpsGuardarCnc(){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// VISTA 4 – PANEL DE RESTRICCIONES
+// VISTA 4 – RESTRICCIONES (actividades plan con cumplimiento < 100%)
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsRenderRestr(c){
-  const hoy=today();
-  const restr=(DB.lpsRestricciones||[]).sort((a,b)=>a.fechaLimite.localeCompare(b.fechaLimite));
-  const abiertas=restr.filter(r=>r.estado==='ABIERTA');
-  const cerradas=restr.filter(r=>r.estado==='CERRADA');
+  const pendientes=[],resueltas=[];
+  const semanas=[...new Set((DB.lpsPlanSemanal||[]).map(p=>p.semanaInicio))].sort().reverse();
+  semanas.forEach(sem=>{
+    const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===sem);
+    const days=_lpsDaysRange(sem,7);
+    planes.forEach(p=>{
+      const w=(DB.lpsWbs||[]).find(x=>x.id===p.wbsId);
+      if(!w||w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return;
+      const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+      const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
+      if(planSem<=0)return;
+      const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+      const pct=Math.round(realSem/planSem*100);
+      if(pct>=100)return;
+      const item={sem,semFin:_lpsAddDays(sem,6),p,w,planSem,realSem,pct};
+      if(p.resuelto)resueltas.push(item);else pendientes.push(item);
+    });
+  });
 
-  function _restrRow(r){
-    const d=new Date(hoy+'T12:00:00');
-    const lim=new Date(r.fechaLimite+'T12:00:00');
-    const dias=Math.round((lim-d)/(1000*60*60*24));
-    const w=DB.lpsWbs?.find(x=>x.id===r.wbsId);
-    const alert=r.estado==='ABIERTA'&&dias<=3;
-    const alertStyle=alert?`background:rgba(239,68,68,.08);border-left:3px solid #ef4444`:'';
-    let diasBadge='';
-    if(r.estado==='ABIERTA'){
-      if(dias<0)diasBadge=`<span style="background:rgba(239,68,68,.2);color:#ef4444;border:1px solid #ef444440;border-radius:4px;padding:1px 7px;font-size:.68rem;font-weight:700">Vencida ${Math.abs(dias)}d</span>`;
-      else if(dias<=3)diasBadge=`<span style="background:rgba(245,158,11,.2);color:#f59e0b;border:1px solid #f59e0b40;border-radius:4px;padding:1px 7px;font-size:.68rem;font-weight:700">⚠ ${dias}d</span>`;
-      else diasBadge=`<span style="color:var(--muted2);font-size:.72rem">${dias}d</span>`;
-    }
-    return`<tr style="${alertStyle}">
-      <td style="font-size:.78rem">${r.desc}</td>
-      <td style="font-size:.78rem">${r.responsable}</td>
-      <td class="mono">${r.fechaLimite} ${diasBadge}</td>
-      <td style="font-size:.73rem;color:var(--muted2)">${w?w.codigo+' – '+w.desc.slice(0,30):'—'}</td>
-      <td><span style="background:${r.estado==='ABIERTA'?'rgba(239,68,68,.15)':'rgba(16,185,129,.15)'};color:${r.estado==='ABIERTA'?'#ef4444':'#10b981'};border:1px solid ${r.estado==='ABIERTA'?'#ef444430':'#10b98130'};border-radius:4px;padding:1px 8px;font-size:.68rem;font-weight:700">${r.estado}</span></td>
-      <td>
-        ${r.estado==='ABIERTA'?`<button class="btn btn-sm" onclick="_lpsRestrCerrar(${r.id})" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98140;font-size:.7rem">✓ Cerrar</button>`:''}
-        <button class="btn btn-out btn-sm" onclick="_lpsOpenRestr(${r.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
-        <button class="btn btn-del btn-sm" onclick="_lpsDelRestr(${r.id})" style="margin-left:.2rem">✕</button>
+  function _restrRow(x,done){
+    const pctColor=x.pct===0?'#ef4444':x.pct<50?'#f59e0b':'#eab308';
+    const cnc=x.p.cncCategoria?(x.p.cncCategoria+(x.p.cncDesc?' – '+x.p.cncDesc:'')):'<span style="color:var(--muted2);font-size:.7rem">Sin causa registrada</span>';
+    return`<tr style="${done?'opacity:.5':''}">
+      <td class="mono" style="font-size:.75rem">${x.w.codigo}</td>
+      <td><span style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid #10b98130;border-radius:4px;padding:1px 7px;font-size:.68rem">${x.w.sector||'—'}</span></td>
+      <td style="text-align:center;font-size:.75rem">${_lpsFmt(x.sem)} – ${_lpsFmt(x.semFin)}</td>
+      <td style="text-align:right;font-size:.75rem">${fmtN(x.planSem)} ${x.w.unidad||''}</td>
+      <td style="text-align:right;font-size:.75rem">${fmtN(x.realSem)} ${x.w.unidad||''}</td>
+      <td style="text-align:center"><span style="font-weight:700;font-size:.82rem;color:${pctColor}">${x.pct}%</span></td>
+      <td style="font-size:.72rem">${cnc}</td>
+      <td style="white-space:nowrap">
+        ${!done
+          ?`<button class="btn btn-sm" onclick="_lpsRestrAtender(${x.p.id})" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98140;font-size:.7rem">✓ Atendido</button>`
+          :`<span style="font-size:.68rem;color:#10b981;font-weight:600">✓ Atendido</span>`}
       </td>
     </tr>`;
   }
 
-  const venc=abiertas.filter(r=>{ const d=Math.round((new Date(r.fechaLimite+'T12:00:00')-new Date(hoy+'T12:00:00'))/(1000*60*60*24));return d<=3;});
+  const pendRows=pendientes.length
+    ?pendientes.map(x=>_restrRow(x,false)).join('')
+    :`<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:1.2rem">✓ Sin restricciones pendientes — todas las actividades al 100%</td></tr>`;
+  const resuRows=resueltas.length
+    ?`<tr><td colspan="8" style="font-size:.65rem;letter-spacing:.1em;color:var(--muted2);padding:.3rem .6rem;text-transform:uppercase">Atendidas (${resueltas.length})</td></tr>`+resueltas.map(x=>_restrRow(x,true)).join('')
+    :'';
 
   c.innerHTML=`
-  ${venc.length?`<div style="background:rgba(239,68,68,.1);border:1px solid #ef444430;border-radius:8px;padding:.5rem .9rem;margin-bottom:.8rem;font-size:.8rem;color:#ef4444">
-    ⚠ <strong>${venc.length}</strong> restricción(es) próxima(s) a vencer o vencidas
-  </div>`:''}
-  <div style="display:flex;justify-content:flex-end;margin-bottom:.8rem">
-    <button class="btn btn-a" style="--ba:${LPS_COLOR}" onclick="_lpsOpenRestr(null)">＋ Nueva Restricción</button>
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap">
+    <div style="font-size:.72rem;color:var(--muted2)">Actividades del Plan Semanal con cumplimiento &lt; 100%</div>
+    ${pendientes.length?`<span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 10px;font-size:.72rem;font-weight:700">${pendientes.length} pendiente(s)</span>`:''}
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>Descripción</th><th>Responsable</th><th>Fecha Límite</th><th>Actividad que bloquea</th><th>Estado</th><th></th></tr></thead>
-    <tbody>
-      ${abiertas.length?abiertas.map(_restrRow).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--muted2);padding:1rem">Sin restricciones abiertas</td></tr>`}
-      ${cerradas.length?`<tr><td colspan="6" style="background:rgba(255,255,255,.02);font-size:.65rem;letter-spacing:.1em;color:var(--muted2);padding:.3rem .6rem;text-transform:uppercase">Cerradas (${cerradas.length})</td></tr>`+cerradas.map(_restrRow).join(''):''}
-    </tbody>
+    <thead><tr><th>Código Actividad</th><th>Sector</th><th style="text-align:center">Semana</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th style="text-align:center">%</th><th>Causa (CNC)</th><th></th></tr></thead>
+    <tbody>${pendRows}${resuRows}</tbody>
   </table></div>`;
 }
 
@@ -902,6 +908,11 @@ function _lpsSaveRestr(){
     DB.lpsRestricciones.push(rec);syncSheet('saveLpsRestr',rec);
   }
   closeM('mLpsRestr');_lpsRenderTab();toast('✓ Restricción guardada');
+}
+
+function _lpsRestrAtender(id){
+  const p=(DB.lpsPlanSemanal||[]).find(x=>x.id===id);
+  if(p){p.resuelto=true;syncSheet('saveLpsPlan',p);_lpsRenderTab();toast('✓ Marcado como atendido');}
 }
 
 function _lpsRestrCerrar(id){
@@ -1029,15 +1040,31 @@ function _lpsPrintBodyPlan(){
 }
 
 function _lpsPrintBodyRestr(){
-  const hoy=today();
-  const list=(DB.lpsRestricciones||[]).sort((a,b)=>a.fechaLimite.localeCompare(b.fechaLimite));
-  if(!list.length)return'<p style="margin-top:1rem;color:#555">Sin restricciones registradas.</p>';
-  const rows=list.map(r=>{
-    const dias=Math.round((new Date(r.fechaLimite+'T12:00:00')-new Date(hoy+'T12:00:00'))/(864e5));
-    const w=DB.lpsWbs?.find(x=>x.id===r.wbsId);
-    const dTxt=r.estado==='CERRADA'?'—':(dias<0?`Vencida ${Math.abs(dias)}d`:`${dias}d`);
-    const dColor=dias<0&&r.estado==='ABIERTA'?'color:#991b1b;font-weight:700':'color:#555';
-    return`<tr><td>${r.desc}</td><td>${r.responsable}</td><td class="mono">${r.fechaLimite}</td><td style="text-align:center;${dColor}">${dTxt}</td><td class="mono" style="font-size:7.5px">${w?w.codigo:'—'}</td><td style="text-align:center"><span class="${r.estado==='ABIERTA'?'badge-no':'badge-ok'}">${r.estado}</span></td></tr>`;
+  const pendientes=[],resueltas=[];
+  const semanas=[...new Set((DB.lpsPlanSemanal||[]).map(p=>p.semanaInicio))].sort().reverse();
+  semanas.forEach(sem=>{
+    const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===sem);
+    const days=_lpsDaysRange(sem,7);
+    planes.forEach(p=>{
+      const w=(DB.lpsWbs||[]).find(x=>x.id===p.wbsId);
+      if(!w||w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return;
+      const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+      const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
+      if(planSem<=0)return;
+      const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+      const pct=Math.round(realSem/planSem*100);
+      if(pct>=100)return;
+      const item={sem,semFin:_lpsAddDays(sem,6),p,w,planSem,realSem,pct};
+      if(p.resuelto)resueltas.push(item);else pendientes.push(item);
+    });
+  });
+  const all=[...pendientes,...resueltas];
+  if(!all.length)return'<p style="margin-top:1rem;color:#555">Sin restricciones registradas.</p>';
+  const rows=all.map(x=>{
+    const pctColor=x.pct===0?'#991b1b':x.pct<50?'#92400e':'#713f12';
+    const cnc=x.p.cncCategoria?(x.p.cncCategoria+(x.p.cncDesc?' – '+x.p.cncDesc:'')):'—';
+    return`<tr style="${x.p.resuelto?'opacity:.6':''}"><td class="mono">${x.w.codigo}</td><td>${x.w.sector||''}</td><td style="text-align:center">${_lpsFmt(x.sem)} – ${_lpsFmt(x.semFin)}</td><td style="text-align:right">${fmtN(x.planSem)} ${x.w.unidad||''}</td><td style="text-align:right">${fmtN(x.realSem)} ${x.w.unidad||''}</td><td style="text-align:center;font-weight:700;color:${pctColor}">${x.pct}%</td><td style="font-size:7.5px">${cnc}</td><td style="text-align:center">${x.p.resuelto?'<span class="badge-ok">Atendido</span>':'<span class="badge-no">Pendiente</span>'}</td></tr>`;
   }).join('');
-  return`<table><thead><tr><th>Descripción</th><th>Responsable</th><th>F. Límite</th><th style="text-align:center">Días</th><th>Actividad WBS</th><th style="text-align:center">Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return`<p style="font-size:8px;color:#555;margin-bottom:6px">Actividades del Plan Semanal con cumplimiento menor al 100% · Pendientes: ${pendientes.length} · Atendidas: ${resueltas.length}</p>
+  <table><thead><tr><th>Código Actividad</th><th>Sector</th><th style="text-align:center">Semana</th><th style="text-align:right">Planificado</th><th style="text-align:right">Real</th><th style="text-align:center">%</th><th>Causa (CNC)</th><th style="text-align:center">Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
