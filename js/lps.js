@@ -1337,10 +1337,21 @@ function _lpsRenderCrono(c){
               ay=pi*ROW_H+ROW_H/2;
             }
             const by2=i*ROW_H+ROW_H/2;
-            const mx=tipo==='CC'?Math.min(ax,bx)-8:ax+8;
             const arrowCol=tipo==='CC'?'#8b5cf6':'#f59e0b';
             const markId=tipo==='CC'?'lpsCCArrow':'lpsFSArrow';
-            arrows+=`<path d="M${ax},${ay} H${mx} V${by2} H${bx}" stroke="${arrowCol}" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#${markId})"/>`;
+            let arrowPath;
+            if(tipo==='CC'){
+              const mx=Math.min(ax,bx)-8;
+              arrowPath=`M${ax},${ay} H${mx} V${by2} H${bx}`;
+            }else if(bx>=ax+8){
+              // FC normal: sale del borde derecho, baja, entra desde la izquierda →
+              arrowPath=`M${ax},${ay} H${ax+8} V${by2} H${bx}`;
+            }else{
+              // FC con traslape: doble codo para entrar siempre desde la izquierda →
+              const emy=Math.round((ay+by2)/2);
+              arrowPath=`M${ax},${ay} H${ax+8} V${emy} H${bx-8} V${by2} H${bx}`;
+            }
+            arrows+=`<path d="${arrowPath}" stroke="${arrowCol}" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#${markId})"/>`;
           }
         }
       }
