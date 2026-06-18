@@ -447,9 +447,11 @@ function _recalcViajes(){
   let totalViajes=0, totalMins=0;
   for(let i=1;i<=viajeCount;i++){
     const cant=+document.getElementById('vCant'+i)?.value||0;
+    const mat=(document.getElementById('vMat'+i)?.value||'').trim().toUpperCase();
+    const sinMat=!mat||mat==='SIN MATERIAL';
     const tramoId=+document.getElementById('vTramo'+i)?.value||0;
     const tramo=(DB.tramos||[]).find(t=>t.id===tramoId);
-    totalViajes+=cant;
+    if(!sinMat)totalViajes+=cant;
     totalMins+=cant*(tramo?(+tramo.ciclo||0):0);
   }
   const rpNV=document.getElementById('rpNViajes');
@@ -510,7 +512,7 @@ function addViaje(){
       </div>
       <div class="fg"><label>Cantidad</label><input id="vCant${vi}" type="number" placeholder="0" oninput="_recalcViajes()"></div>
       <div class="fg"><label>Material</label>
-        <input id="vMat${vi}" list="matData${vi}" placeholder="Tipo de material">
+        <input id="vMat${vi}" list="matData${vi}" placeholder="Tipo de material" oninput="_recalcViajes()">
         <datalist id="matData${vi}">${_matOpts}</datalist>
       </div>
     </div>`;
@@ -850,7 +852,7 @@ function rLinea(tipo){
     // Helper: viajes con material (excluye transporte sin material)
     const _vMat=p=>{
       if(p.viajes&&p.viajes.length)
-        return p.viajes.filter(v=>v.material&&v.material.trim()).reduce((s,v)=>s+(+v.cant||0),0);
+        return p.viajes.filter(v=>v.material&&v.material.trim()&&v.material.trim().toUpperCase()!=='SIN MATERIAL').reduce((s,v)=>s+(+v.cant||0),0);
       return +p.nViajes||0;
     };
     // KPIs LB
