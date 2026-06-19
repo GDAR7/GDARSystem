@@ -416,11 +416,13 @@ function _buildTareResumen(ids){
     totalGral[tarTipo]=(totalGral[tarTipo]||0)+1;
   });
   const totalPersonas=Object.values(tarMap).length;
+  const totalEnObra=totalPersonas-(totalGral['DL']||0);
   _tarResCache={fecha,proy,guardia,tarMap:{...tarMap},persF:[...persF]};
   // KPIs
   const kpiEl=document.getElementById(ids.kpis);
   if(kpiEl)kpiEl.innerHTML=[
     {l:'Total Personal',v:totalPersonas,c:'var(--mec)',ic:'👷'},
+    {l:'Total en Obra',v:totalEnObra,c:'#10b981',ic:'🏗️'},
     ...tiposPresentes.map(t=>({l:_TARE_T[t]?.l||t,v:totalGral[t]||0,c:_TARE_T[t]?.bg||'#666',ic:t}))
   ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.5rem .9rem;flex:1;min-width:90px">
     <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.2rem">${k.ic} ${k.l}</div>
@@ -435,26 +437,33 @@ function _buildTareResumen(ids){
     let html=`<table style="border-collapse:collapse;width:100%;font-size:.78rem"><thead><tr>
       <th style="${thSL};background:#1e3a5f;color:#fff">Descripción</th>
       ${tiposPresentes.map(t=>`<th style="${thS};background:${_TARE_T[t]?.bg||'#1e3a5f'};color:${_TARE_T[t]?.tx||'#fff'}">${t}</th>`).join('')}
-      <th style="${thS};background:#dc2626;color:#fff">Total<br>general</th>
+      <th style="${thS};background:#10b981;color:#fff">En<br>Obra</th>
+      <th style="${thS};background:#dc2626;color:#fff">Total<br>General</th>
     </tr></thead><tbody>`;
     ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
       const tot=grupoTotales[g];
       const totG=tiposPresentes.reduce((s,t)=>s+(tot[t]||0),0);
+      const totGObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
       html+=`<tr style="background:rgba(30,58,95,.18)"><td style="${tdS};font-weight:700;letter-spacing:.04em">${g}</td>
         ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700">${tot[t]||''}</td>`).join('')}
+        <td style="${tdS};text-align:center;font-weight:700;color:#10b981">${totGObra||''}</td>
         <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totG}</td></tr>`;
       Object.keys(grupos[g]).sort().forEach(cargo=>{
         const cc=grupos[g][cargo];
         const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
+        const totCObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(cc[t]||0),0);
         const cpe=encodeURIComponent(cargo);
         html+=`<tr><td style="${tdS};padding-left:1.6rem;color:var(--muted2);font-size:.73rem">${cargo}</td>
           ${tiposPresentes.map(t=>{const v=cc[t]||0;return`<td style="${tdS};text-align:center${v?';cursor:pointer':''}" ${v?`ondblclick="_tarResDetail(event,'${g}','${cpe}','${t}')"`:''}>${v||''}</td>`;}).join('')}
+          <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totCObra||''}</td>
           <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totC}</td></tr>`;
       });
     });
     const grandTotal=tiposPresentes.reduce((s,t)=>s+(totalGral[t]||0),0);
+    const grandTotalObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(totalGral[t]||0),0);
     html+=`<tr style="background:rgba(220,38,38,.12)"><td style="${tdS};font-weight:700;color:#dc2626">Total general</td>
       ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totalGral[t]||''}</td>`).join('')}
+      <td style="${tdS};text-align:center;font-weight:700;color:#10b981">${grandTotalObra}</td>
       <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${grandTotal}</td></tr>`;
     html+='</tbody></table>';
     tablaEl.innerHTML=tiposPresentes.length?html:'<div style="color:var(--muted2);padding:2rem;text-align:center;font-size:.8rem">Sin registros de tareaje para esta fecha</div>';
