@@ -14,6 +14,7 @@ const _TARE_T={
   A5:{l:'Anexo 5',         bg:'#f97316',tx:'#fff'},
   R: {l:'Retirado',        bg:'#7f1d1d',tx:'#fff'}
 };
+let _tarResCache=null;
 let _tarPickerCb=null;
 let _tarMultiMode=false;
 let _tarHoverMode=false;
@@ -415,6 +416,7 @@ function _buildTareResumen(ids){
     totalGral[tarTipo]=(totalGral[tarTipo]||0)+1;
   });
   const totalPersonas=Object.values(tarMap).length;
+  _tarResCache={fecha,proy,guardia,tarMap:{...tarMap},persF:[...persF]};
   // KPIs
   const kpiEl=document.getElementById(ids.kpis);
   if(kpiEl)kpiEl.innerHTML=[
@@ -444,8 +446,9 @@ function _buildTareResumen(ids){
       Object.keys(grupos[g]).sort().forEach(cargo=>{
         const cc=grupos[g][cargo];
         const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
+        const cpe=encodeURIComponent(cargo);
         html+=`<tr><td style="${tdS};padding-left:1.6rem;color:var(--muted2);font-size:.73rem">${cargo}</td>
-          ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center">${cc[t]||''}</td>`).join('')}
+          ${tiposPresentes.map(t=>{const v=cc[t]||0;return`<td style="${tdS};text-align:center${v?';cursor:pointer':''}" ${v?`ondblclick="_tarResDetail(event,'${g}','${cpe}','${t}')"`:''}>${v||''}</td>`;}).join('')}
           <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totC}</td></tr>`;
       });
     });
@@ -495,16 +498,28 @@ function _printTareResumen(ids){
   const state=_buildTareResumen(ids);
   const fecha=state.fecha,proy=state.proy,guardia=state.guardia;
   const tablaEl=document.getElementById(ids.tabla);
-  const tableHTML=tablaEl?tablaEl.innerHTML:'';
   const kpisEl=document.getElementById(ids.kpis);
-  const kpisHTML=kpisEl?kpisEl.innerHTML:'';
+  const _fix=h=>(h||'')
+    .replace(/var\(--border\)/g,'#94a3b8')
+    .replace(/var\(--muted2\)/g,'#475569')
+    .replace(/var\(--panel2\)/g,'#f1f5f9')
+    .replace(/var\(--text\)/g,'#111')
+    .replace(/var\(--mec\)/g,'#be185d')
+    .replace(/rgba\(30,58,95,\.18\)/g,'#dce7f3')
+    .replace(/rgba\(220,38,38,\.12\)/g,'#fee2e2')
+    .replace(/ondblclick="[^"]*"/g,'');
+  const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
+  const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
   <style>@page{size:A4 portrait;margin:.8cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
-  table{width:100%;border-collapse:collapse}th,td{border:1px solid #e2e8f0;padding:5px 7px}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #94a3b8!important;padding:5px 8px}
+  tr{border-bottom:1px solid #94a3b8!important}
   .kpis{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .kpis>div{border-radius:6px!important;border:1px solid #cbd5e1!important}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:6px;margin-bottom:10px">
     <img src="${_logoUrl}" alt="Ecosermo" style="height:42px;object-fit:contain">
@@ -521,6 +536,44 @@ function _printTareResumen(ids){
   </body></html>`;
   const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
   win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),600);
+}
+// Popup detalle doble-clic
+function _tarResDetail(event,grupo,cargoEnc,tipo){
+  if(!_tarResCache)return;
+  const {tarMap,persF}=_tarResCache;
+  const cargo=decodeURIComponent(cargoEnc);
+  const personas=persF.filter(p=>{
+    const pg=p.tipo==='Staff'?'STAFF':'OBRERO';
+    const pc=(p.cargo||'SIN CARGO').toUpperCase();
+    return pg===grupo&&pc===cargo&&tarMap[p.id]===tipo;
+  });
+  const tt=_TARE_T[tipo]||{bg:'#666',tx:'#fff',l:tipo};
+  let pop=document.getElementById('_tarResPop');
+  if(!pop){
+    pop=document.createElement('div');
+    pop.id='_tarResPop';
+    pop.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;box-shadow:0 8px 32px rgba(0,0,0,.65);min-width:230px;max-width:340px;display:none';
+    document.body.appendChild(pop);
+    document.addEventListener('click',e=>{if(!pop.contains(e.target))pop.style.display='none';});
+  }
+  pop.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;gap:.5rem">
+    <span style="font-weight:700;font-size:.8rem;color:var(--text);flex:1">${cargo}</span>
+    <span style="background:${tt.bg};color:${tt.tx};border-radius:5px;padding:2px 9px;font-size:.72rem;font-weight:700">${tipo} · ${tt.l}</span>
+    <button onclick="document.getElementById('_tarResPop').style.display='none'" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1rem;line-height:1;padding:0">✕</button>
+  </div>
+  <div style="font-size:.7rem;color:var(--muted2);margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.05em">${personas.length} persona${personas.length!==1?'s':''}</div>
+  <div style="display:flex;flex-direction:column;gap:.28rem;max-height:260px;overflow-y:auto">
+    ${personas.map((p,i)=>`<div style="display:flex;gap:.55rem;align-items:center;padding:.3rem .5rem;background:var(--panel2);border-radius:6px;border:1px solid var(--border)">
+      <span style="font-size:.68rem;color:var(--muted2);font-family:monospace;min-width:82px">${p.dni||'—'}</span>
+      <span style="font-size:.75rem;font-weight:600;color:var(--text)">${(p.ape||'').toUpperCase()}, ${p.nom||''}</span>
+    </div>`).join('')}
+  </div>`;
+  const x=Math.min(event.clientX+4,window.innerWidth-350);
+  const y=Math.min(event.clientY+6,window.innerHeight-300);
+  pop.style.left=Math.max(6,x)+'px';
+  pop.style.top=Math.max(6,y)+'px';
+  pop.style.display='block';
+  event.stopPropagation();
 }
 // Página completa
 function rTareResumenPg(){
