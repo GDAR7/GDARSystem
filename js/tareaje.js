@@ -400,7 +400,9 @@ function _buildTareResumen(ids){
   const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
   const tarMap={};
   tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
-  const tiposPresentes=[...new Set(Object.values(tarMap))].sort();
+  const _COL_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+  const _tiposSet=new Set(Object.values(tarMap));
+  const tiposPresentes=_COL_ORDER.filter(t=>_tiposSet.has(t));
   const grupos={},grupoTotales={},totalGral={};
   persF.forEach(p=>{
     const tarTipo=tarMap[p.id];if(!tarTipo)return;
