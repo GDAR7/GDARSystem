@@ -1338,17 +1338,28 @@ function rDailyReport(){
     if(/(^OPERARIO|PEÓN|^PEON|SUP\.?\s*TEC)/i.test(c))return'MOD';
     return'MOI';
   };
+  // Orden canónico de tipos (igual que Resumen de Tareaje)
+  const _TIPO_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+
   const groups={MOI:{},MOD:{},opLA:{},condEM:{}};
   tarDia.forEach(r=>{
     const pers=(DB.personal||[]).find(p=>p.id===r.personalId);if(!pers)return;
     const cat=_cat(pers.cargo);
-    if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={DL:0,TD:0,TN:0,A5:0};
-    const t=r.tipo;if(['DL','TD','TN','A5'].includes(t))groups[cat][pers.cargo][t]++;
+    if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={};
+    const t=r.tipo;if(t){groups[cat][pers.cargo][t]=(groups[cat][pers.cargo][t]||0)+1;}
   });
 
-  // Tabla de personal
-  const _persTable=(title,data,cols,color)=>{
-    const rows=Object.entries(data).filter(([,v])=>cols.some(c=>v[c]>0));
+  // Cols dinámicos: solo los tipos que realmente ocurrieron en cada grupo
+  const _dynCols=data=>{
+    const present=new Set();
+    Object.values(data).forEach(v=>Object.keys(v).forEach(k=>{if(v[k]>0)present.add(k);}));
+    return _TIPO_ORDER.filter(t=>present.has(t));
+  };
+
+  // Tabla de personal – cols calculados desde datos reales
+  const _persTable=(title,data,color)=>{
+    const cols=_dynCols(data);
+    const rows=Object.entries(data).filter(([,v])=>Object.values(v).some(n=>n>0));
     const tot={};cols.forEach(c=>tot[c]=0);
     rows.forEach(([,v])=>cols.forEach(c=>tot[c]+=(v[c]||0)));
     const grand=cols.reduce((s,c)=>s+tot[c],0);
@@ -1364,7 +1375,7 @@ function rDailyReport(){
         </tr></thead>
         <tbody>${rows.length?rows.map(([cargo,v])=>{const t=cols.reduce((s,c)=>s+(v[c]||0),0);return`<tr style="border-bottom:1px solid var(--border)20">
           <td style="padding:.23rem .5rem;color:var(--text)">${cargo}</td>
-          ${cols.map(c=>`<td style="padding:.23rem .35rem;text-align:center;color:${v[c]?'var(--text)':'#334155'}">${v[c]||''}</td>`).join('')}
+          ${cols.map(c=>`<td style="padding:.23rem .35rem;text-align:center;color:${(v[c]||0)?'var(--text)':'#334155'}">${v[c]||''}</td>`).join('')}
           <td style="padding:.23rem .35rem;text-align:center;font-weight:700;color:#f59e0b">${t}</td>
         </tr>`;}).join(''):`<tr><td colspan="${cols.length+2}" style="padding:.5rem;text-align:center;color:var(--muted2);font-size:.6rem">Sin registros</td></tr>`}</tbody>
         ${rows.length?`<tfoot><tr style="background:${color}10;font-weight:700">
@@ -1376,16 +1387,22 @@ function rDailyReport(){
     </div>`;
   };
   const _el=n=>document.getElementById(n);
-  if(_el('drTableMOI'))_el('drTableMOI').innerHTML=_persTable('Personal M.O. Indirecta',groups.MOI,['DL','TD','TN'],'#3b82f6');
-  if(_el('drTableMOD'))_el('drTableMOD').innerHTML=_persTable('Personal M.O. Directa',groups.MOD,['A5','DL','TD'],'#f59e0b');
-  if(_el('drTableOpLA'))_el('drTableOpLA').innerHTML=_persTable('Operadores L. Amarilla y Volquetes',groups.opLA,['A5','TD'],'#f59e0b');
-  if(_el('drTableCondEM'))_el('drTableCondEM').innerHTML=_persTable('Conductores Equip. Menores',groups.condEM,['A5','DL','TD'],'#06b6d4');
+  if(_el('drTableMOI'))_el('drTableMOI').innerHTML=_persTable('Personal M.O. Indirecta',groups.MOI,'#3b82f6');
+  if(_el('drTableMOD'))_el('drTableMOD').innerHTML=_persTable('Personal M.O. Directa',groups.MOD,'#f59e0b');
+  if(_el('drTableOpLA'))_el('drTableOpLA').innerHTML=_persTable('Operadores L. Amarilla y Volquetes',groups.opLA,'#f59e0b');
+  if(_el('drTableCondEM'))_el('drTableCondEM').innerHTML=_persTable('Conductores Equip. Menores',groups.condEM,'#06b6d4');
 
   // PT Summary
-  let ptL=0,ptD=0,ptN=0,ptA=0;
-  tarDia.forEach(r=>{if(r.tipo==='DL')ptL++;else if(r.tipo==='TD')ptD++;else if(r.tipo==='TN')ptN++;else if(r.tipo==='A5')ptA++;});
+  // PT Summary — dinámico: solo tipos que ocurrieron + Total + P.T. libre (DL)
+  const ptCount={};
+  tarDia.forEach(r=>{if(r.tipo)ptCount[r.tipo]=(ptCount[r.tipo]||0)+1;});
+  const ptTotal=Object.values(ptCount).reduce((s,v)=>s+v,0);
+  // Etiquetas amigables para los tipos
+  const _TIPO_LBL={DL:'P.T. Libre',TD:'P.T. Día',TN:'P.T. Noche',A5:'Artículo 5',P:'Permiso',F:'Falta',DM:'Descanso M.',DLT:'DL c/Trabajo',LP:'Lic. Paternidad',LM:'Lic. Maternidad',LF:'Lic. Fallecim.',V:'Vacaciones',R:'Retiro'};
+  const _TIPO_COL={DL:'#ef4444',TD:'#f59e0b',TN:'#8b5cf6',A5:'#06b6d4',P:'#10b981',F:'#dc2626',DM:'#64748b',DLT:'#0ea5e9',LP:'#ec4899',LM:'#ec4899',LF:'#475569',V:'#14b8a6',R:'#f97316'};
+  const ptItems=_TIPO_ORDER.filter(t=>ptCount[t]>0).map(t=>({l:_TIPO_LBL[t]||t,v:ptCount[t],c:_TIPO_COL[t]||'#94a3b8'}));
   if(_el('drSummary'))_el('drSummary').innerHTML=`<div style="display:flex;gap:.5rem;flex-wrap:wrap">
-    ${[{l:'P.T. Libre',v:ptL,c:'#ef4444'},{l:'P.T. Día',v:ptD,c:'#f59e0b'},{l:'P.T. Noche',v:ptN,c:'#8b5cf6'},{l:'P.T. A5',v:ptA,c:'#06b6d4'},{l:'Total',v:ptL+ptD+ptN+ptA,c:'#10b981'}]
+    ${[...ptItems,{l:'Total',v:ptTotal,c:'#10b981'}]
     .map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.45rem .9rem;min-width:85px;flex:1;text-align:center">
       <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">${k.l}</div>
       <div style="font-size:2rem;font-weight:900;color:${k.c};line-height:1.1">${k.v}</div>
