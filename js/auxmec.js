@@ -933,8 +933,61 @@ function rLinea(tipo){
         }).join('');
       }
     }
-  }else{
+  }else if(tipo==='Equipos Menores'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${e.marca}</td><td>${e.modelo}</td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} h</td></tr>`).join('');
+    const _fTipoEM=document.getElementById('emFiltTipo');
+    const _fDesdeEM=document.getElementById('emFiltDesde');
+    const _fHastaEM=document.getElementById('emFiltHasta');
+    if(_fTipoEM){
+      const curT=_fTipoEM.value;
+      const subs=[...new Set(eqs.map(e=>e.sub).filter(Boolean))].sort();
+      _fTipoEM.innerHTML='<option value="">— Todos los tipos —</option>'+subs.map(s=>`<option${s===curT?' selected':''}>${s}</option>`).join('');
+    }
+    const fTipoEM=_fTipoEM?_fTipoEM.value:'';
+    const fDesdeEM=_fDesdeEM?_fDesdeEM.value:'';
+    const fHastaEM=_fHastaEM?_fHastaEM.value:'';
+    let partesEM=[...partes];
+    if(fTipoEM)partesEM=partesEM.filter(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);return eq&&eq.sub===fTipoEM;});
+    if(fDesdeEM)partesEM=partesEM.filter(p=>p.fecha>=fDesdeEM);
+    if(fHastaEM)partesEM=partesEM.filter(p=>p.fecha<=fHastaEM);
+    partesEM=[...partesEM].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const _totEfEM=partesEM.reduce((s,p)=>s+(+p.ef||0),0);
+    const _totImEM=partesEM.reduce((s,p)=>s+(+p.im||0),0);
+    const _byTipoEM={};
+    partesEM.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.nombre.split(' ')[0]:'Otros';if(!_byTipoEM[k])_byTipoEM[k]=0;_byTipoEM[k]+=(+p.ef||0);});
+    const kpiEM=document.getElementById('emKpis');
+    if(kpiEM)kpiEM.innerHTML=[
+      {l:'Total Registros',v:partesEM.length,c:'var(--ceq)',ic:'📋'},
+      {l:'Hs Efectivas',v:parseFloat(_totEfEM.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
+      {l:'Hs Inoperativas',v:parseFloat(_totImEM.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
+      ...Object.entries(_byTipoEM).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>({l:k,v:parseFloat(v.toFixed(2))+'h',c:'#f59e0b',ic:'🔧'}))
+    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
+      <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
+      <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
+    </div>`).join('');
+    const tbPartesEM=document.getElementById('tbPartesEM');
+    if(tbPartesEM){
+      if(!partesEM.length){
+        tbPartesEM.innerHTML='<tr><td colspan="7" class="text-muted" style="text-align:center;padding:1rem">Sin registros. Use ＋ Reporte Diario para agregar.</td></tr>';
+      }else{
+        const _can48=p=>p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
+        tbPartesEM.innerHTML=partesEM.map(p=>{
+          const eq=DB.equipos.find(x=>x.id===p.eqId);
+          return`<tr>
+            <td class="mono">${p.fecha}</td>
+            <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td>
+            <td>${p.op||'—'}</td>
+            <td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td>
+            <td class="mono">${parseFloat((+p.im).toFixed(2))}h</td>
+            <td>${p.act||'—'}</td>
+            <td style="display:flex;gap:4px">
+              <button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
+              ${_can48(p)?`<button class="btn btn-out btn-sm" onclick="delParte(${p.id})" style="color:#ef4444;border-color:#ef444460" title="Eliminar">🗑️</button>`:`<button class="btn btn-out btn-sm" disabled style="color:#3d5070;border-color:#2a3a5a;cursor:not-allowed" title="Bloqueado +48h">🔒</button>`}
+            </td>
+          </tr>`;
+        }).join('');
+      }
+    }
   }
 }
 
