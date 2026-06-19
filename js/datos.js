@@ -225,9 +225,15 @@ function _trFrentesOpts(sel){
 }
 function _openTramoModal(){
   _trEditId=null;_trInterf=[];
-  document.getElementById('trCod').value='';
-  document.getElementById('trCod').readOnly=false;
-  document.getElementById('trCod').style.opacity='1';
+  // Generar correlativo TMO-XXX automático
+  const _nums=(DB.tramos||[]).map(t=>{const m=(t.codigo||'').match(/TMO-(\d+)/i);return m?+m[1]:0;});
+  const _next=(_nums.length?Math.max(..._nums):0)+1;
+  const _cod='TMO-'+String(_next).padStart(3,'0');
+  const trCodEl=document.getElementById('trCod');
+  trCodEl.value=_cod;
+  trCodEl.readOnly=true;
+  trCodEl.style.opacity='.7';
+  trCodEl.style.cursor='not-allowed';
   document.getElementById('trLong').value='';
   document.getElementById('trDesc').value='';
   document.getElementById('trTCarg').value='';
@@ -245,9 +251,10 @@ function _editTramo(id){
   _trEditId=id;
   _trInterf=Array.isArray(r.interferencias)?r.interferencias.map(x=>({...x})):[];
   document.getElementById('mTramoTtl').textContent='✏️ Editar Tramo';
-  document.getElementById('trCod').value=r.codigo;
+  document.getElementById('trCod').value=(r.codigo||'').toUpperCase();
   document.getElementById('trCod').readOnly=true;
-  document.getElementById('trCod').style.opacity='.55';
+  document.getElementById('trCod').style.opacity='.7';
+  document.getElementById('trCod').style.cursor='not-allowed';
   document.getElementById('trIni').innerHTML=_trFrentesOpts(r.inicio||'');
   document.getElementById('trFin').innerHTML=_trFrentesOpts(r.fin||'');
   document.getElementById('trLong').value=r.long||0;
