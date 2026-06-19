@@ -1288,6 +1288,187 @@ function openDrillDown(eqId, codigo, color, periodo){
   if(el){el.style.display='flex';}
 }
 
+// ══ REPORTE DE EQUIPOS ══
+let _reqCache=[];
+function rReporteEquipos(){
+  const eqs=DB.equipos.filter(e=>e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca'||e.tipo==='Vehículo Menor'||e.tipo==='Equipos Menores');
+  const _fEq=document.getElementById('reqFiltEq');
+  if(_fEq){
+    const curE=_fEq.value;
+    _fEq.innerHTML='<option value="">— Todos los equipos —</option>'+eqs.map(e=>`<option value="${e.id}"${e.id==curE?' selected':''}>${e.codigo} – ${(e.nombre||'').split(' ').slice(0,4).join(' ')}${e.placa?' ['+e.placa+']':''}</option>`).join('');
+  }
+  const fEq=_fEq?+_fEq.value||0:0;
+  const fDesde=(document.getElementById('reqFiltDesde')||{}).value||'';
+  const fHasta=(document.getElementById('reqFiltHasta')||{}).value||'';
+  const hMinDia=+(document.getElementById('reqHmin')||{}).value||0;
+  const hMinMes=+(document.getElementById('reqHminMes')||{}).value||0;
+
+  let partes=[...(DB.partes||[])];
+  if(fEq)partes=partes.filter(p=>p.eqId===fEq);
+  else partes=partes.filter(p=>eqs.some(e=>e.id===p.eqId));
+  if(fDesde)partes=partes.filter(p=>p.fecha>=fDesde);
+  if(fHasta)partes=partes.filter(p=>p.fecha<=fHasta);
+  partes=[...partes].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  _reqCache=partes;
+
+  // KPIs
+  const totEf=partes.reduce((s,p)=>s+(+p.ef||0),0);
+  const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
+  const diasHmin=partes.filter(p=>hMinDia>0?(+p.ef||0)>=hMinDia:false).length;
+  const stanby=hMinMes>0?Math.max(0,parseFloat((hMinMes-totEf).toFixed(2))):0;
+  const kpiEl=document.getElementById('reqKpis');
+  if(kpiEl)kpiEl.innerHTML=[
+    {l:'Total Partes',v:partes.length,c:'var(--ceq)',ic:'📋'},
+    {l:'Hs Efectivas',v:parseFloat(totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
+    {l:'Hs Inoperativas',v:parseFloat(totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
+    {l:'Días Hmin Cumpl.',v:diasHmin,c:'#f59e0b',ic:'✅'},
+    {l:'Hs Stanby a Pagar',v:stanby+'h',c:'#8b5cf6',ic:'⏸️'}
+  ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.ic} ${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
+
+  // Tabla
+  const tb=document.getElementById('tbReporteEquipos');
+  if(tb){
+    if(!partes.length){
+      tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:1.2rem;color:var(--muted2)">Sin partes para los filtros seleccionados.</td></tr>';
+    }else{
+      tb.innerHTML=partes.map(p=>{
+        const eq=DB.equipos.find(e=>e.id===p.eqId);
+        const ef=+p.ef||0;
+        const cumple=hMinDia>0?ef>=hMinDia:null;
+        const hminCell=cumple===null?'—':cumple?'<span style="color:#10b981;font-weight:700">SI</span>':'<span style="color:#ef4444;font-weight:600">NO</span>';
+        return`<tr>
+          <td class="mono">${p.fecha}</td>
+          <td><span class="badge b-blue" style="font-size:.62rem">${p.turno||'—'}</span></td>
+          <td>${eq?`<span class="badge b-cyan" style="font-size:.62rem">${eq.tipo||eq.sub||''}</span>`:''}</td>
+          <td class="mono" style="color:var(--ceq);font-weight:700">${eq?eq.codigo:'—'}</td>
+          <td class="mono">${+p.hrIni||+p.hrIni===0?parseFloat((+p.hrIni).toFixed(1)):'—'}</td>
+          <td class="mono">${+p.hrFin||+p.hrFin===0?parseFloat((+p.hrFin).toFixed(1)):'—'}</td>
+          <td class="mono" style="font-weight:700;color:${ef>0?'#10b981':'var(--muted2)'}">${ef>0?parseFloat(ef.toFixed(2))+'h':'—'}</td>
+          <td style="text-align:center">${hminCell}</td>
+          <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.areaT||''}">${p.areaT||'—'}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.act||''}">${p.act||'—'}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.observaciones||''}">${p.observaciones||'—'}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // Totales en tfoot
+  const tf=document.getElementById('tfReporteEquipos');
+  if(tf&&partes.length){
+    tf.innerHTML=`
+      <tr style="background:rgba(30,58,95,.25);font-weight:700;border-top:2px solid var(--ceq)">
+        <td colspan="6" style="text-align:right;padding:.4rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Hs Efectivas Total</td>
+        <td class="mono" style="color:#10b981;font-weight:800">${parseFloat(totEf.toFixed(2))}h</td>
+        <td colspan="4"></td>
+      </tr>
+      ${hMinMes>0?`<tr style="background:rgba(30,58,95,.15)">
+        <td colspan="6" style="text-align:right;padding:.3rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Hs Stanby a Pagar</td>
+        <td class="mono" style="color:#8b5cf6;font-weight:700">${stanby}h</td>
+        <td colspan="4"></td>
+      </tr>
+      <tr style="background:rgba(30,58,95,.1)">
+        <td colspan="6" style="text-align:right;padding:.3rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Total = Hmin Mes</td>
+        <td class="mono" style="color:var(--ceq);font-weight:800">${hMinMes}h</td>
+        <td colspan="4"></td>
+      </tr>`:''}`;
+  }else if(tf){
+    tf.innerHTML='';
+  }
+}
+
+function exportReporteEquiposXLSX(){
+  if(!_reqCache||!_reqCache.length){toast('Sin datos para exportar',true);return;}
+  const hMinDia=+(document.getElementById('reqHmin')||{}).value||0;
+  const hMinMes=+(document.getElementById('reqHminMes')||{}).value||0;
+  const fEq=+(document.getElementById('reqFiltEq')||{}).value||0;
+  const fDesde=(document.getElementById('reqFiltDesde')||{}).value||'';
+  const fHasta=(document.getElementById('reqFiltHasta')||{}).value||'';
+  const eqNom=fEq?(DB.equipos.find(e=>e.id===fEq)||{}).codigo||'':' (Todos)';
+  const periodo=(fDesde||'—')+' al '+(fHasta||'—');
+
+  const S=(v,bold,bg,color,align,border)=>({v,t:'s',s:{
+    font:{bold:!!bold,color:{rgb:color||'111111'},sz:9},
+    fill:bg?{fgColor:{rgb:bg}}:{},
+    alignment:{horizontal:align||'left',vertical:'center',wrapText:true},
+    border:border?{top:{style:'thin',color:{rgb:'94a3b8'}},bottom:{style:'thin',color:{rgb:'94a3b8'}},left:{style:'thin',color:{rgb:'94a3b8'}},right:{style:'thin',color:{rgb:'94a3b8'}}}:{}
+  }});
+  const N=(v,bold,bg,color,align)=>({v:isNaN(v)?0:v,t:'n',s:{
+    font:{bold:!!bold,color:{rgb:color||'111111'},sz:9,name:'Consolas'},
+    fill:bg?{fgColor:{rgb:bg}}:{},
+    alignment:{horizontal:align||'right',vertical:'center'},
+    border:{top:{style:'thin',color:{rgb:'94a3b8'}},bottom:{style:'thin',color:{rgb:'94a3b8'}},left:{style:'thin',color:{rgb:'94a3b8'}},right:{style:'thin',color:{rgb:'94a3b8'}}}
+  }});
+
+  const HBOR={top:{style:'thin',color:{rgb:'94a3b8'}},bottom:{style:'thin',color:{rgb:'94a3b8'}},left:{style:'thin',color:{rgb:'94a3b8'}},right:{style:'thin',color:{rgb:'94a3b8'}}};
+  const HDR='1E3A5F',HDRT='FFFFFF',SUBBG='EFF6FF',TOTBG='DBEAFE';
+
+  const wsData=[];
+  // Header info rows
+  wsData.push([S('REPORTE DE EQUIPOS – VALORIZACIÓN',true,HDR,HDRT,'center'),...Array(10).fill(S('',false,HDR,HDRT))]);
+  wsData.push([S(`Equipo: ${eqNom}`,true),...Array(10).fill(S(''))]);
+  wsData.push([S(`Período: ${periodo}`),...Array(10).fill(S(''))]);
+  wsData.push([S(`Hs Mínimas/día: ${hMinDia}h   |   Hmin Mes: ${hMinMes}h`),...Array(10).fill(S(''))]);
+  wsData.push(Array(11).fill(S('')));
+
+  // Column headers
+  const cols=['FECHA','TURNO','TIPO DE EQUIPO','CÓDIGO','HR INICIAL','HR FINAL','HS TRABAJADAS','HS MÍNIMAS','ÁREA DE TRABAJO','DESCRIPCIÓN DEL TRABAJO','OBSERVACIONES'];
+  wsData.push(cols.map(c=>({v:c,t:'s',s:{font:{bold:true,color:{rgb:HDRT},sz:8},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'center',vertical:'center'},border:HBOR}})));
+
+  let totEf=0;
+  _reqCache.forEach(p=>{
+    const eq=DB.equipos.find(e=>e.id===p.eqId);
+    const ef=+p.ef||0;
+    totEf+=ef;
+    const cumple=hMinDia>0?ef>=hMinDia:null;
+    wsData.push([
+      S(p.fecha,false,SUBBG,'334155','center',true),
+      S(p.turno||'',false,'','334155','center',true),
+      S(eq?eq.tipo||eq.sub||'':'',false,'','334155','center',true),
+      S(eq?eq.codigo:'',true,'','1e6196','center',true),
+      N(+p.hrIni||0,false,SUBBG,'334155','right'),
+      N(+p.hrFin||0,false,SUBBG,'334155','right'),
+      ({v:parseFloat(ef.toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:ef>0?'0f6b3d':'ef4444'},sz:9,name:'Consolas'},fill:{fgColor:{rgb:'f0fdf4'}},alignment:{horizontal:'right',vertical:'center'},border:HBOR}}),
+      S(cumple===null?'—':cumple?'SI':'NO',true,'',cumple===null?'64748b':cumple?'0f6b3d':'dc2626','center',true),
+      S(p.areaT||'—',false,'','334155','left',true),
+      S(p.act||'—',false,'','334155','left',true),
+      S(p.observaciones||'—',false,'','334155','left',true),
+    ]);
+  });
+
+  // Footer totals
+  wsData.push(Array(11).fill(S('')));
+  const stanby=hMinMes>0?parseFloat(Math.max(0,hMinMes-totEf).toFixed(2)):0;
+  wsData.push([S('Hs Efectivas Total',true,TOTBG,'1e3a5f','right',true),...Array(5).fill(S('',false,TOTBG)),
+    ({v:parseFloat(totEf.toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:'0f6b3d'},sz:10,name:'Consolas'},fill:{fgColor:{rgb:TOTBG}},alignment:{horizontal:'right'},border:HBOR}}),
+    ...Array(4).fill(S('',false,TOTBG))]);
+  if(hMinMes>0){
+    wsData.push([S('Hs Stanby a Pagar',true,TOTBG,'5b21b6','right',true),...Array(5).fill(S('',false,TOTBG)),
+      ({v:stanby,t:'n',s:{font:{bold:true,color:{rgb:'5b21b6'},sz:10,name:'Consolas'},fill:{fgColor:{rgb:TOTBG}},alignment:{horizontal:'right'},border:HBOR}}),
+      ...Array(4).fill(S('',false,TOTBG))]);
+    wsData.push([S('Total = Hmin Mes',true,HDR,HDRT,'right',true),...Array(5).fill(S('',false,HDR,HDRT)),
+      ({v:hMinMes,t:'n',s:{font:{bold:true,color:{rgb:HDRT},sz:10,name:'Consolas'},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'right'},border:HBOR}}),
+      ...Array(4).fill(S('',false,HDR,HDRT))]);
+  }
+
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:12},{wch:9},{wch:18},{wch:12},{wch:11},{wch:11},{wch:14},{wch:11},{wch:18},{wch:32},{wch:22}];
+  ws['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:10}},
+    {s:{r:1,c:0},e:{r:1,c:10}},
+    {s:{r:2,c:0},e:{r:2,c:10}},
+    {s:{r:3,c:0},e:{r:3,c:10}},
+  ];
+  ws['!rows']=[{hpt:18},{hpt:14},{hpt:14},{hpt:14},{hpt:6},{hpt:20}];
+
+  const wb=XLSX.utils.book_new();
+  const sheetName=('Reporte_'+(eqNom||'Equipos')).substring(0,31);
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  const fname=`Reporte_Equipos_${(eqNom||'todos').replace(/[^a-zA-Z0-9]/g,'_')}_${fDesde||'inicio'}_${fHasta||'fin'}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('Excel generado: '+fname);
+}
+
 function _renderDrillDown(){
   const eqId=document.getElementById('ddEqId').value;
   const color=document.getElementById('ddColor').value||'var(--ceq)';

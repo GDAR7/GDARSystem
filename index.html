@@ -1042,6 +1042,72 @@
   </div>
 </div>
 
+<!-- C.EQUIPOS – REPORTE DE EQUIPOS -->
+<div class="page" id="page-reporteEquipos">
+  <div class="ph">
+    <div class="ph-title" style="color:var(--ceq)">Reporte de Equipos</div>
+    <div class="ph-sub">Valorización de partes diarios por equipo y período</div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Filtros</span>
+      <button class="btn btn-out" onclick="exportReporteEquiposXLSX()" style="color:#10b981;border-color:#10b98160;font-size:.78rem">📥 Exportar Excel</button>
+    </div>
+    <div style="padding:.5rem 1rem 1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Equipo</label>
+        <select id="reqFiltEq" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:220px" onchange="rReporteEquipos()">
+          <option value="">— Todos los equipos —</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Desde</label>
+        <input type="date" id="reqFiltDesde" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:145px" onchange="rReporteEquipos()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Hasta</label>
+        <input type="date" id="reqFiltHasta" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:145px" onchange="rReporteEquipos()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Hs Min/día</label>
+        <input type="number" id="reqHmin" value="10" min="0" step="0.5" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:90px" onchange="rReporteEquipos()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Hmin Mes</label>
+        <input type="number" id="reqHminMes" value="180" min="0" step="1" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:100px" onchange="rReporteEquipos()">
+      </div>
+      <button class="btn btn-out" onclick="document.getElementById('reqFiltEq').value='';document.getElementById('reqFiltDesde').value='';document.getElementById('reqFiltHasta').value='';document.getElementById('reqHmin').value=10;document.getElementById('reqHminMes').value=180;rReporteEquipos()" style="font-size:.78rem;align-self:flex-end">✕ Limpiar</button>
+    </div>
+  </div>
+  <div class="kpi-row" id="reqKpis" style="margin-top:.8rem"></div>
+  <div class="card" style="margin-top:.8rem">
+    <div class="card-head"><span class="card-title">Partes Diarios – Valorización</span></div>
+    <div class="card-body" style="padding:0">
+      <div class="tbl-wrap">
+        <table style="font-size:.73rem">
+          <thead>
+            <tr style="font-size:.63rem;text-transform:uppercase;letter-spacing:.06em">
+              <th>Fecha</th>
+              <th>Turno</th>
+              <th>Tipo de Equipo</th>
+              <th>Código</th>
+              <th>Hr Inicial</th>
+              <th>Hr Final</th>
+              <th>Hs Trabajadas</th>
+              <th>Hs Mínimas</th>
+              <th>Área de Trabajo</th>
+              <th>Descripción del Trabajo</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbReporteEquipos"></tbody>
+          <tfoot id="tfReporteEquipos"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- DATA DE INGRESOS – FRENTES DE TRABAJO -->
 <div class="page" id="page-frentesTrabajo">
   <div class="ph"><div class="ph-title" style="color:var(--ceq)">Frentes de Trabajo</div><div class="ph-sub">Registro de frentes activos del proyecto</div></div>
