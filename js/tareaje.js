@@ -210,7 +210,9 @@ function openTarePicker(personalId,fecha,cellEl){
   html+=`<button onclick="setTareaje(${personalId},'${fecha}','')" style="background:#374151;color:#9ca3af;border:1px solid #6b7280;border-radius:5px;padding:4px 2px;font-size:.65rem;font-weight:700;cursor:pointer">✕ Borrar</button>`;
   html+=`</div><div style="font-size:.6rem;color:var(--muted2);margin-top:4px;text-align:center">${fecha}</div>`;
   const left=Math.min(rect.left,window.innerWidth-250);
-  picker.style.cssText=`display:block;position:fixed;left:${Math.max(4,left)}px;top:${rect.bottom+4}px;z-index:9999;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.6)`;
+  const pickerH=200;
+  const topPos=window.innerHeight-rect.bottom-4>=pickerH?rect.bottom+4:rect.top-pickerH-4;
+  picker.style.cssText=`display:block;position:fixed;left:${Math.max(4,left)}px;top:${Math.max(4,topPos)}px;z-index:9999;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.6)`;
   picker.innerHTML=html;
   _tarPickerCb=function(e){if(!picker.contains(e.target))closeTarePicker();};
   setTimeout(()=>document.addEventListener('click',_tarPickerCb),10);
