@@ -1108,6 +1108,122 @@
   </div>
 </div>
 
+<!-- CONTROL PROYECTO – DAILY REPORT -->
+<div class="page" id="page-dailyReport">
+  <div class="ph">
+    <div class="ph-title" style="color:#10b981">Daily Report – D.R.</div>
+    <div class="ph-sub">Reporte Diario de Producción, Personal y Equipos</div>
+  </div>
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:.8rem">
+    <div style="padding:.5rem 1rem;display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Fecha</label>
+        <input type="date" id="drFecha" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.8rem" onchange="rDailyReport()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Frente / Proyecto</label>
+        <select id="drProy" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:200px" onchange="rDailyReport()">
+          <option value="">— Todos —</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Inicio Proyecto</label>
+        <input type="date" id="drInicio" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.8rem;width:150px" onchange="rDailyReport()" title="Para calcular días ejecutados">
+      </div>
+      <button class="btn" onclick="printDailyReport()" style="background:#10b981;color:#fff;font-size:.78rem;border:none">🖨️ Imprimir / PDF</button>
+    </div>
+  </div>
+  <!-- Header dinámico -->
+  <div id="drHeader" style="margin-bottom:.8rem"></div>
+  <!-- 4 tablas de personal -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem;margin-bottom:.7rem">
+    <div id="drTableMOI"></div>
+    <div id="drTableMOD"></div>
+    <div id="drTableOpLA"></div>
+    <div id="drTableCondEM"></div>
+  </div>
+  <!-- Resumen PT -->
+  <div id="drSummary" style="margin-bottom:.8rem"></div>
+  <!-- Tabla de equipos del día -->
+  <div class="card" style="margin-bottom:.8rem">
+    <div class="card-head"><span class="card-title">Horas Trabajadas por Código de Equipo y Turno del Día</span></div>
+    <div class="card-body" style="padding:0"><div class="tbl-wrap">
+      <table style="font-size:.72rem">
+        <thead><tr style="font-size:.6rem;text-transform:uppercase">
+          <th>Código</th><th>Cond.</th><th>Horas</th><th>Turno</th>
+          <th>Área de Trabajo</th><th>Frente de Trabajo</th>
+          <th>Resumen – Descripción de Actividades</th><th>Hr Ini</th><th>Hr Fin</th>
+        </tr></thead>
+        <tbody id="tbDREquipos"></tbody>
+      </table>
+    </div></div>
+  </div>
+  <!-- Charts fila 1 -->
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:.7rem;margin-bottom:.7rem">
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Horas por Turno</span></div>
+      <div style="padding:.6rem 1rem" id="drChartTurnoBody"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Horas por Código de Equipo – Día</span></div>
+      <div style="padding:.6rem 1rem" id="drChartCodigoBody"></div>
+    </div>
+  </div>
+  <!-- Charts fila 2 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.8rem">
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Hs Promedio por Tipo de Equipo</span></div>
+      <div style="padding:.6rem 1rem" id="drChartTipoBody"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Horas Acumuladas por Código (desde Inicio)</span></div>
+      <div style="padding:.6rem 1rem" id="drChartAcumBody"></div>
+    </div>
+  </div>
+  <!-- Vehículos Menores + Equipos Menores + Gráfico EM -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem;margin-bottom:.8rem">
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Vehículos Menores</span></div>
+      <div class="card-body" style="padding:0"><table style="font-size:.68rem;width:100%">
+        <thead><tr><th style="font-size:.58rem">Tipo</th><th style="font-size:.58rem">Placa/Cód.</th><th style="font-size:.58rem">Condición</th><th style="font-size:.58rem">Turno</th></tr></thead>
+        <tbody id="tbDRVehMen"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Equipos Menores</span></div>
+      <div class="card-body" style="padding:0"><table style="font-size:.68rem;width:100%">
+        <thead><tr><th style="font-size:.58rem">Tipo</th><th style="font-size:.58rem">Código</th><th style="font-size:.58rem">Condición</th></tr></thead>
+        <tbody id="tbDREqMen"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Gráfico Equipos Menores</span></div>
+      <div style="padding:.6rem" id="drChartEqMenBody"></div>
+    </div>
+  </div>
+  <!-- Observaciones -->
+  <div class="card" style="margin-bottom:.8rem">
+    <div class="card-head"><span class="card-title">Comentarios / Observaciones</span></div>
+    <div style="padding:.7rem 1rem;min-height:55px" id="drObsBody"></div>
+  </div>
+  <!-- Firmas -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;text-align:center;background:var(--panel2)">
+      <div style="height:40px;border-bottom:1px solid var(--border);margin-bottom:.5rem"></div>
+      <div style="font-size:.62rem;color:var(--muted2);text-transform:uppercase">C. de Proyectos – ECOSERMO</div>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;text-align:center;background:var(--panel2)">
+      <div style="height:40px;border-bottom:1px solid var(--border);margin-bottom:.5rem"></div>
+      <div style="font-size:.62rem;color:var(--muted2);text-transform:uppercase">Residente o Super. – ECOSERMO</div>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;text-align:center;background:var(--panel2)">
+      <div style="height:40px;border-bottom:1px solid var(--border);margin-bottom:.5rem"></div>
+      <div style="font-size:.62rem;color:var(--muted2);text-transform:uppercase">Representante Sponsor – BUENAVENTURA</div>
+    </div>
+  </div>
+</div>
+
 <!-- DATA DE INGRESOS – FRENTES DE TRABAJO -->
 <div class="page" id="page-frentesTrabajo">
   <div class="ph"><div class="ph-title" style="color:var(--ceq)">Frentes de Trabajo</div><div class="ph-sub">Registro de frentes activos del proyecto</div></div>

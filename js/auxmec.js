@@ -1288,6 +1288,327 @@ function openDrillDown(eqId, codigo, color, periodo){
   if(el){el.style.display='flex';}
 }
 
+// ══ DAILY REPORT ══
+function rDailyReport(){
+  const elD=document.getElementById('drFecha');
+  if(elD&&!elD.value)elD.value=today();
+  const fecha=elD?elD.value:today();
+
+  // Proyectos / frentes disponibles
+  const drProyEl=document.getElementById('drProy');
+  if(drProyEl){
+    const proySet=new Set([...(DB.tareaje||[]).map(t=>t.proy),...(DB.partes||[]).map(p=>p.frenteT)].filter(Boolean));
+    const curP=drProyEl.value;
+    drProyEl.innerHTML='<option value="">— Todos los frentes —</option>'+[...proySet].sort().map(p=>`<option${p===curP?' selected':''}>${p}</option>`).join('');
+  }
+  const proy=drProyEl?drProyEl.value:'';
+
+  // Días ejecutados
+  const iniEl=document.getElementById('drInicio');
+  const inicio=iniEl?iniEl.value:'';
+  let diasEjec=1;
+  if(inicio&&fecha>=inicio){const d1=new Date(inicio+'T12:00:00'),d2=new Date(fecha+'T12:00:00');diasEjec=Math.max(1,Math.round((d2-d1)/86400000)+1);}
+
+  // Header
+  const fechaDisp=new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const hEl=document.getElementById('drHeader');
+  if(hEl)hEl.innerHTML=`
+    <div style="background:linear-gradient(135deg,#052e16,#064e3b);border:1px solid #10b98125;border-radius:10px;padding:.9rem 1.3rem;display:flex;justify-content:space-between;align-items:center;gap:1rem">
+      <div style="flex:1">
+        <div style="font-size:.58rem;letter-spacing:.18em;color:#10b981;text-transform:uppercase;margin-bottom:.2rem">DAILY REPORT – D.R.</div>
+        <div style="font-size:1rem;font-weight:800;color:#fff;line-height:1.3">"${proy||'REPORTE GENERAL'}"</div>
+        <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem;text-transform:capitalize">${fechaDisp}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:.58rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em">Días Ejecutados</div>
+        <div style="font-size:3rem;font-weight:900;color:#10b981;line-height:1">${diasEjec}</div>
+        <div style="font-size:.6rem;color:#475569;background:#0f2b1e;padding:.1rem .5rem;border-radius:4px;display:inline-block">Rev. 0 – 16/08/2024</div>
+      </div>
+    </div>`;
+
+  // Tareaje del día
+  let tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha);
+  if(proy)tarDia=tarDia.filter(r=>!r.proy||r.proy===proy);
+
+  // Categorizar por cargo
+  const _cat=cargo=>{
+    const c=(cargo||'').toUpperCase();
+    if(/\bOP\.?\s*(VOLQUETE|RODILLO|RETROEX|MOTONIL|EXCAVAD|CARGAD|TRACTOR|BULLDOZER|COMPACTAD)/i.test(c))return'opLA';
+    if(/(CISTERNA|COASTER|CAMIONETA|CONDUCTOR|COND\.)/i.test(c))return'condEM';
+    if(/(^OPERARIO|PEÓN|^PEON|SUP\.?\s*TEC)/i.test(c))return'MOD';
+    return'MOI';
+  };
+  const groups={MOI:{},MOD:{},opLA:{},condEM:{}};
+  tarDia.forEach(r=>{
+    const pers=(DB.personal||[]).find(p=>p.id===r.personalId);if(!pers)return;
+    const cat=_cat(pers.cargo);
+    if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={DL:0,TD:0,TN:0,A5:0};
+    const t=r.tipo;if(['DL','TD','TN','A5'].includes(t))groups[cat][pers.cargo][t]++;
+  });
+
+  // Tabla de personal
+  const _persTable=(title,data,cols,color)=>{
+    const rows=Object.entries(data).filter(([,v])=>cols.some(c=>v[c]>0));
+    const tot={};cols.forEach(c=>tot[c]=0);
+    rows.forEach(([,v])=>cols.forEach(c=>tot[c]+=(v[c]||0)));
+    const grand=cols.reduce((s,c)=>s+tot[c],0);
+    return`<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:${color}18;border-bottom:1px solid ${color}28;padding:.33rem .65rem">
+        <div style="font-size:.59rem;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.09em">${title}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.63rem">
+        <thead><tr style="background:${color}10">
+          <th style="padding:.25rem .5rem;text-align:left;color:var(--muted2);font-size:.56rem">CARGO</th>
+          ${cols.map(c=>`<th style="padding:.25rem .35rem;text-align:center;color:${color};font-size:.58rem">${c}</th>`).join('')}
+          <th style="padding:.25rem .35rem;text-align:center;color:#f59e0b;font-size:.58rem">Tot.</th>
+        </tr></thead>
+        <tbody>${rows.length?rows.map(([cargo,v])=>{const t=cols.reduce((s,c)=>s+(v[c]||0),0);return`<tr style="border-bottom:1px solid var(--border)20">
+          <td style="padding:.23rem .5rem;color:var(--text)">${cargo}</td>
+          ${cols.map(c=>`<td style="padding:.23rem .35rem;text-align:center;color:${v[c]?'var(--text)':'#334155'}">${v[c]||''}</td>`).join('')}
+          <td style="padding:.23rem .35rem;text-align:center;font-weight:700;color:#f59e0b">${t}</td>
+        </tr>`;}).join(''):`<tr><td colspan="${cols.length+2}" style="padding:.5rem;text-align:center;color:var(--muted2);font-size:.6rem">Sin registros</td></tr>`}</tbody>
+        ${rows.length?`<tfoot><tr style="background:${color}10;font-weight:700">
+          <td style="padding:.25rem .5rem;color:${color};font-size:.59rem">Total</td>
+          ${cols.map(c=>`<td style="padding:.25rem .35rem;text-align:center;color:${color};font-size:.59rem">${tot[c]||''}</td>`).join('')}
+          <td style="padding:.25rem .35rem;text-align:center;color:#f59e0b;font-size:.59rem">${grand}</td>
+        </tr></tfoot>`:''}
+      </table>
+    </div>`;
+  };
+  const _el=n=>document.getElementById(n);
+  if(_el('drTableMOI'))_el('drTableMOI').innerHTML=_persTable('Personal M.O. Indirecta',groups.MOI,['DL','TD','TN'],'#3b82f6');
+  if(_el('drTableMOD'))_el('drTableMOD').innerHTML=_persTable('Personal M.O. Directa',groups.MOD,['A5','DL','TD'],'#f59e0b');
+  if(_el('drTableOpLA'))_el('drTableOpLA').innerHTML=_persTable('Operadores L. Amarilla y Volquetes',groups.opLA,['A5','TD'],'#f59e0b');
+  if(_el('drTableCondEM'))_el('drTableCondEM').innerHTML=_persTable('Conductores Equip. Menores',groups.condEM,['A5','DL','TD'],'#06b6d4');
+
+  // PT Summary
+  let ptL=0,ptD=0,ptN=0,ptA=0;
+  tarDia.forEach(r=>{if(r.tipo==='DL')ptL++;else if(r.tipo==='TD')ptD++;else if(r.tipo==='TN')ptN++;else if(r.tipo==='A5')ptA++;});
+  if(_el('drSummary'))_el('drSummary').innerHTML=`<div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    ${[{l:'P.T. Libre',v:ptL,c:'#ef4444'},{l:'P.T. Día',v:ptD,c:'#f59e0b'},{l:'P.T. Noche',v:ptN,c:'#8b5cf6'},{l:'P.T. A5',v:ptA,c:'#06b6d4'},{l:'Total',v:ptL+ptD+ptN+ptA,c:'#10b981'}]
+    .map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.45rem .9rem;min-width:85px;flex:1;text-align:center">
+      <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">${k.l}</div>
+      <div style="font-size:2rem;font-weight:900;color:${k.c};line-height:1.1">${k.v}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // Equipos del día (Línea Amarilla + Línea Blanca)
+  const eqsLA=(DB.equipos||[]).filter(e=>e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca');
+  let partesLA=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsLA.some(e=>e.id===p.eqId));
+  if(proy)partesLA=partesLA.filter(p=>!p.frenteT||(p.frenteT+'').includes(proy)||(p.areaT+'').includes(proy));
+
+  if(_el('tbDREquipos')){
+    _el('tbDREquipos').innerHTML=!partesLA.length
+      ?'<tr><td colspan="9" style="text-align:center;padding:1rem;color:var(--muted2);font-size:.7rem">Sin partes de equipo registrados para esta fecha.</td></tr>'
+      :partesLA.map(p=>{
+        const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+        const ef=+p.ef||0;
+        const cC=(p.condicion||'').toUpperCase().includes('INOP')?'#ef4444':(p.condicion||'').toUpperCase().includes('STBY')||p.condicion==='STBY'?'#f59e0b':'#10b981';
+        return`<tr>
+          <td class="mono" style="color:var(--ceq);font-weight:700">${eq?eq.codigo:'—'}</td>
+          <td style="color:${cC};font-size:.62rem;font-weight:700">${(p.condicion||'OP').substring(0,4).toUpperCase()}</td>
+          <td class="mono" style="font-weight:700;color:#10b981">${ef>0?parseFloat(ef.toFixed(3))+'h':'—'}</td>
+          <td><span class="badge b-blue" style="font-size:.58rem">${p.turno||'—'}</span></td>
+          <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.areaT||''}">${p.areaT||'—'}</td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.frenteT||''}">${p.frenteT||'—'}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.act||''}">${p.act||'—'}</td>
+          <td class="mono" style="color:var(--muted2);font-size:.65rem">${+p.hrIni>0?parseFloat((+p.hrIni).toFixed(1)):'—'}</td>
+          <td class="mono" style="color:var(--muted2);font-size:.65rem">${+p.hrFin>0?parseFloat((+p.hrFin).toFixed(1)):'—'}</td>
+        </tr>`;
+      }).join('');
+  }
+
+  // Helper: barra horizontal HTML
+  const _barH=(cid,items,color)=>{
+    const cel=_el(cid);if(!cel)return;
+    if(!items.length){cel.innerHTML='<div style="color:var(--muted2);font-size:.7rem;padding:.4rem">Sin datos</div>';return;}
+    const maxV=Math.max(...items.map(i=>i.v),0.1);const H=90;
+    cel.innerHTML=`<div style="display:flex;gap:3px;align-items:flex-end;overflow-x:auto;padding-top:18px;min-height:${H+30}px">
+      ${items.map(i=>{const bH=Math.max(4,Math.round((i.v/maxV)*H));return`<div style="flex:1;min-width:30px;max-width:65px;text-align:center">
+        <div style="font-size:.5rem;color:${color};margin-bottom:2px">${i.v.toFixed(1)}</div>
+        <div style="height:${bH}px;background:${color};border-radius:3px 3px 0 0;margin:0 auto;max-width:36px"></div>
+        <div style="font-size:.49rem;color:var(--muted2);margin-top:3px;word-break:break-all;line-height:1.2">${i.l}</div>
+      </div>`;}).join('')}
+    </div>`;
+  };
+
+  // Chart 1: Horas por turno
+  const byTurno={};
+  partesLA.forEach(p=>{const t=p.turno||'DIA';if(!byTurno[t])byTurno[t]=0;byTurno[t]+=(+p.ef||0);});
+  const totHs=Object.values(byTurno).reduce((s,v)=>s+v,0);
+  if(_el('drChartTurnoBody')){
+    if(!Object.keys(byTurno).length){_el('drChartTurnoBody').innerHTML='<div style="color:var(--muted2);font-size:.7rem">Sin datos</div>';}
+    else{_el('drChartTurnoBody').innerHTML=`
+      <div style="text-align:center;margin-bottom:.6rem">
+        <div style="font-size:2.2rem;font-weight:900;color:#10b981;line-height:1">${totHs.toFixed(1)}</div>
+        <div style="font-size:.58rem;color:var(--muted2)">${Object.entries(byTurno).map(([t,v])=>`${v.toFixed(1)}h ${t}`).join(' · ')}</div>
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        ${Object.entries(byTurno).map(([t,v])=>`<div style="flex:1;background:#10b98115;border:1px solid #10b98128;border-radius:6px;padding:.35rem .6rem;text-align:center">
+          <div style="font-size:.58rem;color:var(--muted2)">${t}</div>
+          <div style="font-size:1rem;font-weight:800;color:#10b981">${v.toFixed(1)}h</div>
+          <div style="font-size:.54rem;color:#64748b">${totHs>0?Math.round(v/totHs*100):0}%</div>
+        </div>`).join('')}
+      </div>`;}
+  }
+
+  // Chart 2: Horas por código del día
+  const byCod={};
+  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byCod[k])byCod[k]=0;byCod[k]+=(+p.ef||0);});
+  _barH('drChartCodigoBody',Object.entries(byCod).map(([l,v])=>({l,v})),'#06b6d4');
+
+  // Chart 3: Promedio horas por tipo de equipo
+  const byTipo={},byTipoCnt={};
+  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.tipo||'?':'?';if(!byTipo[k]){byTipo[k]=0;byTipoCnt[k]=0;}byTipo[k]+=(+p.ef||0);byTipoCnt[k]++;});
+  _barH('drChartTipoBody',Object.entries(byTipo).map(([l,v])=>({l,v:byTipoCnt[l]>0?parseFloat((v/byTipoCnt[l]).toFixed(2)):0})),'#f59e0b');
+
+  // Chart 4: Horas acumuladas (desde inicio)
+  const partesAcum=(DB.partes||[]).filter(p=>{
+    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+    if(!eq||eq.tipo!=='Línea Amarilla'&&eq.tipo!=='Línea Blanca')return false;
+    if(inicio&&p.fecha<inicio)return false;
+    return p.fecha<=fecha;
+  });
+  const byAcum={};
+  partesAcum.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byAcum[k])byAcum[k]=0;byAcum[k]+=(+p.ef||0);});
+  _barH('drChartAcumBody',Object.entries(byAcum).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([l,v])=>({l,v:parseFloat(v.toFixed(2))})),'#8b5cf6');
+
+  // Vehículos Menores
+  const eqsVM=(DB.equipos||[]).filter(e=>e.tipo==='Vehículo Menor');
+  const partesVM=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsVM.some(e=>e.id===p.eqId));
+  if(_el('tbDRVehMen')){
+    const srcVM=partesVM.length?partesVM:eqsVM.slice(0,6);
+    _el('tbDRVehMen').innerHTML=!srcVM.length
+      ?'<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:.5rem;font-size:.63rem">Sin registros</td></tr>'
+      :srcVM.map(item=>{const eq=partesVM.length?(DB.equipos||[]).find(e=>e.id===item.eqId):item;
+        return`<tr style="border-bottom:1px solid var(--border)20">
+          <td style="padding:.25rem .5rem;font-size:.64rem">${eq?eq.sub||eq.nombre.split(' ')[0]:'—'}</td>
+          <td style="padding:.25rem .5rem;font-size:.63rem;font-family:monospace;color:var(--ceq)">${eq?(eq.placa||eq.codigo):'—'}</td>
+          <td style="padding:.25rem .5rem">${bge(partesVM.length?(item.condicion||eq?.est||'—'):(eq?.est||'—'))}</td>
+          <td style="padding:.25rem .5rem;font-size:.63rem">${partesVM.length?(item.turno||'—'):'—'}</td>
+        </tr>`;}).join('');
+  }
+
+  // Equipos Menores
+  const eqsEM=(DB.equipos||[]).filter(e=>e.tipo==='Equipos Menores');
+  const partesEM=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsEM.some(e=>e.id===p.eqId));
+  if(_el('tbDREqMen')){
+    const srcEM=partesEM.length?partesEM:eqsEM.slice(0,6);
+    _el('tbDREqMen').innerHTML=!srcEM.length
+      ?'<tr><td colspan="3" style="text-align:center;color:var(--muted2);padding:.5rem;font-size:.63rem">Sin registros</td></tr>'
+      :srcEM.map(item=>{const eq=partesEM.length?(DB.equipos||[]).find(e=>e.id===item.eqId):item;
+        return`<tr style="border-bottom:1px solid var(--border)20">
+          <td style="padding:.25rem .5rem;font-size:.64rem">${eq?eq.sub||eq.nombre.split(' ')[0]:'—'}</td>
+          <td style="padding:.25rem .5rem;font-size:.63rem;font-family:monospace;color:var(--ceq)">${eq?eq.codigo:'—'}</td>
+          <td style="padding:.25rem .5rem">${bge(partesEM.length?(item.condicion||eq?.est||'—'):(eq?.est||'—'))}</td>
+        </tr>`;}).join('');
+  }
+
+  // Gráfico EM
+  if(_el('drChartEqMenBody')){
+    const bySubEM={};
+    const srcGEM=partesEM.length?partesEM:eqsEM;
+    srcGEM.forEach(item=>{const eq=partesEM.length?(DB.equipos||[]).find(e=>e.id===item.eqId):item;const k=eq?eq.sub||eq.nombre.split(' ')[0]:'Otros';if(!bySubEM[k])bySubEM[k]=0;bySubEM[k]++;});
+    const maxEM=Math.max(...Object.values(bySubEM),1);
+    _el('drChartEqMenBody').innerHTML=!Object.keys(bySubEM).length
+      ?'<div style="color:var(--muted2);font-size:.7rem">Sin datos</div>'
+      :`<div style="display:flex;flex-direction:column;gap:.38rem">
+        ${Object.entries(bySubEM).map(([k,v])=>`<div>
+          <div style="display:flex;justify-content:space-between;font-size:.6rem;margin-bottom:2px">
+            <span style="color:var(--muted2)">${k}</span><span style="color:#06b6d4;font-weight:700">${v}</span>
+          </div>
+          <div style="height:7px;background:#06b6d415;border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${Math.round(v/maxEM*100)}%;background:#06b6d4;border-radius:4px"></div>
+          </div>
+        </div>`).join('')}
+      </div>`;
+  }
+
+  // Observaciones
+  if(_el('drObsBody')){
+    const obsItems=[...partesLA,...partesVM,...partesEM].filter(p=>p.observaciones&&p.observaciones.trim());
+    _el('drObsBody').innerHTML=obsItems.length
+      ?obsItems.map(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);return`<div style="display:flex;gap:.6rem;padding:.28rem 0;border-bottom:1px solid var(--border)20;font-size:.71rem"><span class="mono" style="color:var(--ceq);font-weight:700;min-width:65px;flex-shrink:0">${eq?eq.codigo:''}</span><span>${p.observaciones}</span></div>`;}).join('')
+      :'<div style="color:var(--muted2);font-size:.72rem">Sin observaciones registradas para esta fecha.</div>';
+  }
+}
+
+function printDailyReport(){
+  const _fix=h=>(h||'')
+    .replace(/var\(--border\)/g,'#94a3b8').replace(/var\(--muted2\)/g,'#475569')
+    .replace(/var\(--panel2\)/g,'#f1f5f9').replace(/var\(--text\)/g,'#111')
+    .replace(/var\(--ceq\)/g,'#0891b2').replace(/var\(--muted\)/g,'#64748b')
+    .replace(/var\(--border\)20/g,'rgba(148,163,184,.13)').replace(/var\(--border\)28/g,'rgba(148,163,184,.17)')
+    .replace(/ondblclick="[^"]*"/g,'').replace(/onclick="[^"]*"/g,'');
+  const g=id=>{const e=document.getElementById(id);return e?_fix(e.innerHTML):'';};
+  const fecha=(document.getElementById('drFecha')||{}).value||today();
+  const proy=(document.getElementById('drProy')||{}).value||'';
+
+  const body=`
+    ${_fix(document.getElementById('drHeader')?.outerHTML||'')}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:.6rem 0">
+      ${g('drTableMOI')}${g('drTableMOD')}${g('drTableOpLA')}${g('drTableCondEM')}
+    </div>
+    ${_fix(document.getElementById('drSummary')?.innerHTML||'')}
+    <div style="border:1px solid #94a3b8;border-radius:7px;overflow:hidden;margin:.6rem 0">
+      <div style="background:#1e3a5f;color:#fff;padding:.35rem .7rem;font-size:.68rem;font-weight:700">Horas Trabajadas por Código de Equipo y Turno del Día</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.65rem">
+        <thead><tr style="background:#dce7f3;font-size:.58rem;text-transform:uppercase">
+          <th style="padding:.28rem .45rem;text-align:left">Código</th><th style="padding:.28rem .35rem">Cond.</th><th style="padding:.28rem .35rem">Horas</th><th style="padding:.28rem .35rem">Turno</th>
+          <th style="padding:.28rem .35rem">Área de Trabajo</th><th style="padding:.28rem .35rem">Frente de Trabajo</th><th style="padding:.28rem .35rem">Descripción de Actividades</th>
+          <th style="padding:.28rem .35rem">Hr Ini</th><th style="padding:.28rem .35rem">Hr Fin</th>
+        </tr></thead>
+        <tbody>${_fix(document.getElementById('tbDREquipos')?.innerHTML||'')}</tbody>
+      </table>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:.5rem;margin:.6rem 0">
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Horas por Turno</div>${g('drChartTurnoBody')}</div>
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Horas por Código de Equipo – Día</div>${g('drChartCodigoBody')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.6rem 0">
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Hs Promedio por Tipo de Equipo</div>${g('drChartTipoBody')}</div>
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Horas Acumuladas por Código (desde Inicio)</div>${g('drChartAcumBody')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin:.6rem 0">
+      <div style="border:1px solid #94a3b8;border-radius:7px;overflow:hidden">
+        <div style="background:#dce7f3;padding:.28rem .55rem;font-size:.6rem;font-weight:700">Vehículos Menores</div>
+        <table style="width:100%;border-collapse:collapse;font-size:.6rem"><thead><tr style="background:#f1f5f9"><th style="padding:.22rem .4rem;text-align:left">Tipo</th><th>Placa</th><th>Cond.</th><th>Turno</th></tr></thead>
+        <tbody>${_fix(document.getElementById('tbDRVehMen')?.innerHTML||'')}</tbody></table>
+      </div>
+      <div style="border:1px solid #94a3b8;border-radius:7px;overflow:hidden">
+        <div style="background:#dce7f3;padding:.28rem .55rem;font-size:.6rem;font-weight:700">Equipos Menores</div>
+        <table style="width:100%;border-collapse:collapse;font-size:.6rem"><thead><tr style="background:#f1f5f9"><th style="padding:.22rem .4rem;text-align:left">Tipo</th><th>Código</th><th>Cond.</th></tr></thead>
+        <tbody>${_fix(document.getElementById('tbDREqMen')?.innerHTML||'')}</tbody></table>
+      </div>
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.6rem;font-weight:700;margin-bottom:.35rem">Gráfico Equipos Menores</div>${g('drChartEqMenBody')}</div>
+    </div>
+    <div style="border:1px solid #94a3b8;border-radius:7px;padding:.65rem;margin:.6rem 0">
+      <div style="font-size:.63rem;font-weight:700;margin-bottom:.35rem">Comentarios / Observaciones</div>
+      ${g('drObsBody')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin-top:.9rem">
+      ${['C. de Proyectos – ECOSERMO','Residente o Super. – ECOSERMO','Representante Sponsor – BUENAVENTURA']
+        .map(l=>`<div style="border:1px solid #94a3b8;border-radius:6px;padding:.9rem;text-align:center">
+          <div style="height:38px;border-bottom:1px solid #94a3b8;margin-bottom:.4rem"></div>
+          <div style="font-size:.58rem;color:#475569;text-transform:uppercase">${l}</div>
+        </div>`).join('')}
+    </div>`;
+
+  const w=window.open('','_blank','width=1200,height=900');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Daily Report – ${fecha}${proy?' – '+proy:''}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:1cm;font-size:9pt}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #94a3b8;padding:3px 5px}th{background:#dce7f3;font-weight:700}
+    .badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.58rem;font-weight:700}
+    .b-green{background:#dcfce7;color:#166534}.b-red{background:#fee2e2;color:#991b1b}
+    .b-yellow{background:#fef9c3;color:#854d0e}.b-blue{background:#dbeafe;color:#1e40af}
+    .b-cyan{background:#cffafe;color:#155e75}.mono{font-family:'Consolas',monospace}
+    @media print{body{padding:.5cm}@page{size:A4 landscape;margin:.8cm}}</style>
+  </head><body>${body}</body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),900);
+}
+
 // ══ REPORTE DE EQUIPOS ══
 let _reqCache=[];
 function rReporteEquipos(){
