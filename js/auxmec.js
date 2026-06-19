@@ -545,6 +545,9 @@ function openReporte(tipo){
   const _catFiltro=_catOp[tipo];
   const _opList=DB.personal.filter(p=>p.est==='Activo'&&(!_catFiltro||p.cat===_catFiltro));
   document.getElementById('rpOperador').innerHTML=_opList.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  // Ocultar Operador en Equipos Menores (luminarias y similares sin operador asignado)
+  const _opRow=document.getElementById('rpOperadorRow');
+  if(_opRow)_opRow.style.display=tipo==='Equipos Menores'?'none':'';
   // Horómetros: ocultar en Vehículo Menor
   const hrSec=document.getElementById('rpHrSection');
   const hrTit=document.getElementById('rpHorTitle');
@@ -681,7 +684,7 @@ async function gReporte(){
   const parte = {
     tipoEquipo:    document.getElementById('rpTipo').value,
     codigoEquipo:  eq ? eq.codigo+' – '+eq.nombre : '',
-    operador:      document.getElementById('rpOperador').value,
+    operador:      currentReporteTipo==='Equipos Menores'?'':document.getElementById('rpOperador').value,
     fecha,
     turno:         parteState.turno,
     guardia:       parteState.guardia,
