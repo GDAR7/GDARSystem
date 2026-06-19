@@ -390,3 +390,144 @@ function _doExportTareaje(){
   toast('✓ Excel con colores descargado');
 }
 
+// ── RESUMEN DIARIO DE TAREAJE ──
+function openTareResumen(){
+  const fEl=document.getElementById('tarResFecha');
+  if(fEl&&!fEl.value)fEl.value=today();
+  const ps=document.getElementById('tarResProy');
+  if(ps){const cur=ps.value;ps.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)ps.value=cur;}
+  openM('mTareResumen');
+  rTareResumen();
+}
+function rTareResumen(){
+  const fecha=document.getElementById('tarResFecha')?.value||today();
+  const proy=document.getElementById('tarResProy')?.value||'';
+  const guardia=document.getElementById('tarResGuardia')?.value||'';
+  let persF=(DB.personal||[]).filter(p=>p.est==='Activo');
+  if(guardia)persF=persF.filter(p=>p.guardia===guardia);
+  const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
+  const tarMap={};
+  tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
+  const tiposPresentes=[...new Set(Object.values(tarMap))].sort();
+  const grupos={},grupoTotales={},totalGral={};
+  persF.forEach(p=>{
+    const tarTipo=tarMap[p.id];if(!tarTipo)return;
+    const g=p.tipo==='Staff'?'STAFF':'OBRERO';
+    const cargo=(p.cargo||'SIN CARGO').toUpperCase();
+    if(!grupos[g]){grupos[g]={};grupoTotales[g]={};}
+    if(!grupos[g][cargo])grupos[g][cargo]={};
+    grupos[g][cargo][tarTipo]=(grupos[g][cargo][tarTipo]||0)+1;
+    grupoTotales[g][tarTipo]=(grupoTotales[g][tarTipo]||0)+1;
+    totalGral[tarTipo]=(totalGral[tarTipo]||0)+1;
+  });
+  const totalPersonas=Object.values(tarMap).length;
+  // KPIs
+  const kpiEl=document.getElementById('tarResKpis');
+  if(kpiEl)kpiEl.innerHTML=[
+    {l:'Total Personal',v:totalPersonas,c:'var(--mec)',ic:'👷'},
+    ...tiposPresentes.map(t=>({l:_TARE_T[t]?.l||t,v:totalGral[t]||0,c:_TARE_T[t]?.bg||'#666',ic:t}))
+  ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.5rem .9rem;flex:1;min-width:90px">
+    <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.2rem">${k.ic} ${k.l}</div>
+    <div style="font-size:1.5rem;font-weight:700;color:${k.c}">${k.v}</div>
+  </div>`).join('');
+  // Tabla
+  const tablaEl=document.getElementById('tarResTabla');
+  if(tablaEl){
+    const thS='padding:5px 8px;font-size:.7rem;text-align:center;white-space:nowrap;border:1px solid #2d4a7a';
+    const thSL=thS+';text-align:left';
+    const tdS='border:1px solid var(--border);padding:4px 8px';
+    let html=`<table style="border-collapse:collapse;width:100%;font-size:.75rem"><thead><tr>
+      <th style="${thSL};background:#1e3a5f;color:#fff">Descripción</th>
+      ${tiposPresentes.map(t=>`<th style="${thS};background:${_TARE_T[t]?.bg||'#1e3a5f'};color:${_TARE_T[t]?.tx||'#fff'}">${t}</th>`).join('')}
+      <th style="${thS};background:#dc2626;color:#fff">Total<br>general</th>
+    </tr></thead><tbody>`;
+    ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
+      const tot=grupoTotales[g];
+      const totG=tiposPresentes.reduce((s,t)=>s+(tot[t]||0),0);
+      html+=`<tr style="background:rgba(30,58,95,.18)"><td style="${tdS};font-weight:700">${g}</td>
+        ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700">${tot[t]||''}</td>`).join('')}
+        <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totG}</td></tr>`;
+      Object.keys(grupos[g]).sort().forEach(cargo=>{
+        const cc=grupos[g][cargo];
+        const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
+        html+=`<tr><td style="${tdS};padding-left:1.4rem;color:var(--muted2);font-size:.72rem">${cargo}</td>
+          ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center">${cc[t]||''}</td>`).join('')}
+          <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totC}</td></tr>`;
+      });
+    });
+    const grandTotal=tiposPresentes.reduce((s,t)=>s+(totalGral[t]||0),0);
+    html+=`<tr style="background:rgba(220,38,38,.12)"><td style="${tdS};font-weight:700;color:#dc2626">Total general</td>
+      ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totalGral[t]||''}</td>`).join('')}
+      <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${grandTotal}</td></tr>`;
+    html+='</tbody></table>';
+    tablaEl.innerHTML=tiposPresentes.length?html:'<div style="color:var(--muted2);padding:2rem;text-align:center;font-size:.8rem">Sin registros de tareaje para esta fecha</div>';
+  }
+  // Gráfico de barras horizontal
+  const chartEl=document.getElementById('tarResChart');
+  if(chartEl){
+    if(!tiposPresentes.length){chartEl.innerHTML='';return;}
+    const maxVal=Math.max(...tiposPresentes.map(t=>totalGral[t]||0),1);
+    chartEl.innerHTML=`<div style="font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.8rem;letter-spacing:.03em">DISTRIBUCIÓN POR TIPO</div>
+      <div style="display:flex;flex-direction:column;gap:.55rem">
+        ${tiposPresentes.map(t=>{
+          const v=totalGral[t]||0,bg=_TARE_T[t]?.bg||'#666',tx=_TARE_T[t]?.tx||'#fff';
+          const pct=Math.round((v/maxVal)*100);
+          return`<div style="display:flex;align-items:center;gap:.5rem">
+            <div style="width:36px;text-align:right;font-size:.68rem;font-weight:700;color:${bg}">${t}</div>
+            <div style="flex:1;height:28px;background:var(--panel2);border-radius:5px;overflow:hidden;border:1px solid var(--border)">
+              <div style="height:100%;width:${pct}%;background:${bg};display:flex;align-items:center;padding-left:7px;transition:width .4s">
+                <span style="color:${tx};font-size:.72rem;font-weight:700">${v}</span>
+              </div>
+            </div>
+            <div style="width:28px;font-size:.68rem;color:var(--muted2);text-align:right">${v}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:1.2rem;font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.6rem;letter-spacing:.03em">POR CATEGORÍA</div>
+      <div style="display:flex;gap:.8rem">
+        ${['OBRERO','STAFF'].filter(g=>grupos[g]).map(g=>{
+          const tot=tiposPresentes.reduce((s,t)=>s+(grupoTotales[g][t]||0),0);
+          const pct=Math.round((tot/(totalPersonas||1))*100);
+          return`<div style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.6rem;text-align:center">
+            <div style="font-size:.65rem;color:var(--muted2);margin-bottom:.3rem">${g}</div>
+            <div style="font-size:1.6rem;font-weight:700;color:var(--text)">${tot}</div>
+            <div style="font-size:.65rem;color:var(--muted2)">${pct}% del total</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+}
+function printTareResumen(){
+  const fecha=document.getElementById('tarResFecha')?.value||today();
+  const proy=document.getElementById('tarResProy')?.value||'';
+  const guardia=document.getElementById('tarResGuardia')?.value||'';
+  const tablaEl=document.getElementById('tarResTabla');
+  const tableHTML=tablaEl?tablaEl.innerHTML:'';
+  const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  const kpisEl=document.getElementById('tarResKpis');
+  const kpisHTML=kpisEl?kpisEl.innerHTML:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
+  <style>@page{size:A4 portrait;margin:.8cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  table{width:100%;border-collapse:collapse}th,td{border:1px solid #e2e8f0;padding:4px 6px}
+  .kpis{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .kpi-item{flex:1;min-width:70px;border-radius:6px;padding:4px 8px}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:5px;margin-bottom:8px">
+    <img src="${_logoUrl}" alt="Ecosermo" style="height:40px;object-fit:contain">
+    <div style="text-align:center"><div style="font-size:12px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
+    <div style="font-size:8px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
+    <div style="text-align:right;font-size:7px;color:#64748b">
+      <div>Proyecto: <strong>${proyNombre}</strong></div>
+      <div>Guardia: <strong>${guardia||'Todas'}</strong></div>
+      <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
+    </div>
+  </div>
+  <div class="kpis">${kpisHTML}</div>
+  ${tableHTML}
+  </body></html>`;
+  const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
+  win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),600);
+}
+
