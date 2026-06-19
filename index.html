@@ -942,6 +942,17 @@
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Vehículo Menor')">＋ Reporte Diario</button>
       </div>
     </div>
+    <div style="padding:.4rem 1rem;display:flex;gap:.5rem;align-items:center;border-bottom:1px solid var(--border)">
+      <select id="vmFiltEq" onchange="rLinea('Vehículo Menor')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:180px;flex-shrink:0">
+        <option value="">— Todos los vehículos —</option>
+      </select>
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap">Desde</span>
+      <input type="date" id="vmFiltDesde" onchange="rLinea('Vehículo Menor')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:130px;color-scheme:dark">
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap">Hasta</span>
+      <input type="date" id="vmFiltHasta" onchange="rLinea('Vehículo Menor')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:130px;color-scheme:dark">
+      <button onclick="document.getElementById('vmFiltEq').value='';document.getElementById('vmFiltDesde').value='';document.getElementById('vmFiltHasta').value='';rLinea('Vehículo Menor')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.25rem .6rem;color:var(--muted2);font-size:.75rem;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+    </div>
+    <div id="vmKpis" style="display:flex;gap:.7rem;flex-wrap:wrap;padding:.7rem 1rem .4rem"></div>
     <div class="card-body"><div class="tbl-wrap"><table>
       <thead><tr><th>Fecha</th><th>Vehículo</th><th>Conductor</th><th>Destino</th><th>Km Salida</th><th>Km Llegada</th><th>Km Total</th><th>Comb. gal</th><th></th></tr></thead>
       <tbody id="tbSalidasVM"></tbody>
@@ -960,15 +971,15 @@
         <button class="btn btn-a" style="--ba:var(--ceq)" onclick="openReporte('Equipos Menores')">＋ Reporte Diario</button>
       </div>
     </div>
-    <div style="padding:.5rem 1rem;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid var(--border);overflow-x:auto">
-      <select id="emFiltTipo" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;min-width:160px;flex-shrink:0">
+    <div style="padding:.4rem 1rem;display:flex;gap:.5rem;align-items:center;border-bottom:1px solid var(--border)">
+      <select id="emFiltTipo" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:150px;flex-shrink:0">
         <option value="">— Todos los tipos —</option>
       </select>
-      <span style="font-size:.75rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Desde</span>
-      <input type="date" id="emFiltDesde" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark;flex-shrink:0">
-      <span style="font-size:.75rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Hasta</span>
-      <input type="date" id="emFiltHasta" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark;flex-shrink:0">
-      <button onclick="document.getElementById('emFiltTipo').value='';document.getElementById('emFiltDesde').value='';document.getElementById('emFiltHasta').value='';rLinea('Equipos Menores')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.28rem .7rem;color:var(--muted2);font-size:.78rem;cursor:pointer;white-space:nowrap;flex-shrink:0">✕ Limpiar</button>
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap">Desde</span>
+      <input type="date" id="emFiltDesde" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:130px;color-scheme:dark">
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap">Hasta</span>
+      <input type="date" id="emFiltHasta" onchange="rLinea('Equipos Menores')" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.78rem;width:130px;color-scheme:dark">
+      <button onclick="document.getElementById('emFiltTipo').value='';document.getElementById('emFiltDesde').value='';document.getElementById('emFiltHasta').value='';rLinea('Equipos Menores')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.25rem .6rem;color:var(--muted2);font-size:.75rem;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
     </div>
     <div id="emKpis" style="display:flex;gap:.7rem;flex-wrap:wrap;padding:.7rem 1rem .4rem"></div>
     <div class="card-body"><div class="tbl-wrap"><table>

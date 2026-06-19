@@ -908,11 +908,41 @@ function rLinea(tipo){
     }).join('');
   }else if(tipo==='Vehículo Menor'){
     tb.innerHTML=eqs.map(e=>`<tr><td class="mono" style="color:var(--ceq)">${e.codigo}</td><td><strong>${e.nombre}</strong></td><td class="mono">${e.placa||'—'}</td><td><span class="badge b-cyan">${e.sub||'—'}</span></td><td>${bge(e.est)}</td><td class="mono">${fmtN(e.hr)} km</td><td class="mono">—</td></tr>`).join('');
+    // Filtros VM
+    const _fVMEq=document.getElementById('vmFiltEq');
+    const _fVMDesde=document.getElementById('vmFiltDesde');
+    const _fVMHasta=document.getElementById('vmFiltHasta');
+    if(_fVMEq){
+      const curE=_fVMEq.value;
+      _fVMEq.innerHTML='<option value="">— Todos los vehículos —</option>'+eqs.map(e=>`<option value="${e.id}"${e.id==curE?' selected':''}>${e.placa?e.placa+' – ':''}${e.codigo} ${(e.nombre||'').split(' ').slice(0,3).join(' ')}</option>`).join('');
+    }
+    const fVMEq=_fVMEq?+_fVMEq.value||0:0;
+    const fVMDesde=_fVMDesde?_fVMDesde.value:'';
+    const fVMHasta=_fVMHasta?_fVMHasta.value:'';
+    let partesVM=[...partes];
+    if(fVMEq)partesVM=partesVM.filter(p=>p.eqId===fVMEq);
+    if(fVMDesde)partesVM=partesVM.filter(p=>p.fecha>=fVMDesde);
+    if(fVMHasta)partesVM=partesVM.filter(p=>p.fecha<=fVMHasta);
+    partesVM=[...partesVM].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    // KPIs VM
+    const _totKmVM=partesVM.reduce((s,p)=>{const ki=+p.kmIni||0,kf=+p.kmFin||0;return s+(kf>ki?kf-ki:0);},0);
+    const _totCombVM=partesVM.reduce((s,p)=>s+(+p.comb||0),0);
+    const _byVeh={};
+    partesVM.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?(eq.placa||eq.codigo):'Otros';const ki=+p.kmIni||0,kf=+p.kmFin||0;if(!_byVeh[k])_byVeh[k]=0;_byVeh[k]+=(kf>ki?kf-ki:0);});
+    const kpiVM=document.getElementById('vmKpis');
+    if(kpiVM)kpiVM.innerHTML=[
+      {l:'Total Registros',v:partesVM.length,c:'var(--ceq)',ic:'📋'},
+      {l:'Km Recorridos',v:parseFloat(_totKmVM.toFixed(1))+' km',c:'#10b981',ic:'🛣️'},
+      {l:'Combustible',v:parseFloat(_totCombVM.toFixed(1))+' gal',c:'#f59e0b',ic:'⛽'},
+      ...Object.entries(_byVeh).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>({l:k,v:parseFloat(v.toFixed(1))+' km',c:'#8b5cf6',ic:'🚐'}))
+    ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.55rem .9rem;min-width:130px;flex:1">
+      <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.25rem">${k.ic} ${k.l}</div>
+      <div style="font-size:1.35rem;font-weight:800;color:${k.c};line-height:1">${k.v}</div>
+    </div>`).join('');
     const tbS=document.getElementById('tbSalidasVM');
     if(tbS){
-      const partesVM=[...partes].sort((a,b)=>b.fecha.localeCompare(a.fecha));
       if(!partesVM.length){
-        tbS.innerHTML='<tr><td colspan="8" class="text-muted" style="text-align:center;padding:1rem">Sin registros. Use ＋ Reporte Diario para agregar.</td></tr>';
+        tbS.innerHTML='<tr><td colspan="9" class="text-muted" style="text-align:center;padding:1rem">Sin registros. Use ＋ Reporte Diario para agregar.</td></tr>';
       }else{
         const _can48=p=>p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
         tbS.innerHTML=partesVM.map(p=>{
