@@ -662,7 +662,6 @@
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
-        <button class="btn btn-out btn-sm" onclick="openTareResumen()" style="color:#f59e0b;border-color:#f59e0b60;font-size:.78rem">📊 Resumen Diario</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
         <button class="btn btn-out btn-sm" onclick="exportTareaje()" style="color:#10b981;border-color:#10b98160;font-size:.78rem">📥 Excel</button>
       </div>
@@ -692,31 +691,6 @@
     <button onclick="clearTareSel()" style="background:#374151;color:#9ca3af;border:1px solid #6b7280;border-radius:5px;padding:3px 8px;font-size:.65rem;font-weight:700;cursor:pointer;margin-left:.3rem">✕ Cancelar</button>
   </div>
 </div>
-<!-- Modal: Resumen Diario de Tareaje -->
-<div class="modal" id="mTareResumen">
-  <div class="mc" style="max-width:960px;width:96vw">
-    <div class="mh"><span class="mttl">📊 Resumen Diario de Tareaje</span><button class="mx" onclick="closeM('mTareResumen')">✕</button></div>
-    <div class="mb" style="padding:1rem 1.2rem">
-      <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
-        <div><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Fecha</label>
-          <input type="date" id="tarResFecha" oninput="rTareResumen()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;color-scheme:dark"></div>
-        <div><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Proyecto</label>
-          <select id="tarResProy" onchange="rTareResumen()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;max-width:200px"><option value="">— Todos —</option></select></div>
-        <div><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Guardia</label>
-          <select id="tarResGuardia" onchange="rTareResumen()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem">
-            <option value="">— Todas —</option><option>A</option><option>B</option><option>C</option>
-          </select></div>
-        <button onclick="printTareResumen()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.35rem .9rem;font-size:.8rem;font-weight:700;cursor:pointer;margin-left:auto">🖨️ Exportar PDF</button>
-      </div>
-      <div id="tarResKpis" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
-      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem;align-items:start">
-        <div id="tarResTabla" style="overflow-x:auto"></div>
-        <div id="tarResChart"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- RESUMEN DIARIO TAREAJE – página completa -->
 <div class="page" id="page-resumenTareaje">
   <div class="ph"><div class="ph-title" style="color:var(--adm)">📊 Resumen Diario de Tareaje</div><div class="ph-sub">Vista consolidada del control de asistencia por fecha, categoría y tipo de jornada</div></div>

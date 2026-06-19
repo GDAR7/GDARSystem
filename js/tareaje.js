@@ -520,17 +520,6 @@ function _printTareResumen(ids){
   const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
   win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),600);
 }
-// Modal
-function openTareResumen(){
-  const fEl=document.getElementById('tarResFecha');
-  if(fEl&&!fEl.value)fEl.value=today();
-  const ps=document.getElementById('tarResProy');
-  if(ps){const cur=ps.value;ps.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)ps.value=cur;}
-  openM('mTareResumen');
-  rTareResumen();
-}
-function rTareResumen(){_buildTareResumen({fecha:'tarResFecha',proy:'tarResProy',guardia:'tarResGuardia',kpis:'tarResKpis',tabla:'tarResTabla',chart:'tarResChart'});}
-function printTareResumen(){_printTareResumen({fecha:'tarResFecha',proy:'tarResProy',guardia:'tarResGuardia',kpis:'tarResKpis',tabla:'tarResTabla',chart:'tarResChart'});}
 // Página completa
 function rTareResumenPg(){
   const fEl=document.getElementById('tarPgFecha');
