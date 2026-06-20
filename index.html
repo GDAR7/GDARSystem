@@ -1061,9 +1061,19 @@
     </div>
     <div style="padding:.5rem 1rem 1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end">
       <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Equipo</label>
-        <select id="reqFiltEq" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:220px" onchange="rReporteEquipos()">
-          <option value="">— Todos los equipos —</option>
+        <label style="font-size:.65rem;color:#f59e0b;text-transform:uppercase;letter-spacing:.06em">Tipo de Equipo</label>
+        <select id="reqFiltTipo" style="background:var(--panel2);border:1px solid #f59e0b55;border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:170px" onchange="_reqOnTipoChange()">
+          <option value="">— Todos los tipos —</option>
+          <option>Línea Amarilla</option>
+          <option>Línea Blanca</option>
+          <option>Vehículo Menor</option>
+          <option>Equipos Menores</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:#06b6d4;text-transform:uppercase;letter-spacing:.06em">Código de Equipo</label>
+        <select id="reqFiltCod" style="background:var(--panel2);border:1px solid #06b6d455;border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:160px" onchange="rReporteEquipos()">
+          <option value="">— Todos —</option>
         </select>
       </div>
       <div style="display:flex;flex-direction:column;gap:.2rem">
@@ -1082,7 +1092,7 @@
         <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Hmin Mes</label>
         <input type="number" id="reqHminMes" value="180" min="0" step="1" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:100px" onchange="rReporteEquipos()">
       </div>
-      <button class="btn btn-out" onclick="document.getElementById('reqFiltEq').value='';document.getElementById('reqFiltDesde').value='';document.getElementById('reqFiltHasta').value='';document.getElementById('reqHmin').value=10;document.getElementById('reqHminMes').value=180;rReporteEquipos()" style="font-size:.78rem;align-self:flex-end">✕ Limpiar</button>
+      <button class="btn btn-out" onclick="['reqFiltTipo','reqFiltCod','reqFiltDesde','reqFiltHasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('reqHmin').value=10;document.getElementById('reqHminMes').value=180;_reqOnTipoChange()" style="font-size:.78rem;align-self:flex-end">✕ Limpiar</button>
     </div>
   </div>
   <div class="kpi-row" id="reqKpis" style="margin-top:.8rem"></div>

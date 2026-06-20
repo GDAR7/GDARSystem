@@ -1290,14 +1290,25 @@ function openDrillDown(eqId, codigo, color, periodo){
 
 // ══ REPORTE DE EQUIPOS ══
 let _reqCache=[];
-function rReporteEquipos(){
-  const eqs=DB.equipos.filter(e=>e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca'||e.tipo==='Vehículo Menor'||e.tipo==='Equipos Menores');
-  const _fEq=document.getElementById('reqFiltEq');
-  if(_fEq){
-    const curE=_fEq.value;
-    _fEq.innerHTML='<option value="">— Todos los equipos —</option>'+eqs.map(e=>`<option value="${e.id}"${e.id==curE?' selected':''}>${e.codigo} – ${(e.nombre||'').split(' ').slice(0,4).join(' ')}${e.placa?' ['+e.placa+']':''}</option>`).join('');
+
+function _reqOnTipoChange(){
+  const tipo=(document.getElementById('reqFiltTipo')||{}).value||'';
+  const codSel=document.getElementById('reqFiltCod');
+  if(codSel){
+    const eqsFilt=(DB.equipos||[]).filter(e=>!tipo||e.tipo===tipo);
+    codSel.innerHTML='<option value="">— Todos —</option>'+
+      eqsFilt.sort((a,b)=>a.codigo.localeCompare(b.codigo))
+        .map(e=>`<option value="${e.id}">${e.codigo}${e.placa?' ['+e.placa+']':''}</option>`).join('');
   }
-  const fEq=_fEq?+_fEq.value||0:0;
+  rReporteEquipos();
+}
+
+function rReporteEquipos(){
+  const TIPOS_EQ=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+  const fTipo=(document.getElementById('reqFiltTipo')||{}).value||'';
+  const fCodId=(document.getElementById('reqFiltCod')||{}).value||'';
+  const eqs=(DB.equipos||[]).filter(e=>TIPOS_EQ.includes(e.tipo)&&(!fTipo||e.tipo===fTipo));
+  const fEq=fCodId?+fCodId||0:0;
   const fDesde=(document.getElementById('reqFiltDesde')||{}).value||'';
   const fHasta=(document.getElementById('reqFiltHasta')||{}).value||'';
   const hMinDia=+(document.getElementById('reqHmin')||{}).value||0;
