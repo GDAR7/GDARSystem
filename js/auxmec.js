@@ -1420,8 +1420,8 @@ function rDailyReport(){
     </div>`;
   };
   const _el=n=>document.getElementById(n);
-  if(_el('drTableMOI'))_el('drTableMOI').innerHTML=_persTable('Personal M.O. Indirecta',groups.MOI,'#3b82f6');
-  if(_el('drTableMOD'))_el('drTableMOD').innerHTML=_persTable('Personal M.O. Directa',groups.MOD,'#f59e0b');
+  if(_el('drTableMOI'))_el('drTableMOI').innerHTML=_persTable('Personal M.O. Indirecta',groups.MOI,'#2902f0');
+  if(_el('drTableMOD'))_el('drTableMOD').innerHTML=_persTable('Personal M.O. Directa',groups.MOD,'#961008');
   if(_el('drTableOpLA'))_el('drTableOpLA').innerHTML=_persTable('Operadores L. Amarilla y Volquetes',groups.opLA,'#f59e0b');
   if(_el('drTableCondEM'))_el('drTableCondEM').innerHTML=_persTable('Conductores Equip. Menores',groups.condEM,'#06b6d4');
 
