@@ -1442,9 +1442,8 @@ function rDailyReport(){
   </div>`;
 
   // Equipos del día (Línea Amarilla + Línea Blanca)
-  const eqsLA=(DB.equipos||[]).filter(e=>e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca');
+  const eqsLA=(DB.equipos||[]).filter(e=>(e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca')&&(!proy||!e.proyecto||e.proyecto===proy));
   let partesLA=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsLA.some(e=>e.id===p.eqId));
-  if(proy)partesLA=partesLA.filter(p=>!p.frenteT||(p.frenteT+'').includes(proy)||(p.areaT+'').includes(proy));
 
   if(_el('tbDREquipos')){
     _el('tbDREquipos').innerHTML=!partesLA.length
@@ -1515,6 +1514,7 @@ function rDailyReport(){
   const partesAcum=(DB.partes||[]).filter(p=>{
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
     if(!eq||eq.tipo!=='Línea Amarilla'&&eq.tipo!=='Línea Blanca')return false;
+    if(proy&&eq.proyecto&&eq.proyecto!==proy)return false;
     if(inicio&&p.fecha<inicio)return false;
     return p.fecha<=(corte||fecha);
   });
