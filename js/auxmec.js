@@ -1370,6 +1370,7 @@ function rDailyReport(){
   tarDia.forEach(r=>{
     const pers=(DB.personal||[]).find(p=>p.id===r.personalId);if(!pers)return;
     const cat=_cat(pers.cargo);
+    if(cat==='MOI'&&pers.tipo!=='Staff')return;
     if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={};
     const t=r.tipo;if(t){groups[cat][pers.cargo][t]=(groups[cat][pers.cargo][t]||0)+1;}
   });
