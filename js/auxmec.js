@@ -1548,6 +1548,79 @@ function rDailyReport(){
       ?obsItems.map(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);return`<div style="display:flex;gap:.6rem;padding:.28rem 0;border-bottom:1px solid var(--border)20;font-size:.71rem"><span class="mono" style="color:var(--ceq);font-weight:700;min-width:65px;flex-shrink:0">${eq?eq.codigo:''}</span><span>${p.observaciones}</span></div>`;}).join('')
       :'<div style="color:var(--muted2);font-size:.72rem">Sin observaciones registradas para esta fecha.</div>';
   }
+
+  // ── MATCH EQUIPOS / OPERADORES EN OBRA ──
+  const matchEl=_el('drMatchBody');
+  if(matchEl){
+    const eqsActivos=(DB.equipos||[]).filter(e=>e.est==='Activo');
+    const opsHoyIds=new Set(tarDia.filter(r=>['TD','TN','A5','DLT'].includes(r.tipo)).map(r=>r.personalId));
+    const opsHoy=(DB.personal||[]).filter(p=>opsHoyIds.has(p.id));
+    // Agrupar equipos por sub-tipo
+    const eqBySub={};
+    eqsActivos.forEach(e=>{
+      const k=(e.sub||'').trim()||(e.nombre||'').split(' ').slice(0,2).join(' ')||'—';
+      eqBySub[k]=(eqBySub[k]||0)+1;
+    });
+    // Icono y color por sub-tipo
+    const _eqIco=sub=>{
+      const s=(sub||'').toLowerCase();
+      if(s.includes('volquete'))return{i:'🚛',c:'#f59e0b'};
+      if(s.includes('retroex'))return{i:'⛏️',c:'#8b5cf6'};
+      if(s.includes('excavad'))return{i:'🏗️',c:'#ef4444'};
+      if(s.includes('motonil'))return{i:'🚧',c:'#06b6d4'};
+      if(s.includes('rodillo'))return{i:'🛞',c:'#84cc16'};
+      if(s.includes('cargad'))return{i:'🚜',c:'#10b981'};
+      if(s.includes('bulldoz')||s.includes('tractor'))return{i:'🚜',c:'#f97316'};
+      if(s.includes('combustib'))return{i:'⛽',c:'#dc2626'};
+      if(s.includes('cistern')||s.includes('agua'))return{i:'🚰',c:'#3b82f6'};
+      if(s.includes('compact'))return{i:'🛞',c:'#6b7280'};
+      if(s.includes('coaster'))return{i:'🚌',c:'#a78bfa'};
+      if(s.includes('camionet'))return{i:'🚙',c:'#fb923c'};
+      if(s.includes('camion'))return{i:'🚚',c:'#64748b'};
+      return{i:'🔧',c:'#94a3b8'};
+    };
+    // Filas de match: equipo vs operador
+    const matchRows=Object.entries(eqBySub).map(([sub,eqCnt])=>{
+      const opCnt=opsHoy.filter(p=>(p.cargo||'').toLowerCase().includes(sub.toLowerCase())).length;
+      return{sub,eqCnt,opCnt,diff:opCnt-eqCnt};
+    }).sort((a,b)=>a.sub.localeCompare(b.sub));
+    // Helper: fila de iconos
+    const _icoRow=(ico,n,col)=>{
+      const s=Math.min(n,7);
+      const extra=n>7?`<span style="font-size:.58rem;color:${col};font-weight:700">+${n-7}</span>`:'';
+      return Array(s).fill(`<span style="font-size:1rem">${ico}</span>`).join('')+extra+
+        `<span style="font-size:.95rem;font-weight:800;color:${col};margin-left:4px">${n}</span>`;
+    };
+    matchEl.innerHTML=!matchRows.length
+      ?'<div style="color:var(--muted2);font-size:.75rem">Sin equipos activos en el maestro.</div>'
+      :`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.5rem">
+        ${matchRows.map(({sub,eqCnt,opCnt,diff})=>{
+          const{i,c}=_eqIco(sub);
+          const st=diff===0
+            ?{lbl:'✅ Completo',bd:'#10b981',bg:'rgba(16,185,129,.07)'}
+            :diff<0
+            ?{lbl:`🔴 Falta ${Math.abs(diff)} op.`,bd:'#ef4444',bg:'rgba(239,68,68,.07)'}
+            :{lbl:`🟡 Sobran ${diff} op.`,bd:'#f59e0b',bg:'rgba(245,158,11,.07)'};
+          return`<div style="border:2px solid ${st.bd};border-radius:10px;padding:.6rem .75rem;background:${st.bg}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem">
+              <span style="font-size:.7rem;font-weight:700;color:var(--text)">${i} ${sub.toUpperCase()}</span>
+              <span style="font-size:.55rem;font-weight:700;color:${st.bd};white-space:nowrap">${st.lbl}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.3rem;align-items:center">
+              <div style="text-align:center;padding:.3rem .4rem;background:${c}18;border-radius:6px">
+                <div style="font-size:.5rem;color:${c};font-weight:600;text-transform:uppercase;margin-bottom:2px">Equipos</div>
+                <div>${_icoRow(i,eqCnt,c)}</div>
+              </div>
+              <div style="font-size:.65rem;color:var(--muted2);text-align:center;font-weight:600">vs</div>
+              <div style="text-align:center;padding:.3rem .4rem;background:#f59e0b18;border-radius:6px">
+                <div style="font-size:.5rem;color:#d97706;font-weight:600;text-transform:uppercase;margin-bottom:2px">Operadores</div>
+                <div>${opCnt?_icoRow('👷',opCnt,'#f59e0b'):'<span style="font-size:.6rem;color:#ef4444">Sin op.</span>'}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
 }
 
 function printDailyReport(){
@@ -1602,6 +1675,10 @@ function printDailyReport(){
     <div style="border:1px solid #94a3b8;border-radius:7px;padding:.65rem;margin:.6rem 0">
       <div style="font-size:.63rem;font-weight:700;margin-bottom:.35rem">Comentarios / Observaciones</div>
       ${g('drObsBody')}
+    </div>
+    <div style="border:1px solid #94a3b8;border-radius:7px;padding:.65rem;margin:.6rem 0">
+      <div style="font-size:.63rem;font-weight:700;margin-bottom:.45rem">⚖️ Match Equipos / Operadores en Obra</div>
+      <div style="font-size:.6rem;color:#475569">${g('drMatchBody')}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin-top:.9rem">
       ${['C. de Proyectos – ECOSERMO','Residente o Super. – ECOSERMO','Representante Sponsor – BUENAVENTURA']
