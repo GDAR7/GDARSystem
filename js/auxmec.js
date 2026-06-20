@@ -1425,13 +1425,12 @@ function rDailyReport(){
   if(_el('drTableOpLA'))_el('drTableOpLA').innerHTML=_persTable('Operadores L. Amarilla y Volquetes',groups.opLA,'#f59e0b');
   if(_el('drTableCondEM'))_el('drTableCondEM').innerHTML=_persTable('Conductores Equip. Menores',groups.condEM,'#06b6d4');
 
-  // PT Summary
-  // PT Summary — dinámico: solo tipos que ocurrieron + Total + P.T. libre (DL)
+  // PT Summary — calculado desde groups para coincidir exactamente con las tablas
   const ptCount={};
-  tarDia.forEach(r=>{if(r.tipo)ptCount[r.tipo]=(ptCount[r.tipo]||0)+1;});
+  Object.values(groups).forEach(grp=>Object.values(grp).forEach(tipos=>Object.entries(tipos).forEach(([t,n])=>{ptCount[t]=(ptCount[t]||0)+n;})));
   const ptTotal=Object.values(ptCount).reduce((s,v)=>s+v,0);
   // Etiquetas amigables para los tipos
-  const _TIPO_LBL={DL:'P.T. Libre',TD:'P.T. Día',TN:'P.T. Noche',A5:'Artículo 5',P:'Permiso',F:'Falta',DM:'Descanso M.',DLT:'DL c/Trabajo',LP:'Lic. Paternidad',LM:'Lic. Maternidad',LF:'Lic. Fallecim.',V:'Vacaciones',R:'Retiro'};
+  const _TIPO_LBL={DL:'P.T. Libre',TD:'P.T. Día',TN:'P.T. Noche',A5:'Anexo 5',P:'Permiso',F:'Falta',DM:'Descanso M.',DLT:'DL c/Trabajo',LP:'Lic. Paternidad',LM:'Lic. Maternidad',LF:'Lic. Fallecim.',V:'Vacaciones',R:'Retiro'};
   const _TIPO_COL={DL:'#ef4444',TD:'#f59e0b',TN:'#8b5cf6',A5:'#06b6d4',P:'#10b981',F:'#dc2626',DM:'#64748b',DLT:'#0ea5e9',LP:'#ec4899',LM:'#ec4899',LF:'#475569',V:'#14b8a6',R:'#f97316'};
   const ptItems=_TIPO_ORDER.filter(t=>ptCount[t]>0).map(t=>({l:_TIPO_LBL[t]||t,v:ptCount[t],c:_TIPO_COL[t]||'#94a3b8'}));
   if(_el('drSummary'))_el('drSummary').innerHTML=`<div style="display:flex;gap:.5rem;flex-wrap:wrap">
