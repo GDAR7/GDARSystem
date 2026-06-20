@@ -525,18 +525,7 @@ function _printTareResumen(ids){
     .replace(/var\(--mec\)/g,'#be185d')
     .replace(/rgba\(30,58,95,\.18\)/g,'#dce7f3')
     .replace(/rgba\(220,38,38,\.12\)/g,'#fee2e2')
-    .replace(/ondblclick="[^"]*"/g,'')
-    .replace(/padding:\.5rem \.9rem/g,'padding:2px 5px')
-    .replace(/font-size:1\.5rem/g,'font-size:10px')
-    .replace(/font-size:\.58rem/g,'font-size:5px')
-    .replace(/min-width:90px/g,'min-width:40px')
-    .replace(/margin-bottom:\.2rem/g,'margin-bottom:0')
-    .replace(/padding:5px 10px/g,'padding:1.5px 4px')
-    .replace(/padding:6px 10px/g,'padding:2px 4px')
-    .replace(/padding-left:1\.6rem/g,'padding-left:.8rem')
-    .replace(/font-size:\.73rem/g,'font-size:6px')
-    .replace(/font-size:\.72rem/g,'font-size:6px')
-    .replace(/font-size:\.78rem/g,'font-size:6.5px');
+    .replace(/ondblclick="[^"]*"/g,'');
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
@@ -544,11 +533,15 @@ function _printTareResumen(ids){
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
   <style>@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}
-  table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #94a3b8!important;padding:1.5px 4px!important}
+  table{width:100%;border-collapse:collapse;table-layout:auto}
+  table *{font-size:6.5px!important}
+  th,td{border:1px solid #94a3b8!important;padding:1.5px 3px!important;white-space:normal!important;word-break:break-word;vertical-align:middle}
   tr{border-bottom:1px solid #94a3b8!important}
-  .kpis{display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap}
-  .kpis>div{border-radius:4px!important;border:1px solid #cbd5e1!important;padding:2px 5px!important;min-width:unset!important;flex:1}
+  tr:nth-child(even) td{background:#f8fafc}
+  .kpis{display:flex;gap:3px;margin-bottom:4px;flex-wrap:nowrap}
+  .kpis>div{padding:2px 4px!important;min-width:unset!important;flex:1!important;border-radius:4px!important}
+  .kpis>div>div:first-child{font-size:5px!important;margin-bottom:0!important;white-space:nowrap!important}
+  .kpis>div>div:last-child{font-size:9px!important;line-height:1.1!important}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:5px">
     <img src="${_logoUrl}" alt="Ecosermo" style="height:26px;object-fit:contain">
