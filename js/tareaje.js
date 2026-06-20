@@ -456,7 +456,7 @@ function _buildTareResumen(ids){
         html+=`<tr><td style="${tdS};padding-left:1.6rem;color:var(--muted2);font-size:.73rem">${cargo}</td>
           ${tiposPresentes.map(t=>{const v=cc[t]||0;return`<td style="${tdS};text-align:center${v?';cursor:pointer':''}" ${v?`ondblclick="_tarResDetail(event,'${g}','${cpe}','${t}')"`:''}>${v||''}</td>`;}).join('')}
           <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totCObra||''}</td>
-          <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totC}</td></tr>`;
+          <td style="${tdS};text-align:center;color:#dc2626;font-weight:600">${totC}</td></tr>`;
       });
     });
     const grandTotal=tiposPresentes.reduce((s,t)=>s+(totalGral[t]||0),0);
@@ -523,18 +523,20 @@ function _printTareResumen(ids){
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
-  <style>@page{size:A4 portrait;margin:.8cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  <style>@page{size:A4 portrait;margin:.45cm .6cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:7.5px;color:#111;margin:0}
   table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #94a3b8!important;padding:5px 8px}
+  th,td{border:1px solid #94a3b8!important;padding:2.5px 5px}
   tr{border-bottom:1px solid #94a3b8!important}
-  .kpis{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-  .kpis>div{border-radius:6px!important;border:1px solid #cbd5e1!important}
+  .kpis{display:flex;gap:4px;margin-bottom:7px;flex-wrap:wrap}
+  .kpis>div{border-radius:5px!important;border:1px solid #cbd5e1!important;padding:4px 8px!important;min-width:unset!important;flex:1}
+  .kpis .kpi-lbl{font-size:6px!important;margin-bottom:1px!important}
+  .kpis .kpi-val{font-size:13px!important}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
-  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:6px;margin-bottom:10px">
-    <img src="${_logoUrl}" alt="Ecosermo" style="height:42px;object-fit:contain">
-    <div style="text-align:center"><div style="font-size:13px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
-    <div style="font-size:8.5px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
-    <div style="text-align:right;font-size:7.5px;color:#64748b">
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:4px;margin-bottom:7px">
+    <img src="${_logoUrl}" alt="Ecosermo" style="height:32px;object-fit:contain">
+    <div style="text-align:center"><div style="font-size:11px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
+    <div style="font-size:7.5px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
+    <div style="text-align:right;font-size:7px;color:#64748b">
       <div>Proyecto: <strong>${proyNombre}</strong></div>
       <div>Guardia: <strong>${guardia||'Todas'}</strong></div>
       <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
