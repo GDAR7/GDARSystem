@@ -664,4 +664,109 @@ function rTareResumenPg(){
   _buildTarColMenu(_st.tiposAll||[]);
 }
 function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
+function exportTareResumenXLSX(){
+  // Asegurar datos frescos
+  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+  if(!_tarResCache){toast('Sin datos para exportar',true);return;}
+  const {fecha,proy,guardia,tarMap,persF}=_tarResCache;
+  const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'Todos los proyectos';
+  // Recomputar grupos
+  const _CO=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+  const _ts=new Set(Object.values(tarMap));
+  const tiposAll=_CO.filter(t=>_ts.has(t));
+  const tiposP=_tarPgColVis?tiposAll.filter(t=>_tarPgColVis.has(t)):tiposAll;
+  const showEO=!_tarPgColVis||_tarPgColVis.has('EO');
+  const showTG=!_tarPgColVis||_tarPgColVis.has('TG');
+  const grupos={},grupoTot={},totalGral={};
+  persF.forEach(p=>{
+    const tp=tarMap[p.id];if(!tp)return;
+    const g=p.tipo==='Staff'?'STAFF':'OBRERO';
+    const c=(p.cargo||'SIN CARGO').toUpperCase();
+    if(!grupos[g]){grupos[g]={};grupoTot[g]={};}
+    if(!grupos[g][c])grupos[g][c]={};
+    grupos[g][c][tp]=(grupos[g][c][tp]||0)+1;
+    grupoTot[g][tp]=(grupoTot[g][tp]||0)+1;
+    totalGral[tp]=(totalGral[tp]||0)+1;
+  });
+  const nC=1+tiposP.length+(showEO?1:0)+(showTG?1:0);
+  const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  // Colores tipo
+  const _TBG={DL:'6B7280',TD:'10B981',TN:'1E3A8A',DLT:'84CC16',A5:'F97316',P:'F59E0B',F:'EF4444',DM:'8B5CF6',LP:'3B82F6',LM:'EC4899',LF:'374151',V:'0EA5E9',R:'7F1D1D'};
+  const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
+  const _s=(bg,fg,bold,sz,hAlign)=>({fill:{patternType:'solid',fgColor:{rgb:bg}},font:{bold:!!bold,color:{rgb:fg||'111111'},sz:sz||8},alignment:{horizontal:hAlign||'center',vertical:'center',wrapText:true}});
+  // Construir AOA
+  const wsData=[];
+  wsData.push([`RESUMEN DIARIO DE TAREAJE – ${fechaFmt.toUpperCase()}`,...Array(nC-1).fill('')]);
+  wsData.push([`Proyecto: ${proyNombre}   |   Guardia: ${guardia||'Todas'}   |   Generado: ${new Date().toLocaleString('es-PE')}`,...Array(nC-1).fill('')]);
+  wsData.push(Array(nC).fill(''));
+  wsData.push(['DESCRIPCIÓN',...tiposP,...(showEO?['EN OBRA']:[]),...(showTG?['TOTAL GENERAL']:[])]);
+  const rowTypes=['title','info','empty','header'];
+  ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
+    const tot=grupoTot[g];
+    const tG=tiposP.reduce((s,t)=>s+(tot[t]||0),0);
+    const tGO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
+    wsData.push([g,...tiposP.map(t=>tot[t]||''),...(showEO?[tGO||'']:[]),...(showTG?[tG]:[])]);
+    rowTypes.push('group');
+    Object.keys(grupos[g]).sort().forEach(cargo=>{
+      const cc=grupos[g][cargo];
+      const tC=tiposP.reduce((s,t)=>s+(cc[t]||0),0);
+      const tCO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(cc[t]||0),0);
+      wsData.push(['  '+cargo,...tiposP.map(t=>cc[t]||''),...(showEO?[tCO||'']:[]),...(showTG?[tC]:[])]);
+      rowTypes.push('cargo');
+    });
+  });
+  const gT=tiposP.reduce((s,t)=>s+(totalGral[t]||0),0);
+  const gTO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(totalGral[t]||0),0);
+  wsData.push(['TOTAL GENERAL',...tiposP.map(t=>totalGral[t]||''),...(showEO?[gTO]:[]),...(showTG?[gT]:[])]);
+  rowTypes.push('grand');
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:nC-1}},{s:{r:1,c:0},e:{r:1,c:nC-1}},{s:{r:2,c:0},e:{r:2,c:nC-1}}];
+  // Estilos fila por fila
+  rowTypes.forEach((type,ri)=>{
+    if(type==='title'){const c=ws[addr(ri,0)];if(c)c.s=_s('1E3A5F','FFFFFF',true,11,'center');}
+    else if(type==='info'){const c=ws[addr(ri,0)];if(c)c.s=_s('EFF6FF','475569',false,7.5,'left');}
+    else if(type==='header'){
+      for(let ci=0;ci<nC;ci++){
+        let cell=ws[addr(ri,ci)];if(!cell){ws[addr(ri,ci)]=cell={t:'s',v:''};}
+        if(ci===0){cell.s=_s('1E3A5F','FFFFFF',true,8,'left');}
+        else{
+          const eoIdx=1+tiposP.length;const tgIdx=eoIdx+(showEO?1:0);
+          if(ci<eoIdx){const t=tiposP[ci-1];cell.s=_s(_TBG[t]||'1E3A5F','FFFFFF',true,8);}
+          else if(showEO&&ci===eoIdx){cell.s=_s('059669','FFFFFF',true,8);}
+          else{cell.s=_s('DC2626','FFFFFF',true,8);}
+        }
+      }
+    }
+    else if(type==='group'){
+      for(let ci=0;ci<nC;ci++){
+        let cell=ws[addr(ri,ci)];if(!cell){ws[addr(ri,ci)]=cell={t:'s',v:''};}
+        cell.s=ci===0?_s('DCE7F3','1E3A5F',true,8,'left'):_s('DCE7F3','1E3A5F',true,8);
+      }
+    }
+    else if(type==='cargo'){
+      for(let ci=0;ci<nC;ci++){
+        let cell=ws[addr(ri,ci)];if(!cell){ws[addr(ri,ci)]=cell={t:'s',v:''};}
+        const eoIdx=1+tiposP.length;const tgIdx=eoIdx+(showEO?1:0);
+        if(ci===0){cell.s=_s('FFFFFF','111111',false,7.5,'left');}
+        else if(showEO&&ci===eoIdx){cell.s=_s('FFFFFF','059669',true,7.5);}
+        else if(showTG&&ci===tgIdx){cell.s=_s('FFFFFF','DC2626',true,7.5);}
+        else{cell.s=_s('FFFFFF','111111',false,7.5);}
+      }
+    }
+    else if(type==='grand'){
+      for(let ci=0;ci<nC;ci++){
+        let cell=ws[addr(ri,ci)];if(!cell){ws[addr(ri,ci)]=cell={t:'s',v:''};}
+        const eoIdx=1+tiposP.length;
+        if(showEO&&ci===eoIdx){cell.s=_s('D1FAE5','059669',true,8);}
+        else{cell.s=_s('FEE2E2','DC2626',true,8,ci===0?'left':'center');}
+      }
+    }
+  });
+  ws['!cols']=[{wch:36},...tiposP.map(()=>({wch:9})),...(showEO?[{wch:11}]:[]),...(showTG?[{wch:14}]:[])];
+  ws['!rows']=[{hpt:20},{hpt:12},{hpt:4},{hpt:15},...rowTypes.slice(4).map(t=>t==='cargo'?{hpt:12}:{hpt:14})];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,`Resumen ${fecha||''}`.substring(0,31));
+  XLSX.writeFile(wb,`Resumen_Tareaje_${fecha||'sin-fecha'}.xlsx`);
+  toast('✓ Excel exportado correctamente');
+}
 
