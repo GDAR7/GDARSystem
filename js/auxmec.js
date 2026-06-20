@@ -1362,13 +1362,21 @@ function rDailyReport(){
     'Personal Piso':'MOD',
     'SSOMA':'MOI','PCO':'MOI','Administrativo':'MOI','Operaciones':'MOI'
   };
+  // Fallback por cargo cuando p.cat no coincide con ningún valor conocido
+  const _catFallback=cargo=>{
+    const c=(cargo||'').toUpperCase();
+    if(/\bOP\.?\s*(VOLQUETE|RODILLO|RETROEX|MOTONIL|EXCAVAD|CARGAD|TRACTOR|BULLDOZER|COMPACTAD)/i.test(c))return'opLA';
+    if(/(CISTERNA|COASTER|CAMIONETA|CONDUCTOR|COND\.)/i.test(c))return'condEM';
+    if(/(^OPERARIO|PEÓN|^PEON|OFICIAL\s+DE\s+MOV|SUP\.?\s*TEC)/i.test(c))return'MOD';
+    return null;
+  };
   // Orden canónico de tipos (igual que Resumen de Tareaje)
   const _TIPO_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
 
   const groups={MOI:{},MOD:{},opLA:{},condEM:{}};
   tarDia.forEach(r=>{
     const pers=(DB.personal||[]).find(p=>p.id===r.personalId);if(!pers)return;
-    const cat=_catMap[pers.cat];
+    const cat=_catMap[pers.cat]||_catFallback(pers.cargo);
     if(!cat)return;
     if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={};
     const t=r.tipo;if(t){groups[cat][pers.cargo][t]=(groups[cat][pers.cargo][t]||0)+1;}
