@@ -1355,13 +1355,12 @@ function rDailyReport(){
   let tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha);
   if(proy)tarDia=tarDia.filter(r=>!r.proy||r.proy===proy);
 
-  // Categorizar por cargo
-  const _cat=cargo=>{
-    const c=(cargo||'').toUpperCase();
-    if(/\bOP\.?\s*(VOLQUETE|RODILLO|RETROEX|MOTONIL|EXCAVAD|CARGAD|TRACTOR|BULLDOZER|COMPACTAD)/i.test(c))return'opLA';
-    if(/(CISTERNA|COASTER|CAMIONETA|CONDUCTOR|COND\.)/i.test(c))return'condEM';
-    if(/(^OPERARIO|PEÓN|^PEON|SUP\.?\s*TEC)/i.test(c))return'MOD';
-    return'MOI';
+  // Mapa directo: p.cat → grupo de tabla
+  const _catMap={
+    'Operador LA':'opLA','Operador LB':'opLA',
+    'Conductor VM':'condEM',
+    'Personal Piso':'MOD',
+    'SSOMA':'MOI','PCO':'MOI','Administrativo':'MOI','Operaciones':'MOI'
   };
   // Orden canónico de tipos (igual que Resumen de Tareaje)
   const _TIPO_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
@@ -1369,8 +1368,8 @@ function rDailyReport(){
   const groups={MOI:{},MOD:{},opLA:{},condEM:{}};
   tarDia.forEach(r=>{
     const pers=(DB.personal||[]).find(p=>p.id===r.personalId);if(!pers)return;
-    const cat=_cat(pers.cargo);
-    if(cat==='MOI'&&pers.tipo!=='Staff')return;
+    const cat=_catMap[pers.cat];
+    if(!cat)return;
     if(!groups[cat][pers.cargo])groups[cat][pers.cargo]={};
     const t=r.tipo;if(t){groups[cat][pers.cargo][t]=(groups[cat][pers.cargo][t]||0)+1;}
   });
