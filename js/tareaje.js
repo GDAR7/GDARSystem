@@ -15,6 +15,8 @@ const _TARE_T={
   R: {l:'Retirado',        bg:'#7f1d1d',tx:'#fff'}
 };
 let _tarResCache=null;
+let _tarPgColVis=null;
+let _tarPgColsAvail=[];
 let _tarPickerCb=null;
 let _tarMultiMode=false;
 let _tarHoverMode=false;
@@ -392,7 +394,7 @@ function _doExportTareaje(){
 }
 
 // ── RESUMEN DIARIO DE TAREAJE ──
-function _buildTareResumen(ids){
+function _buildTareResumen(ids,colFilter){
   const fecha=document.getElementById(ids.fecha)?.value||today();
   const proy=document.getElementById(ids.proy)?.value||'';
   const guardia=document.getElementById(ids.guardia)?.value||'';
@@ -403,7 +405,10 @@ function _buildTareResumen(ids){
   tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
   const _COL_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
   const _tiposSet=new Set(Object.values(tarMap));
-  const tiposPresentes=_COL_ORDER.filter(t=>_tiposSet.has(t));
+  const tiposAll=_COL_ORDER.filter(t=>_tiposSet.has(t));
+  const tiposPresentes=colFilter?tiposAll.filter(t=>colFilter.has(t)):tiposAll;
+  const showEnObra=!colFilter||colFilter.has('EO');
+  const showTotal=!colFilter||colFilter.has('TG');
   const grupos={},grupoTotales={},totalGral={};
   persF.forEach(p=>{
     const tarTipo=tarMap[p.id];if(!tarTipo)return;
@@ -437,8 +442,9 @@ function _buildTareResumen(ids){
     let html=`<table style="border-collapse:collapse;width:100%;font-size:.78rem"><thead><tr>
       <th style="${thSL};background:#1e3a5f;color:#fff">Descripción</th>
       ${tiposPresentes.map(t=>`<th style="${thS};background:${_TARE_T[t]?.bg||'#1e3a5f'};color:${_TARE_T[t]?.tx||'#fff'}">${t}</th>`).join('')}
-      <th style="${thS};background:#10b981;color:#fff">En<br>Obra</th>
-      <th style="${thS};background:#dc2626;color:#fff">Total<br>General</th>
+      ${showEnObra?`<th style="${thS};background:#10b981;color:#fff">En<br>Obra</th>`:''}
+      ${showTotal?`<th style="${thS};background:#dc2626;color:#fff">Total<br>General</th>`:''}
+
     </tr></thead><tbody>`;
     ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
       const tot=grupoTotales[g];
@@ -446,8 +452,9 @@ function _buildTareResumen(ids){
       const totGObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
       html+=`<tr style="background:rgba(30,58,95,.18)"><td style="${tdS};font-weight:700;letter-spacing:.04em">${g}</td>
         ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700">${tot[t]||''}</td>`).join('')}
-        <td style="${tdS};text-align:center;font-weight:700;color:#10b981">${totGObra||''}</td>
-        <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totG}</td></tr>`;
+        ${showEnObra?`<td style="${tdS};text-align:center;font-weight:700;color:#10b981">${totGObra||''}</td>`:''}
+        ${showTotal?`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totG}</td>`:''}
+      </tr>`;
       Object.keys(grupos[g]).sort().forEach(cargo=>{
         const cc=grupos[g][cargo];
         const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
@@ -455,16 +462,18 @@ function _buildTareResumen(ids){
         const cpe=encodeURIComponent(cargo);
         html+=`<tr><td style="${tdS};padding-left:1.6rem;color:var(--muted2);font-size:.73rem">${cargo}</td>
           ${tiposPresentes.map(t=>{const v=cc[t]||0;return`<td style="${tdS};text-align:center${v?';cursor:pointer':''}" ${v?`ondblclick="_tarResDetail(event,'${g}','${cpe}','${t}')"`:''}>${v||''}</td>`;}).join('')}
-          <td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totCObra||''}</td>
-          <td style="${tdS};text-align:center;color:#dc2626;font-weight:600">${totC}</td></tr>`;
+          ${showEnObra?`<td style="${tdS};text-align:center;color:#10b981;font-weight:600">${totCObra||''}</td>`:''}
+          ${showTotal?`<td style="${tdS};text-align:center;color:#dc2626;font-weight:600">${totC}</td>`:''}
+        </tr>`;
       });
     });
     const grandTotal=tiposPresentes.reduce((s,t)=>s+(totalGral[t]||0),0);
     const grandTotalObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(totalGral[t]||0),0);
     html+=`<tr style="background:rgba(220,38,38,.12)"><td style="${tdS};font-weight:700;color:#dc2626">Total general</td>
       ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totalGral[t]||''}</td>`).join('')}
-      <td style="${tdS};text-align:center;font-weight:700;color:#10b981">${grandTotalObra}</td>
-      <td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${grandTotal}</td></tr>`;
+      ${showEnObra?`<td style="${tdS};text-align:center;font-weight:700;color:#10b981">${grandTotalObra}</td>`:''}
+      ${showTotal?`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${grandTotal}</td>`:''}
+    </tr>`;
     html+='</tbody></table>';
     tablaEl.innerHTML=tiposPresentes.length?html:'<div style="color:var(--muted2);padding:2rem;text-align:center;font-size:.8rem">Sin registros de tareaje para esta fecha</div>';
   }
@@ -501,10 +510,10 @@ function _buildTareResumen(ids){
         }).join('')}
       </div>`;
   }
-  return {fecha,proy,guardia,tiposPresentes,totalGral,totalPersonas};
+  return {fecha,proy,guardia,tiposPresentes,tiposAll,totalGral,totalPersonas};
 }
 function _printTareResumen(ids){
-  const state=_buildTareResumen(ids);
+  const state=_buildTareResumen(ids,_tarPgColVis);
   const fecha=state.fecha,proy=state.proy,guardia=state.guardia;
   const tablaEl=document.getElementById(ids.tabla);
   const kpisEl=document.getElementById(ids.kpis);
@@ -516,27 +525,36 @@ function _printTareResumen(ids){
     .replace(/var\(--mec\)/g,'#be185d')
     .replace(/rgba\(30,58,95,\.18\)/g,'#dce7f3')
     .replace(/rgba\(220,38,38,\.12\)/g,'#fee2e2')
-    .replace(/ondblclick="[^"]*"/g,'');
+    .replace(/ondblclick="[^"]*"/g,'')
+    .replace(/padding:\.5rem \.9rem/g,'padding:2px 5px')
+    .replace(/font-size:1\.5rem/g,'font-size:10px')
+    .replace(/font-size:\.58rem/g,'font-size:5px')
+    .replace(/min-width:90px/g,'min-width:40px')
+    .replace(/margin-bottom:\.2rem/g,'margin-bottom:0')
+    .replace(/padding:5px 10px/g,'padding:1.5px 4px')
+    .replace(/padding:6px 10px/g,'padding:2px 4px')
+    .replace(/padding-left:1\.6rem/g,'padding-left:.8rem')
+    .replace(/font-size:\.73rem/g,'font-size:6px')
+    .replace(/font-size:\.72rem/g,'font-size:6px')
+    .replace(/font-size:\.78rem/g,'font-size:6.5px');
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
-  <style>@page{size:A4 portrait;margin:.45cm .6cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:7.5px;color:#111;margin:0}
+  <style>@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}
   table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #94a3b8!important;padding:2.5px 5px}
+  th,td{border:1px solid #94a3b8!important;padding:1.5px 4px!important}
   tr{border-bottom:1px solid #94a3b8!important}
-  .kpis{display:flex;gap:4px;margin-bottom:7px;flex-wrap:wrap}
-  .kpis>div{border-radius:5px!important;border:1px solid #cbd5e1!important;padding:4px 8px!important;min-width:unset!important;flex:1}
-  .kpis .kpi-lbl{font-size:6px!important;margin-bottom:1px!important}
-  .kpis .kpi-val{font-size:13px!important}
+  .kpis{display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap}
+  .kpis>div{border-radius:4px!important;border:1px solid #cbd5e1!important;padding:2px 5px!important;min-width:unset!important;flex:1}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
-  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:4px;margin-bottom:7px">
-    <img src="${_logoUrl}" alt="Ecosermo" style="height:32px;object-fit:contain">
-    <div style="text-align:center"><div style="font-size:11px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
-    <div style="font-size:7.5px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
-    <div style="text-align:right;font-size:7px;color:#64748b">
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:5px">
+    <img src="${_logoUrl}" alt="Ecosermo" style="height:26px;object-fit:contain">
+    <div style="text-align:center"><div style="font-size:9px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
+    <div style="font-size:6px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
+    <div style="text-align:right;font-size:6px;color:#64748b">
       <div>Proyecto: <strong>${proyNombre}</strong></div>
       <div>Guardia: <strong>${guardia||'Todas'}</strong></div>
       <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
@@ -586,13 +604,71 @@ function _tarResDetail(event,grupo,cargoEnc,tipo){
   pop.style.display='block';
   event.stopPropagation();
 }
+// ── Filtro de columnas del Resumen ──
+function _toggleTarColMenu(e){
+  const m=document.getElementById('tarPgColMenu');if(!m)return;
+  const show=m.style.display!=='block';
+  m.style.display=show?'block':'none';
+  if(show){
+    e&&e.stopPropagation();
+    setTimeout(()=>document.addEventListener('click',function _c(ev){
+      const btn=document.getElementById('tarPgColBtn');
+      if(!m.contains(ev.target)&&ev.target!==btn&&!btn?.contains(ev.target)){m.style.display='none';document.removeEventListener('click',_c);}
+    }),10);
+  }
+}
+function _buildTarColMenu(tiposDisp){
+  const m=document.getElementById('tarPgColMenu');
+  const btnLbl=document.getElementById('tarPgColBtnLbl');
+  if(!m)return;
+  _tarPgColsAvail=tiposDisp;
+  const allKeys=[...tiposDisp,'EO','TG'];
+  const vis=_tarPgColVis||new Set(allKeys);
+  const lbl=k=>k==='EO'?'En Obra':k==='TG'?'Total General':(_TARE_T[k]?.l||k);
+  const col=k=>k==='EO'?'#10b981':k==='TG'?'#dc2626':(_TARE_T[k]?.bg||'#666');
+  const tag=k=>k==='EO'?'EO':k==='TG'?'TOTAL':k;
+  m.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)">
+    <span style="font-size:.62rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Columnas visibles</span>
+    <div style="display:flex;gap:3px">
+      <button onclick="_tarColSelAll(true)" style="background:none;border:none;color:#10b981;font-size:.6rem;cursor:pointer;font-weight:700">Todas</button>
+      <span style="color:var(--muted2);font-size:.6rem">|</span>
+      <button onclick="_tarColSelAll(false)" style="background:none;border:none;color:#ef4444;font-size:.6rem;cursor:pointer;font-weight:700">Ninguna</button>
+    </div>
+  </div>
+  ${allKeys.map(k=>`<label style="display:flex;align-items:center;gap:.4rem;padding:.22rem .3rem;border-radius:4px;cursor:pointer;font-size:.74rem" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+    <input type="checkbox" id="tarCol_${k}" ${vis.has(k)?'checked':''} onchange="_onTarColChange()" style="cursor:pointer;accent-color:${col(k)};width:12px;height:12px">
+    <span style="background:${col(k)};color:#fff;border-radius:3px;padding:1px 5px;font-size:.58rem;font-weight:700;min-width:26px;text-align:center">${tag(k)}</span>
+    <span style="color:var(--text)">${lbl(k)}</span>
+  </label>`).join('')}`;
+  const sel=allKeys.filter(k=>vis.has(k)).length;
+  if(btnLbl)btnLbl.textContent=sel===allKeys.length?'Todas las columnas':`${sel} / ${allKeys.length} columnas`;
+}
+function _tarColSelAll(state){
+  const allKeys=[..._tarPgColsAvail,'EO','TG'];
+  _tarPgColVis=state?null:new Set();
+  allKeys.forEach(k=>{const cb=document.getElementById(`tarCol_${k}`);if(cb)cb.checked=state;});
+  const btnLbl=document.getElementById('tarPgColBtnLbl');
+  if(btnLbl)btnLbl.textContent=state?'Todas las columnas':'0 columnas';
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+}
+function _onTarColChange(){
+  const allKeys=[..._tarPgColsAvail,'EO','TG'];
+  const sel=new Set(allKeys.filter(k=>{const cb=document.getElementById(`tarCol_${k}`);return cb&&cb.checked;}));
+  _tarPgColVis=sel.size===allKeys.length?null:sel;
+  const btnLbl=document.getElementById('tarPgColBtnLbl');
+  const cnt=_tarPgColVis?_tarPgColVis.size:allKeys.length;
+  if(btnLbl)btnLbl.textContent=cnt===allKeys.length?'Todas las columnas':`${cnt} / ${allKeys.length} columnas`;
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+}
 // Página completa
 function rTareResumenPg(){
+  _tarPgColVis=null;
   const fEl=document.getElementById('tarPgFecha');
   if(fEl&&!fEl.value)fEl.value=today();
   const ps=document.getElementById('tarPgProy');
   if(ps){const cur=ps.value;ps.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)ps.value=cur;}
-  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});
+  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
+  _buildTarColMenu(_st.tiposAll||[]);
 }
 function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
 

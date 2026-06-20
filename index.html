@@ -703,6 +703,11 @@
       <select id="tarPgGuardia" onchange="rTareResumenPg()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem">
         <option value="">— Todas —</option><option>A</option><option>B</option><option>C</option>
       </select></div>
+    <div style="position:relative">
+      <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Columnas</label>
+      <button id="tarPgColBtn" onclick="_toggleTarColMenu(event)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .75rem;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;white-space:nowrap"><span id="tarPgColBtnLbl">Todas las columnas</span> <span style="opacity:.5;font-size:.7rem">▾</span></button>
+      <div id="tarPgColMenu" style="display:none;position:absolute;top:calc(100% + 3px);left:0;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:210px"></div>
+    </div>
     <button onclick="printTareResumenPg()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;margin-left:auto">🖨️ Exportar PDF</button>
   </div>
   <div id="tarPgKpis" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
