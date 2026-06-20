@@ -665,11 +665,16 @@ function rTareResumenPg(){
 }
 function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
 function exportTareResumenXLSX(){
-  // Asegurar datos frescos
-  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
-  if(!_tarResCache){toast('Sin datos para exportar',true);return;}
-  const {fecha,proy,guardia,tarMap,persF}=_tarResCache;
+  const fecha=document.getElementById('tarPgFecha')?.value||today();
+  const proy=document.getElementById('tarPgProy')?.value||'';
+  const guardia=document.getElementById('tarPgGuardia')?.value||'';
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'Todos los proyectos';
+  let persF=(DB.personal||[]).filter(p=>p.est==='Activo');
+  if(guardia)persF=persF.filter(p=>p.guardia===guardia);
+  const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
+  const tarMap={};
+  tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
+  if(!Object.keys(tarMap).length){toast('Sin registros de tareaje para esta fecha',true);return;}
   // Recomputar grupos
   const _CO=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
   const _ts=new Set(Object.values(tarMap));
