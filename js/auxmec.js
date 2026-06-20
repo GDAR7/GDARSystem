@@ -1294,35 +1294,60 @@ function rDailyReport(){
   if(elD&&!elD.value)elD.value=today();
   const fecha=elD?elD.value:today();
 
-  // Proyectos / frentes disponibles
+  // Proyectos (solo DB.proyectos, no frentes)
   const drProyEl=document.getElementById('drProy');
   if(drProyEl){
-    const proySet=new Set([...(DB.tareaje||[]).map(t=>t.proy),...(DB.partes||[]).map(p=>p.frenteT)].filter(Boolean));
     const curP=drProyEl.value;
-    drProyEl.innerHTML='<option value="">— Todos los frentes —</option>'+[...proySet].sort().map(p=>`<option${p===curP?' selected':''}>${p}</option>`).join('');
+    drProyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+
+      (DB.proyectos||[]).map(p=>`<option value="${p.codigo}"${p.codigo===curP?' selected':''}>[${p.codigo}] ${p.nombre}</option>`).join('');
+    if(curP)drProyEl.value=curP;
   }
   const proy=drProyEl?drProyEl.value:'';
 
-  // Días ejecutados
+  // Inicio fijo (proyecto) – se lee del campo pero siempre tiene valor por defecto
   const iniEl=document.getElementById('drInicio');
-  const inicio=iniEl?iniEl.value:'';
+  if(iniEl&&!iniEl.value)iniEl.value='2026-06-01';
+  const inicio=iniEl?iniEl.value:'2026-06-01';
+
+  // Fecha de corte (acumulado equipos + personal) – default día 20 del mes actual
+  const corteEl=document.getElementById('drCorte');
+  if(corteEl&&!corteEl.value){
+    const _n=new Date();
+    corteEl.value=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-20`;
+  }
+  const corte=corteEl?corteEl.value:fecha;
+
+  // Días ejecutados (desde inicio hasta la fecha del reporte diario)
   let diasEjec=1;
   if(inicio&&fecha>=inicio){const d1=new Date(inicio+'T12:00:00'),d2=new Date(fecha+'T12:00:00');diasEjec=Math.max(1,Math.round((d2-d1)/86400000)+1);}
+  // Días en período de corte
+  let diasCorte=1;
+  if(inicio&&corte>=inicio){const d1=new Date(inicio+'T12:00:00'),d2=new Date(corte+'T12:00:00');diasCorte=Math.max(1,Math.round((d2-d1)/86400000)+1);}
+  const corteFmt=corte?new Date(corte+'T12:00:00').toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
 
   // Header
   const fechaDisp=new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const hEl=document.getElementById('drHeader');
+  const proyNomDR=proy?(DB.proyectos||[]).find(p=>p.codigo===proy)?.nombre||proy:'REPORTE GENERAL';
   if(hEl)hEl.innerHTML=`
     <div style="background:linear-gradient(135deg,#052e16,#064e3b);border:1px solid #10b98125;border-radius:10px;padding:.9rem 1.3rem;display:flex;justify-content:space-between;align-items:center;gap:1rem">
       <div style="flex:1">
         <div style="font-size:.58rem;letter-spacing:.18em;color:#10b981;text-transform:uppercase;margin-bottom:.2rem">DAILY REPORT – D.R.</div>
-        <div style="font-size:1rem;font-weight:800;color:#fff;line-height:1.3">"${proy||'REPORTE GENERAL'}"</div>
+        <div style="font-size:1rem;font-weight:800;color:#fff;line-height:1.3">${proyNomDR}</div>
         <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem;text-transform:capitalize">${fechaDisp}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:.58rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em">Días Ejecutados</div>
-        <div style="font-size:3rem;font-weight:900;color:#10b981;line-height:1">${diasEjec}</div>
-        <div style="font-size:.6rem;color:#475569;background:#0f2b1e;padding:.1rem .5rem;border-radius:4px;display:inline-block">Rev. 0 – 16/08/2024</div>
+      <div style="display:flex;gap:1.2rem;align-items:center;flex-shrink:0">
+        <div style="text-align:center">
+          <div style="font-size:.52rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">Días Ejecutados</div>
+          <div style="font-size:2.8rem;font-weight:900;color:#10b981;line-height:1">${diasEjec}</div>
+          <div style="font-size:.55rem;color:#475569">desde ${new Date(inicio+'T12:00:00').toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})}</div>
+        </div>
+        <div style="width:1px;height:48px;background:#10b98130"></div>
+        <div style="text-align:center">
+          <div style="font-size:.52rem;color:#f59e0b;text-transform:uppercase;letter-spacing:.08em">Período de Corte</div>
+          <div style="font-size:2.8rem;font-weight:900;color:#f59e0b;line-height:1">${diasCorte}</div>
+          <div style="font-size:.55rem;color:#475569">hasta ${corteFmt}</div>
+        </div>
       </div>
     </div>`;
 
@@ -1479,12 +1504,12 @@ function rDailyReport(){
   partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.tipo||'?':'?';if(!byTipo[k]){byTipo[k]=0;byTipoCnt[k]=0;}byTipo[k]+=(+p.ef||0);byTipoCnt[k]++;});
   _barH('drChartTipoBody',Object.entries(byTipo).map(([l,v])=>({l,v:byTipoCnt[l]>0?parseFloat((v/byTipoCnt[l]).toFixed(2)):0})),'#f59e0b');
 
-  // Chart 4: Horas acumuladas (desde inicio)
+  // Chart 4: Horas acumuladas (desde inicio hasta fecha de corte)
   const partesAcum=(DB.partes||[]).filter(p=>{
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
     if(!eq||eq.tipo!=='Línea Amarilla'&&eq.tipo!=='Línea Blanca')return false;
     if(inicio&&p.fecha<inicio)return false;
-    return p.fecha<=fecha;
+    return p.fecha<=(corte||fecha);
   });
   const byAcum={};
   partesAcum.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byAcum[k])byAcum[k]=0;byAcum[k]+=(+p.ef||0);});
@@ -1657,7 +1682,7 @@ function printDailyReport(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.6rem 0">
       <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Hs Promedio por Tipo de Equipo</div>${g('drChartTipoBody')}</div>
-      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Horas Acumuladas por Código (desde Inicio)</div>${g('drChartAcumBody')}</div>
+      <div style="border:1px solid #94a3b8;border-radius:7px;padding:.55rem"><div style="font-size:.63rem;font-weight:700;margin-bottom:.4rem;color:#334155">Horas Acumuladas por Código (Inicio → Corte)</div>${g('drChartAcumBody')}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin:.6rem 0">
       <div style="border:1px solid #94a3b8;border-radius:7px;overflow:hidden">

@@ -1128,14 +1128,18 @@
         <input type="date" id="drFecha" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.8rem" onchange="rDailyReport()">
       </div>
       <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Frente / Proyecto</label>
-        <select id="drProy" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;width:200px" onchange="rDailyReport()">
-          <option value="">— Todos —</option>
+        <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Proyecto</label>
+        <select id="drProy" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.78rem;max-width:230px" onchange="rDailyReport()">
+          <option value="">— Todos los proyectos —</option>
         </select>
       </div>
       <div style="display:flex;flex-direction:column;gap:.2rem">
         <label style="font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Inicio Proyecto</label>
-        <input type="date" id="drInicio" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.8rem;width:150px" onchange="rDailyReport()" title="Para calcular días ejecutados">
+        <input type="date" id="drInicio" value="2026-06-01" readonly style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--muted2);padding:.3rem .5rem;font-size:.8rem;width:148px;cursor:default;opacity:.75" title="Fecha de inicio del proyecto — fija">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <label style="font-size:.65rem;color:#f59e0b;text-transform:uppercase;letter-spacing:.06em">Fecha de Corte</label>
+        <input type="date" id="drCorte" style="background:var(--panel2);border:1px solid #f59e0b55;border-radius:5px;color:var(--text);padding:.3rem .5rem;font-size:.8rem;width:148px" onchange="rDailyReport()" title="Fecha de corte para cálculo acumulado (equipos + personal)">
       </div>
       <button class="btn" onclick="printDailyReport()" style="background:#10b981;color:#fff;font-size:.78rem;border:none">🖨️ Imprimir / PDF</button>
     </div>
@@ -1183,7 +1187,7 @@
       <div style="padding:.6rem 1rem" id="drChartTipoBody"></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-title" style="font-size:.72rem">Horas Acumuladas por Código (desde Inicio)</span></div>
+      <div class="card-head"><span class="card-title" style="font-size:.72rem">Horas Acumuladas por Código (Inicio → Corte)</span></div>
       <div style="padding:.6rem 1rem" id="drChartAcumBody"></div>
     </div>
   </div>
