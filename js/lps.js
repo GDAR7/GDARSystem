@@ -254,7 +254,7 @@ function _lpsCascade(changedId,visited=new Set()){
 
 // ── CPM (Ruta Crítica) ────────────────────────────────────────────────────────
 function _lpsCPM(){
-  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.cantDias>0);
+  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&+w.cantDias>0);
   if(!wbs.length)return{float:{},ES:{},EF:{},LS:{},LF:{}};
   const ES={},EF={};
   // Forward pass (orden topológico = orden actual)
@@ -270,7 +270,7 @@ function _lpsCPM(){
       if(d&&d>esDate)esDate=d;
     });
     ES[w.id]=esDate;
-    EF[w.id]=_lpsAddDays(esDate,w.cantDias-1);
+    EF[w.id]=esDate?_lpsAddDays(esDate,+w.cantDias-1):null;
   });
   // Backward pass
   const LS={},LF={};
@@ -286,12 +286,14 @@ function _lpsCPM(){
       if(d&&d<lfDate)lfDate=d;
     });
     LF[w.id]=lfDate;
-    LS[w.id]=_lpsAddDays(lfDate,-(w.cantDias-1));
+    LS[w.id]=lfDate?_lpsAddDays(lfDate,-(+w.cantDias-1)):null;
   });
   const float={};
   wbs.forEach(w=>{
-    if(ES[w.id]&&LS[w.id])float[w.id]=Math.round((new Date(LS[w.id])-new Date(ES[w.id]))/86400000);
-    else float[w.id]=null;
+    try{
+      if(ES[w.id]&&LS[w.id])float[w.id]=Math.round((new Date(LS[w.id])-new Date(ES[w.id]))/86400000);
+      else float[w.id]=null;
+    }catch(_){float[w.id]=null;}
   });
   return{float,ES,EF,LS,LF};
 }
@@ -373,7 +375,8 @@ function _lpsRenderWBS(c){
   };
 
   const _dateCtrl=`color-scheme:dark;${_lpsCtrl()};padding:.25rem .5rem`;
-  const cpm=_lpsCPM();
+  let cpm={float:{},ES:{},EF:{},LS:{},LF:{}};
+  try{cpm=_lpsCPM();}catch(e){console.warn('[CPM error]',e);}
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.55rem .9rem;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:8px">
     <span style="font-size:.72rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em">📅 RANGO DEL PROYECTO</span>
