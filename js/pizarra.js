@@ -319,6 +319,7 @@ function _pizPopup(eqId,fecha){
 let _rutaSelId=null, _rutaDibujando=false, _rutaPuntos=[], _rutaModoCalor=false, _rutaColors=[
   '#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#0ea5e9','#a78bfa'
 ];
+let _rutaZoom=1, _rutaPanX=0, _rutaPanY=0, _rutaIsPanning=false, _rutaPanStart=null, _rutaDidPan=false;
 
 function _pizRenderRutas(c){
   const tramos=(DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
@@ -369,24 +370,101 @@ function _pizRenderRutas(c){
         </div>`;
       }).join(''):'<div style="color:var(--muted2);font-size:.68rem;text-align:center;padding:1rem">Sin tramos definidos</div>'}
     </div>
-    <!-- MAPA CON SVG -->
-    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a" id="rutaMapWrap">
-      <img src="${_pizImgUrl()}" id="rutaImg" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none" draggable="false">
-      <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
-      <div id="rutaCursor" style="position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:#10b981;display:none;pointer-events:none;transform:translate(-50%,-50%)"></div>
+    <!-- MAPA CON SVG + ZOOM/PAN -->
+    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap">
+      <div id="rutaCanvas" style="position:relative;transform-origin:0 0;cursor:grab;display:inline-block;min-width:100%">
+        <img src="${_pizImgUrl()}" id="rutaImg" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
+        <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="rutaCursor" style="position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:#10b981;display:none;pointer-events:none;transform:translate(-50%,-50%)"></div>
+      </div>
+      <!-- Controles zoom (overlay) -->
+      <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
+        <button onclick="_rutaZoomOut()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">−</button>
+        <span id="rutaZoomPct" style="font-size:.65rem;color:#e0e0e0;min-width:36px;text-align:center;font-weight:700">100%</span>
+        <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button onclick="_rutaZoomReset()" title="Restablecer vista" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+      </div>
     </div>
   </div>`;
 
-  // Bind click en el mapa
+  // Bind eventos en el mapa
   const wrap=document.getElementById('rutaMapWrap');
   if(wrap){
     wrap.addEventListener('click',_rutaMapClick);
     wrap.addEventListener('dblclick',_rutaMapDblClick);
     wrap.addEventListener('mousemove',_rutaMouseMove);
     wrap.addEventListener('contextmenu',e=>{e.preventDefault();_rutaCancelarDraw();});
+    wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
+    wrap.addEventListener('mousedown',_rutaOnMousedown);
   }
-  // Dibujar rutas guardadas (esperando que el SVG tenga dimensiones)
-  requestAnimationFrame(()=>_rutaRefresh());
+  document.addEventListener('mousemove',_rutaOnGlobalMousemove);
+  document.addEventListener('mouseup',_rutaOnGlobalMouseup);
+  // Fit inicial: escala la imagen para llenar el contenedor
+  requestAnimationFrame(()=>{_rutaFitView();_rutaRefresh();});
+}
+
+// ── ZOOM / PAN ──────────────────────────────────────────────────────────────
+function _rutaApplyTransform(){
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  canvas.style.transform=`translate(${_rutaPanX}px,${_rutaPanY}px) scale(${_rutaZoom})`;
+  const pct=document.getElementById('rutaZoomPct');if(pct)pct.textContent=Math.round(_rutaZoom*100)+'%';
+}
+
+function _rutaFitView(){
+  const wrap=document.getElementById('rutaMapWrap');
+  const canvas=document.getElementById('rutaCanvas');
+  if(!wrap||!canvas)return;
+  const img=document.getElementById('rutaImg');
+  if(!img||!img.naturalWidth){setTimeout(_rutaFitView,200);return;}
+  const wW=wrap.clientWidth, wH=wrap.clientHeight;
+  const iW=img.naturalWidth, iH=img.naturalHeight;
+  const scale=Math.min(wW/iW, wH/iH);
+  _rutaZoom=scale;
+  _rutaPanX=(wW-iW*scale)/2;
+  _rutaPanY=(wH-iH*scale)/2;
+  // Set canvas natural width = image natural width
+  canvas.style.width=iW+'px';
+  _rutaApplyTransform();
+}
+
+function _rutaZoomIn(){_rutaSetZoom(_rutaZoom*1.25);}
+function _rutaZoomOut(){_rutaSetZoom(_rutaZoom/1.25);}
+function _rutaZoomReset(){_rutaFitView();}
+function _rutaSetZoom(z,cx,cy){
+  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
+  const newZ=Math.max(0.1,Math.min(8,z));
+  if(cx!==undefined&&cy!==undefined){
+    _rutaPanX=cx-(cx-_rutaPanX)*(newZ/_rutaZoom);
+    _rutaPanY=cy-(cy-_rutaPanY)*(newZ/_rutaZoom);
+  }
+  _rutaZoom=newZ;_rutaApplyTransform();
+}
+
+function _rutaOnWheel(e){
+  e.preventDefault();
+  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
+  const r=wrap.getBoundingClientRect();
+  const cx=e.clientX-r.left, cy=e.clientY-r.top;
+  _rutaSetZoom(_rutaZoom*(e.deltaY<0?1.12:0.89),cx,cy);
+}
+
+function _rutaOnMousedown(e){
+  if(_rutaDibujando||e.button!==0)return;
+  _rutaIsPanning=true;_rutaDidPan=false;
+  _rutaPanStart={x:e.clientX-_rutaPanX,y:e.clientY-_rutaPanY};
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='grabbing';
+}
+function _rutaOnGlobalMousemove(e){
+  if(!_rutaIsPanning||!_rutaPanStart)return;
+  const nx=e.clientX-_rutaPanStart.x, ny=e.clientY-_rutaPanStart.y;
+  if(Math.abs(nx-_rutaPanX)>2||Math.abs(ny-_rutaPanY)>2)_rutaDidPan=true;
+  _rutaPanX=nx;_rutaPanY=ny;_rutaApplyTransform();
+}
+function _rutaOnGlobalMouseup(){
+  if(!_rutaIsPanning)return;
+  _rutaIsPanning=false;
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor=_rutaDibujando?'crosshair':'grab';
 }
 
 function _rutaToggleCalor(){
@@ -559,14 +637,14 @@ function _rutaToggleDraw(){
   const cur=document.getElementById('rutaCursor');
   const wrap=document.getElementById('rutaMapWrap');
   const hint=document.getElementById('rutaHint');
+  const canvas=document.getElementById('rutaCanvas');
   if(_rutaDibujando){
-    // Cargar puntos existentes del tramo seleccionado
     const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
     _rutaPuntos=tr&&tr.puntos?[...tr.puntos]:[];
-    if(btn){btn.textContent='✅ Terminar dibujo';btn.style.background='rgba(245,158,11,.15)';btn.style.color='#f59e0b';btn.style.borderColor='#f59e0b40';}
+    if(btn){btn.textContent='✅ Terminar';btn.style.background='rgba(245,158,11,.15)';btn.style.color='#f59e0b';btn.style.borderColor='#f59e0b40';}
     if(cur){cur.style.display='block';}
-    if(wrap){wrap.style.cursor='crosshair';}
-    if(hint){hint.textContent='Clic = añadir punto · Doble clic = guardar · Clic derecho = cancelar';}
+    if(canvas){canvas.style.cursor='crosshair';}
+    if(hint){hint.textContent='Clic=punto · Doble clic=guardar · Clic derecho=cancelar';}
   }else{
     _rutaGuardar();
   }
@@ -574,9 +652,9 @@ function _rutaToggleDraw(){
 
 function _rutaMapClick(e){
   if(!_rutaDibujando||!_rutaSelId)return;
-  if(e.detail>1)return; // ignore double-click singles
-  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
-  const r=wrap.getBoundingClientRect();
+  if(e.detail>1||_rutaDidPan)return;
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
   const x=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
   const y=parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2));
   _rutaPuntos.push({x,y});
@@ -593,8 +671,8 @@ function _rutaMapDblClick(e){
 
 function _rutaMouseMove(e){
   if(!_rutaDibujando)return;
-  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
-  const r=wrap.getBoundingClientRect();
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
   const xPct=(e.clientX-r.left)/r.width*100;
   const yPct=(e.clientY-r.top)/r.height*100;
   const cur=document.getElementById('rutaCursor');
@@ -666,7 +744,7 @@ function _rutaCancelarDraw(reset=true){
   const wrap=document.getElementById('rutaMapWrap');
   if(btn){btn.textContent='✏️ Dibujar';btn.style.background='rgba(16,185,129,.1)';btn.style.color='#10b981';btn.style.borderColor='#10b98140';}
   if(cur){cur.style.display='none';}
-  if(wrap){wrap.style.cursor='default';}
+  const canvas2=document.getElementById('rutaCanvas');if(canvas2)canvas2.style.cursor='grab';
   const svg=document.getElementById('rutaSvg');
   if(svg){svg.querySelectorAll('.ruta-temp').forEach(el=>el.remove());const p=svg.querySelector('#rutaPreview');if(p)p.remove();}
 }
