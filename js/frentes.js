@@ -43,6 +43,8 @@ function _pizRenderFrentes(c){
         <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
         <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
         <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">&#8634; Fit</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button id="rutaLockBtn" onclick="_rutaToggleLock()" title="Bloquear/desbloquear zoom" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.85rem">${_rutaZoomLocked?'🔒':'🔓'}</button>
       </div>
     </div>
   </div>`;

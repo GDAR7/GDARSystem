@@ -1,6 +1,6 @@
 // ══ PIZARRA DE DESPLIEGUE ══
 function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN.png';}
-let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null;
+let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null,_rutaZoomLocked=false;
 function _pizGetFecha(){return _pizFecha||today();}
 
 function rPizarra(){_pizRenderTab();}
@@ -114,6 +114,8 @@ function _pizRenderPlan(c){
         <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
         <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
         <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button id="rutaLockBtn" onclick="_rutaToggleLock()" title="Bloquear/desbloquear zoom" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.85rem">${_rutaZoomLocked?'🔒':'🔓'}</button>
       </div>
     </div>
   </div>`;
@@ -204,7 +206,7 @@ function _pizRenderReal(c){
       const ox=(col-(nCols-1)/2)*2.2, oy=row*2.2;
       const eqCol=_pizCondColor(p.condicion);
       const isHoy=hoyEqIds.has(p.eqId);
-      return`<div style="position:absolute;left:${(cen.x+ox).toFixed(1)}%;top:${(cen.y+oy).toFixed(1)}%;transform:translate(-50%,-100%);cursor:pointer;z-index:15;user-select:none"
+      return`<div class="eq-marker" style="position:absolute;left:${(cen.x+ox).toFixed(1)}%;top:${(cen.y+oy).toFixed(1)}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:pointer;z-index:15;user-select:none"
         onclick="_pizPopup(${p.eqId},'${p.fecha}')">
         <div style="background:${eqCol};color:#fff;border-radius:4px;padding:1px 5px;font-size:.52rem;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.6);opacity:${isHoy?1:.6};border:${isHoy?'none':'1px dashed rgba(255,255,255,.5)'}">
           ${_pizEqIcon(eq.sub)} ${_pizEqCode(eq.codigo)}${!isHoy?` <span style="font-size:.44rem;opacity:.8">${p.fecha.slice(5)}</span>`:''}
@@ -252,6 +254,8 @@ function _pizRenderReal(c){
         <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
         <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
         <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button id="rutaLockBtn" onclick="_rutaToggleLock()" title="Bloquear/desbloquear zoom" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.85rem">${_rutaZoomLocked?'🔒':'🔓'}</button>
       </div>
     </div>
     ${sinPos.length?`<div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2)">
@@ -491,6 +495,8 @@ function _pizRenderRutas(c){
         <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
         <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
         <button onclick="_rutaZoomReset()" title="Restablecer vista" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button id="rutaLockBtn" onclick="_rutaToggleLock()" title="Bloquear/desbloquear zoom" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.85rem">${_rutaZoomLocked?'🔒':'🔓'}</button>
       </div>
     </div>
   </div>`;
@@ -516,6 +522,19 @@ function _rutaApplyTransform(){
   const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
   canvas.style.transform=`translate(${_rutaPanX}px,${_rutaPanY}px) scale(${_rutaZoom})`;
   const pct=document.getElementById('rutaZoomPct');if(pct)pct.textContent=Math.round(_rutaZoom*100)+'%';
+  // Counter-scale para que los markers de equipos siempre aparezcan al mismo tamaño visual
+  const s=(1/_rutaZoom).toFixed(4);
+  document.querySelectorAll('.eq-marker').forEach(el=>{
+    el.style.transform=`translate(-50%,-100%) scale(${s})`;
+  });
+  // Actualizar ícono del candado
+  const lb=document.getElementById('rutaLockBtn');
+  if(lb)lb.textContent=_rutaZoomLocked?'🔒':'🔓';
+}
+function _rutaToggleLock(){
+  _rutaZoomLocked=!_rutaZoomLocked;
+  const lb=document.getElementById('rutaLockBtn');
+  if(lb)lb.textContent=_rutaZoomLocked?'🔒':'🔓';
 }
 
 function _rutaFitView(){
@@ -535,8 +554,8 @@ function _rutaFitView(){
   _rutaApplyTransform();
 }
 
-function _rutaZoomIn(){_rutaSetZoom(_rutaZoom*1.25);}
-function _rutaZoomOut(){_rutaSetZoom(_rutaZoom/1.25);}
+function _rutaZoomIn(){if(!_rutaZoomLocked)_rutaSetZoom(_rutaZoom*1.25);}
+function _rutaZoomOut(){if(!_rutaZoomLocked)_rutaSetZoom(_rutaZoom/1.25);}
 function _rutaZoomReset(){_rutaFitView();}
 function _rutaSetZoom(z,cx,cy){
   const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
@@ -550,6 +569,7 @@ function _rutaSetZoom(z,cx,cy){
 
 function _rutaOnWheel(e){
   e.preventDefault();
+  if(_rutaZoomLocked)return;
   const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
   const r=wrap.getBoundingClientRect();
   const cx=e.clientX-r.left, cy=e.clientY-r.top;
