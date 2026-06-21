@@ -72,7 +72,7 @@ function _pizRenderPlan(c){
     });
   }
   const placedMap={};
-  items.filter(x=>x.tipo==='personal').forEach(x=>{placedMap[x.etiqueta||'']=(placedMap[x.etiqueta||'']||0)+1;});
+  items.filter(x=>x.tipo==='personal').forEach(x=>{placedMap[x.etiqueta||'']=(placedMap[x.etiqueta||'']||0)+(x.cant||1);});
   const personalHtml=Object.entries(cargoMap).map(([cargo,total])=>{
     const placed=placedMap[cargo]||0;
     const avail=Math.max(0,total-placed);

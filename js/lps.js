@@ -94,20 +94,28 @@ function _lpsWbsSorted(){
   return [...wbs].sort((a,b)=>a.orden-b.orden);
 }
 
-// ── Auto-código WBS ──────────────────────────────────────────────────────────
-function _lpsNextCode(nivel){
+// ── Auto-código y renumeración WBS ───────────────────────────────────────────
+function _lpsParentPrefix(codigo,nivel){
+  if(nivel<=1)return'';
+  const parts=(codigo.split('-')[0]).split('.').filter(Boolean);
+  return parts.slice(0,nivel-1).join('.')+'.';
+}
+
+function _lpsNextCode(nivel,afterId=null){
   const all=_lpsWbsSorted();
   if(!all.length)return String(1).padStart(2,'0')+'.';
   if(nivel===1){
     const nums=all.map(w=>{const m=w.codigo.match(/^(\d+)\./);return m?+m[1]:0;});
     return String(Math.max(0,...nums)+1).padStart(2,'0')+'.';
   }
-  // Busca el último padre de nivel (nivel-1) en la lista
   let parentPrefix='';
-  for(let i=all.length-1;i>=0;i--){
-    if(_wbsLvl(all[i].codigo)===nivel-1){
-      parentPrefix=all[i].codigo.split('-')[0];// e.g. "02." ó "02.01."
-      break;
+  if(afterId){
+    const aw=all.find(w=>w.id===afterId);
+    if(aw)parentPrefix=_lpsParentPrefix(aw.codigo||'',nivel);
+  }
+  if(!parentPrefix){
+    for(let i=all.length-1;i>=0;i--){
+      if(_wbsLvl(all[i].codigo)===nivel-1){parentPrefix=all[i].codigo.split('-')[0];break;}
     }
   }
   if(!parentPrefix)return _lpsNextCode(nivel-1)+'01.';
@@ -115,6 +123,35 @@ function _lpsNextCode(nivel){
   const nums=all.map(w=>{const m=w.codigo.match(re);return m?+m[1]:0;});
   return parentPrefix+String(Math.max(0,...nums)+1).padStart(2,'0')+'.';
 }
+
+function _lpsRenumberAll(){
+  const all=_lpsWbsSorted();
+  const cnt=[0,0,0,0];
+  const pfx=['','','',''];
+  const toSave=[];
+  all.forEach(w=>{
+    const lv=_wbsLvl(w.codigo||'');
+    if(lv<1||lv>3)return;
+    if(lv===1){cnt[1]++;cnt[2]=0;cnt[3]=0;pfx[1]=String(cnt[1]).padStart(2,'0')+'.';}
+    else if(lv===2){cnt[2]++;cnt[3]=0;pfx[2]=pfx[1]+String(cnt[2]).padStart(2,'0')+'.';}
+    else{cnt[3]++;pfx[3]=pfx[2]+String(cnt[3]).padStart(2,'0')+'.';}
+    const suffix=w.codigo.split('-').slice(1).join('-');
+    const newCod=pfx[lv]+(suffix?'-'+suffix:'');
+    if(newCod!==w.codigo){w.codigo=newCod;toSave.push(w);}
+  });
+  toSave.forEach(w=>syncSheet('saveLpsWbs',w));
+}
+
+function _lpsCanMove(id,dir){
+  const all=_lpsWbsSorted();
+  const w=all.find(x=>x.id===id);if(!w)return false;
+  const lv=_wbsLvl(w.codigo||'');
+  const pp=_lpsParentPrefix(w.codigo||'',lv);
+  const sibs=all.filter(x=>_wbsLvl(x.codigo||'')===lv&&_lpsParentPrefix(x.codigo||'',lv)===pp);
+  const si=sibs.findIndex(x=>x.id===id);
+  return dir===-1?(si>0):(si<sibs.length-1);
+}
+
 function _lpsNivelChange(delta){
   _lpsWbsNivel=Math.max(1,Math.min(3,_lpsWbsNivel+delta));
   _lpsUpdateNivelUI();
@@ -126,7 +163,7 @@ function _lpsUpdateNivelUI(skipCode=false){
   const labelEl=document.getElementById('lpsWbsNivelLabel');
   if(dotsEl)dotsEl.textContent=DOTS[_lpsWbsNivel-1];
   if(labelEl)labelEl.textContent=LABELS[_lpsWbsNivel-1];
-  if(!skipCode){const cod=document.getElementById('lpsWbsCod');if(cod)cod.value=_lpsNextCode(_lpsWbsNivel);}
+  if(!skipCode){const cod=document.getElementById('lpsWbsCod');if(cod)cod.value=_lpsNextCode(_lpsWbsNivel,_lpsWbsAfterId);}
 }
 function _lpsWbsCodKey(e){
   if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();_lpsNivelChange(+1);}
@@ -134,20 +171,37 @@ function _lpsWbsCodKey(e){
 }
 
 function _lpsWbsMover(id,dir){
-  // dir: -1=subir, +1=bajar
-  const sorted=_lpsWbsSorted();
-  // Normalizar a múltiplos de 10
-  sorted.forEach((w,i)=>{w.orden=i*10;});
-  const idx=sorted.findIndex(w=>w.id===id);
-  if(idx<0)return;
-  const swapIdx=idx+dir;
-  if(swapIdx<0||swapIdx>=sorted.length)return;
-  // Intercambiar orden
-  const tmp=sorted[idx].orden;
-  sorted[idx].orden=sorted[swapIdx].orden;
-  sorted[swapIdx].orden=tmp;
-  syncSheet('saveLpsWbs',sorted[idx]);
-  syncSheet('saveLpsWbs',sorted[swapIdx]);
+  const all=_lpsWbsSorted();
+  const w=all.find(x=>x.id===id);if(!w)return;
+  const lv=_wbsLvl(w.codigo||'');
+  const pp=_lpsParentPrefix(w.codigo||'',lv);
+  const sibs=all.filter(x=>_wbsLvl(x.codigo||'')===lv&&_lpsParentPrefix(x.codigo||'',lv)===pp);
+  const si=sibs.findIndex(x=>x.id===id);
+  const tSib=sibs[si+dir];if(!tSib)return;
+
+  // Grupo = ítem + todos sus descendientes consecutivos (nivel mayor)
+  function grupo(startId){
+    const si=all.findIndex(x=>x.id===startId);
+    const slv=_wbsLvl(all[si].codigo||'');
+    const g=[all[si]];
+    for(let i=si+1;i<all.length;i++){if(_wbsLvl(all[i].codigo||'')<=slv)break;g.push(all[i]);}
+    return g;
+  }
+  const myIdx=all.findIndex(x=>x.id===id);
+  const tIdx=all.findIndex(x=>x.id===tSib.id);
+  const myGrp=grupo(id);
+  const tGrp=grupo(tSib.id);
+
+  let newOrder;
+  if(dir===1){// bajar: target va primero, luego yo
+    newOrder=[...all.slice(0,myIdx),...tGrp,...myGrp,...all.slice(myIdx+myGrp.length+tGrp.length)];
+  }else{// subir: yo voy primero, luego target
+    newOrder=[...all.slice(0,tIdx),...myGrp,...tGrp,...all.slice(tIdx+tGrp.length+myGrp.length)];
+  }
+  const toSave=[];
+  newOrder.forEach((x,i)=>{const o=(i+1)*10;if(x.orden!==o){x.orden=o;toSave.push(x);}});
+  toSave.forEach(x=>syncSheet('saveLpsWbs',x));
+  _lpsRenumberAll();
   _lpsRenderTab();
 }
 
@@ -156,13 +210,13 @@ function _lpsRenderWBS(c){
   const qF=(document.getElementById('lpsWbsQ')?.value||'').toLowerCase();
   const allSorted=_lpsWbsSorted();
   const rows=allSorted.filter(w=>(!sF||w.sector===sF)&&(!qF||w.codigo.toLowerCase().includes(qF)||(w.desc||'').toLowerCase().includes(qF)));
-  const last=rows.length-1;
 
-  const _btnMove=(id,idx)=>`
-    <button onclick="_lpsWbsMover(${id},-1)" ${idx===0?'disabled':''} title="Subir"
-      style="background:none;border:1px solid ${idx===0?'#1e2740':'#2a3a5a'};border-radius:4px;color:${idx===0?'#2a3a5a':'#6b85a8'};width:22px;height:22px;cursor:${idx===0?'default':'pointer'};font-size:.7rem;line-height:1;padding:0">▲</button>
-    <button onclick="_lpsWbsMover(${id},+1)" ${idx===last?'disabled':''} title="Bajar"
-      style="background:none;border:1px solid ${idx===last?'#1e2740':'#2a3a5a'};border-radius:4px;color:${idx===last?'#2a3a5a':'#6b85a8'};width:22px;height:22px;cursor:${idx===last?'default':'pointer'};font-size:.7rem;line-height:1;padding:0">▼</button>`;
+  const _btnMove=(id)=>{
+    const cu=_lpsCanMove(id,-1),cd=_lpsCanMove(id,+1);
+    const btnS=(ok)=>`background:none;border:1px solid ${ok?'#2a3a5a':'#1e2740'};border-radius:4px;color:${ok?'#6b85a8':'#2a3a5a'};width:22px;height:22px;cursor:${ok?'pointer':'default'};font-size:.7rem;line-height:1;padding:0`;
+    return`<button onclick="${cu?`_lpsWbsMover(${id},-1)`:''}" ${cu?'':'disabled'} title="Subir" style="${btnS(cu)}">▲</button>
+    <button onclick="${cd?`_lpsWbsMover(${id},+1)`:''}" ${cd?'':'disabled'} title="Bajar" style="${btnS(cd)}">▼</button>`;
+  };
 
   const _dateCtrl=`color-scheme:dark;${_lpsCtrl()};padding:.25rem .5rem`;
   c.innerHTML=`
@@ -190,7 +244,7 @@ function _lpsRenderWBS(c){
   <div class="tbl-wrap"><table>
     <thead><tr><th style="width:52px"></th><th>Código</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map((w,idx)=>{
-      const movBtns=_btnMove(w.id,idx);
+      const movBtns=_btnMove(w.id);
       const recsW=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===w.id);
       const recsBadge=recsW.length
         ?`<button onclick="_lpsOpenRecursos(${w.id})" title="Ver/editar recursos" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid #818cf840;border-radius:5px;padding:1px 8px;font-size:.68rem;cursor:pointer;white-space:nowrap">📦 ${recsW.length} recurso${recsW.length>1?'s':''}</button>`
@@ -546,7 +600,7 @@ function _lpsSaveWbs(){
     const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias,predId,predTipo,predLag};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
   }
-  closeM('mLpsWbs');_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
+  closeM('mLpsWbs');_lpsRenumberAll();_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
 }
 
 function _lpsDelWbs(id){
