@@ -853,6 +853,20 @@
   <div id="pizBody"></div>
 </div>
 
+<!-- AVANCE MT -->
+<div class="page" id="page-avanceMT">
+  <div class="ph">
+    <div class="ph-title" style="color:var(--ctl)">Avance MT</div>
+    <div class="ph-sub">Control de movimiento de tierras · Volumen por tramo y por área</div>
+  </div>
+  <div style="display:flex;gap:.3rem;margin-bottom:.8rem;border-bottom:1px solid var(--border);padding-bottom:0;align-items:flex-end">
+    <button class="lps-tab active amt-tab" onclick="_amtTabSwitch(1)">📊 Avance por Tramo</button>
+    <button class="lps-tab amt-tab" onclick="_amtTabSwitch(2)">📦 Volumen por Área</button>
+    <button onclick="rAvanceMT()" title="Actualizar" style="margin-left:auto;margin-bottom:4px;background:rgba(16,185,129,.1);border:1px solid #10b98140;border-radius:6px;color:#10b981;padding:.3rem .7rem;font-size:.73rem;cursor:pointer">🔄 Actualizar</button>
+  </div>
+  <div id="amtBody"></div>
+</div>
+
 <!-- PLANNER -->
 <div class="page" id="page-planner">
   <div class="ph"><div class="ph-title" style="color:var(--ctl)">Planner de Proyecto</div><div class="ph-sub">Programación y avance de actividades</div></div>
@@ -2528,6 +2542,7 @@
 <script src="js/lps.js"></script>
 <script src="js/pizarra.js"></script>
 <script src="js/frentes.js"></script>
+<script src="js/avanceMT.js"></script>
 <script src="js/datos.js"></script>
 
 <!-- Autocomplete Requerimiento Ítems -->

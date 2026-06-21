@@ -14,7 +14,7 @@ const AREAS={
   mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
   controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Pizarra de Despliegue',icon:'🗺️'},{key:'dailyReport',label:'Daily Report',icon:'📋'}]},
+    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Pizarra de Despliegue',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'}]},
     //-Menu para control de equipos.
   controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
     modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
