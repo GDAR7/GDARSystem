@@ -462,8 +462,8 @@ function _rutaOnGlobalMousemove(e){
   _rutaPanX=nx;_rutaPanY=ny;_rutaApplyTransform();
 }
 function _rutaOnGlobalMouseup(){
-  if(!_rutaIsPanning)return;
   _rutaIsPanning=false;
+  _rutaDidPan=false;
   const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor=_rutaDibujando?'crosshair':'grab';
 }
 
@@ -638,6 +638,7 @@ function _rutaToggleDraw(){
   const wrap=document.getElementById('rutaMapWrap');
   const hint=document.getElementById('rutaHint');
   const canvas=document.getElementById('rutaCanvas');
+  _rutaDidPan=false;
   if(_rutaDibujando){
     const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
     _rutaPuntos=tr&&tr.puntos?[...tr.puntos]:[];
@@ -652,7 +653,7 @@ function _rutaToggleDraw(){
 
 function _rutaMapClick(e){
   if(!_rutaDibujando||!_rutaSelId)return;
-  if(e.detail>1||_rutaDidPan)return;
+  if(e.detail>1)return;
   const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
   const r=canvas.getBoundingClientRect();
   const x=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
