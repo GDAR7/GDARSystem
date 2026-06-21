@@ -60,11 +60,9 @@ function _pizRenderPlan(c){
   }).join('');
 
   c.innerHTML=`<div style="display:grid;grid-template-columns:185px 1fr;gap:.7rem;height:calc(100vh - 195px)">
-
     <!-- SIDEBAR -->
     <div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2)">
       <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);font-weight:700;text-transform:uppercase;margin-bottom:.5rem">Arrastra al mapa →</div>
-
       <div style="font-size:.68rem;color:#06b6d4;font-weight:700;margin-bottom:.3rem">🚜 Equipos</div>
       ${equipos.map(e=>`<div draggable="true"
         ondragstart="_pizDragStart(event,'equipo',${e.id},'${(e.codigo||'').replace(/'/g,"\\'")}','#06b6d4')"
@@ -72,7 +70,6 @@ function _pizRenderPlan(c){
         title="${e.codigo} – ${e.nombre||''}">
         ${_pizEqIcon(e.sub)} ${e.codigo}
       </div>`).join('')}
-
       <div style="font-size:.68rem;color:#f59e0b;font-weight:700;margin:.6rem 0 .3rem">📍 Frentes</div>
       ${frentes.map(f=>{const nom=(f.nombre||f.nom||f.frente||'');return`<div draggable="true"
         ondragstart="_pizDragStart(event,'frente',${f.id},'${nom.replace(/'/g,"\\'")}','#f59e0b')"
@@ -80,139 +77,199 @@ function _pizRenderPlan(c){
         title="${nom}">
         📍 ${nom.slice(0,22)}
       </div>`;}).join('')}
-
       <div style="font-size:.68rem;color:#8b5cf6;font-weight:700;margin:.6rem 0 .3rem">📝 Anotaciones</div>
       <button onclick="_pizAgregarNota()" style="width:100%;background:rgba(139,92,246,.1);border:1px dashed rgba(139,92,246,.4);border-radius:5px;color:#8b5cf6;cursor:pointer;padding:.3rem;font-size:.67rem">＋ Nota libre</button>
-
       <hr style="border-color:var(--border);margin:.7rem 0">
       <button onclick="_pizLimpiar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:5px;color:#ef4444;cursor:pointer;padding:.3rem;font-size:.65rem">🗑 Limpiar mapa</button>
     </div>
-
-    <!-- MAPA -->
-    <div id="pizMapWrap" style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a"
-      ondragover="event.preventDefault()"
-      ondrop="_pizDrop(event)">
-      <img src="${_pizImgUrl()}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none" draggable="false">
-      ${markers}
-      ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-        <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.75rem;text-align:center;backdrop-filter:blur(4px)">
-          Arrastra equipos o frentes al mapa<br>
-          <span style="font-size:.65rem;opacity:.6">Las posiciones se guardan automáticamente</span>
-        </div></div>`:''}
+    <!-- MAPA CON ZOOM/PAN -->
+    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap"
+      ondragover="event.preventDefault()" ondrop="_pizDrop(event)">
+      <div id="rutaCanvas" style="position:relative;transform-origin:0 0;cursor:default;display:inline-block;min-width:100%">
+        <img id="rutaImg" src="${_pizImgUrl()}" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
+        <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
+        ${markers}
+        ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.75rem;text-align:center;backdrop-filter:blur(4px)">
+            Arrastra equipos o frentes al mapa · Rueda=zoom · Arrastrar mapa=pan<br>
+            <span style="font-size:.65rem;opacity:.6">Las posiciones se guardan automáticamente</span>
+          </div></div>`:''}
+      </div>
+      <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
+        <button onclick="_rutaZoomOut()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">−</button>
+        <span id="rutaZoomPct" style="font-size:.65rem;color:#e0e0e0;min-width:36px;text-align:center;font-weight:700">100%</span>
+        <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+      </div>
     </div>
   </div>`;
+
+  const wrap=document.getElementById('rutaMapWrap');
+  if(wrap){
+    wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
+    wrap.addEventListener('mousedown',_pizPlanMapMousedown);
+  }
+  document.addEventListener('mousemove',_rutaOnGlobalMousemove);
+  document.addEventListener('mouseup',_pizPlanGlobalMouseup);
+  requestAnimationFrame(()=>{
+    if(_rutaZoom===1&&_rutaPanX===0)_rutaFitView();else _rutaApplyTransform();
+    _frenteRenderSvg(DB.frentesTrabajo||[]);
+  });
 }
 
-// ── VISTA 2: ESTADO REAL (desde partes de la fecha seleccionada) ───────────
+function _pizPlanMapMousedown(e){
+  if(e.target.closest('[id^="piz-m-"]')||e.button!==0)return;
+  _rutaIsPanning=true;_rutaDidPan=false;
+  _rutaPanStart={x:e.clientX-_rutaPanX,y:e.clientY-_rutaPanY};
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='grabbing';
+}
+function _pizPlanGlobalMouseup(e){
+  if(_pizMoving){
+    document.removeEventListener('mousemove',_pizMousemove);
+    const canvas=document.getElementById('rutaCanvas');
+    if(canvas){
+      const rect=canvas.getBoundingClientRect();
+      const x=+(Math.max(0.5,Math.min(99.5,(e.clientX-rect.left)/rect.width*100)).toFixed(1));
+      const y=+(Math.max(0.5,Math.min(99.5,(e.clientY-rect.top)/rect.height*100)).toFixed(1));
+      const item=(DB.pizarraItems||[]).find(i=>i.id===_pizMoving.id);
+      if(item){item.x=x;item.y=y;syncSheet('savePizItem',item);}
+    }
+    _pizMoving=null;
+  }
+  _rutaIsPanning=false;_rutaDidPan=false;
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='default';
+}
+
+// ── VISTA 2: ESTADO REAL ────────────────────────────────────────────────────
 function _pizRenderReal(c){
   const fecha=_pizGetFecha();
-  const partesFecha=(DB.partes||[]).filter(p=>p.fecha===fecha);
-  const pizEq=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='equipo');
-  const pizFt=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='frente');
+  const fColors=['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#a78bfa'];
+  const frenteSorted=(DB.frentesTrabajo||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
+  const fColorMap={};frenteSorted.forEach((f,i)=>fColorMap[f.id]=fColors[i%fColors.length]);
 
-  // Contador de slot por frente (para escalonar equipos sin taparse)
-  const _ftSlot={};
-  function _resolvePos(p){
-    // 1° posición manual del equipo
-    const manual=pizEq.find(i=>i.refId===p.eqId);
-    if(manual)return{x:manual.x,y:manual.y,auto:false};
-    // 2° auto: posición del frente registrado en el parte
-    const nomFt=(p.frenteT||'').trim();
-    if(!nomFt)return null;
-    const ft=(DB.frentesTrabajo||[]).find(f=>(f.nombre||f.nom||f.frente||'').trim()===nomFt);
-    if(!ft)return null;
-    const fpos=pizFt.find(i=>i.refId===ft.id);
-    if(!fpos)return null;
-    const totalFt=partesFecha.filter(px=>(px.frenteT||'').trim()===nomFt).length;
-    const slot=_ftSlot[ft.id]||0;_ftSlot[ft.id]=slot+1;
-    const offsetX=(slot-(totalFt-1)/2)*3;
-    return{x:fpos.x+offsetX,y:fpos.y+5,auto:true};
+  // Último parte conocido per equipo hasta la fecha seleccionada
+  const lastParteByEq={};
+  (DB.partes||[]).forEach(p=>{
+    if(!p.eqId||p.fecha>fecha)return;
+    if(!lastParteByEq[p.eqId]||p.fecha>lastParteByEq[p.eqId].fecha)lastParteByEq[p.eqId]=p;
+  });
+  const hoyPartes=(DB.partes||[]).filter(p=>p.fecha===fecha);
+  const hoyEqIds=new Set(hoyPartes.map(p=>p.eqId));
+  const ops=hoyPartes.filter(p=>(p.condicion||'').toUpperCase().includes('OPERATIVO')).length;
+  const stdby=hoyPartes.filter(p=>(p.condicion||'').toUpperCase()==='STANDBY').length;
+  const inop=hoyPartes.length-ops-stdby;
+
+  // Centroide del polígono
+  function centroid(f){
+    const pts=f.puntos||[];if(pts.length<3)return null;
+    return{x:pts.reduce((s,p)=>s+p.x,0)/pts.length, y:pts.reduce((s,p)=>s+p.y,0)/pts.length};
   }
 
-  const ops=partesFecha.filter(p=>(p.condicion||'').toUpperCase().includes('OPERATIVO')).length;
-  const stdby=partesFecha.filter(p=>(p.condicion||'').toUpperCase()==='STANDBY').length;
-  const inop=partesFecha.length-ops-stdby;
+  // Agrupar por frente usando último parte conocido
+  const byFrente={};const sinPos=[];
+  Object.values(lastParteByEq).forEach(p=>{
+    const nomFt=(p.frenteT||'').trim();if(!nomFt){sinPos.push(p);return;}
+    const ft=frenteSorted.find(f=>(f.nombre||f.nom||f.frente||'').trim()===nomFt);
+    if(!ft){sinPos.push(p);return;}
+    const cen=centroid(ft);if(!cen){sinPos.push(p);return;}
+    if(!byFrente[ft.id])byFrente[ft.id]={ft,cen,partes:[]};
+    byFrente[ft.id].partes.push(p);
+  });
 
-  // Pre-calcular posiciones para saber quiénes quedan sin ubicar
-  const posCache=new Map();
-  partesFecha.forEach(p=>{posCache.set(p.eqId,_resolvePos(p));});
-  // Resetear slots para el render real
-  Object.keys(_ftSlot).forEach(k=>delete _ftSlot[k]);
-
-  const eqMarkers=partesFecha.map(p=>{
-    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
-    const pos=_resolvePos(p);if(!pos)return'';
-    const col=_pizCondColor(p.condicion);
-    return`<div style="position:absolute;left:${pos.x}%;top:${pos.y}%;transform:translate(-50%,-100%);cursor:pointer;z-index:10"
-      title="${pos.auto?'Auto: '+p.frenteT:eq.codigo}"
-      onclick="_pizPopup(${p.eqId},'${fecha}')">
-      <div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;align-items:center;gap:3px">
-        ${_pizEqIcon(eq.sub)} ${eq.codigo}${pos.auto?'<span style="font-size:.55rem;opacity:.75"> ⚙</span>':''}
-      </div>
-      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
-    </div>`;
+  // Markers de equipos en frentes
+  const eqMarkers=Object.values(byFrente).flatMap(({ft,cen,partes})=>{
+    const nCols=Math.ceil(Math.sqrt(partes.length));
+    return partes.map((p,i)=>{
+      const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
+      const row=Math.floor(i/nCols), col=i%nCols;
+      const ox=(col-(nCols-1)/2)*4, oy=row*3.5;
+      const eqCol=_pizCondColor(p.condicion);
+      const isHoy=hoyEqIds.has(p.eqId);
+      return`<div style="position:absolute;left:${(cen.x+ox).toFixed(1)}%;top:${(cen.y+oy).toFixed(1)}%;transform:translate(-50%,-100%);cursor:pointer;z-index:15;user-select:none"
+        onclick="_pizPopup(${p.eqId},'${p.fecha}')">
+        <div style="background:${eqCol};color:#fff;border-radius:6px;padding:2px 7px;font-size:.62rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);opacity:${isHoy?1:.6};border:${isHoy?'none':'1px dashed rgba(255,255,255,.5)'}">
+          ${_pizEqIcon(eq.sub)} ${eq.codigo}${!isHoy?` <span style="font-size:.5rem;opacity:.8">${p.fecha.slice(5)}</span>`:''}
+        </div>
+        <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid ${eqCol};margin:0 auto;opacity:${isHoy?1:.6}"></div>
+      </div>`;
+    });
   }).join('');
-
-  const ftMarkers=pizFt.map(fi=>{
-    const ft=(DB.frentesTrabajo||[]).find(f=>f.id===fi.refId);
-    const lbl=ft?(ft.nombre||ft.nom||ft.frente||fi.etiqueta):fi.etiqueta;
-    return`<div style="position:absolute;left:${fi.x}%;top:${fi.y}%;transform:translate(-50%,-100%);z-index:8">
-      <div style="background:rgba(245,158,11,.85);color:#fff;border-radius:5px;padding:2px 7px;font-size:.62rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">
-        📍 ${lbl}
-      </div>
-      <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid rgba(245,158,11,.85);margin:0 auto"></div>
-    </div>`;
-  }).join('');
-
-  const sinPos=partesFecha.filter(p=>!posCache.get(p.eqId));
 
   c.innerHTML=`
-  <!-- SELECTOR DE FECHA + STATS -->
   <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap">
-    <label style="font-size:.72rem;color:var(--muted2);font-weight:700">📅 Fecha:</label>
+    <label style="font-size:.72rem;color:var(--muted2);font-weight:700">📅 Hasta:</label>
     <input type="date" value="${fecha}"
-      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.75rem;font-family:'Barlow',sans-serif;cursor:pointer"
+      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.75rem;cursor:pointer"
       onchange="_pizFecha=this.value;_pizRenderTab()">
-    <span style="font-size:.7rem;color:var(--muted2)">${partesFecha.length} parte(s)</span>
-    <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${ops} Operativo</span>
-    <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${stdby} Standby</span>
-    <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${inop} Inoperativo</span>
-    ${sinPos.length?`<span style="font-size:.65rem;color:var(--muted2)">· ${sinPos.length} sin ubicar</span>`:''}
-    <span style="margin-left:auto;font-size:.6rem;color:var(--muted2)">⚙ = posición por frente</span>
+    <span style="font-size:.7rem;color:var(--muted2)">${hoyPartes.length} parte(s) hoy</span>
+    <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${ops} Op.</span>
+    <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${stdby} Stdby</span>
+    <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${inop} Inop.</span>
+    <span style="font-size:.63rem;color:var(--muted2)">· ${Object.values(byFrente).reduce((s,v)=>s+v.partes.length,0)} ubicados · ${sinPos.length} sin frente</span>
+    <span style="margin-left:auto;font-size:.58rem;color:var(--muted2)">Atenuado = último conocido antes de la fecha</span>
   </div>
-
-  <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 165px':''};gap:.7rem;height:calc(100vh - 240px)">
-    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a">
-      <img src="${_pizImgUrl()}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" draggable="false">
-      ${ftMarkers}${eqMarkers}
-      ${!partesFecha.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-        <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.78rem;text-align:center">
-          No hay partes registrados para ${fecha}
-        </div></div>`:''}
+  <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 160px':''};gap:.7rem;height:calc(100vh - 240px)">
+    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap">
+      <div id="rutaCanvas" style="position:relative;transform-origin:0 0;display:inline-block;min-width:100%">
+        <img id="rutaImg" src="${_pizImgUrl()}" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
+        <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
+        ${eqMarkers}
+        ${!Object.keys(lastParteByEq).length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="background:rgba(0,0,0,.65);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.78rem;text-align:center">
+            Sin partes registrados hasta ${fecha}
+          </div></div>`:''}
+      </div>
+      <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
+        <button onclick="_rutaZoomOut()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">−</button>
+        <span id="rutaZoomPct" style="font-size:.65rem;color:#e0e0e0;min-width:36px;text-align:center;font-weight:700">100%</span>
+        <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+      </div>
     </div>
-
     ${sinPos.length?`<div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2)">
-      <div style="font-size:.62rem;color:#ef4444;font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Sin ubicar (${sinPos.length})</div>
-      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.4rem;line-height:1.3">Frente no posicionado en el mapa</div>
+      <div style="font-size:.62rem;color:#ef4444;font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Sin frente (${sinPos.length})</div>
+      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.4rem;line-height:1.3">Sin área dibujada en la pestaña Frentes</div>
       ${sinPos.map(p=>{
         const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
         const col=_pizCondColor(p.condicion);
-        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.67rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${fecha}')">
+        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.67rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${p.fecha}')">
           ${_pizEqIcon(eq.sub)} <strong>${eq.codigo}</strong><br>
-          <span style="color:${col};font-size:.62rem">${p.condicion||'—'}</span><br>
-          <span style="color:var(--muted2);font-size:.6rem">${p.frenteT||'Sin frente'}</span>
+          <span style="color:${col};font-size:.62rem">${p.condicion||'—'}</span>
+          <span style="color:var(--muted2);font-size:.6rem;display:block">${p.frenteT||'Sin frente'}</span>
         </div>`;
       }).join('')}
-      <div style="font-size:.6rem;color:var(--muted2);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.4rem">Ubica el frente en la pestaña Planificación</div>
     </div>`:''}
   </div>
-
   <div id="pizPopup" style="display:none;position:fixed;inset:0;z-index:998;align-items:center;justify-content:center" onclick="this.style.display='none'">
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;min-width:250px;max-width:320px;box-shadow:0 8px 30px rgba(0,0,0,.5)" onclick="event.stopPropagation()">
       <div id="pizPopupBody"></div>
       <button onclick="document.getElementById('pizPopup').style.display='none'" style="margin-top:.7rem;width:100%;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted2);cursor:pointer;padding:.3rem;font-size:.72rem">Cerrar</button>
     </div>
   </div>`;
+
+  const wrap=document.getElementById('rutaMapWrap');
+  if(wrap){
+    wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
+    wrap.addEventListener('mousedown',_pizRealMousedown);
+  }
+  document.addEventListener('mousemove',_rutaOnGlobalMousemove);
+  document.addEventListener('mouseup',_pizRealGlobalMouseup);
+  requestAnimationFrame(()=>{
+    if(_rutaZoom===1&&_rutaPanX===0)_rutaFitView();else _rutaApplyTransform();
+    _frenteRenderSvg(DB.frentesTrabajo||[]);
+  });
+}
+function _pizRealMousedown(e){
+  if(e.button!==0)return;
+  _rutaIsPanning=true;_rutaDidPan=false;
+  _rutaPanStart={x:e.clientX-_rutaPanX,y:e.clientY-_rutaPanY};
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='grabbing';
+}
+function _pizRealGlobalMouseup(){
+  _rutaIsPanning=false;_rutaDidPan=false;
+  const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='default';
 }
 
 // ── Drag desde sidebar ──────────────────────────────────────────────────────
@@ -229,8 +286,8 @@ function _pizDrop(e){
   const refId=+e.dataTransfer.getData('piz_refId')||0;
   const label=e.dataTransfer.getData('piz_label');
   const color=e.dataTransfer.getData('piz_color')||'#10b981';
-  const map=document.getElementById('pizMapWrap');if(!map)return;
-  const rect=map.getBoundingClientRect();
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const rect=canvas.getBoundingClientRect();
   const x=+((e.clientX-rect.left)/rect.width*100).toFixed(1);
   const y=+((e.clientY-rect.top)/rect.height*100).toFixed(1);
   // Actualizar posición si ya existe
@@ -247,30 +304,19 @@ function _pizMousedown(e,id){
   e.preventDefault();e.stopPropagation();
   _pizMoving={id};
   document.addEventListener('mousemove',_pizMousemove);
-  document.addEventListener('mouseup',_pizMouseup);
+  // release is handled by _pizPlanGlobalMouseup (already registered on rutaMapWrap mousedown)
 }
 function _pizMousemove(e){
   if(!_pizMoving)return;
-  const map=document.getElementById('pizMapWrap');if(!map)return;
-  const rect=map.getBoundingClientRect();
-  const x=Math.max(1,Math.min(99,(e.clientX-rect.left)/rect.width*100));
-  const y=Math.max(1,Math.min(99,(e.clientY-rect.top)/rect.height*100));
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.max(0.5,Math.min(99.5,(e.clientX-rect.left)/rect.width*100));
+  const y=Math.max(0.5,Math.min(99.5,(e.clientY-rect.top)/rect.height*100));
   const el=document.getElementById('piz-m-'+_pizMoving.id);
   if(el){el.style.left=x+'%';el.style.top=y+'%';}
 }
 function _pizMouseup(e){
-  if(!_pizMoving)return;
-  document.removeEventListener('mousemove',_pizMousemove);
-  document.removeEventListener('mouseup',_pizMouseup);
-  const map=document.getElementById('pizMapWrap');
-  if(map){
-    const rect=map.getBoundingClientRect();
-    const x=+(Math.max(1,Math.min(99,(e.clientX-rect.left)/rect.width*100)).toFixed(1));
-    const y=+(Math.max(1,Math.min(99,(e.clientY-rect.top)/rect.height*100)).toFixed(1));
-    const item=(DB.pizarraItems||[]).find(i=>i.id===_pizMoving.id);
-    if(item){item.x=x;item.y=y;syncSheet('savePizItem',item);}
-  }
-  _pizMoving=null;
+  // Handled by _pizPlanGlobalMouseup to combine with pan release
 }
 
 // ── Acciones ────────────────────────────────────────────────────────────────
