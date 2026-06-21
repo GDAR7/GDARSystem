@@ -346,9 +346,9 @@ function _pizRenderRutas(c){
       <span style="font-size:.58rem;color:var(--muted2)">Mucho</span>
     </div>
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
-    <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap;flex-shrink:0;display:none">✏️ Dibujar</button>
-    <button id="rutaBtnBorrar" onclick="_rutaBorrar()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0;display:none">🗑 Borrar</button>
-    <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);white-space:nowrap;display:none"></div>
+    <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap;flex-shrink:0">✏️ Dibujar</button>
+    <button id="rutaBtnBorrar" onclick="_rutaBorrar()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0">🗑 Borrar</button>
+    <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);white-space:nowrap"></div>
   </div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 230px)">
     <!-- SIDEBAR RUTAS -->
@@ -545,13 +545,11 @@ function _rutaSelect(id){
   document.querySelectorAll('[id^="ruta-item-"]').forEach(el=>{
     el.style.outline=el.id===`ruta-item-${id}`?'2px solid #10b981':'none';
   });
-  const btnD=document.getElementById('rutaBtnDraw');
-  const btnB=document.getElementById('rutaBtnBorrar');
+  const tr=(DB.tramos||[]).find(t=>t.id===id);
   const hint=document.getElementById('rutaHint');
-  if(btnD){btnD.style.display='inline-block';}
-  if(btnB){btnB.style.display='inline-block';}
-  if(hint){hint.style.display='inline-block';hint.textContent='← clic en mapa para trazar';}
+  if(hint)hint.textContent=tr?`✔ ${tr.codigo} seleccionado`:'';
   _rutaDibujando=false;_rutaPuntos=[];
+  _rutaCancelarDraw(false);
 }
 
 function _rutaToggleDraw(){
@@ -666,7 +664,7 @@ function _rutaCancelarDraw(reset=true){
   const btn=document.getElementById('rutaBtnDraw');
   const cur=document.getElementById('rutaCursor');
   const wrap=document.getElementById('rutaMapWrap');
-  if(btn){btn.textContent='✏️ Dibujar ruta';btn.style.background='rgba(16,185,129,.1)';btn.style.color='#10b981';btn.style.borderColor='#10b98140';}
+  if(btn){btn.textContent='✏️ Dibujar';btn.style.background='rgba(16,185,129,.1)';btn.style.color='#10b981';btn.style.borderColor='#10b98140';}
   if(cur){cur.style.display='none';}
   if(wrap){wrap.style.cursor='default';}
   const svg=document.getElementById('rutaSvg');
