@@ -23,6 +23,7 @@ function _wbsTitleBg(w){
   return 'rgba(16,185,129,.09)';
 }
 let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null;
+let _lpsWbsNivel=1,_lpsWbsAfterId=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
   _lpsWbsQTimer=setTimeout(()=>_lpsRenderTab(),220);
@@ -91,6 +92,45 @@ function _lpsWbsSorted(){
   const needsNorm=wbs.some(w=>w.orden==null);
   if(needsNorm) wbs.forEach((w,i)=>{if(w.orden==null)w.orden=i*10;});
   return [...wbs].sort((a,b)=>a.orden-b.orden);
+}
+
+// ── Auto-código WBS ──────────────────────────────────────────────────────────
+function _lpsNextCode(nivel){
+  const all=_lpsWbsSorted();
+  if(!all.length)return String(1).padStart(2,'0')+'.';
+  if(nivel===1){
+    const nums=all.map(w=>{const m=w.codigo.match(/^(\d+)\./);return m?+m[1]:0;});
+    return String(Math.max(0,...nums)+1).padStart(2,'0')+'.';
+  }
+  // Busca el último padre de nivel (nivel-1) en la lista
+  let parentPrefix='';
+  for(let i=all.length-1;i>=0;i--){
+    if(_wbsLvl(all[i].codigo)===nivel-1){
+      parentPrefix=all[i].codigo.split('-')[0];// e.g. "02." ó "02.01."
+      break;
+    }
+  }
+  if(!parentPrefix)return _lpsNextCode(nivel-1)+'01.';
+  const re=new RegExp('^'+parentPrefix.replace(/\./g,'\\.')+'(\\d+)\\.');
+  const nums=all.map(w=>{const m=w.codigo.match(re);return m?+m[1]:0;});
+  return parentPrefix+String(Math.max(0,...nums)+1).padStart(2,'0')+'.';
+}
+function _lpsNivelChange(delta){
+  _lpsWbsNivel=Math.max(1,Math.min(3,_lpsWbsNivel+delta));
+  _lpsUpdateNivelUI();
+}
+function _lpsUpdateNivelUI(skipCode=false){
+  const DOTS=['●○○','●●○','●●●'];
+  const LABELS=['Nivel 1 – Capítulo','Nivel 2 – Sección','Nivel 3 – Actividad'];
+  const dotsEl=document.getElementById('lpsWbsNivelDots');
+  const labelEl=document.getElementById('lpsWbsNivelLabel');
+  if(dotsEl)dotsEl.textContent=DOTS[_lpsWbsNivel-1];
+  if(labelEl)labelEl.textContent=LABELS[_lpsWbsNivel-1];
+  if(!skipCode){const cod=document.getElementById('lpsWbsCod');if(cod)cod.value=_lpsNextCode(_lpsWbsNivel);}
+}
+function _lpsWbsCodKey(e){
+  if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();_lpsNivelChange(+1);}
+  else if(e.key==='Tab'&&e.shiftKey){e.preventDefault();_lpsNivelChange(-1);}
 }
 
 function _lpsWbsMover(id,dir){
@@ -164,7 +204,8 @@ function _lpsRenderWBS(c){
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
           <td></td>
           <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
-              <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
+              <button class="btn btn-out btn-sm" title="Insertar actividad aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
+              <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
               <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
         </tr>`;
       }
@@ -178,8 +219,10 @@ function _lpsRenderWBS(c){
           ${recsBadge}
           <button onclick="_lpsOpenRecursos(${w.id})" title="Agregar recursos" style="background:none;border:1px dashed #2a3a5a;border-radius:5px;color:#3d5070;padding:1px 7px;font-size:.68rem;cursor:pointer">＋ Recursos</button>
         </td>
-        <td style="white-space:nowrap"><button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
-            <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-out btn-sm" title="Insertar actividad aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
+          <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
+          <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
     }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
@@ -397,9 +440,21 @@ function _lpsWbsToggleTitulo(esTitulo){
   if(cronoWrap)cronoWrap.style.display=esTitulo?'none':'';
 }
 
-function _lpsOpenWbs(id){
+function _lpsOpenWbs(id,afterId=null){
   _lpsEditWbsId=id;
+  _lpsWbsAfterId=afterId;
   const w=id?DB.lpsWbs.find(x=>x.id===id):null;
+  // Detectar nivel automático
+  if(w){
+    _lpsWbsNivel=Math.max(1,_wbsLvl(w.codigo||''));
+  } else if(afterId){
+    const aw=DB.lpsWbs.find(x=>x.id===afterId);
+    if(aw)_lpsWbsNivel=Math.max(1,_wbsLvl(aw.codigo||''));
+  } else {
+    const all=_lpsWbsSorted();
+    const last=all[all.length-1];
+    _lpsWbsNivel=last?Math.max(1,_wbsLvl(last.codigo||'')):1;
+  }
   const esTitulo=w?.tipo==='TITULO';
   document.getElementById('lpsWbsMtl').textContent=w?'✏️ Editar Actividad':'＋ Nueva Actividad';
   document.getElementById('lpsWbsCod').value=w?.codigo||'';
@@ -424,6 +479,7 @@ function _lpsOpenWbs(id){
   if(predTipoEl)predTipoEl.value=w?.predTipo||'FS';
   const predLagEl=document.getElementById('lpsWbsPredLag');
   if(predLagEl)predLagEl.value=w?.predLag||0;
+  _lpsUpdateNivelUI(!!w);// skipCode si estamos editando (ya tiene su código)
   openM('mLpsWbs');
 }
 
@@ -476,8 +532,18 @@ function _lpsSaveWbs(){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
     if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId,predTipo,predLag});syncSheet('saveLpsWbs',w);}
   }else{
+    let newOrden;
+    if(_lpsWbsAfterId){
+      const allS=_lpsWbsSorted();
+      const idx=allS.findIndex(w=>w.id===_lpsWbsAfterId);
+      if(idx>=0){
+        const cur=allS[idx].orden||0;
+        const nxt=idx<allS.length-1?(allS[idx+1].orden||cur+20):cur+20;
+        newOrden=(cur+nxt)/2;
+      }
+    }
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:maxOrden,fechaIni,fechaFin,cantDias,predId,predTipo,predLag};
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias,predId,predTipo,predLag};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
   }
   closeM('mLpsWbs');_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');

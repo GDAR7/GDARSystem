@@ -749,7 +749,20 @@
       <span style="font-size:.72rem;color:var(--muted2);margin-left:.2rem">(cabecera visual, sin lookahead)</span>
     </label>
     <div class="fg-grid" style="grid-template-columns:1fr 1fr">
-      <div class="fg" style="grid-column:1/-1"><label>Código</label><input id="lpsWbsCod" placeholder="01.01.01"></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Nivel de jerarquía</label>
+        <div style="display:flex;align-items:center;gap:.5rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem">
+          <button onclick="_lpsNivelChange(-1)" title="Shift+Tab" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-size:.8rem;line-height:1">◀</button>
+          <span id="lpsWbsNivelDots" style="font-size:1rem;letter-spacing:4px;min-width:52px;text-align:center;user-select:none;color:#10b981">●○○</span>
+          <button onclick="_lpsNivelChange(+1)" title="Tab" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-size:.8rem;line-height:1">▶</button>
+          <span id="lpsWbsNivelLabel" style="font-size:.72rem;color:#10b981;font-weight:700;min-width:125px">Nivel 1 – Capítulo</span>
+          <span style="margin-left:auto;font-size:.6rem;color:var(--muted2)">Tab ▶ · Shift+Tab ◀</span>
+        </div>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Código <span style="font-weight:400;color:var(--muted2);font-size:.72rem">(auto · editable)</span></label>
+        <input id="lpsWbsCod" placeholder="auto" style="font-family:monospace" onkeydown="_lpsWbsCodKey(event)">
+      </div>
       <div class="fg" style="grid-column:1/-1"><label>Notas <span style="font-weight:400;color:var(--muted2);font-size:.72rem">(opcional)</span></label><input id="lpsWbsDesc" placeholder="Observaciones, aclaraciones..."></div>
       <div id="lpsWbsUndWrap" class="fg"><label>Unidad</label><select id="lpsWbsUnd"><option>m³</option><option>ml</option><option>m²</option><option>kg</option><option>und</option><option>Hs</option><option>gl</option></select></div>
       <div id="lpsWbsCantWrap" class="fg"><label>Cantidad Total</label><input id="lpsWbsCant" type="number" min="0" step="0.01" placeholder="0"></div>
