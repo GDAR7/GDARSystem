@@ -307,6 +307,30 @@ function filtrarEquipos(){
     if(ops) opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   }
   _setViajesMode(sub);
+  // Tramo de trabajo: mostrar para LA no-volquete (moto, rodillo, tractor, etc.)
+  const isVolq=sub.toUpperCase()==='VOLQUETE';
+  const isLA=linea==='Línea Amarilla';
+  const tramoRow=document.getElementById('rpParteTramoRow');
+  if(tramoRow){
+    tramoRow.style.display=(isLA&&!isVolq)?'':'none';
+    if(isLA&&!isVolq){
+      const trSel=document.getElementById('rpParteTramoId');
+      if(trSel){
+        const cur=trSel.value;
+        trSel.innerHTML='<option value="">— Sin tramo —</option>'+
+          (DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''))
+            .map(t=>`<option value="${t.id}">${t.codigo}${t.inicio?` (${t.inicio}${t.fin?' → '+t.fin:''})`:''}</option>`).join('');
+        if(cur)trSel.value=cur;
+      }
+    }
+  }
+  // Tramo para cisternas en cistSection
+  const cistTr=document.getElementById('rpCistTramoId');
+  if(cistTr&&cistTr.children.length<=1){
+    cistTr.innerHTML='<option value="">— Sin tramo —</option>'+
+      (DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''))
+        .map(t=>`<option value="${t.id}">${t.codigo}${t.inicio?` (${t.inicio}${t.fin?' → '+t.fin:''})`:''}</option>`).join('');
+  }
 }
 
 function autoFillEquipo(){
@@ -646,6 +670,11 @@ function editParte(id){
   if(rpTT)rpTT.value=p.tiempoTrans||'';
   const rpNT=document.getElementById('rpNTanques');
   if(rpNT)rpNT.value=p.nTanques||'';
+  // Tramo parte (no-volquete LA)
+  const rpPTr=document.getElementById('rpParteTramoId');
+  if(rpPTr&&p.tramoId){rpPTr.value=p.tramoId;}
+  const rpCTr=document.getElementById('rpCistTramoId');
+  if(rpCTr&&p.tramoId){rpCTr.value=p.tramoId;}
   // Viajes
   if(p.viajes&&p.viajes.length){
     p.viajes.forEach(v=>{
@@ -702,6 +731,7 @@ async function gReporte(){
     nViajes:      +document.getElementById('rpNViajes').value||0,
     tiempoTrans:   document.getElementById('rpTiempoTrans').value,
     nTanques:     +document.getElementById('rpNTanques')?.value||0,
+    tramoId:      +document.getElementById('rpParteTramoId')?.value||+document.getElementById('rpCistTramoId')?.value||0,
     conclusion:    document.getElementById('rpConclusion').value,
     colaborador:   CU.nombre,
     viajes
@@ -733,6 +763,7 @@ async function gReporte(){
     n_viajes:     parte.nViajes||null,
     tiempo_trans: parte.tiempoTrans||null,
     n_tanques:    parte.nTanques||null,
+    tramo_id:     parte.tramoId||null,
     conclusion:   parte.conclusion||null,
     colaborador:  parte.colaborador||null,
     viajes:       viajes.length?viajes:null,

@@ -2421,6 +2421,12 @@
           </div>
           <input type="hidden" id="rpFrente">
         </div>
+        <div class="fg" id="rpParteTramoRow" style="grid-column:1/-1;display:none">
+          <label>Tramo de Trabajo 🗺️</label>
+          <select id="rpParteTramoId">
+            <option value="">— Sin tramo —</option>
+          </select>
+        </div>
         <div class="fg" style="grid-column:1/-1">
           <label>Descripción de Actividades 🔵</label>
           <textarea id="rpDescripcion" rows="2" placeholder="Resumen de actividades del día..." style="resize:vertical"></textarea>
@@ -2440,7 +2446,11 @@
       <div id="cistSection" style="display:none">
         <div class="fg-grid" style="grid-template-columns:1fr 1fr">
           <div class="fg"><label>N° Tanques Regados</label><input id="rpNTanques" type="number" placeholder="0" min="0"></div>
-          <div class="fg" style="visibility:hidden"></div>
+          <div class="fg"><label>Tramo Regado 🗺️</label>
+            <select id="rpCistTramoId">
+              <option value="">— Sin tramo —</option>
+            </select>
+          </div>
         </div>
       </div>
 

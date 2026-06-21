@@ -316,14 +316,38 @@ function _pizPopup(eqId,fecha){
 }
 
 // ══ TAB 3: RUTAS ══
-let _rutaSelId=null, _rutaDibujando=false, _rutaPuntos=[], _rutaColors=[
+let _rutaSelId=null, _rutaDibujando=false, _rutaPuntos=[], _rutaModoCalor=false, _rutaColors=[
   '#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#0ea5e9','#a78bfa'
 ];
 
 function _pizRenderRutas(c){
   const tramos=(DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  const hoy=today();
+  const mesIni=hoy.slice(0,7)+'-01';
   c.innerHTML=`
-  <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 195px)">
+  <div style="margin-bottom:.5rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+    <span style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período:</span>
+    <input type="date" id="rutaFechaD" value="${mesIni}" onchange="_rutaRefresh()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid #f59e0b55;background:var(--panel2);color:var(--text)">
+    <span style="color:var(--muted2);font-size:.7rem">→</span>
+    <input type="date" id="rutaFechaH" value="${hoy}" onchange="_rutaRefresh()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid #f59e0b55;background:var(--panel2);color:var(--text)">
+    <select id="rutaFiltSub" onchange="_rutaRefresh()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid #06b6d455;background:var(--panel2);color:var(--text)">
+      <option value="">— Todos los tipos —</option>
+      <option value="VOLQUETE">Volquete</option>
+      <option value="CISTERNA">Cisterna</option>
+      <option value="MOTONIVELADORA">Motoniveladora</option>
+      <option value="RODILLO">Rodillo</option>
+      <option value="TRACTOR DE ORUGAS">Tractor</option>
+    </select>
+    <button id="rutaBtnCalor" onclick="_rutaToggleCalor()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444460;background:${_rutaModoCalor?'rgba(239,68,68,.2)':'rgba(239,68,68,.07)'};color:${_rutaModoCalor?'#ef4444':'#888'};cursor:pointer">
+      🌡️ ${_rutaModoCalor?'Mapa de Calor ON':'Mapa de Calor OFF'}
+    </button>
+    <div id="rutaLegenda" style="display:${_rutaModoCalor?'flex':'none'};align-items:center;gap:.3rem;margin-left:.3rem">
+      <span style="font-size:.6rem;color:var(--muted2)">Poco</span>
+      <div style="width:60px;height:8px;border-radius:3px;background:linear-gradient(to right,#3b82f6,#10b981,#f59e0b,#ef4444)"></div>
+      <span style="font-size:.6rem;color:var(--muted2)">Mucho</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 235px)">
     <!-- SIDEBAR RUTAS -->
     <div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);display:flex;flex-direction:column;gap:.3rem">
       <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Tramos / Rutas</div>
@@ -338,7 +362,7 @@ function _pizRenderRutas(c){
             <span style="font-size:.68rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.codigo||'Sin código'}</span>
           </div>
           <div style="font-size:.58rem;color:var(--muted2);margin-top:2px;padding-left:14px">${t.inicio||''}${t.fin?' → '+t.fin:''}</div>
-          <div style="font-size:.56rem;color:${pts?col:'var(--muted2)'};padding-left:14px;margin-top:1px">${pts?pts+' puntos dibujados':'Sin trazar'}</div>
+          <div id="ruta-stat-${t.id}" style="font-size:.56rem;color:${pts?col:'var(--muted2)'};padding-left:14px;margin-top:1px">${pts?pts+' puntos':'Sin trazar'}</div>
         </div>`;
       }).join(''):'<div style="color:var(--muted2);font-size:.68rem;text-align:center;padding:1rem">Sin tramos definidos</div>'}
       <hr style="border-color:var(--border);margin:.4rem 0">
@@ -363,53 +387,159 @@ function _pizRenderRutas(c){
     wrap.addEventListener('contextmenu',e=>{e.preventDefault();_rutaCancelarDraw();});
   }
   // Dibujar rutas guardadas (esperando que el SVG tenga dimensiones)
-  requestAnimationFrame(()=>_rutaRenderSvg(tramos));
+  requestAnimationFrame(()=>_rutaRefresh());
 }
 
-function _rutaRenderSvg(tramos){
+function _rutaToggleCalor(){
+  _rutaModoCalor=!_rutaModoCalor;
+  _rutaRefresh();
+}
+
+function _rutaRefresh(){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const tramos=(DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  const fechaD=(document.getElementById('rutaFechaD')||{}).value||'';
+  const fechaH=(document.getElementById('rutaFechaH')||{}).value||'';
+  const subFilt=((document.getElementById('rutaFiltSub')||{}).value||'').toUpperCase();
+  const heat=_rutaComputeHeat(fechaD,fechaH,subFilt);
+  // Actualizar botón calor
+  const btn=document.getElementById('rutaBtnCalor');
+  const leg=document.getElementById('rutaLegenda');
+  if(btn){btn.textContent=`🌡️ ${_rutaModoCalor?'Mapa de Calor ON':'Mapa de Calor OFF'}`;btn.style.background=_rutaModoCalor?'rgba(239,68,68,.2)':'rgba(239,68,68,.07)';btn.style.color=_rutaModoCalor?'#ef4444':'#888';}
+  if(leg)leg.style.display=_rutaModoCalor?'flex':'none';
+  // Actualizar stats en sidebar
+  tramos.forEach((t,i)=>{
+    const h=heat[t.id]||{viajes:0,nPartes:0,nEquipos:0};
+    const el=document.getElementById(`ruta-stat-${t.id}`);
+    if(el){
+      const pts=(t.puntos||[]).length;
+      if(_rutaModoCalor&&h.nPartes>0){
+        const col=_rutaColors[i%_rutaColors.length];
+        el.style.color=_rutaHeatColor(h.viajes,_rutaMaxViajes(heat));
+        el.textContent=`${h.viajes} viajes · ${h.nPartes} partes · ${h.nEquipos} eq.`;
+      }else{
+        el.style.color=pts?_rutaColors[i%_rutaColors.length]:'var(--muted2)';
+        el.textContent=pts?pts+' puntos':'Sin trazar';
+      }
+    }
+  });
+  _rutaRenderSvg(tramos,_rutaModoCalor?heat:null);
+}
+
+function _rutaMaxViajes(heat){
+  const vals=Object.values(heat).map(h=>h.viajes||0);
+  return vals.length?Math.max(...vals):1;
+}
+
+function _rutaComputeHeat(fechaD,fechaH,subFilt){
+  const heat={};
+  (DB.partes||[]).forEach(p=>{
+    if(fechaD&&p.fecha<fechaD)return;
+    if(fechaH&&p.fecha>fechaH)return;
+    const eq=(DB.equipos||[]).find(e=>e.id===(p.eqId||p.eqId));
+    if(subFilt&&(!eq||(eq.sub||'').toUpperCase()!==subFilt))return;
+    const addHeat=(id,cant)=>{
+      if(!id)return;
+      if(!heat[id])heat[id]={viajes:0,nPartes:0,nEquipos:new Set()};
+      heat[id].viajes+=cant;
+      heat[id].nPartes++;
+      if(eq)heat[id].nEquipos.add(eq.id);
+    };
+    // Viajes de volquetes (tramoId por viaje)
+    if(Array.isArray(p.viajes)){
+      p.viajes.forEach(v=>{if(v.tramoId)addHeat(v.tramoId,v.cant||1);});
+    }
+    // Parte-level tramoId (moto, rodillo, cisterna)
+    if(p.tramoId)addHeat(p.tramoId,1);
+  });
+  // Convertir Set a count
+  Object.values(heat).forEach(h=>{h.nEquipos=h.nEquipos.size;});
+  return heat;
+}
+
+function _rutaHeatColor(viajes,max){
+  if(!viajes||!max)return'#404040';
+  const r=Math.min(viajes/max,1);
+  // azul→verde→amarillo→rojo
+  if(r<0.33){const t=r/0.33;return`rgb(${Math.round(59+t*(16-59))},${Math.round(130+t*(185-130))},${Math.round(246+t*(129-246))})`;}
+  if(r<0.66){const t=(r-0.33)/0.33;return`rgb(${Math.round(16+t*(245-16))},${Math.round(185+t*(158-185))},${Math.round(129+t*(11-129))})`;}
+  const t=(r-0.66)/0.34;return`rgb(${Math.round(245+t*(239-245))},${Math.round(158+t*(68-158))},${Math.round(11+t*(68-11))})`;
+}
+
+function _rutaRenderSvg(tramos,heat){
   const svg=document.getElementById('rutaSvg');if(!svg)return;
   const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
-  // Limpiar rutas estáticas (no temporales)
   svg.querySelectorAll('.ruta-static').forEach(el=>el.remove());
   const sorted=(tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  const maxV=heat?_rutaMaxViajes(heat):1;
   sorted.forEach((t,i)=>{
     const pts=t.puntos||[];if(pts.length<2)return;
-    const col=_rutaColors[i%_rutaColors.length];
+    const baseCol=_rutaColors[i%_rutaColors.length];
+    const h=heat?(heat[t.id]||null):null;
+    const col=heat?(h?_rutaHeatColor(h.viajes,maxV):'#2a3040'):baseCol;
+    const opacity=heat?(h?'.95':'.3'):'.9';
+    const strokeW=heat&&h?Math.max(3,Math.min(10,3+h.viajes/Math.max(maxV,1)*7)).toFixed(1):'3';
     const px=pts.map(p=>({x:(p.x*W/100),y:(p.y*H/100)}));
     const d='M '+px.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ');
     const mid=px[Math.floor(px.length/2)];
     const g=document.createElementNS('http://www.w3.org/2000/svg','g');
     g.classList.add('ruta-static');
-    // Sombra para legibilidad
+    g.style.cursor='pointer';
+    // Tooltip hover
+    if(h){
+      g.addEventListener('mouseenter',e=>{_rutaShowTooltip(e,t,h);});
+      g.addEventListener('mouseleave',()=>{_rutaHideTooltip();});
+    }
+    // Sombra
     const shadow=document.createElementNS('http://www.w3.org/2000/svg','path');
-    shadow.setAttribute('d',d);shadow.setAttribute('stroke','#000');shadow.setAttribute('stroke-width','5');
-    shadow.setAttribute('fill','none');shadow.setAttribute('stroke-linecap','round');shadow.setAttribute('stroke-linejoin','round');shadow.setAttribute('opacity','.35');
+    shadow.setAttribute('d',d);shadow.setAttribute('stroke','#000');
+    shadow.setAttribute('stroke-width',String(+strokeW+3));
+    shadow.setAttribute('fill','none');shadow.setAttribute('stroke-linecap','round');shadow.setAttribute('stroke-linejoin','round');shadow.setAttribute('opacity','.3');
     g.appendChild(shadow);
     // Línea principal
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d',d);path.setAttribute('stroke',col);path.setAttribute('stroke-width','3');
-    path.setAttribute('fill','none');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');path.setAttribute('opacity','.9');
-    if(t.estado!=='Completado')path.setAttribute('stroke-dasharray','12 5');
+    path.setAttribute('d',d);path.setAttribute('stroke',col);path.setAttribute('stroke-width',strokeW);
+    path.setAttribute('fill','none');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');path.setAttribute('opacity',opacity);
+    if(!heat&&t.estado!=='Completado')path.setAttribute('stroke-dasharray','12 5');
     g.appendChild(path);
-    // Círculo inicio/fin
-    [[px[0],'▶'],[px[px.length-1],'■']].forEach(([p])=>{
+    // Puntos inicio/fin
+    [px[0],px[px.length-1]].forEach(p=>{
       const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
       c.setAttribute('cx',p.x.toFixed(1));c.setAttribute('cy',p.y.toFixed(1));
-      c.setAttribute('r','5');c.setAttribute('fill',col);c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+      c.setAttribute('r','5');c.setAttribute('fill',col);c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');c.setAttribute('opacity',opacity);
       g.appendChild(c);
     });
-    // Etiqueta
+    // Etiqueta con fondo
+    const lblX=mid.x.toFixed(1),lblY=(mid.y-10).toFixed(1);
     const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
-    txt.setAttribute('x',mid.x.toFixed(1));txt.setAttribute('y',(mid.y-8).toFixed(1));
-    txt.setAttribute('font-size','12');txt.setAttribute('font-weight','bold');txt.setAttribute('fill',col);
+    txt.setAttribute('x',lblX);txt.setAttribute('y',lblY);
+    txt.setAttribute('font-size','11');txt.setAttribute('font-weight','bold');txt.setAttribute('fill',col);
     txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','3');txt.setAttribute('paint-order','stroke');
-    txt.setAttribute('dominant-baseline','auto');txt.setAttribute('text-anchor','middle');
-    txt.setAttribute('font-family','monospace');
-    txt.textContent=t.codigo||'';
+    txt.setAttribute('dominant-baseline','auto');txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','monospace');
+    const label=heat&&h?`${t.codigo} (${h.viajes}v)`:(t.codigo||'');
+    txt.textContent=label;
     g.appendChild(txt);
     svg.appendChild(g);
   });
 }
+
+// Tooltip flotante para mapa de calor
+function _rutaShowTooltip(e,t,h){
+  let tip=document.getElementById('rutaTooltip');
+  if(!tip){tip=document.createElement('div');tip.id='rutaTooltip';
+    tip.style.cssText='position:fixed;background:#1a1f2a;border:1px solid #ffffff20;border-radius:8px;padding:.5rem .8rem;font-size:.7rem;color:#e0e0e0;pointer-events:none;z-index:9999;box-shadow:0 4px 16px #00000088;min-width:160px';
+    document.body.appendChild(tip);}
+  const eq=h.nEquipos,v=h.viajes,p=h.nPartes;
+  tip.innerHTML=`<div style="font-weight:700;color:#f59e0b;margin-bottom:.3rem">${t.codigo}</div>
+    <div style="color:var(--muted2)">${t.inicio||''}${t.fin?' → '+t.fin:''}</div>
+    <hr style="border-color:#ffffff15;margin:.3rem 0">
+    <div>🚛 <b>${v}</b> viajes registrados</div>
+    <div>📋 <b>${p}</b> partes de trabajo</div>
+    <div>🔧 <b>${eq}</b> equipo${eq!==1?'s':''} distintos</div>
+    ${t.long?`<div>📏 Long: <b>${t.long} m</b></div>`:''}`;
+  tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';tip.style.display='block';
+}
+function _rutaHideTooltip(){const t=document.getElementById('rutaTooltip');if(t)t.style.display='none';}
 
 function _rutaSelect(id){
   _rutaSelId=id;
