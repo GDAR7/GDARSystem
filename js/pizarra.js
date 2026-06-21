@@ -21,15 +21,27 @@ function _pizRenderTab(){
 
 function _pizEqIcon(sub){
   const s=(sub||'').toLowerCase();
-  if(s.includes('volquete'))return'🚛';
-  if(s.includes('cistern'))return'💧';
-  if(s.includes('motoniveladora'))return'🛤️';
-  if(s.includes('excavadora'))return'⛏️';
-  if(s.includes('rodillo'))return'🔄';
-  if(s.includes('cargador'))return'🪣';
-  if(s.includes('tractor')||s.includes('dozer'))return'🚜';
-  if(s.includes('grúa')||s.includes('grua'))return'🏗️';
-  return'🚧';
+  const O=(col)=>`<span style="font-size:11px;line-height:1;vertical-align:middle;margin-right:2px;color:${col};text-shadow:0 0 2px rgba(0,0,0,.5)">●</span>`;
+  const Q=(col)=>`<span style="font-size:9px;line-height:1;vertical-align:middle;margin-right:2px;color:${col};text-shadow:0 0 2px rgba(0,0,0,.5)">■</span>`;
+  // ● Blanco → Volquetes
+  if(s.includes('volquete'))                    return O('#ffffff');
+  // ● Azul → Cisterna de agua
+  if(s.includes('cistern'))                     return O('#60a5fa');
+  // ● Plomo → Camionetas
+  if(s.includes('camioneta'))                   return O('#9ca3af');
+  // ● Marrón → Coaster
+  if(s.includes('coaster'))                     return O('#b45309');
+  // ● Amarillo → LA con ruedas
+  if(s.includes('rodillo'))                     return O('#fbbf24');
+  if(s.includes('motoniveladora'))              return O('#fbbf24');
+  if(s.includes('retroexcavadora'))             return O('#fbbf24');
+  if(s.includes('cargador'))                    return O('#fbbf24');
+  // ■ Amarillo → LA con orugas
+  if(s.includes('tractor')||s.includes('dozer'))return Q('#fbbf24');
+  if(s.includes('excavadora'))                  return Q('#fbbf24');
+  if(s.includes('grúa')||s.includes('grua'))   return Q('#fbbf24');
+  // Default → ■ blanco
+  return Q('rgba(255,255,255,.7)');
 }
 
 function _pizCondColor(cond){
