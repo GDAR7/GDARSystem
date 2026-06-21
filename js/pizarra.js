@@ -54,9 +54,43 @@ function _pizCondColor(cond){
 
 // ── VISTA 1: PLANIFICACIÓN (drag & drop) ───────────────────────────────────
 function _pizRenderPlan(c){
-  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='plan');
+  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo!=='frente');
   const equipos=(DB.equipos||[]).filter(e=>e.est!=='Baja');
-  const frentes=DB.frentesTrabajo||[];
+
+  // ── Personal de piso: agrega desde lpsWbsRecursos (Personal) o fallback a DB.personal ──
+  const cargoMap={};
+  const lpsPersonal=(DB.lpsWbsRecursos||[]).filter(r=>r.tipo==='Personal');
+  if(lpsPersonal.length){
+    lpsPersonal.forEach(r=>{
+      const cargo=(r.nombre||'').split('–').slice(-1)[0].trim()||'Personal';
+      cargoMap[cargo]=(cargoMap[cargo]||0)+(+(r.cantidad)||0);
+    });
+  } else {
+    (DB.personal||[]).filter(p=>p.tipo!=='Staff'&&(p.est||'').toLowerCase()==='activo').forEach(p=>{
+      const cargo=(p.cargo||'Sin cargo').trim();
+      cargoMap[cargo]=(cargoMap[cargo]||0)+1;
+    });
+  }
+  const placedMap={};
+  items.filter(x=>x.tipo==='personal').forEach(x=>{placedMap[x.etiqueta||'']=(placedMap[x.etiqueta||'']||0)+1;});
+  const personalHtml=Object.entries(cargoMap).map(([cargo,total])=>{
+    const placed=placedMap[cargo]||0;
+    const avail=Math.max(0,total-placed);
+    const pct=total>0?Math.round(placed/total*100):0;
+    const ok=avail>0;
+    const safeCargo=cargo.replace(/'/g,"\\'");
+    return`<div draggable="${ok}" ondragstart="${ok}?_pizDragStart(event,'personal',0,'${safeCargo}','#10b981'):event.preventDefault()"
+      style="cursor:${ok?'grab':'not-allowed'};padding:.25rem .4rem;margin-bottom:.2rem;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,${ok?'.22':'.08'});border-radius:5px;opacity:${ok?1:.45}"
+      title="${avail} disponibles de ${total}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.3rem;font-size:.67rem">
+        <span>👷 ${cargo}</span>
+        <span style="font-size:.62rem;font-weight:700;color:${avail>0?'#10b981':'#ef4444'};white-space:nowrap">${avail}/${total}</span>
+      </div>
+      <div style="height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:.2rem">
+        <div style="height:100%;width:${pct}%;background:${pct>=90?'#ef4444':pct>=60?'#f59e0b':'#10b981'};border-radius:2px"></div>
+      </div>
+    </div>`;
+  }).join('')||'<div style="font-size:.62rem;color:var(--muted2);padding:.3rem;text-align:center">Sin personal en WBS</div>';
 
   const markers=items.map(item=>{
     const col=item.color||'#10b981';
@@ -83,13 +117,8 @@ function _pizRenderPlan(c){
         title="${e.codigo} – ${e.nombre||''}">
         ${_pizEqIcon(e.sub)} ${e.codigo}
       </div>`).join('')}
-      <div style="font-size:.68rem;color:#f59e0b;font-weight:700;margin:.6rem 0 .3rem">📍 Frentes</div>
-      ${frentes.map(f=>{const nom=(f.nombre||f.nom||f.frente||'');return`<div draggable="true"
-        ondragstart="_pizDragStart(event,'frente',${f.id},'${nom.replace(/'/g,"\\'")}','#f59e0b')"
-        style="cursor:grab;padding:.2rem .4rem;margin-bottom:.18rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:5px;font-size:.67rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-        title="${nom}">
-        📍 ${nom.slice(0,22)}
-      </div>`;}).join('')}
+      <div style="font-size:.68rem;color:#10b981;font-weight:700;margin:.6rem 0 .3rem">👷 Personal de Piso</div>
+      ${personalHtml}
       <div style="font-size:.68rem;color:#8b5cf6;font-weight:700;margin:.6rem 0 .3rem">📝 Anotaciones</div>
       <button onclick="_pizAgregarNota()" style="width:100%;background:rgba(139,92,246,.1);border:1px dashed rgba(139,92,246,.4);border-radius:5px;color:#8b5cf6;cursor:pointer;padding:.3rem;font-size:.67rem">＋ Nota libre</button>
       <hr style="border-color:var(--border);margin:.7rem 0">
@@ -104,7 +133,7 @@ function _pizRenderPlan(c){
         ${markers}
         ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
           <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.75rem;text-align:center;backdrop-filter:blur(4px)">
-            Arrastra equipos o frentes al mapa · Rueda=zoom · Arrastrar mapa=pan<br>
+            Arrastra equipos o personal al mapa · Rueda=zoom · Arrastrar mapa=pan<br>
             <span style="font-size:.65rem;opacity:.6">Las posiciones se guardan automáticamente</span>
           </div></div>`:''}
       </div>
@@ -342,9 +371,11 @@ function _pizDrop(e){
   const rect=canvas.getBoundingClientRect();
   const x=+((e.clientX-rect.left)/rect.width*100).toFixed(1);
   const y=+((e.clientY-rect.top)/rect.height*100).toFixed(1);
-  // Actualizar posición si ya existe
-  const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab==='plan');
-  if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
+  // Para equipos: reubicar si ya existe. Para personal/nota: siempre crear nuevo
+  if(tipo!=='personal'&&tipo!=='nota'){
+    const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab==='plan');
+    if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
+  }
   const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:'plan'};
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
@@ -379,9 +410,10 @@ function _pizRemoveItem(id){
 }
 
 function _pizLimpiar(){
-  if(!confirm('¿Limpiar todos los elementos del mapa de planificación?'))return;
-  (DB.pizarraItems||[]).forEach(i=>supaDelete('pizarraItems',i.id));
-  DB.pizarraItems=[];
+  if(!confirm('¿Limpiar equipos y personal del mapa de planificación?'))return;
+  const toDelete=(DB.pizarraItems||[]).filter(i=>i.tab==='plan');
+  toDelete.forEach(i=>supaDelete('pizarraItems',i.id));
+  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>i.tab!=='plan');
   _pizRenderTab();
 }
 
