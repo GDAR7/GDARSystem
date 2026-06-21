@@ -95,6 +95,10 @@ function _lpsWbsSorted(){
 }
 
 // ── Auto-código y renumeración WBS ───────────────────────────────────────────
+// Extrae solo el prefijo numérico ("01.02.") y la descripción ("ACONDICIONAMIENTO...")
+function _lpsCodPfx(codigo){return(codigo||'').match(/^(\d{2}(?:\.\d{2})*\.)/)?.[1]||'';}
+function _lpsCodNombre(codigo){const p=_lpsCodPfx(codigo);const rest=(codigo||'').slice(p.length);return rest.startsWith('-')?rest.slice(1):rest;}
+
 function _lpsParentPrefix(codigo,nivel){
   if(nivel<=1)return'';
   const parts=(codigo.split('-')[0]).split('.').filter(Boolean);
@@ -135,7 +139,9 @@ function _lpsRenumberAll(){
     if(lv===1){cnt[1]++;cnt[2]=0;cnt[3]=0;pfx[1]=String(cnt[1]).padStart(2,'0')+'.';}
     else if(lv===2){cnt[2]++;cnt[3]=0;pfx[2]=pfx[1]+String(cnt[2]).padStart(2,'0')+'.';}
     else{cnt[3]++;pfx[3]=pfx[2]+String(cnt[3]).padStart(2,'0')+'.';}
-    const suffix=w.codigo.split('-').slice(1).join('-');
+    const numPfx=_lpsCodPfx(w.codigo||'');
+    const rest=(w.codigo||'').slice(numPfx.length);
+    const suffix=rest.startsWith('-')?rest.slice(1):rest;
     const newCod=pfx[lv]+(suffix?'-'+suffix:'');
     if(newCod!==w.codigo){w.codigo=newCod;toSave.push(w);}
   });
@@ -242,19 +248,22 @@ function _lpsRenderWBS(c){
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th style="width:52px"></th><th>Código</th><th>Unidad</th><th style="text-align:right">Cant. Total</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
-    <tbody>${rows.length?rows.map((w,idx)=>{
+    <thead><tr><th style="width:52px"></th><th style="min-width:75px;white-space:nowrap">Nro.</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant.</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
+    <tbody>${rows.length?rows.map((w)=>{
       const movBtns=_btnMove(w.id);
       const recsW=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===w.id);
       const recsBadge=recsW.length
         ?`<button onclick="_lpsOpenRecursos(${w.id})" title="Ver/editar recursos" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid #818cf840;border-radius:5px;padding:1px 8px;font-size:.68rem;cursor:pointer;white-space:nowrap">📦 ${recsW.length} recurso${recsW.length>1?'s':''}</button>`
         :'';
       const notaIcon=w.desc?`<span title="${w.desc.replace(/"/g,'&quot;')}" style="font-size:.75rem;opacity:.55;cursor:help;margin-left:.35rem">📝</span>`:'';
+      const nroPfx=_lpsCodPfx(w.codigo||'')||w.codigo;
+      const nombre=_lpsCodNombre(w.codigo||'');
+      const col=_wbsCodeColor(w);
       if(w.tipo==='TITULO'){
         return`<tr style="background:${_wbsTitleBg(w)}">
           <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-          <td colspan="2" class="mono" style="color:${_wbsCodeColor(w)};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${w.codigo}${notaIcon}</td>
-          <td></td>
+          <td class="mono" style="color:${col};font-weight:700;white-space:nowrap">${nroPfx}</td>
+          <td colspan="3" style="color:${col};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${nombre}${notaIcon}</td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
           <td></td>
           <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
@@ -263,9 +272,11 @@ function _lpsRenderWBS(c){
               <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
         </tr>`;
       }
+      const indent=(_wbsLvl(w.codigo||'')-1)*14;
       return`<tr>
         <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
-        <td class="mono" style="color:${_wbsCodeColor(w)}">${w.codigo}${notaIcon}</td>
+        <td class="mono" style="color:${col};white-space:nowrap">${nroPfx}</td>
+        <td style="padding-left:${indent}px;font-size:.82rem">${nombre}${notaIcon}</td>
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
@@ -278,7 +289,7 @@ function _lpsRenderWBS(c){
           <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
           <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
+    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -511,7 +522,8 @@ function _lpsOpenWbs(id,afterId=null){
   }
   const esTitulo=w?.tipo==='TITULO';
   document.getElementById('lpsWbsMtl').textContent=w?'✏️ Editar Actividad':'＋ Nueva Actividad';
-  document.getElementById('lpsWbsCod').value=w?.codigo||'';
+  document.getElementById('lpsWbsCod').value=w?_lpsCodPfx(w.codigo||'')||w.codigo:'';
+  document.getElementById('lpsWbsNombre').value=w?_lpsCodNombre(w.codigo||''):'';
   document.getElementById('lpsWbsDesc').value=w?.desc||'';
   document.getElementById('lpsWbsUnd').value=w?.unidad||'m³';
   document.getElementById('lpsWbsCant').value=w?.cantTotal||'';
@@ -527,7 +539,7 @@ function _lpsOpenWbs(id,afterId=null){
   if(predSel){
     const otros=(DB.lpsWbs||[]).filter(x=>x.id!==id&&x.tipo!=='TITULO');
     predSel.innerHTML='<option value="">— Sin predecesora —</option>'+
-      otros.map(x=>`<option value="${x.id}"${w?.predId===x.id?' selected':''}>${x.codigo} – ${x.desc.slice(0,35)}</option>`).join('');
+      otros.map(x=>`<option value="${x.id}"${w?.predId===x.id?' selected':''}>${_lpsCodPfx(x.codigo)||x.codigo} – ${_lpsCodNombre(x.codigo).slice(0,35)}</option>`).join('');
   }
   const predTipoEl=document.getElementById('lpsWbsPredTipo');
   if(predTipoEl)predTipoEl.value=w?.predTipo||'FS';
@@ -568,7 +580,9 @@ function _lpsWbsDurChange(){
 }
 
 function _lpsSaveWbs(){
-  const codigo=document.getElementById('lpsWbsCod').value.trim();
+  const codPrefix=document.getElementById('lpsWbsCod').value.trim();
+  const nombre=document.getElementById('lpsWbsNombre').value.trim();
+  const codigo=codPrefix+(nombre?'-'+nombre:'');
   const desc=document.getElementById('lpsWbsDesc').value.trim();
   const esTitulo=document.getElementById('lpsWbsEsTitulo')?.checked||false;
   const tipo=esTitulo?'TITULO':'ACTIVIDAD';
@@ -581,7 +595,7 @@ function _lpsSaveWbs(){
   const predId=+document.getElementById('lpsWbsPred')?.value||0;
   const predTipo=document.getElementById('lpsWbsPredTipo')?.value||'FS';
   const predLag=+document.getElementById('lpsWbsPredLag')?.value||0;
-  if(!codigo||!sector){toast('Complete código y sector',true);return;}
+  if(!codPrefix||!nombre||!sector){toast('Complete número, descripción y sector',true);return;}
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
     if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId,predTipo,predLag});syncSheet('saveLpsWbs',w);}

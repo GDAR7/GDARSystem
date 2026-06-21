@@ -759,9 +759,15 @@
           <span style="margin-left:auto;font-size:.6rem;color:var(--muted2)">Tab ▶ · Shift+Tab ◀</span>
         </div>
       </div>
-      <div class="fg" style="grid-column:1/-1">
-        <label>Código <span style="font-weight:400;color:var(--muted2);font-size:.72rem">(auto · editable)</span></label>
-        <input id="lpsWbsCod" placeholder="auto" style="font-family:monospace" onkeydown="_lpsWbsCodKey(event)">
+      <div style="grid-column:1/-1;display:grid;grid-template-columns:130px 1fr;gap:.6rem">
+        <div class="fg" style="margin:0">
+          <label>Nro. <span style="font-weight:400;color:var(--muted2);font-size:.72rem">(auto)</span></label>
+          <input id="lpsWbsCod" placeholder="01.01." style="font-family:monospace" onkeydown="_lpsWbsCodKey(event)">
+        </div>
+        <div class="fg" style="margin:0">
+          <label>Descripción <span style="font-weight:400;color:#ef444490;font-size:.72rem">✱ requerido</span></label>
+          <input id="lpsWbsNombre" placeholder="Nombre de la actividad o capítulo...">
+        </div>
       </div>
       <div class="fg" style="grid-column:1/-1"><label>Notas <span style="font-weight:400;color:var(--muted2);font-size:.72rem">(opcional)</span></label><input id="lpsWbsDesc" placeholder="Observaciones, aclaraciones..."></div>
       <div id="lpsWbsUndWrap" class="fg"><label>Unidad</label><select id="lpsWbsUnd"><option>m³</option><option>ml</option><option>m²</option><option>kg</option><option>und</option><option>Hs</option><option>gl</option></select></div>
