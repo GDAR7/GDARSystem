@@ -373,6 +373,7 @@ function _lpsRenderWBS(c){
   };
 
   const _dateCtrl=`color-scheme:dark;${_lpsCtrl()};padding:.25rem .5rem`;
+  const cpm=_lpsCPM();
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.55rem .9rem;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:8px">
     <span style="font-size:.72rem;font-weight:700;color:${LPS_COLOR};letter-spacing:.06em">📅 RANGO DEL PROYECTO</span>
@@ -395,7 +396,6 @@ function _lpsRenderWBS(c){
     <input id="lpsWbsQ" placeholder="🔍 Buscar..." value="${qF}" oninput="_lpsWbsQInput()" style="${_lpsCtrl()};min-width:180px">
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
-  const cpm=_lpsCPM();
   <div class="tbl-wrap"><table>
     <thead><tr><th style="width:52px"></th><th style="min-width:75px;white-space:nowrap">Nro.</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant.</th><th>Sector</th><th>Recursos</th><th title="Holgura libre (días). 0 = Ruta Crítica" style="text-align:center;cursor:help">Float</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map((w)=>{
