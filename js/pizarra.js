@@ -1,6 +1,6 @@
 // ══ PIZARRA DE DESPLIEGUE ══
 function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN.png';}
-let _pizTab=1,_pizMoving=null,_pizFecha=null;
+let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null;
 function _pizGetFecha(){return _pizFecha||today();}
 
 function rPizarra(){_pizRenderTab();}
@@ -43,6 +43,7 @@ function _pizEqIcon(sub){
   // Default → ■ blanco
   return Q('rgba(255,255,255,.7)');
 }
+function _pizEqCode(c){return(c||'').replace(/\s*ECOP/g,'');}
 
 function _pizCondColor(cond){
   const c=(cond||'').toUpperCase();
@@ -189,37 +190,50 @@ function _pizRenderReal(c){
     byFrente[ft.id].partes.push(p);
   });
 
+  // Si hay frente seleccionado mostrar solo ese
+  const visibleByFrente=_realSelFrente
+    ?(byFrente[_realSelFrente]?{[_realSelFrente]:byFrente[_realSelFrente]}:{})
+    :byFrente;
+
   // Markers de equipos en frentes
-  const eqMarkers=Object.values(byFrente).flatMap(({ft,cen,partes})=>{
+  const eqMarkers=Object.values(visibleByFrente).flatMap(({ft,cen,partes})=>{
     const nCols=Math.ceil(Math.sqrt(partes.length));
     return partes.map((p,i)=>{
       const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
       const row=Math.floor(i/nCols), col=i%nCols;
-      const ox=(col-(nCols-1)/2)*4, oy=row*3.5;
+      const ox=(col-(nCols-1)/2)*2.2, oy=row*2.2;
       const eqCol=_pizCondColor(p.condicion);
       const isHoy=hoyEqIds.has(p.eqId);
       return`<div style="position:absolute;left:${(cen.x+ox).toFixed(1)}%;top:${(cen.y+oy).toFixed(1)}%;transform:translate(-50%,-100%);cursor:pointer;z-index:15;user-select:none"
         onclick="_pizPopup(${p.eqId},'${p.fecha}')">
-        <div style="background:${eqCol};color:#fff;border-radius:6px;padding:2px 7px;font-size:.62rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);opacity:${isHoy?1:.6};border:${isHoy?'none':'1px dashed rgba(255,255,255,.5)'}">
-          ${_pizEqIcon(eq.sub)} ${eq.codigo}${!isHoy?` <span style="font-size:.5rem;opacity:.8">${p.fecha.slice(5)}</span>`:''}
+        <div style="background:${eqCol};color:#fff;border-radius:4px;padding:1px 5px;font-size:.52rem;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.6);opacity:${isHoy?1:.6};border:${isHoy?'none':'1px dashed rgba(255,255,255,.5)'}">
+          ${_pizEqIcon(eq.sub)} ${_pizEqCode(eq.codigo)}${!isHoy?` <span style="font-size:.44rem;opacity:.8">${p.fecha.slice(5)}</span>`:''}
         </div>
-        <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid ${eqCol};margin:0 auto;opacity:${isHoy?1:.6}"></div>
+        <div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:5px solid ${eqCol};margin:0 auto;opacity:${isHoy?1:.6}"></div>
       </div>`;
     });
   }).join('');
 
   c.innerHTML=`
-  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap">
-    <label style="font-size:.72rem;color:var(--muted2);font-weight:700">📅 Hasta:</label>
+  <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+    <label style="font-size:.7rem;color:var(--muted2);font-weight:700">📅 Hasta:</label>
     <input type="date" value="${fecha}"
-      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.75rem;cursor:pointer"
+      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.72rem;cursor:pointer"
       onchange="_pizFecha=this.value;_pizRenderTab()">
-    <span style="font-size:.7rem;color:var(--muted2)">${hoyPartes.length} parte(s) hoy</span>
-    <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${ops} Op.</span>
-    <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${stdby} Stdby</span>
-    <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700">● ${inop} Inop.</span>
-    <span style="font-size:.63rem;color:var(--muted2)">· ${Object.values(byFrente).reduce((s,v)=>s+v.partes.length,0)} ubicados · ${sinPos.length} sin frente</span>
-    <span style="margin-left:auto;font-size:.58rem;color:var(--muted2)">Atenuado = último conocido antes de la fecha</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <label style="font-size:.7rem;color:var(--muted2);font-weight:700">🏗️ Frente:</label>
+    <select onchange="_realZoomToFrente(this.value)"
+      style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.7rem;cursor:pointer;max-width:220px">
+      <option value="">— Todos —</option>
+      ${frenteSorted.map(f=>`<option value="${f.id}" ${_realSelFrente==f.id?'selected':''}>${f.nombre||f.nom||f.frente||'Frente '+f.id}</option>`).join('')}
+    </select>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.68rem;color:var(--muted2)">${hoyPartes.length} parte(s) hoy</span>
+    <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${ops} Op.</span>
+    <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${stdby} Stdby</span>
+    <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${inop} Inop.</span>
+    <span style="font-size:.6rem;color:var(--muted2)">· ${Object.values(byFrente).reduce((s,v)=>s+v.partes.length,0)} ubicados · ${sinPos.length} sin frente</span>
+    <span style="margin-left:auto;font-size:.56rem;color:var(--muted2)">Atenuado = último conocido</span>
   </div>
   <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 160px':''};gap:.7rem;height:calc(100vh - 240px)">
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap">
@@ -246,8 +260,8 @@ function _pizRenderReal(c){
       ${sinPos.map(p=>{
         const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
         const col=_pizCondColor(p.condicion);
-        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.67rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${p.fecha}')">
-          ${_pizEqIcon(eq.sub)} <strong>${eq.codigo}</strong><br>
+        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.65rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${p.fecha}')">
+          ${_pizEqIcon(eq.sub)} <strong>${_pizEqCode(eq.codigo)}</strong><br>
           <span style="color:${col};font-size:.62rem">${p.condicion||'—'}</span>
           <span style="color:var(--muted2);font-size:.6rem;display:block">${p.frenteT||'Sin frente'}</span>
         </div>`;
@@ -282,6 +296,28 @@ function _pizRealMousedown(e){
 function _pizRealGlobalMouseup(){
   _rutaIsPanning=false;_rutaDidPan=false;
   const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='default';
+}
+function _realZoomToFrente(id){
+  _realSelFrente=id?+id:null;
+  _pizRenderTab();
+  if(!id){_rutaZoom=1;_rutaPanX=0;_rutaPanY=0;requestAnimationFrame(_rutaFitView);return;}
+  requestAnimationFrame(()=>{
+    const ft=(DB.frentesTrabajo||[]).find(f=>f.id===+id);
+    if(!ft||(ft.puntos||[]).length<3)return;
+    const pts=ft.puntos;
+    const cx=pts.reduce((s,p)=>s+p.x,0)/pts.length;
+    const cy=pts.reduce((s,p)=>s+p.y,0)/pts.length;
+    const wrap=document.getElementById('rutaMapWrap');
+    const canvas=document.getElementById('rutaCanvas');
+    if(!wrap||!canvas)return;
+    const wW=wrap.clientWidth,wH=wrap.clientHeight;
+    const cW=canvas.offsetWidth,cH=canvas.offsetHeight;
+    _rutaZoom=8;
+    _rutaPanX=wW/2-(cx/100)*cW*_rutaZoom;
+    _rutaPanY=wH/2-(cy/100)*cH*_rutaZoom;
+    _rutaApplyTransform();
+    _frenteRenderSvg(DB.frentesTrabajo||[]);
+  });
 }
 
 // ── Drag desde sidebar ──────────────────────────────────────────────────────
