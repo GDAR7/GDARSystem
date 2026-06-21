@@ -293,7 +293,7 @@ function rDailyReport(){
   // ── MATCH EQUIPOS / OPERADORES EN OBRA ──
   const matchEl=_el('drMatchBody');
   if(matchEl){
-    const eqsActivos=(DB.equipos||[]).filter(e=>e.est==='Activo');
+    const eqsActivos=(DB.equipos||[]).filter(e=>e.est==='Operativo'&&(!proy||!e.proyecto||e.proyecto===proy));
     const opsHoyIds=new Set(tarDia.filter(r=>['TD','TN','A5','DLT'].includes(r.tipo)).map(r=>r.personalId));
     const opsHoy=(DB.personal||[]).filter(p=>opsHoyIds.has(p.id));
     const eqBySub={};
