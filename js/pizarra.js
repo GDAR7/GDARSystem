@@ -13,7 +13,9 @@ function _pizTabSwitch(n){
 
 function _pizRenderTab(){
   const c=document.getElementById('pizBody');if(!c)return;
-  if(_pizTab===1)_pizRenderPlan(c);else _pizRenderReal(c);
+  if(_pizTab===1)_pizRenderPlan(c);
+  else if(_pizTab===2)_pizRenderReal(c);
+  else _pizRenderRutas(c);
 }
 
 function _pizEqIcon(sub){
@@ -311,4 +313,248 @@ function _pizPopup(eqId,fecha){
       ${p.act?`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:.3rem;margin-top:.2rem"><span style="color:var(--muted2)">Actividades</span><br><span style="font-size:.68rem">${p.act}</span></div>`:''}
     </div>`;
   document.getElementById('pizPopup').style.display='flex';
+}
+
+// ══ TAB 3: RUTAS ══
+let _rutaSelId=null, _rutaDibujando=false, _rutaPuntos=[], _rutaColors=[
+  '#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#0ea5e9','#a78bfa'
+];
+
+function _pizRenderRutas(c){
+  const tramos=(DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  c.innerHTML=`
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 195px)">
+    <!-- SIDEBAR RUTAS -->
+    <div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);display:flex;flex-direction:column;gap:.3rem">
+      <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Tramos / Rutas</div>
+      ${tramos.length?tramos.map((t,i)=>{
+        const col=_rutaColors[i%_rutaColors.length];
+        const pts=(t.puntos||[]).length;
+        return`<div id="ruta-item-${t.id}" onclick="_rutaSelect(${t.id})"
+          style="cursor:pointer;padding:.35rem .5rem;border-radius:6px;border:2px solid ${col}30;background:${col}10;transition:.15s"
+          onmouseover="this.style.background='${col}22'" onmouseout="this.style.background='${col}10'">
+          <div style="display:flex;align-items:center;gap:.4rem">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></span>
+            <span style="font-size:.68rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.codigo||'Sin código'}</span>
+          </div>
+          <div style="font-size:.58rem;color:var(--muted2);margin-top:2px;padding-left:14px">${t.inicio||''}${t.fin?' → '+t.fin:''}</div>
+          <div style="font-size:.56rem;color:${pts?col:'var(--muted2)'};padding-left:14px;margin-top:1px">${pts?pts+' puntos dibujados':'Sin trazar'}</div>
+        </div>`;
+      }).join(''):'<div style="color:var(--muted2);font-size:.68rem;text-align:center;padding:1rem">Sin tramos definidos</div>'}
+      <hr style="border-color:var(--border);margin:.4rem 0">
+      <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="width:100%;background:rgba(16,185,129,.1);border:1px solid #10b98140;border-radius:6px;color:#10b981;padding:.35rem;font-size:.67rem;cursor:pointer;display:none">✏️ Dibujar ruta</button>
+      <button onclick="_rutaBorrar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:6px;color:#ef4444;cursor:pointer;padding:.3rem;font-size:.65rem;display:none" id="rutaBtnBorrar">🗑 Borrar ruta</button>
+      <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);text-align:center;padding:.3rem;display:none"></div>
+    </div>
+    <!-- MAPA CON SVG -->
+    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a" id="rutaMapWrap">
+      <img src="${_pizImgUrl()}" id="rutaImg" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none" draggable="false">
+      <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="rutaCursor" style="position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:#10b981;display:none;pointer-events:none;transform:translate(-50%,-50%)"></div>
+    </div>
+  </div>`;
+
+  // Bind click en el mapa
+  const wrap=document.getElementById('rutaMapWrap');
+  if(wrap){
+    wrap.addEventListener('click',_rutaMapClick);
+    wrap.addEventListener('dblclick',_rutaMapDblClick);
+    wrap.addEventListener('mousemove',_rutaMouseMove);
+    wrap.addEventListener('contextmenu',e=>{e.preventDefault();_rutaCancelarDraw();});
+  }
+  // Dibujar rutas guardadas (esperando que el SVG tenga dimensiones)
+  requestAnimationFrame(()=>_rutaRenderSvg(tramos));
+}
+
+function _rutaRenderSvg(tramos){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  // Limpiar rutas estáticas (no temporales)
+  svg.querySelectorAll('.ruta-static').forEach(el=>el.remove());
+  const sorted=(tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  sorted.forEach((t,i)=>{
+    const pts=t.puntos||[];if(pts.length<2)return;
+    const col=_rutaColors[i%_rutaColors.length];
+    const px=pts.map(p=>({x:(p.x*W/100),y:(p.y*H/100)}));
+    const d='M '+px.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ');
+    const mid=px[Math.floor(px.length/2)];
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('ruta-static');
+    // Sombra para legibilidad
+    const shadow=document.createElementNS('http://www.w3.org/2000/svg','path');
+    shadow.setAttribute('d',d);shadow.setAttribute('stroke','#000');shadow.setAttribute('stroke-width','5');
+    shadow.setAttribute('fill','none');shadow.setAttribute('stroke-linecap','round');shadow.setAttribute('stroke-linejoin','round');shadow.setAttribute('opacity','.35');
+    g.appendChild(shadow);
+    // Línea principal
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d);path.setAttribute('stroke',col);path.setAttribute('stroke-width','3');
+    path.setAttribute('fill','none');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');path.setAttribute('opacity','.9');
+    if(t.estado!=='Completado')path.setAttribute('stroke-dasharray','12 5');
+    g.appendChild(path);
+    // Círculo inicio/fin
+    [[px[0],'▶'],[px[px.length-1],'■']].forEach(([p])=>{
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',p.x.toFixed(1));c.setAttribute('cy',p.y.toFixed(1));
+      c.setAttribute('r','5');c.setAttribute('fill',col);c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+      g.appendChild(c);
+    });
+    // Etiqueta
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',mid.x.toFixed(1));txt.setAttribute('y',(mid.y-8).toFixed(1));
+    txt.setAttribute('font-size','12');txt.setAttribute('font-weight','bold');txt.setAttribute('fill',col);
+    txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','3');txt.setAttribute('paint-order','stroke');
+    txt.setAttribute('dominant-baseline','auto');txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('font-family','monospace');
+    txt.textContent=t.codigo||'';
+    g.appendChild(txt);
+    svg.appendChild(g);
+  });
+}
+
+function _rutaSelect(id){
+  _rutaSelId=id;
+  // Highlight sidebar item
+  document.querySelectorAll('[id^="ruta-item-"]').forEach(el=>{
+    el.style.outline=el.id===`ruta-item-${id}`?'2px solid #10b981':'none';
+  });
+  const btnD=document.getElementById('rutaBtnDraw');
+  const btnB=document.getElementById('rutaBtnBorrar');
+  const hint=document.getElementById('rutaHint');
+  if(btnD){btnD.style.display='block';}
+  if(btnB){btnB.style.display='block';}
+  if(hint){hint.style.display='block';hint.textContent='Selecciona "Dibujar ruta" y haz clic en el mapa';}
+  _rutaDibujando=false;_rutaPuntos=[];
+}
+
+function _rutaToggleDraw(){
+  if(!_rutaSelId){toast('Selecciona un tramo primero',true);return;}
+  _rutaDibujando=!_rutaDibujando;
+  const btn=document.getElementById('rutaBtnDraw');
+  const cur=document.getElementById('rutaCursor');
+  const wrap=document.getElementById('rutaMapWrap');
+  const hint=document.getElementById('rutaHint');
+  if(_rutaDibujando){
+    // Cargar puntos existentes del tramo seleccionado
+    const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
+    _rutaPuntos=tr&&tr.puntos?[...tr.puntos]:[];
+    if(btn){btn.textContent='✅ Terminar dibujo';btn.style.background='rgba(245,158,11,.15)';btn.style.color='#f59e0b';btn.style.borderColor='#f59e0b40';}
+    if(cur){cur.style.display='block';}
+    if(wrap){wrap.style.cursor='crosshair';}
+    if(hint){hint.textContent='Clic = añadir punto · Doble clic = guardar · Clic derecho = cancelar';}
+  }else{
+    _rutaGuardar();
+  }
+}
+
+function _rutaMapClick(e){
+  if(!_rutaDibujando||!_rutaSelId)return;
+  if(e.detail>1)return; // ignore double-click singles
+  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
+  const r=wrap.getBoundingClientRect();
+  const x=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
+  const y=parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2));
+  _rutaPuntos.push({x,y});
+  _rutaRedibujarTemp();
+}
+
+function _rutaMapDblClick(e){
+  if(!_rutaDibujando)return;
+  e.preventDefault();
+  // Remove last point added by the first click of dblclick
+  if(_rutaPuntos.length)_rutaPuntos.pop();
+  _rutaGuardar();
+}
+
+function _rutaMouseMove(e){
+  if(!_rutaDibujando)return;
+  const wrap=document.getElementById('rutaMapWrap');if(!wrap)return;
+  const r=wrap.getBoundingClientRect();
+  const xPct=(e.clientX-r.left)/r.width*100;
+  const yPct=(e.clientY-r.top)/r.height*100;
+  const cur=document.getElementById('rutaCursor');
+  if(cur){cur.style.left=xPct+'%';cur.style.top=yPct+'%';}
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  const xPx=(xPct*W/100).toFixed(1), yPx=(yPct*H/100).toFixed(1);
+  const prev=svg.querySelector('#rutaPreview');
+  if(_rutaPuntos.length){
+    const last=_rutaPuntos[_rutaPuntos.length-1];
+    const lxPx=(last.x*W/100).toFixed(1), lyPx=(last.y*H/100).toFixed(1);
+    const line=prev||document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.id='rutaPreview';
+    line.setAttribute('x1',lxPx);line.setAttribute('y1',lyPx);
+    line.setAttribute('x2',xPx);line.setAttribute('y2',yPx);
+    line.setAttribute('stroke','#10b981');line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','5 3');line.setAttribute('opacity','.7');
+    if(!prev)svg.appendChild(line);
+  }else if(prev){prev.remove();}
+}
+
+function _rutaRedibujarTemp(){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  // Limpiar elementos temporales previos
+  svg.querySelectorAll('.ruta-temp').forEach(el=>el.remove());
+  if(_rutaPuntos.length<1)return;
+  const px=_rutaPuntos.map(p=>({x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)}));
+  const d='M '+px.map(p=>`${p.x} ${p.y}`).join(' L ');
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.classList.add('ruta-temp');
+  path.setAttribute('d',d);path.setAttribute('stroke','#10b981');
+  path.setAttribute('stroke-width','3');path.setAttribute('fill','none');
+  path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
+  svg.appendChild(path);
+  px.forEach(p=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.classList.add('ruta-temp');
+    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);
+    c.setAttribute('r','4');c.setAttribute('fill','#10b981');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+    svg.appendChild(c);
+  });
+}
+
+async function _rutaGuardar(){
+  if(!_rutaSelId){_rutaCancelarDraw();return;}
+  const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
+  if(!tr){_rutaCancelarDraw();return;}
+  if(_rutaPuntos.length<2){toast('Necesitas al menos 2 puntos para guardar la ruta',true);return;}
+  tr.puntos=[..._rutaPuntos];
+  syncSheet('saveTramo',tr);
+  toast(`✓ Ruta "${tr.codigo}" guardada (${_rutaPuntos.length} puntos)`);
+  _rutaCancelarDraw(false);
+  // Limpiar temporales y re-renderizar SVG sin reload completo
+  const svg=document.getElementById('rutaSvg');
+  if(svg){svg.querySelectorAll('.ruta-temp,.ruta-preview').forEach(el=>el.remove());}
+  const prev=svg&&svg.querySelector('#rutaPreview');if(prev)prev.remove();
+  _rutaRenderSvg(DB.tramos||[]);
+  // Actualizar sidebar para mostrar el conteo de puntos
+  const item=document.getElementById(`ruta-item-${tr.id}`);
+  if(item){const c=item.querySelector('div:last-child');if(c)c.textContent=tr.puntos.length+' puntos dibujados';c&&(c.style.color=_rutaColors[(DB.tramos||[]).findIndex(t=>t.id===tr.id)%_rutaColors.length]);}
+}
+
+function _rutaCancelarDraw(reset=true){
+  _rutaDibujando=false;
+  if(reset)_rutaPuntos=[];
+  const btn=document.getElementById('rutaBtnDraw');
+  const cur=document.getElementById('rutaCursor');
+  const wrap=document.getElementById('rutaMapWrap');
+  if(btn){btn.textContent='✏️ Dibujar ruta';btn.style.background='rgba(16,185,129,.1)';btn.style.color='#10b981';btn.style.borderColor='#10b98140';}
+  if(cur){cur.style.display='none';}
+  if(wrap){wrap.style.cursor='default';}
+  const svg=document.getElementById('rutaSvg');
+  if(svg){svg.querySelectorAll('.ruta-temp').forEach(el=>el.remove());const p=svg.querySelector('#rutaPreview');if(p)p.remove();}
+}
+
+async function _rutaBorrar(){
+  if(!_rutaSelId)return;
+  const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
+  if(!tr)return;
+  if(!confirm(`¿Borrar la ruta trazada de "${tr.codigo}"?`))return;
+  tr.puntos=[];
+  syncSheet('saveTramo',tr);
+  toast(`Ruta de "${tr.codigo}" borrada`);
+  _rutaCancelarDraw();
+  _rutaRenderSvg(DB.tramos||[]);
+  const item=document.getElementById(`ruta-item-${tr.id}`);
+  if(item){const c=item.querySelector('div:last-child');if(c){c.textContent='Sin trazar';c.style.color='var(--muted2)';}}
 }
