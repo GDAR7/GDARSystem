@@ -784,19 +784,21 @@
         <div class="fg"><label>Fin</label><input id="lpsWbsFin" type="date" style="color-scheme:dark" onchange="_lpsWbsDatesChange()"></div>
         <div class="fg"><label>Duración (días)</label><input id="lpsWbsCantDias" type="number" min="1" placeholder="auto" onchange="_lpsWbsDurChange()"></div>
       </div>
-      <div class="fg"><label>Predecesora</label>
-        <select id="lpsWbsPred" onchange="_lpsWbsPredChange()"><option value="">— Sin predecesora —</option></select>
-      </div>
-      <div class="fg-grid" style="grid-template-columns:1fr 110px;gap:.5rem">
-        <div class="fg" style="margin:0"><label>Tipo de vínculo</label>
-          <select id="lpsWbsPredTipo" onchange="_lpsWbsPredChange()" style="color-scheme:dark">
-            <option value="FS">FC – Fin a Comienzo</option>
-            <option value="CC">CC – Comienzo a Comienzo</option>
+      <div class="fg" style="border-top:1px solid var(--border);padding-top:.55rem;margin-top:.2rem">
+        <div style="font-size:.62rem;color:#818cf8;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem">🔗 Predecesoras</div>
+        <div id="lpsDepsList" style="min-height:20px;margin-bottom:.35rem"></div>
+        <div id="lpsDepAddWrap" style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+          <select id="lpsAddDepPred" style="flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem"><option value="">— Seleccionar —</option></select>
+          <select id="lpsAddDepTipo" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .4rem;font-size:.76rem">
+            <option value="FS">FC Fin→Ini</option>
+            <option value="CC">CC Ini→Ini</option>
+            <option value="FF">FF Fin→Fin</option>
           </select>
+          <input id="lpsAddDepLag" type="number" value="0" min="0" placeholder="0" title="Desfase en días" style="width:50px;text-align:center;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .35rem;font-size:.76rem">
+          <span style="font-size:.6rem;color:var(--muted2)">días</span>
+          <button onclick="_lpsAddDep()" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid #818cf850;border-radius:6px;padding:.28rem .65rem;font-size:.76rem;cursor:pointer;white-space:nowrap">＋ Agregar</button>
         </div>
-        <div class="fg" style="margin:0"><label>Desfase (días)</label>
-          <input id="lpsWbsPredLag" type="number" value="0" onchange="_lpsWbsPredChange()" style="color-scheme:dark">
-        </div>
+        <div id="lpsSuccsList" style="margin-top:.4rem"></div>
       </div>
     </div>
   </div>

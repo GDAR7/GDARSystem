@@ -148,6 +148,154 @@ function _lpsRenumberAll(){
   toSave.forEach(w=>syncSheet('saveLpsWbs',w));
 }
 
+// ── DEPENDENCIAS (predecesoras / sucesoras) ───────────────────────────────────
+function _lpsPredsOf(sucId){return(DB.lpsWbsDeps||[]).filter(d=>d.sucId===sucId);}
+function _lpsSucsOf(predId){return(DB.lpsWbsDeps||[]).filter(d=>d.predId===predId);}
+
+function _lpsWouldCycle(fromId,toId){
+  const visited=new Set(),stack=[toId];
+  while(stack.length){const cur=stack.pop();if(cur===fromId)return true;if(visited.has(cur))continue;visited.add(cur);_lpsSucsOf(cur).forEach(d=>stack.push(d.sucId));}
+  return false;
+}
+
+function _lpsRenderDepsList(editId){
+  const listEl=document.getElementById('lpsDepsList');
+  const succsEl=document.getElementById('lpsSuccsList');
+  const addWrap=document.getElementById('lpsDepAddWrap');
+  if(!listEl)return;
+  if(!editId){
+    listEl.innerHTML='<div style="font-size:.72rem;color:var(--muted2);font-style:italic">Guarda primero para gestionar dependencias.</div>';
+    if(succsEl)succsEl.innerHTML='';
+    if(addWrap)addWrap.style.display='none';
+    return;
+  }
+  if(addWrap)addWrap.style.display='';
+  const ctrl='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem';
+  const predSel=document.getElementById('lpsAddDepPred');
+  if(predSel){
+    const existingPredIds=_lpsPredsOf(editId).map(d=>d.predId);
+    const otros=(DB.lpsWbs||[]).filter(x=>x.id!==editId&&x.tipo!=='TITULO'&&!existingPredIds.includes(x.id));
+    predSel.innerHTML='<option value="">— Seleccionar —</option>'+otros.map(x=>`<option value="${x.id}">${_lpsCodPfx(x.codigo)} – ${_lpsCodNombre(x.codigo).slice(0,38)}</option>`).join('');
+  }
+  const preds=_lpsPredsOf(editId);
+  const tipoLbl={'FS':'FC Fin→Ini','CC':'CC Ini→Ini','FF':'FF Fin→Fin'};
+  listEl.innerHTML=preds.length
+    ?preds.map(dep=>{
+        const pw=(DB.lpsWbs||[]).find(x=>x.id===dep.predId);
+        return`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.22rem;background:rgba(129,140,248,.07);border:1px solid #818cf825;border-radius:6px;padding:.18rem .45rem">
+          <span style="font-family:monospace;color:#818cf8;font-size:.7rem;font-weight:700;white-space:nowrap">${_lpsCodPfx(pw?.codigo||'')}</span>
+          <span style="font-size:.73rem;flex:1;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_lpsCodNombre(pw?.codigo||'').slice(0,40)}</span>
+          <span style="font-size:.62rem;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:0 4px;white-space:nowrap">${tipoLbl[dep.tipo]||dep.tipo}</span>
+          ${dep.lag?`<span style="font-size:.62rem;color:#f59e0b;white-space:nowrap">+${dep.lag}d</span>`:''}
+          <button onclick="_lpsDelDep(${dep.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.75rem;padding:0;line-height:1;flex-shrink:0">✕</button>
+        </div>`;
+      }).join('')
+    :'<div style="font-size:.72rem;color:var(--muted2);padding:.15rem 0">Sin predecesoras.</div>';
+  const succs=_lpsSucsOf(editId);
+  if(succsEl)succsEl.innerHTML=succs.length
+    ?`<div style="font-size:.6rem;color:var(--muted2);font-weight:700;letter-spacing:.07em;margin-bottom:.22rem;margin-top:.35rem">→ SUCESORAS</div>`+
+      succs.map(dep=>{const sw=(DB.lpsWbs||[]).find(x=>x.id===dep.sucId);return`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.18rem;padding-left:.3rem;border-left:2px solid #10b98140"><span style="font-family:monospace;color:#10b981;font-size:.7rem">${_lpsCodPfx(sw?.codigo||'')}</span><span style="font-size:.72rem;color:var(--muted2)">${_lpsCodNombre(sw?.codigo||'').slice(0,38)}</span></div>`;}).join('')
+    :'';
+}
+
+function _lpsAddDep(){
+  const editId=_lpsEditWbsId;
+  if(!editId){toast('Guarda la actividad primero',true);return;}
+  const predId=+document.getElementById('lpsAddDepPred')?.value||0;
+  const tipo=document.getElementById('lpsAddDepTipo')?.value||'FS';
+  const lag=+document.getElementById('lpsAddDepLag')?.value||0;
+  if(!predId){toast('Selecciona la predecesora',true);return;}
+  if(_lpsWouldCycle(predId,editId)){toast('⚠ Esta dependencia crearía un ciclo',true);return;}
+  const dep={id:nid('lpsDep'),predId,sucId:editId,tipo,lag};
+  if(!DB.lpsWbsDeps)DB.lpsWbsDeps=[];
+  DB.lpsWbsDeps.push(dep);
+  syncSheet('saveLpsWbsDep',dep);
+  _lpsCascade(predId);
+  _lpsRenderDepsList(editId);
+  _lpsRenderTab();
+  toast('✓ Dependencia agregada');
+}
+
+function _lpsDelDep(id){
+  const dep=(DB.lpsWbsDeps||[]).find(d=>d.id===id);
+  DB.lpsWbsDeps=(DB.lpsWbsDeps||[]).filter(d=>d.id!==id);
+  supaDelete('lpsWbsDeps',id);
+  _lpsRenderDepsList(_lpsEditWbsId);
+  _lpsRenderTab();
+  toast('Dependencia eliminada');
+}
+
+// ── CASCADA DE FECHAS ─────────────────────────────────────────────────────────
+function _lpsCascade(changedId,visited=new Set()){
+  if(visited.has(changedId))return;
+  visited.add(changedId);
+  _lpsSucsOf(changedId).forEach(dep=>{
+    const pred=(DB.lpsWbs||[]).find(w=>w.id===dep.predId);
+    const suc=(DB.lpsWbs||[]).find(w=>w.id===dep.sucId);
+    if(!pred||!suc)return;
+    let newIni=null,newFin=null;
+    if(dep.tipo==='FS'&&pred.fechaFin){newIni=_lpsAddDays(pred.fechaFin,1+(dep.lag||0));}
+    else if(dep.tipo==='CC'&&pred.fechaIni){newIni=_lpsAddDays(pred.fechaIni,dep.lag||0);}
+    else if(dep.tipo==='FF'&&pred.fechaFin&&suc.cantDias>0){
+      newFin=_lpsAddDays(pred.fechaFin,dep.lag||0);
+      newIni=_lpsAddDays(newFin,-(suc.cantDias-1));
+    }
+    if(!newIni)return;
+    const changed=newIni!==suc.fechaIni||(newFin&&newFin!==suc.fechaFin);
+    if(changed){
+      suc.fechaIni=newIni;
+      if(newFin)suc.fechaFin=newFin;
+      else if(suc.cantDias>0)suc.fechaFin=_lpsAddDays(newIni,suc.cantDias-1);
+      syncSheet('saveLpsWbs',suc);
+      _lpsCascade(suc.id,visited);
+    }
+  });
+}
+
+// ── CPM (Ruta Crítica) ────────────────────────────────────────────────────────
+function _lpsCPM(){
+  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&w.fechaIni&&w.cantDias>0);
+  if(!wbs.length)return{float:{},ES:{},EF:{},LS:{},LF:{}};
+  const ES={},EF={};
+  // Forward pass (orden topológico = orden actual)
+  wbs.forEach(w=>{
+    const preds=_lpsPredsOf(w.id);
+    let esDate=w.fechaIni;
+    preds.forEach(dep=>{
+      const pw=wbs.find(x=>x.id===dep.predId);if(!pw)return;
+      let d=null;
+      if(dep.tipo==='FS'&&EF[pw.id])d=_lpsAddDays(EF[pw.id],1+(dep.lag||0));
+      else if(dep.tipo==='CC'&&ES[pw.id])d=_lpsAddDays(ES[pw.id],dep.lag||0);
+      else if(dep.tipo==='FF'&&EF[pw.id]&&w.cantDias>0)d=_lpsAddDays(_lpsAddDays(EF[pw.id],dep.lag||0),-(w.cantDias-1));
+      if(d&&d>esDate)esDate=d;
+    });
+    ES[w.id]=esDate;
+    EF[w.id]=_lpsAddDays(esDate,w.cantDias-1);
+  });
+  // Backward pass
+  const LS={},LF={};
+  [...wbs].reverse().forEach(w=>{
+    const succs=_lpsSucsOf(w.id);
+    let lfDate=_lpsProyFin||EF[w.id];
+    succs.forEach(dep=>{
+      const sw=wbs.find(x=>x.id===dep.sucId);if(!sw||!LS[sw.id])return;
+      let d=null;
+      if(dep.tipo==='FS')d=_lpsAddDays(LS[sw.id],-1-(dep.lag||0));
+      else if(dep.tipo==='CC')d=_lpsAddDays(LS[sw.id],-(dep.lag||0));
+      else if(dep.tipo==='FF')d=_lpsAddDays(LF[sw.id],-(dep.lag||0));
+      if(d&&d<lfDate)lfDate=d;
+    });
+    LF[w.id]=lfDate;
+    LS[w.id]=_lpsAddDays(lfDate,-(w.cantDias-1));
+  });
+  const float={};
+  wbs.forEach(w=>{
+    if(ES[w.id]&&LS[w.id])float[w.id]=Math.round((new Date(LS[w.id])-new Date(ES[w.id]))/86400000);
+    else float[w.id]=null;
+  });
+  return{float,ES,EF,LS,LF};
+}
+
 function _lpsCanMove(id,dir){
   const all=_lpsWbsSorted();
   const w=all.find(x=>x.id===id);if(!w)return false;
@@ -247,8 +395,9 @@ function _lpsRenderWBS(c){
     <input id="lpsWbsQ" placeholder="🔍 Buscar..." value="${qF}" oninput="_lpsWbsQInput()" style="${_lpsCtrl()};min-width:180px">
     <button class="btn btn-a" style="--ba:${LPS_COLOR};margin-left:auto" onclick="_lpsOpenWbs(null)">＋ Nueva Actividad</button>
   </div>
+  const cpm=_lpsCPM();
   <div class="tbl-wrap"><table>
-    <thead><tr><th style="width:52px"></th><th style="min-width:75px;white-space:nowrap">Nro.</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant.</th><th>Sector</th><th>Recursos</th><th></th></tr></thead>
+    <thead><tr><th style="width:52px"></th><th style="min-width:75px;white-space:nowrap">Nro.</th><th>Descripción</th><th>Unidad</th><th style="text-align:right">Cant.</th><th>Sector</th><th>Recursos</th><th title="Holgura libre (días). 0 = Ruta Crítica" style="text-align:center;cursor:help">Float</th><th></th></tr></thead>
     <tbody>${rows.length?rows.map((w)=>{
       const movBtns=_btnMove(w.id);
       const recsW=(DB.lpsWbsRecursos||[]).filter(r=>r.wbsId===w.id);
@@ -259,24 +408,33 @@ function _lpsRenderWBS(c){
       const nroPfx=_lpsCodPfx(w.codigo||'')||w.codigo;
       const nombre=_lpsCodNombre(w.codigo||'');
       const col=_wbsCodeColor(w);
+      const numDeps=_lpsPredsOf(w.id).length+_lpsSucsOf(w.id).length;
+      const depBadge=numDeps?`<span title="${_lpsPredsOf(w.id).length} pred · ${_lpsSucsOf(w.id).length} suc" style="font-size:.58rem;color:#818cf8;margin-left:.3rem;cursor:help">🔗${numDeps}</span>`:'';
       if(w.tipo==='TITULO'){
         return`<tr style="background:${_wbsTitleBg(w)}">
           <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
           <td class="mono" style="color:${col};font-weight:700;white-space:nowrap">${nroPfx}</td>
           <td colspan="3" style="color:${col};font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${nombre}${notaIcon}</td>
           <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
-          <td></td>
+          <td></td><td></td>
           <td style="white-space:nowrap"><span style="font-size:.6rem;color:#10b981;opacity:.7;margin-right:.4rem">TÍTULO</span>
-              <button class="btn btn-out btn-sm" title="Insertar actividad aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
+              <button class="btn btn-out btn-sm" title="Insertar aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
               <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
               <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
         </tr>`;
       }
+      const floatDays=cpm.float[w.id];
+      const isCritical=floatDays===0;
+      const isNearCrit=floatDays!==null&&floatDays>0&&floatDays<=3;
+      const rowBorder=isCritical?'border-left:3px solid #ef4444':isNearCrit?'border-left:3px solid #f59e0b':'border-left:3px solid transparent';
+      const floatTd=floatDays===null?'<td style="text-align:center;color:var(--muted2);font-size:.7rem">—</td>'
+        :isCritical?`<td style="text-align:center"><span title="Ruta Crítica" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440;border-radius:4px;padding:1px 5px;font-size:.68rem;font-weight:700">0d 🔴</span></td>`
+        :`<td style="text-align:center;font-size:.72rem;color:${floatDays<=3?'#f59e0b':'#10b981'}">${floatDays}d</td>`;
       const indent=(_wbsLvl(w.codigo||'')-1)*14;
-      return`<tr>
+      return`<tr style="${rowBorder}">
         <td style="display:flex;gap:3px;padding:.35rem .4rem">${movBtns}</td>
         <td class="mono" style="color:${col};white-space:nowrap">${nroPfx}</td>
-        <td style="padding-left:${indent}px;font-size:.82rem">${nombre}${notaIcon}</td>
+        <td style="padding-left:${indent}px;font-size:.82rem">${nombre}${depBadge}${notaIcon}</td>
         <td class="mono">${w.unidad||'—'}</td>
         <td class="mono" style="text-align:right">${fmtN(+w.cantTotal||0)}</td>
         <td><span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98135;border-radius:4px;padding:1px 8px;font-size:.7rem">${w.sector||'—'}</span></td>
@@ -284,12 +442,13 @@ function _lpsRenderWBS(c){
           ${recsBadge}
           <button onclick="_lpsOpenRecursos(${w.id})" title="Agregar recursos" style="background:none;border:1px dashed #2a3a5a;border-radius:5px;color:#3d5070;padding:1px 7px;font-size:.68rem;cursor:pointer">＋ Recursos</button>
         </td>
+        ${floatTd}
         <td style="white-space:nowrap">
-          <button class="btn btn-out btn-sm" title="Insertar actividad aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
+          <button class="btn btn-out btn-sm" title="Insertar aquí" onclick="_lpsOpenWbs(null,${w.id})" style="color:#10b981;border-color:#10b98160">＋</button>
           <button class="btn btn-out btn-sm" onclick="_lpsOpenWbs(${w.id})" style="color:#f59e0b;border-color:#f59e0b60;margin-left:.2rem">✏️</button>
           <button class="btn btn-del btn-sm" onclick="_lpsDelWbs(${w.id})" style="margin-left:.3rem">✕</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
+    }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--muted2);padding:1.5rem">Sin actividades registradas</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -535,17 +694,8 @@ function _lpsOpenWbs(id,afterId=null){
   document.getElementById('lpsWbsIni').value=w?.fechaIni||'';
   document.getElementById('lpsWbsFin').value=w?.fechaFin||'';
   document.getElementById('lpsWbsCantDias').value=w?.cantDias||'';
-  const predSel=document.getElementById('lpsWbsPred');
-  if(predSel){
-    const otros=(DB.lpsWbs||[]).filter(x=>x.id!==id&&x.tipo!=='TITULO');
-    predSel.innerHTML='<option value="">— Sin predecesora —</option>'+
-      otros.map(x=>`<option value="${x.id}"${w?.predId===x.id?' selected':''}>${_lpsCodPfx(x.codigo)||x.codigo} – ${_lpsCodNombre(x.codigo).slice(0,35)}</option>`).join('');
-  }
-  const predTipoEl=document.getElementById('lpsWbsPredTipo');
-  if(predTipoEl)predTipoEl.value=w?.predTipo||'FS';
-  const predLagEl=document.getElementById('lpsWbsPredLag');
-  if(predLagEl)predLagEl.value=w?.predLag||0;
-  _lpsUpdateNivelUI(!!w);// skipCode si estamos editando (ya tiene su código)
+  _lpsUpdateNivelUI(!!w);
+  _lpsRenderDepsList(id||null);
   openM('mLpsWbs');
 }
 
@@ -592,13 +742,11 @@ function _lpsSaveWbs(){
   const fechaIni=document.getElementById('lpsWbsIni')?.value||'';
   const fechaFin=document.getElementById('lpsWbsFin')?.value||'';
   const cantDias=+document.getElementById('lpsWbsCantDias')?.value||0;
-  const predId=+document.getElementById('lpsWbsPred')?.value||0;
-  const predTipo=document.getElementById('lpsWbsPredTipo')?.value||'FS';
-  const predLag=+document.getElementById('lpsWbsPredLag')?.value||0;
   if(!codPrefix||!nombre||!sector){toast('Complete número, descripción y sector',true);return;}
+  let savedId=_lpsEditWbsId;
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
-    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,predId,predTipo,predLag});syncSheet('saveLpsWbs',w);}
+    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias});syncSheet('saveLpsWbs',w);}
   }else{
     let newOrden;
     if(_lpsWbsAfterId){
@@ -611,9 +759,11 @@ function _lpsSaveWbs(){
       }
     }
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias,predId,predTipo,predLag};
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
+    savedId=rec.id;
   }
+  if(savedId&&fechaFin)_lpsCascade(savedId);
   closeM('mLpsWbs');_lpsRenumberAll();_lpsRenderTab();toast('✓ '+(esTitulo?'Título':'Actividad')+' guardado');
 }
 
