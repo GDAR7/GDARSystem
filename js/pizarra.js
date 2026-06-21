@@ -15,7 +15,8 @@ function _pizRenderTab(){
   const c=document.getElementById('pizBody');if(!c)return;
   if(_pizTab===1)_pizRenderPlan(c);
   else if(_pizTab===2)_pizRenderReal(c);
-  else _pizRenderRutas(c);
+  else if(_pizTab===3)_pizRenderRutas(c);
+  else _pizRenderFrentes(c);
 }
 
 function _pizEqIcon(sub){
