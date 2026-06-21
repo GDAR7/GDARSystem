@@ -350,6 +350,18 @@ function _pizRenderRutas(c){
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
     <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap;flex-shrink:0">✏️ Dibujar</button>
     <button id="rutaBtnBorrar" onclick="_rutaBorrar()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0">🗑 Borrar</button>
+    <div style="position:relative;flex-shrink:0">
+      <button onclick="_rutaCopyToggle(event)" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #8b5cf640;background:rgba(139,92,246,.08);color:#8b5cf6;cursor:pointer;white-space:nowrap">📋 Copiar desde...</button>
+      <div id="rutaCopyDrop" style="display:none;position:absolute;top:110%;left:0;z-index:200;background:var(--panel);border:1px solid var(--border);border-radius:7px;min-width:230px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px #00000060">
+        ${tramos.filter(t=>t.puntos&&t.puntos.length>=2).length
+          ? tramos.filter(t=>t.puntos&&t.puntos.length>=2).map(t=>`<div onclick="_rutaCopiarDesde(${t.id})" style="padding:.4rem .7rem;cursor:pointer;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+              <div style="font-size:.7rem;font-weight:700;color:var(--text)">${t.codigo||'Tramo'} <span style="font-weight:400;color:var(--muted2)">· ${t.puntos.length} pts</span></div>
+              ${t.inicio||t.fin?`<div style="font-size:.6rem;color:var(--muted2)">${t.inicio||''}${t.fin?' → '+t.fin:''}</div>`:''}
+            </div>`).join('')
+          : '<div style="padding:.7rem .9rem;color:var(--muted2);font-size:.7rem">Sin tramos con ruta dibujada</div>'}
+      </div>
+    </div>
+    <button onclick="_rutaUndoUltimo()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #06b6d440;background:rgba(6,182,212,.08);color:#06b6d4;cursor:pointer;white-space:nowrap;flex-shrink:0">⌫ Deshacer</button>
     <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);white-space:nowrap"></div>
   </div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 230px)">
@@ -763,4 +775,41 @@ async function _rutaBorrar(){
   _rutaRenderSvg(DB.tramos||[]);
   const item=document.getElementById(`ruta-item-${tr.id}`);
   if(item){const c=item.querySelector('div:last-child');if(c){c.textContent='Sin trazar';c.style.color='var(--muted2)';}}
+}
+
+function _rutaCopyToggle(e){
+  e.stopPropagation();
+  const drop=document.getElementById('rutaCopyDrop');if(!drop)return;
+  const show=drop.style.display!=='block';
+  drop.style.display=show?'block':'none';
+  if(show){const close=()=>{drop.style.display='none';document.removeEventListener('click',close);};setTimeout(()=>document.addEventListener('click',close),0);}
+}
+
+function _rutaCopiarDesde(id){
+  const from=(DB.tramos||[]).find(t=>t.id===id);
+  if(!from||!from.puntos||!from.puntos.length){toast('El tramo origen no tiene ruta dibujada',true);return;}
+  if(!_rutaSelId){toast('Selecciona primero el tramo destino en el panel lateral',true);return;}
+  // Activar modo dibujo si no está activo
+  if(!_rutaDibujando){
+    _rutaDibujando=true;
+    const btn=document.getElementById('rutaBtnDraw');
+    const cur=document.getElementById('rutaCursor');
+    const wrap=document.getElementById('rutaMapWrap');
+    if(btn){btn.textContent='✅ Guardar';btn.style.background='rgba(245,158,11,.15)';btn.style.color='#f59e0b';btn.style.borderColor='#f59e0b40';}
+    if(cur)cur.style.display='block';
+    if(wrap)wrap.style.cursor='crosshair';
+    const hint=document.getElementById('rutaHint');
+    if(hint)hint.textContent='Clic=punto · Doble clic=guardar · Clic derecho=cancelar';
+  }
+  _rutaPuntos=[...from.puntos];
+  _rutaRedibujarTemp();
+  const drop=document.getElementById('rutaCopyDrop');if(drop)drop.style.display='none';
+  toast(`✓ ${from.puntos.length} puntos copiados de ${from.codigo} · Usa ⌫ Deshacer para retroceder hasta la bifurcación y sigue dibujando`);
+}
+
+function _rutaUndoUltimo(){
+  if(!_rutaPuntos.length){toast('Sin puntos para deshacer',true);return;}
+  _rutaPuntos.pop();
+  _rutaRedibujarTemp();
+  if(!_rutaPuntos.length){const hint=document.getElementById('rutaHint');if(hint)hint.textContent='Clic=punto · Doble clic=guardar · Clic derecho=cancelar';}
 }
