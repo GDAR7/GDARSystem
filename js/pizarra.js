@@ -325,8 +325,8 @@ function _pizRenderRutas(c){
   const hoy=today();
   const mesIni=hoy.slice(0,7)+'-01';
   c.innerHTML=`
-  <div style="margin-bottom:.5rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
-    <span style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período:</span>
+  <div style="margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;flex-wrap:nowrap;overflow-x:auto">
+    <span style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Período:</span>
     <input type="date" id="rutaFechaD" value="${mesIni}" onchange="_rutaRefresh()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid #f59e0b55;background:var(--panel2);color:var(--text)">
     <span style="color:var(--muted2);font-size:.7rem">→</span>
     <input type="date" id="rutaFechaH" value="${hoy}" onchange="_rutaRefresh()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid #f59e0b55;background:var(--panel2);color:var(--text)">
@@ -338,16 +338,19 @@ function _pizRenderRutas(c){
       <option value="RODILLO">Rodillo</option>
       <option value="TRACTOR DE ORUGAS">Tractor</option>
     </select>
-    <button id="rutaBtnCalor" onclick="_rutaToggleCalor()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444460;background:${_rutaModoCalor?'rgba(239,68,68,.2)':'rgba(239,68,68,.07)'};color:${_rutaModoCalor?'#ef4444':'#888'};cursor:pointer">
-      🌡️ ${_rutaModoCalor?'Mapa de Calor ON':'Mapa de Calor OFF'}
-    </button>
-    <div id="rutaLegenda" style="display:${_rutaModoCalor?'flex':'none'};align-items:center;gap:.3rem;margin-left:.3rem">
-      <span style="font-size:.6rem;color:var(--muted2)">Poco</span>
-      <div style="width:60px;height:8px;border-radius:3px;background:linear-gradient(to right,#3b82f6,#10b981,#f59e0b,#ef4444)"></div>
-      <span style="font-size:.6rem;color:var(--muted2)">Mucho</span>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <button id="rutaBtnCalor" onclick="_rutaToggleCalor()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444460;background:${_rutaModoCalor?'rgba(239,68,68,.2)':'rgba(239,68,68,.07)'};color:${_rutaModoCalor?'#ef4444':'#888'};cursor:pointer;white-space:nowrap;flex-shrink:0">🌡️ ${_rutaModoCalor?'Calor ON':'Calor OFF'}</button>
+    <div id="rutaLegenda" style="display:${_rutaModoCalor?'flex':'none'};align-items:center;gap:.3rem;flex-shrink:0">
+      <span style="font-size:.58rem;color:var(--muted2)">Poco</span>
+      <div style="width:50px;height:7px;border-radius:3px;background:linear-gradient(to right,#3b82f6,#10b981,#f59e0b,#ef4444)"></div>
+      <span style="font-size:.58rem;color:var(--muted2)">Mucho</span>
     </div>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap;flex-shrink:0;display:none">✏️ Dibujar</button>
+    <button id="rutaBtnBorrar" onclick="_rutaBorrar()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0;display:none">🗑 Borrar</button>
+    <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);white-space:nowrap;display:none"></div>
   </div>
-  <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 235px)">
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 230px)">
     <!-- SIDEBAR RUTAS -->
     <div style="overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);display:flex;flex-direction:column;gap:.3rem">
       <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);font-weight:700;text-transform:uppercase;margin-bottom:.3rem">Tramos / Rutas</div>
@@ -365,10 +368,6 @@ function _pizRenderRutas(c){
           <div id="ruta-stat-${t.id}" style="font-size:.56rem;color:${pts?col:'var(--muted2)'};padding-left:14px;margin-top:1px">${pts?pts+' puntos':'Sin trazar'}</div>
         </div>`;
       }).join(''):'<div style="color:var(--muted2);font-size:.68rem;text-align:center;padding:1rem">Sin tramos definidos</div>'}
-      <hr style="border-color:var(--border);margin:.4rem 0">
-      <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="width:100%;background:rgba(16,185,129,.1);border:1px solid #10b98140;border-radius:6px;color:#10b981;padding:.35rem;font-size:.67rem;cursor:pointer;display:none">✏️ Dibujar ruta</button>
-      <button onclick="_rutaBorrar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:6px;color:#ef4444;cursor:pointer;padding:.3rem;font-size:.65rem;display:none" id="rutaBtnBorrar">🗑 Borrar ruta</button>
-      <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);text-align:center;padding:.3rem;display:none"></div>
     </div>
     <!-- MAPA CON SVG -->
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#0a0a0a" id="rutaMapWrap">
@@ -543,16 +542,15 @@ function _rutaHideTooltip(){const t=document.getElementById('rutaTooltip');if(t)
 
 function _rutaSelect(id){
   _rutaSelId=id;
-  // Highlight sidebar item
   document.querySelectorAll('[id^="ruta-item-"]').forEach(el=>{
     el.style.outline=el.id===`ruta-item-${id}`?'2px solid #10b981':'none';
   });
   const btnD=document.getElementById('rutaBtnDraw');
   const btnB=document.getElementById('rutaBtnBorrar');
   const hint=document.getElementById('rutaHint');
-  if(btnD){btnD.style.display='block';}
-  if(btnB){btnB.style.display='block';}
-  if(hint){hint.style.display='block';hint.textContent='Selecciona "Dibujar ruta" y haz clic en el mapa';}
+  if(btnD){btnD.style.display='inline-block';}
+  if(btnB){btnB.style.display='inline-block';}
+  if(hint){hint.style.display='inline-block';hint.textContent='← clic en mapa para trazar';}
   _rutaDibujando=false;_rutaPuntos=[];
 }
 
