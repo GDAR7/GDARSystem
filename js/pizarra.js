@@ -95,11 +95,15 @@ function _pizRenderPlan(c){
   const markers=items.map(item=>{
     const col=item.color||'#10b981';
     const ic={equipo:'🚜',personal:'👷',frente:'📍',nota:'📝'}[item.tipo]||'📌';
-    return`<div id="piz-m-${item.id}"
-      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);cursor:grab;z-index:10;user-select:none"
-      onmousedown="_pizMousedown(event,${item.id})">
+    const esPersonal=item.tipo==='personal';
+    const cant=item.cant||1;
+    const cantLabel=esPersonal&&cant>1?`<span style="background:rgba(0,0,0,.25);border-radius:3px;padding:0 3px;margin-right:1px;font-size:.58rem">${cant}×</span> `:'';
+    const dblClick=esPersonal?`ondblclick="event.stopPropagation();_pizMarkerDblClick(${item.id})"`:'';
+    return`<div id="piz-m-${item.id}" class="eq-marker"
+      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none"
+      onmousedown="_pizMousedown(event,${item.id})" ${dblClick}>
       <div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:flex;align-items:center;gap:3px">
-        ${ic} ${item.etiqueta}
+        ${ic} ${cantLabel}${_pizEqCode(item.etiqueta)}
         <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
       </div>
       <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
@@ -376,9 +380,31 @@ function _pizDrop(e){
     const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab==='plan');
     if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
   }
-  const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:'plan'};
+  const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:'plan',cant:1};
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
+  _pizRenderTab();
+}
+
+function _pizMarkerDblClick(id){
+  const item=(DB.pizarraItems||[]).find(i=>i.id===id);
+  if(!item||item.tipo!=='personal')return;
+  const cargo=item.etiqueta||'';
+  // Total disponible en el pool para este cargo
+  const cargoMap={};
+  const lpsP=(DB.lpsWbsRecursos||[]).filter(r=>r.tipo==='Personal');
+  if(lpsP.length){lpsP.forEach(r=>{const c=(r.nombre||'').split('–').slice(-1)[0].trim()||'Personal';cargoMap[c]=(cargoMap[c]||0)+(+(r.cantidad)||0);});}
+  else{(DB.personal||[]).filter(p=>p.tipo!=='Staff'&&(p.est||'').toLowerCase()==='activo').forEach(p=>{const c=(p.cargo||'Sin cargo').trim();cargoMap[c]=(cargoMap[c]||0)+1;});}
+  const total=cargoMap[cargo]||0;
+  // Cuánto ocupan los OTROS marcadores de este cargo en el mapa
+  const otrosUsados=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='personal'&&x.etiqueta===cargo&&x.id!==id).reduce((s,x)=>s+(x.cant||1),0);
+  const maxDisp=total-otrosUsados;
+  if(maxDisp<1){toast('No quedan '+cargo+' disponibles',true);return;}
+  const input=prompt(`Cantidad de "${cargo}" en esta etiqueta\n(disponibles: ${maxDisp} de ${total} totales):`, item.cant||1);
+  if(input===null)return;
+  const nueva=Math.max(1,Math.min(maxDisp,+input||1));
+  item.cant=nueva;
+  syncSheet('savePizItem',item);
   _pizRenderTab();
 }
 
