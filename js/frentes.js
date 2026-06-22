@@ -55,7 +55,7 @@ function _pizRenderFrentes(c){
     wrap.addEventListener('dblclick',_frenteMapDblClick);
     wrap.addEventListener('mousemove',_frenteMouseMove);
     wrap.addEventListener('contextmenu',function(e){e.preventDefault();_frenteCancelarDraw();});
-    wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
+    wrap.addEventListener('wheel',function(e){_rutaOnWheel(e);if(_frenteDibujando)_frenteTempRender();},{passive:false});
     wrap.addEventListener('mousedown',_frenteOnMousedown);
   }
   document.addEventListener('mousemove',_rutaOnGlobalMousemove);
@@ -104,8 +104,9 @@ function _frenteTempRender(){
   const px=_frentePuntos.map(function(p){return {x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)};});
   const d='M '+px.map(function(p){return p.x+' '+p.y;}).join(' L ');
   const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  const _sw=(2/(_rutaZoom||1)).toFixed(2);
   path.classList.add('frente-temp');
-  path.setAttribute('d',d);path.setAttribute('stroke','#f59e0b');path.setAttribute('stroke-width','2');
+  path.setAttribute('d',d);path.setAttribute('stroke','#f59e0b');path.setAttribute('stroke-width',_sw);
   path.setAttribute('fill','none');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
   svg.appendChild(path);
   if(_frentePuntos.length>=3){
@@ -117,14 +118,14 @@ function _frenteTempRender(){
     close.classList.add('frente-temp');
     close.setAttribute('x1',px[px.length-1].x);close.setAttribute('y1',px[px.length-1].y);
     close.setAttribute('x2',px[0].x);close.setAttribute('y2',px[0].y);
-    close.setAttribute('stroke','#f59e0b');close.setAttribute('stroke-width','1.5');close.setAttribute('stroke-dasharray','4 3');close.setAttribute('opacity','.5');
+    close.setAttribute('stroke','#f59e0b');close.setAttribute('stroke-width',(1.5/(_rutaZoom||1)).toFixed(2));close.setAttribute('stroke-dasharray','4 3');close.setAttribute('opacity','.5');
     svg.appendChild(close);
   }
   px.forEach(function(p){
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.classList.add('frente-temp');
-    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r','4');
-    c.setAttribute('fill','#f59e0b');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',(4/(_rutaZoom||1)).toFixed(2));
+    c.setAttribute('fill','#f59e0b');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width',(1.5/(_rutaZoom||1)).toFixed(2));
     svg.appendChild(c);
   });
 }
@@ -186,7 +187,7 @@ function _frenteMouseMove(e){
   const xPct=(e.clientX-r.left)/r.width*100;
   const yPct=(e.clientY-r.top)/r.height*100;
   const cur=document.getElementById('rutaCursor');
-  if(cur){cur.style.left=xPct+'%';cur.style.top=yPct+'%';}
+  if(cur){cur.style.left=xPct+'%';cur.style.top=yPct+'%';cur.style.transform='translate(-50%,-50%) scale('+(1/(_rutaZoom||1))+')';}
   const svg=document.getElementById('rutaSvg');if(!svg)return;
   const W=svg.clientWidth,H=svg.clientHeight;
   const xPx=(xPct*W/100).toFixed(1),yPx=(yPct*H/100).toFixed(1);
@@ -198,7 +199,7 @@ function _frenteMouseMove(e){
     line.id='frentePreview';
     line.setAttribute('x1',lxPx);line.setAttribute('y1',lyPx);
     line.setAttribute('x2',xPx);line.setAttribute('y2',yPx);
-    line.setAttribute('stroke','#f59e0b');line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke','#f59e0b');line.setAttribute('stroke-width',(2/(_rutaZoom||1)).toFixed(2));
     line.setAttribute('stroke-dasharray','5 3');line.setAttribute('opacity','.8');
     if(!prev)svg.appendChild(line);
   }else if(prev){prev.remove();}
