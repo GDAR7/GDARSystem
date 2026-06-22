@@ -3,11 +3,26 @@ function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-E
 let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null,_rutaZoomLocked=false;
 function _pizGetFecha(){return _pizFecha||today();}
 
-function rPizarra(){_pizRenderTab();}
+function rPizarra(){
+  // Aplicar restricción de tabs según usuario
+  const allowed=CU&&CU.pizarraTabs?CU.pizarraTabs:null;
+  document.querySelectorAll('[data-piz-tab]').forEach(btn=>{
+    const t=+btn.dataset.pizTab;
+    btn.style.display=(!allowed||allowed.includes(t))?'':'none';
+  });
+  // Si el tab actual no está permitido, saltar al primero permitido
+  if(allowed&&!allowed.includes(_pizTab)){
+    _pizTab=allowed[0];
+    document.querySelectorAll('[data-piz-tab]').forEach(btn=>btn.classList.toggle('active',+btn.dataset.pizTab===_pizTab));
+  }
+  _pizRenderTab();
+}
 
 function _pizTabSwitch(n){
+  const allowed=CU&&CU.pizarraTabs?CU.pizarraTabs:null;
+  if(allowed&&!allowed.includes(n))return;
   _pizTab=n;
-  document.querySelectorAll('.piz-tab').forEach((b,i)=>b.classList.toggle('active',i+1===n));
+  document.querySelectorAll('[data-piz-tab]').forEach(btn=>btn.classList.toggle('active',+btn.dataset.pizTab===n));
   _pizRenderTab();
 }
 
