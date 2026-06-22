@@ -24,6 +24,7 @@ function _wbsTitleBg(w){
 }
 let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null,_ganttUnlinkMode=false;
 let _lpsLaManual=localStorage.getItem('_lpsLaManual')==='1';
+let _lpsLaColsHidden=localStorage.getItem('_lpsLaColsHidden')==='1';
 let _lpsWbsNivel=1,_lpsWbsAfterId=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
@@ -786,13 +787,18 @@ function _lpsRenderLookahead(c){
   const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&(!sF||w.sector===sF));
   const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
 
+  const _hid=_lpsLaColsHidden?'display:none':'';
   // Cabecera
-  let hdrs=`<th style="min-width:80px">Código</th>
-    <th style="min-width:115px;text-align:center">F. Inicio</th>
-    <th style="min-width:115px;text-align:center">F. Fin</th>
-    <th style="min-width:58px;text-align:center">Días</th>
-    <th style="min-width:72px;text-align:right">Cant/día</th>
-    <th style="min-width:70px">Sector</th>`;
+  let hdrs=`<th style="min-width:80px;position:relative">
+      <span>Código</span>
+      <button onclick="_lpsToggleLaCols()" title="${_lpsLaColsHidden?'Mostrar columnas de detalle':'Ocultar columnas de detalle'}"
+        style="position:absolute;right:2px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1">${_lpsLaColsHidden?'▶':'◀'}</button>
+    </th>
+    <th style="min-width:115px;text-align:center;${_hid}">F. Inicio</th>
+    <th style="min-width:115px;text-align:center;${_hid}">F. Fin</th>
+    <th style="min-width:58px;text-align:center;${_hid}">Días</th>
+    <th style="min-width:72px;text-align:right;${_hid}">Cant/día</th>
+    <th style="min-width:70px;${_hid}">Sector</th>`;
   semanas.forEach((sw,si)=>{
     const days=_lpsDaysRange(sw,7);
     days.forEach(d=>{
@@ -859,17 +865,17 @@ function _lpsRenderLookahead(c){
 
       tbodyRows+=`<tr>
         <td class="mono" style="color:${LPS_COLOR};font-size:.72rem">${w.codigo}</td>
-        <td style="padding:.25rem"><input type="date" value="${fechaIni}" style="color-scheme:dark;${ctrl};width:125px"
+        <td style="padding:.25rem;${_hid}"><input type="date" value="${fechaIni}" style="color-scheme:dark;${ctrl};width:125px"
           onchange="_lpsLaFecha(${w.id},'ini',this.value)"></td>
-        <td style="padding:.25rem"><input type="date" value="${fechaFin}" style="color-scheme:dark;${ctrl};width:125px"
+        <td style="padding:.25rem;${_hid}"><input type="date" value="${fechaFin}" style="color-scheme:dark;${ctrl};width:125px"
           onchange="_lpsLaFecha(${w.id},'fin',this.value)"></td>
-        <td style="padding:.25rem"><input type="number" min="1" value="${cantDias||''}" placeholder="—"
+        <td style="padding:.25rem;${_hid}"><input type="number" min="1" value="${cantDias||''}" placeholder="—"
           style="${ctrl};width:52px;text-align:center"
           onchange="_lpsLaDias(${w.id},+this.value)"></td>
-        <td style="text-align:right;padding-right:.5rem;font-size:.78rem;font-weight:600;color:${cantDiaria>0?LPS_COLOR:'var(--muted2)'}">
+        <td style="text-align:right;padding-right:.5rem;font-size:.78rem;font-weight:600;color:${cantDiaria>0?LPS_COLOR:'var(--muted2)'};${_hid}">
           ${cantDiaria>0?fmtV(cantDiaria)+(w.unidad&&w.unidad!=='—'?' '+w.unidad:''):'—'}
         </td>
-        <td><span style="font-size:.65rem;color:var(--muted2)">${w.sector}</span></td>
+        <td style="${_hid}"><span style="font-size:.65rem;color:var(--muted2)">${w.sector}</span></td>
         ${cells}
       </tr>`;
     });
@@ -1331,7 +1337,13 @@ function _lpsDelRestr(id){
   _lpsRenderTab();toast('Restricción eliminada');
 }
 
-// ── LOOKAHEAD MANUAL ─────────────────────────────────────────────────────────
+// ── LOOKAHEAD COLUMNAS / MANUAL ──────────────────────────────────────────────
+function _lpsToggleLaCols(){
+  _lpsLaColsHidden=!_lpsLaColsHidden;
+  localStorage.setItem('_lpsLaColsHidden',_lpsLaColsHidden?'1':'0');
+  _lpsRenderTab();
+}
+
 function _lpsToggleLaManual(on){
   _lpsLaManual=!!on;
   localStorage.setItem('_lpsLaManual',_lpsLaManual?'1':'0');
