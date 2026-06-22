@@ -23,6 +23,7 @@ function _wbsTitleBg(w){
   return 'rgba(16,185,129,.09)';
 }
 let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null,_ganttUnlinkMode=false;
+let _lpsLaManual=localStorage.getItem('_lpsLaManual')==='1';
 let _lpsWbsNivel=1,_lpsWbsAfterId=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
@@ -822,6 +823,7 @@ function _lpsRenderLookahead(c){
       const fmtV=v=>v===0?'':v%1===0?String(v):v.toFixed(1);
       const ctrl=`background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.2rem .4rem;font-size:.75rem`;
 
+      const mDias=w.laManualDias||{};
       let cells='';
       semanas.forEach(sw=>{
         const days=_lpsDaysRange(sw,7);
@@ -830,14 +832,27 @@ function _lpsRenderLookahead(c){
           const inRange=fechaIni&&fechaFin&&d>=fechaIni&&d<=fechaFin;
           const dow=_lpsDow(d);
           const isWe=dow==='SÁB'||dow==='DOM';
-          if(inRange&&cantDiaria>0)cantSem+=cantDiaria;
-          cells+=`<td style="text-align:center;padding:.15rem;${isWe?'background:rgba(255,255,255,.02)':''}${inRange?';background:rgba(16,185,129,.10)':''}">
-            ${inRange&&cantDiaria>0
-              ?`<div style="font-size:.62rem;font-weight:700;color:#10b981;line-height:1.3">${fmtV(cantDiaria)}</div>`
-              :`<div style="width:22px;height:18px;border-radius:3px;margin:auto;background:rgba(255,255,255,.03);border:1px solid var(--border)"></div>`}
-          </td>`;
+          if(_lpsLaManual){
+            const mv=mDias[d]!==undefined?mDias[d]:(inRange&&cantDiaria>0?parseFloat(cantDiaria.toFixed(2)):0);
+            if(inRange)cantSem+=mv||0;
+            cells+=`<td style="padding:.1rem;text-align:center;${isWe?'background:rgba(255,255,255,.02)':''}${inRange?';background:rgba(245,158,11,.07)':''}">
+              ${inRange
+                ?`<input type="number" min="0" step="0.1" value="${mv||''}" placeholder="0"
+                    onchange="_lpsLaManualChange(${w.id},'${d}',+this.value)"
+                    style="width:40px;background:${(mDias[d]!==undefined)?'rgba(245,158,11,.15)':'transparent'};border:1px solid ${(mDias[d]!==undefined)?'#f59e0b60':'var(--border)'};border-radius:4px;color:${(mDias[d]!==undefined)?'#f59e0b':'#10b981'};padding:.1rem .2rem;font-size:.62rem;text-align:center;color-scheme:dark">`
+                :`<div style="width:22px;height:18px;margin:auto;background:rgba(255,255,255,.02);border-radius:3px;border:1px solid var(--border)"></div>`}
+            </td>`;
+          }else{
+            if(inRange&&cantDiaria>0)cantSem+=cantDiaria;
+            cells+=`<td style="text-align:center;padding:.15rem;${isWe?'background:rgba(255,255,255,.02)':''}${inRange?';background:rgba(16,185,129,.10)':''}">
+              ${inRange&&cantDiaria>0
+                ?`<div style="font-size:.62rem;font-weight:700;color:#10b981;line-height:1.3">${fmtV(cantDiaria)}</div>`
+                :`<div style="width:22px;height:18px;border-radius:3px;margin:auto;background:rgba(255,255,255,.03);border:1px solid var(--border)"></div>`}
+            </td>`;
+          }
         });
-        cells+=`<td style="background:rgba(16,185,129,.04);padding:.25rem .4rem;text-align:right;font-size:.75rem;font-weight:600;color:${cantSem>0?'#10b981':'var(--muted2)'}">
+        const semColor=_lpsLaManual?'#f59e0b':'#10b981';
+        cells+=`<td style="background:${_lpsLaManual?'rgba(245,158,11,.05)':'rgba(16,185,129,.04)'};padding:.25rem .4rem;text-align:right;font-size:.75rem;font-weight:600;color:${cantSem>0?semColor:'var(--muted2)'}">
           ${cantSem>0?fmtV(cantSem):'—'}
         </td>`;
       });
@@ -870,6 +885,10 @@ function _lpsRenderLookahead(c){
       ${_lpsSects().map(s=>`<option${sF===s?' selected':''}>${s}</option>`).join('')}
     </select>
     ${_lpsProyInicio&&_lpsProyFin?`<span style="font-size:.7rem;color:var(--muted2);background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.18);border-radius:5px;padding:.2rem .6rem">📅 ${_lpsFmt(_lpsProyInicio)} → ${_lpsFmt(_lpsProyFin)}</span>`:''}
+    <label style="display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:${_lpsLaManual?'#f59e0b':'var(--muted2)'};cursor:pointer;padding:.2rem .5rem;background:${_lpsLaManual?'rgba(245,158,11,.1)':'rgba(255,255,255,.04)'};border:1px solid ${_lpsLaManual?'#f59e0b50':'var(--border)'};border-radius:5px" title="Activar edición manual de cantidades por día">
+      <input type="checkbox" ${_lpsLaManual?'checked':''} onchange="_lpsToggleLaManual(this.checked)" style="accent-color:#f59e0b;cursor:pointer">
+      ✏️ Planificación manual
+    </label>
     <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto">
       <button onclick="_lpsRodarAtras()" ${_canAtras?'':' disabled'} style="${_btnStyle(_canAtras)}" title="${_canAtras?'Retroceder semana':'Límite de inicio de proyecto'}">◀ Atrás</button>
       <span style="font-size:.82rem;font-weight:700;color:${LPS_COLOR};min-width:130px;text-align:center">${_lpsFmtSem(_lpsSemana)}</span>
@@ -1310,6 +1329,21 @@ function _lpsDelRestr(id){
   DB.lpsRestricciones=DB.lpsRestricciones.filter(r=>r.id!==id);
   supaDelete('lpsRestricciones',id);
   _lpsRenderTab();toast('Restricción eliminada');
+}
+
+// ── LOOKAHEAD MANUAL ─────────────────────────────────────────────────────────
+function _lpsToggleLaManual(on){
+  _lpsLaManual=!!on;
+  localStorage.setItem('_lpsLaManual',_lpsLaManual?'1':'0');
+  _lpsRenderTab();
+}
+
+function _lpsLaManualChange(wbsId,fecha,val){
+  const w=(DB.lpsWbs||[]).find(x=>x.id===wbsId);if(!w)return;
+  if(!w.laManualDias)w.laManualDias={};
+  if(!val||val<=0)delete w.laManualDias[fecha];
+  else w.laManualDias[fecha]=val;
+  syncSheet('saveLpsWbs',w);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
