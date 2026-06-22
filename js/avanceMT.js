@@ -1,5 +1,5 @@
 // ══ AVANCE MT ══
-let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMaterial='';
+let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMaterial='', _amtFiltroTramos='todos';
 
 function rAvanceMT(){
   if(!_amtFechaD){
@@ -51,6 +51,14 @@ function _amtFiltroBar(){
       <option value="">Todos</option>
       ${mats.map(function(m){return '<option value="'+m+'"'+(_amtMaterial===m?' selected':'')+'>'+m+'</option>';}).join('')}
     </select>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Tramos</span>
+    <div style="display:flex;gap:.2rem;flex-shrink:0">
+      ${[['todos','Todos','var(--muted2)'],['activos','Solo activos','#10b981'],['inactivos','Sin actividad','#6b7280']].map(function(op){
+        const sel=_amtFiltroTramos===op[0];
+        return '<button onclick="_amtFiltroTramos=\''+op[0]+'\';_amtRender()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid '+(sel?op[2]+'80':'var(--border)')+';background:'+(sel?op[2]+'18':'transparent')+';color:'+(sel?op[2]:'var(--muted2)')+';cursor:pointer;white-space:nowrap;font-weight:'+(sel?'700':'400')+'">'+op[1]+'</button>';
+      }).join('')}
+    </div>
   </div>`;
 }
 
@@ -79,7 +87,13 @@ function _amtRenderTramos(body){
     }
   });
 
-  const tramos=(DB.tramos||[]).sort(function(a,b){return (a.codigo||'').localeCompare(b.codigo||'');});
+  const tramosAll=(DB.tramos||[]).sort(function(a,b){return (a.codigo||'').localeCompare(b.codigo||'');});
+  const tramos=tramosAll.filter(function(tr){
+    const activo=!!byTramo[tr.id];
+    if(_amtFiltroTramos==='activos') return activo;
+    if(_amtFiltroTramos==='inactivos') return !activo;
+    return true;
+  });
   const totalM3=Object.values(byTramo).reduce(function(s,t){return s+t.m3;},0);
   const totalViajes=Object.values(byTramo).reduce(function(s,t){return s+t.viajes;},0);
   const tramosActivos=Object.keys(byTramo).filter(function(id){return (byTramo[id].viajes||0)>0||(byTramo[id].parteIds&&byTramo[id].parteIds.size>0);}).length;
@@ -148,7 +162,7 @@ function _amtRenderTramos(body){
           </td>
           <td style="padding:.4rem .6rem;font-size:.65rem;color:${st.col};white-space:nowrap">${diasLabel(dias)}</td>
         </tr>`;
-      }).join('') : '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted2)">Sin tramos registrados</td></tr>'}
+      }).join('') : '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted2)">'+(tramosAll.length?'Sin tramos con actividad en este período':'Sin tramos registrados')+'</td></tr>'}
       </tbody>
     </table>
     </div>
