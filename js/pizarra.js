@@ -196,14 +196,13 @@ function _pizRenderReal(c){
   const frenteSorted=(DB.frentesTrabajo||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
   const fColorMap={};frenteSorted.forEach((f,i)=>fColorMap[f.id]=fColors[i%fColors.length]);
 
-  // Último parte conocido per equipo hasta la fecha seleccionada
+  // Último parte del día por equipo (si tiene varios en el mismo día, el de mayor id = más reciente)
   const lastParteByEq={};
   (DB.partes||[]).forEach(p=>{
-    if(!p.eqId||p.fecha>fecha)return;
-    if(!lastParteByEq[p.eqId]||p.fecha>lastParteByEq[p.eqId].fecha)lastParteByEq[p.eqId]=p;
+    if(!p.eqId||p.fecha!==fecha)return;
+    if(!lastParteByEq[p.eqId]||p.id>lastParteByEq[p.eqId].id)lastParteByEq[p.eqId]=p;
   });
-  const hoyPartes=(DB.partes||[]).filter(p=>p.fecha===fecha);
-  const hoyEqIds=new Set(hoyPartes.map(p=>p.eqId));
+  const hoyPartes=Object.values(lastParteByEq);
   const ops=hoyPartes.filter(p=>(p.condicion||'').toUpperCase().includes('OPERATIVO')).length;
   const stdby=hoyPartes.filter(p=>(p.condicion||'').toUpperCase()==='STANDBY').length;
   const inop=hoyPartes.length-ops-stdby;
@@ -238,20 +237,19 @@ function _pizRenderReal(c){
       const row=Math.floor(i/nCols), col=i%nCols;
       const ox=(col-(nCols-1)/2)*2.2, oy=row*2.2;
       const eqCol=_pizCondColor(p.condicion);
-      const isHoy=hoyEqIds.has(p.eqId);
       return`<div class="eq-marker" style="position:absolute;left:${(cen.x+ox).toFixed(1)}%;top:${(cen.y+oy).toFixed(1)}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:pointer;z-index:15;user-select:none"
         onclick="_pizPopup(${p.eqId},'${p.fecha}')">
-        <div style="background:${eqCol};color:#fff;border-radius:4px;padding:1px 5px;font-size:.52rem;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.6);opacity:${isHoy?1:.6};border:${isHoy?'none':'1px dashed rgba(255,255,255,.5)'}">
-          ${_pizEqIcon(eq.sub)} ${_pizEqCode(eq.codigo)}${!isHoy?` <span style="font-size:.44rem;opacity:.8">${p.fecha.slice(5)}</span>`:''}
+        <div style="background:${eqCol};color:#fff;border-radius:4px;padding:1px 5px;font-size:.52rem;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.6)">
+          ${_pizEqIcon(eq.sub)} ${_pizEqCode(eq.codigo)}
         </div>
-        <div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:5px solid ${eqCol};margin:0 auto;opacity:${isHoy?1:.6}"></div>
+        <div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:5px solid ${eqCol};margin:0 auto"></div>
       </div>`;
     });
   }).join('');
 
   c.innerHTML=`
   <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
-    <label style="font-size:.7rem;color:var(--muted2);font-weight:700">📅 Hasta:</label>
+    <label style="font-size:.7rem;color:var(--muted2);font-weight:700">📅 Día trabajado:</label>
     <input type="date" value="${fecha}"
       style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.72rem;cursor:pointer"
       onchange="_pizFecha=this.value;_pizRenderTab()">
@@ -263,12 +261,12 @@ function _pizRenderReal(c){
       ${frenteSorted.map(f=>`<option value="${f.id}" ${_realSelFrente==f.id?'selected':''}>${f.nombre||f.nom||f.frente||'Frente '+f.id}</option>`).join('')}
     </select>
     <div style="width:1px;height:18px;background:var(--border)"></div>
-    <span style="font-size:.68rem;color:var(--muted2)">${hoyPartes.length} parte(s) hoy</span>
+    <span style="font-size:.68rem;color:var(--muted2)">${hoyPartes.length} parte(s) ese día</span>
     <span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b98130;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${ops} Op.</span>
     <span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b30;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${stdby} Stdby</span>
     <span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444430;border-radius:5px;padding:1px 7px;font-size:.68rem;font-weight:700">● ${inop} Inop.</span>
     <span style="font-size:.6rem;color:var(--muted2)">· ${Object.values(byFrente).reduce((s,v)=>s+v.partes.length,0)} ubicados · ${sinPos.length} sin frente</span>
-    <span style="margin-left:auto;font-size:.56rem;color:var(--muted2)">Atenuado = último conocido</span>
+    <span style="margin-left:auto;font-size:.56rem;color:var(--muted2)">Último frente del día por equipo</span>
   </div>
   <div style="display:grid;grid-template-columns:1fr${sinPos.length?' 160px':''};gap:.7rem;height:calc(100vh - 240px)">
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap">
@@ -278,7 +276,7 @@ function _pizRenderReal(c){
         ${eqMarkers}
         ${!Object.keys(lastParteByEq).length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
           <div style="background:rgba(0,0,0,.65);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.78rem;text-align:center">
-            Sin partes registrados hasta ${fecha}
+            Sin partes registrados el ${fecha}
           </div></div>`:''}
       </div>
       <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
