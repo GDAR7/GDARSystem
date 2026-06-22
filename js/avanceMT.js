@@ -39,14 +39,15 @@ function _amtMateriales(){
 
 function _amtFiltroBar(){
   const mats=_amtMateriales();
-  return `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período</span>
-    <input type="date" value="${_amtFechaD||''}" onchange="_amtFechaD=this.value;_amtRender()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">
-    <span style="color:var(--muted2);font-size:.75rem">→</span>
-    <input type="date" value="${_amtFechaH||''}" onchange="_amtFechaH=this.value;_amtRender()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">
-    <div style="width:1px;height:18px;background:var(--border)"></div>
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Material</span>
-    <select onchange="_amtMaterial=this.value;_amtRender()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);width:130px;flex-shrink:0';
+  return `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Período</span>
+    <input type="date" value="${_amtFechaD||''}" onchange="_amtFechaD=this.value;_amtRender()" style="${inpS}">
+    <span style="color:var(--muted2);font-size:.75rem;flex-shrink:0">→</span>
+    <input type="date" value="${_amtFechaH||''}" onchange="_amtFechaH=this.value;_amtRender()" style="${inpS}">
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Material</span>
+    <select onchange="_amtMaterial=this.value;_amtRender()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);min-width:140px;max-width:260px">
       <option value="">Todos</option>
       ${mats.map(function(m){return '<option value="'+m+'"'+(_amtMaterial===m?' selected':'')+'>'+m+'</option>';}).join('')}
     </select>
