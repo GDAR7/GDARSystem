@@ -1319,15 +1319,21 @@ function _lpsExportXLS(){
   if(!window.XLSX){toast('Librería Excel no cargada, intenta en segundos',true);return;}
   const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal PPC','Restricciones','CNC'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
-  const wb=XLSX.utils.book_new();
-  if(_lpsTab===1)      _lpsXlsWBS(wb);
-  else if(_lpsTab===2) _lpsXlsCrono(wb);
-  else if(_lpsTab===3) _lpsXlsLookahead(wb);
-  else if(_lpsTab===4) _lpsXlsPlan(wb);
-  else if(_lpsTab===5) _lpsXlsRestr(wb);
-  else                 _lpsXlsCNC(wb);
-  XLSX.writeFile(wb,`LPS_${tabName.replace(/ /g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
-  toast('✓ Excel descargado');
+  try{
+    const wb=XLSX.utils.book_new();
+    if(_lpsTab===1)      _lpsXlsWBS(wb);
+    else if(_lpsTab===2) _lpsXlsCrono(wb);
+    else if(_lpsTab===3) _lpsXlsLookahead(wb);
+    else if(_lpsTab===4) _lpsXlsPlan(wb);
+    else if(_lpsTab===5) _lpsXlsRestr(wb);
+    else                 _lpsXlsCNC(wb);
+    if(!wb.SheetNames||!wb.SheetNames.length){toast('Sin datos para exportar',true);return;}
+    XLSX.writeFile(wb,`LPS_${tabName.replace(/ /g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast('✓ Excel descargado');
+  }catch(e){
+    console.error('[LPS Excel]',e);
+    toast('Error al exportar: '+e.message,true);
+  }
 }
 
 function _lpsXlsWBS(wb){
