@@ -1313,6 +1313,162 @@ function _lpsDelRestr(id){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// EXPORTAR A EXCEL
+// ══════════════════════════════════════════════════════════════════════════════
+function _lpsExportXLS(){
+  if(!window.XLSX){toast('Librería Excel no cargada, intenta en segundos',true);return;}
+  const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal PPC','Restricciones','CNC'];
+  const tabName=tabNames[_lpsTab-1]||'Planning';
+  const wb=XLSX.utils.book_new();
+  if(_lpsTab===1)      _lpsXlsWBS(wb);
+  else if(_lpsTab===2) _lpsXlsCrono(wb);
+  else if(_lpsTab===3) _lpsXlsLookahead(wb);
+  else if(_lpsTab===4) _lpsXlsPlan(wb);
+  else if(_lpsTab===5) _lpsXlsRestr(wb);
+  else                 _lpsXlsCNC(wb);
+  XLSX.writeFile(wb,`LPS_${tabName.replace(/ /g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('✓ Excel descargado');
+}
+
+function _lpsXlsWBS(wb){
+  const sF=document.getElementById('lpsWbsSector')?.value||'';
+  const q=(document.getElementById('lpsWbsQ')?.value||'').toLowerCase();
+  const list=_lpsWbsSorted().filter(w=>(!sF||w.sector===sF)&&(!q||((w.codigo||'').toLowerCase().includes(q))));
+  const hdr=['Nro.','Descripción','Unidad','Cant. Total','Sector','Tipo'];
+  const rows=list.map(w=>[
+    _lpsCodPfx(w.codigo||''),
+    _lpsCodNombre(w.codigo||''),
+    w.unidad||'',
+    +w.cantTotal||'',
+    w.sector||'',
+    w.tipo||'ACTIVIDAD'
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:14},{wch:45},{wch:10},{wch:12},{wch:22},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Biblioteca WBS');
+}
+
+function _lpsXlsCrono(wb){
+  const sorted=_lpsWbsSorted().filter(w=>w.fechaIni&&w.fechaFin);
+  const hdr=['Código','Descripción','Días','F. Inicio','F. Fin','Avance %'];
+  const rows=sorted.map(w=>[
+    w.codigo||'',
+    _lpsCodNombre(w.codigo||''),
+    +w.cantDias||'',
+    w.fechaIni||'',
+    w.fechaFin||'',
+    +w.avance||0
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:14},{wch:42},{wch:8},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'Cronograma');
+}
+
+function _lpsXlsLookahead(wb){
+  const sF=document.getElementById('lpsLaSector')?.value||'';
+  const wbs=_lpsWbsSorted().filter(w=>w.tipo!=='TITULO'&&(!sF||w.sector===sF));
+  const semanas=Array.from({length:4},(_,i)=>_lpsAddDays(_lpsSemana,i*7));
+  const fmtV=v=>v===0?'':parseFloat(v.toFixed(2));
+  const hdr=['Código','F. Inicio','F. Fin','Días','Cant/Día','Und','Sector'];
+  semanas.forEach((sw,si)=>{
+    _lpsDaysRange(sw,7).forEach(d=>hdr.push(_lpsDow(d)+' '+d.slice(5)));
+    hdr.push('Cant. S'+(si+1));
+  });
+  const rows=wbs.map(w=>{
+    const cantDias=+w.cantDias||0;
+    const cantDiaria=cantDias>0?(+w.cantTotal||0)/cantDias:0;
+    const row=[w.codigo||'',w.fechaIni||'',w.fechaFin||'',cantDias||'',cantDiaria>0?fmtV(cantDiaria):'',w.unidad||'',w.sector||''];
+    semanas.forEach(sw=>{
+      let cantSem=0;
+      _lpsDaysRange(sw,7).forEach(d=>{
+        const inR=w.fechaIni&&w.fechaFin&&d>=w.fechaIni&&d<=w.fechaFin;
+        if(inR&&cantDiaria>0){row.push(fmtV(cantDiaria));cantSem+=cantDiaria;}
+        else row.push('');
+      });
+      row.push(cantSem>0?fmtV(cantSem):'');
+    });
+    return row;
+  });
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:6},{wch:10},{wch:8},{wch:18},...Array(32).fill({wch:9})];
+  XLSX.utils.book_append_sheet(wb,ws,'Lookahead 4 Semanas');
+}
+
+function _lpsXlsPlan(wb){
+  const semFin=_lpsAddDays(_lpsSemana,6);
+  const days=_lpsDaysRange(_lpsSemana,7);
+  const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===_lpsSemana);
+  const wbsEnSem=_lpsWbsSorted().filter(w=>!w.tipo||w.tipo!=='TITULO').filter(w=>w.fechaIni&&w.fechaFin&&w.fechaFin>=_lpsSemana&&w.fechaIni<=semFin);
+  let planCount=0,cumplCount=0;
+  wbsEnSem.forEach(w=>{
+    const p=planes.find(x=>x.wbsId===w.id);if(!p)return;
+    const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+    const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
+    if(planSem<=0)return;
+    const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+    planCount++;if(realSem>=planSem*0.999)cumplCount++;
+  });
+  const ppc=planCount?Math.round(cumplCount/planCount*100):0;
+  const fmtV=v=>v===0?'':parseFloat(v.toFixed(2));
+  const hdr=['Código','Und','Plan Total',...days.map(d=>'Plan '+d.slice(5)),'Real Total',...days.map(d=>'Real '+d.slice(5)),'Cumplido','CNC Categoría','CNC Causa'];
+  const titleRow=[`Semana: ${_lpsSemana} – ${semFin}   |   PPC: ${ppc}%   (${cumplCount}/${planCount} actividades cumplidas)`];
+  const rows=wbsEnSem.map(w=>{
+    const p=planes.find(x=>x.wbsId===w.id);
+    const rd=p?p.realDias||{}:{};
+    const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+    let planTotal=0,realTotal=0;
+    const planVals=days.map(d=>{const inR=d>=w.fechaIni&&d<=w.fechaFin;const pv=inR&&cantDia>0?cantDia:0;if(pv)planTotal+=pv;return pv?fmtV(pv):'';});
+    const realVals=days.map(d=>{const rv=+rd[d]||0;if(rv)realTotal+=rv;return rv?fmtV(rv):'';});
+    return[w.codigo||'',w.unidad||'',planTotal?fmtV(planTotal):'',...planVals,realTotal?fmtV(realTotal):'',...realVals,planTotal>0?(realTotal>=planTotal*0.999?'SÍ':'NO'):'—',p?.cncCategoria||'',p?.cncDesc||''];
+  });
+  const ws=XLSX.utils.aoa_to_sheet([titleRow,[],hdr,...rows]);
+  ws['!cols']=[{wch:14},{wch:8},{wch:11},...Array(7).fill({wch:10}),{wch:11},...Array(7).fill({wch:10}),{wch:10},{wch:22},{wch:35}];
+  XLSX.utils.book_append_sheet(wb,ws,'Plan Semanal PPC');
+}
+
+function _lpsXlsRestr(wb){
+  const hdr=['Descripción','Responsable','Fecha Límite','Actividad WBS','Estado'];
+  const rows=(DB.lpsRestricciones||[]).map(r=>{
+    const w=(DB.lpsWbs||[]).find(x=>x.id===r.wbsId);
+    return[r.desc||'',r.responsable||'',r.fechaLimite||'',w?(w.codigo+' – '+_lpsCodNombre(w.codigo||'')):'',r.estado||'ABIERTA'];
+  });
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:45},{wch:22},{wch:14},{wch:40},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Restricciones');
+}
+
+function _lpsXlsCNC(wb){
+  const pendientes=[],resueltas=[];
+  const semanas=[...new Set((DB.lpsPlanSemanal||[]).map(p=>p.semanaInicio))].sort().reverse();
+  semanas.forEach(sem=>{
+    const planes=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===sem);
+    const days=_lpsDaysRange(sem,7);
+    planes.forEach(p=>{
+      const w=(DB.lpsWbs||[]).find(x=>x.id===p.wbsId);
+      if(!w||w.tipo==='TITULO'||!w.fechaIni||!w.fechaFin)return;
+      const cantDia=+w.cantDias>0?(+w.cantTotal||0)/+w.cantDias:0;
+      const planSem=days.filter(d=>d>=w.fechaIni&&d<=w.fechaFin).length*cantDia;
+      if(planSem<=0)return;
+      const realSem=Object.values(p.realDias||{}).reduce((s,v)=>s+(+v||0),0);
+      const pct=Math.round(realSem/planSem*100);
+      if(pct>=100)return;
+      const item={sem,semFin:_lpsAddDays(sem,6),p,w,planSem,realSem,pct};
+      if(p.resuelto)resueltas.push(item);else pendientes.push(item);
+    });
+  });
+  const hdr=['Código Actividad','Sector','Semana Inicio','Semana Fin','Planificado','Real','Cumpl. %','Causa (CNC)','Estado'];
+  const rows=[...pendientes,...resueltas].map(x=>[
+    x.w.codigo||'',x.w.sector||'',x.sem||'',x.semFin||'',
+    parseFloat((x.planSem||0).toFixed(2)),parseFloat((x.realSem||0).toFixed(2)),x.pct,
+    x.p.cncCategoria?(x.p.cncCategoria+(x.p.cncDesc?' – '+x.p.cncDesc:'')):'',
+    x.p.resuelto?'Atendido':'Pendiente'
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:16},{wch:18},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:45},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'CNC');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // EXPORTAR A PDF
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsPrintCurrent(){
