@@ -22,7 +22,7 @@ function _wbsTitleBg(w){
   if(lv>=3) return 'rgba(147,197,253,.08)';
   return 'rgba(16,185,129,.09)';
 }
-let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null;
+let _lpsWbsQTimer=null,_lpsGanttZoom='month',_ganttLinkMode=false,_ganttLinkSrc=null,_ganttUnlinkMode=false;
 let _lpsWbsNivel=1,_lpsWbsAfterId=null;
 function _lpsWbsQInput(){
   clearTimeout(_lpsWbsQTimer);
@@ -1743,7 +1743,9 @@ function _lpsRenderCrono(c){
     // Panel izquierdo
     const barClick=_ganttLinkMode
       ?`_ganttBarClick(${w.id})`
-      :`_lpsOpenWbs(${w.id})`;
+      :_ganttUnlinkMode
+        ?`_ganttUnlinkClick(${w.id})`
+        :`_lpsOpenWbs(${w.id})`;
     leftH+=`<div style="height:${ROW_H}px;display:flex;align-items:center;background:${bg};border-bottom:1px solid #111927;padding:0 5px;gap:3px;box-sizing:border-box;overflow:hidden${isLinkSrc?';outline:2px solid #f59e0b;outline-offset:-2px':''}">
       <span style="padding-left:${ind}px;flex:1;min-width:0;font-size:.68rem;${isT?'font-weight:700;color:#e2e8f0':'color:var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
         title="${w.codigo} – ${w.desc}">
@@ -1755,7 +1757,7 @@ function _lpsRenderCrono(c){
       <span style="width:58px;flex-shrink:0;font-size:.56rem;color:#4a6080;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${pLabel}">
         ${pLabel}
       </span>
-      <button onclick="event.stopPropagation();${barClick}" style="background:none;border:none;color:${_ganttLinkMode?'#f59e0b':'#3d5272'};cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0" title="${_ganttLinkMode?'Seleccionar como origen/destino del vínculo':'Editar actividad'}">${_ganttLinkMode?'🔗':'✏️'}</button>
+      <button onclick="event.stopPropagation();${barClick}" style="background:none;border:none;color:${_ganttLinkMode?'#f59e0b':_ganttUnlinkMode?'#ef4444':'#3d5272'};cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0" title="${_ganttLinkMode?'Seleccionar como origen/destino del vínculo':_ganttUnlinkMode?'Romper vínculo de esta actividad':'Editar actividad'}">${_ganttLinkMode?'🔗':_ganttUnlinkMode?'✂':'✏️'}</button>
     </div>`;
 
     // Panel derecho (barra)
@@ -1768,7 +1770,7 @@ function _lpsRenderCrono(c){
         const lagStr=w.predLag&&+w.predLag!==0?(+w.predLag>0?`+${w.predLag}`:`${w.predLag}`):'';
         const predTip=predW?`&#10;⬅ ${w.predTipo||'FS'}${lagStr}: ${predW.codigo}`:'';
         bar=`<div id="gbar_${w.id}" style="position:absolute;left:${bx}px;top:${barTop}px;height:${barH}px;width:${barW}px;
-          background:${isLinkSrc?'#f59e0b':col};border-radius:${isT?'2px':'4px'};cursor:${_ganttLinkMode?'crosshair':'pointer'};z-index:2;
+          background:${isLinkSrc?'#f59e0b':col};border-radius:${isT?'2px':'4px'};cursor:${(_ganttLinkMode||_ganttUnlinkMode)?'crosshair':'pointer'};z-index:2;
           ${isT?'clip-path:polygon(0 50%,4px 0%,calc(100% - 4px) 0%,100% 50%,calc(100% - 4px) 100%,4px 100%)':''}
           opacity:.9" onclick="_ganttBarClick(${w.id})"
           title="${w.codigo} – ${w.desc}&#10;📅 ${_fmtDMY(w.fechaIni)} → ${_fmtDMY(w.fechaFin)} (${w.cantDias||'?'} días)${predTip}">
@@ -1822,6 +1824,9 @@ function _lpsRenderCrono(c){
   const linkBtnStyle=_ganttLinkMode
     ?'background:#f59e0b;color:#000;border:1px solid #f59e0b'
     :'background:rgba(255,255,255,.06);color:var(--muted2);border:1px solid var(--border)';
+  const unlinkBtnStyle=_ganttUnlinkMode
+    ?'background:#ef4444;color:#fff;border:1px solid #ef4444'
+    :'background:rgba(255,255,255,.06);color:var(--muted2);border:1px solid var(--border)';
 
   c.innerHTML=`
   <!-- Toolbar -->
@@ -1832,8 +1837,10 @@ function _lpsRenderCrono(c){
       background:${_lpsGanttZoom===z?'#10b981':'rgba(255,255,255,.06)'};color:${_lpsGanttZoom===z?'#fff':'var(--muted2)'};
       border:1px solid ${_lpsGanttZoom===z?'#10b981':'var(--border)'}">${l}</button>`).join('')}
     <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
-    <button onclick="_ganttToggleLink()" style="padding:.22rem .75rem;font-size:.7rem;border-radius:5px;cursor:pointer;font-family:'Barlow',sans-serif;${linkBtnStyle}">🔗 ${_ganttLinkMode?'Cancelar vínculo':'Vincular'}</button>
+    <button onclick="_ganttToggleLink()" style="padding:.22rem .75rem;font-size:.7rem;border-radius:5px;cursor:pointer;font-family:'Barlow',sans-serif;${linkBtnStyle}">🔗 ${_ganttLinkMode?'Cancelar':'Vincular'}</button>
+    <button onclick="_ganttToggleUnlink()" style="padding:.22rem .75rem;font-size:.7rem;border-radius:5px;cursor:pointer;font-family:'Barlow',sans-serif;${unlinkBtnStyle}">✂ ${_ganttUnlinkMode?'Cancelar':'Romper vínculo'}</button>
     ${_ganttLinkMode&&_ganttLinkSrc?`<span style="font-size:.65rem;color:#f59e0b;animation:pulse 1s infinite">🎯 Selecciona la actividad SUCESORA</span>`:''}
+    ${_ganttUnlinkMode?`<span style="font-size:.65rem;color:#ef4444">✂ Haz clic en la actividad SUCESORA para eliminar su vínculo</span>`:''}
     <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
     <span style="font-size:.63rem;color:var(--muted2)">
       <span style="color:#10b981">■</span> Nv1 &nbsp;<span style="color:#f87171">■</span> Nv2 &nbsp;
@@ -1886,7 +1893,28 @@ function _lpsRenderCrono(c){
 function _ganttToggleLink(){
   _ganttLinkMode=!_ganttLinkMode;
   _ganttLinkSrc=null;
+  if(_ganttLinkMode)_ganttUnlinkMode=false;
   _lpsRenderTab();
+}
+
+function _ganttToggleUnlink(){
+  _ganttUnlinkMode=!_ganttUnlinkMode;
+  if(_ganttUnlinkMode){_ganttLinkMode=false;_ganttLinkSrc=null;}
+  _lpsRenderTab();
+}
+
+function _ganttUnlinkClick(id){
+  const w=(DB.lpsWbs||[]).find(x=>x.id===id);
+  if(!w){return;}
+  if(!w.predId){toast('Esta actividad no tiene vínculo',true);return;}
+  const predW=(DB.lpsWbs||[]).find(x=>x.id===w.predId);
+  const codPred=predW?predW.codigo:'?';
+  if(!confirm(`¿Romper vínculo?\n${codPred} → ${w.codigo}`))return;
+  w.predId=null;w.predTipo=null;w.predLag=0;
+  syncSheet('saveLpsWbs',w);
+  _ganttUnlinkMode=false;
+  _lpsRenderTab();
+  toast(`✓ Vínculo eliminado: ${w.codigo} ya no tiene predecesora`);
 }
 
 function _ganttBarClick(id){
