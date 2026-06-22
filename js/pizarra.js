@@ -216,10 +216,16 @@ function _pizRenderReal(c){
   // Agrupar por frente usando último parte conocido
   const byFrente={};const sinPos=[];
   Object.values(lastParteByEq).forEach(p=>{
-    const nomFt=(p.frenteT||'').trim();if(!nomFt){sinPos.push(p);return;}
-    const ft=frenteSorted.find(f=>(f.nombre||f.nom||f.frente||'').trim()===nomFt);
+    // frenteT puede ser "FrenteA, FrenteB, FrenteC" → usar el último que tenga área dibujada
+    const lista=(p.frenteT||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(!lista.length){sinPos.push(p);return;}
+    let ft=null;
+    for(let i=lista.length-1;i>=0;i--){
+      const f=frenteSorted.find(f=>(f.nombre||f.nom||f.frente||'').trim()===lista[i]);
+      if(f&&centroid(f)){ft=f;break;}
+    }
     if(!ft){sinPos.push(p);return;}
-    const cen=centroid(ft);if(!cen){sinPos.push(p);return;}
+    const cen=centroid(ft);
     if(!byFrente[ft.id])byFrente[ft.id]={ft,cen,partes:[]};
     byFrente[ft.id].partes.push(p);
   });
