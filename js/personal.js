@@ -288,7 +288,7 @@ async function iniciarScanner(){
       const fmts=supported.length?want.filter(f=>supported.includes(f)):want;
       _barcodeDetector=new BarcodeDetector({formats:fmts});
       const stream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080},focusMode:'continuous'}
+        video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
       });
       _videoStream=stream;
       const qrDiv=document.getElementById('qr-reader');
@@ -319,7 +319,10 @@ async function iniciarScanner(){
       };
       _detectLoop=requestAnimationFrame(loop);
       return;
-    }catch(err){setScannerStatus('Error cámara: '+err,'err');return;}
+    }catch(err){
+      console.warn('[Scanner Motor1]',err);
+      // cae al Motor 2 si BarcodeDetector falla
+    }
   }
   // Motor 2: Html5Qrcode (iOS Safari y otros)
   if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: escáner no disponible en este navegador','err');return;}
@@ -355,7 +358,11 @@ async function procesarQR(texto){
   if(match){p=DB.personal.find(x=>x.id===parseInt(match[1]));}
   if(!p){p=DB.personal.find(x=>x.dni===texto.trim());}
   if(!p){p=DB.personal.find(x=>x.codigoQr&&x.codigoQr===texto.trim());}
-  if(!p){setScannerStatus('⚠ Trabajador no encontrado — código: '+texto.trim(),'err');return;}
+  if(!p){
+    setScannerStatus('⚠ No encontrado: '+texto.trim(),'err');
+    setTimeout(()=>{_scannerCooldown=false;setScannerStatus('📷 Apunte el código al centro del recuadro','wait');},2000);
+    return;
+  }
   // Detener cámara
   _detenerCamara();
   document.getElementById('qr-reader').style.display='none';
