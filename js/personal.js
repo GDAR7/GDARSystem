@@ -250,32 +250,71 @@ function setScannerStatus(msg,type){
   const el=document.getElementById('scannerStatus');
   el.textContent=msg;el.className='scanner-status scanner-'+type;
 }
+function _scanBeep(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator();const g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.value=1480;o.type='sine';
+    g.gain.setValueAtTime(0,ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.4,ctx.currentTime+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
+    o.start(ctx.currentTime);o.stop(ctx.currentTime+0.18);
+  }catch(e){}
+}
+function _scanSuccess(){
+  try{navigator.vibrate&&navigator.vibrate([60,30,60]);}catch(e){}
+  _scanBeep();
+  const ov=document.getElementById('scanOverlay');
+  if(ov){ov.classList.add('scan-ok-flash');setTimeout(()=>ov.classList.remove('scan-ok-flash'),400);}
+}
+function _scanOverlayHTML(){
+  return`<div id="scanOverlay" class="scan-overlay">
+    <div class="scan-vignette"></div>
+    <div class="scan-zone">
+      <div class="scan-corner tl"></div><div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div><div class="scan-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+  </div>`;
+}
+
 async function iniciarScanner(){
   // Motor 1: BarcodeDetector nativo (Android Chrome — rápido y preciso)
   if('BarcodeDetector' in window){
     try{
       const supported=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
-      const want=['qr_code','data_matrix','aztec','code_128','code_39','ean_13'];
+      const want=['qr_code','data_matrix','aztec','code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar'];
       const fmts=supported.length?want.filter(f=>supported.includes(f)):want;
       _barcodeDetector=new BarcodeDetector({formats:fmts});
-      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
+      const stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080},focusMode:'continuous'}
+      });
       _videoStream=stream;
       const qrDiv=document.getElementById('qr-reader');
-      qrDiv.innerHTML='<video id="scanVideo" autoplay playsinline muted style="width:100%;border-radius:8px;max-height:260px;object-fit:cover"></video>';
+      qrDiv.innerHTML=`<div class="scan-wrap">
+        <video id="scanVideo" autoplay playsinline muted style="width:100%;max-height:300px;object-fit:cover;display:block"></video>
+        ${_scanOverlayHTML()}
+      </div>`;
       const vid=document.getElementById('scanVideo');
       vid.srcObject=stream;
       await new Promise(r=>vid.onloadedmetadata=r);
       vid.play();
-      setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait');
+      setScannerStatus('📷 Apunte el código al centro del recuadro','wait');
+      let _frameSkip=0;
       const loop=async()=>{
         if(!_barcodeDetector)return;
-        try{
-          const res=await _barcodeDetector.detect(vid);
-          if(res.length&&!_scannerCooldown){
-            _scannerCooldown=true;
-            procesarQR(res[0].rawValue);
-          }
-        }catch(e){}
+        _frameSkip=(_frameSkip+1)%2; // procesa 1 de cada 2 frames (~30fps efectivos)
+        if(!_frameSkip){
+          try{
+            const res=await _barcodeDetector.detect(vid);
+            if(res.length&&!_scannerCooldown){
+              _scannerCooldown=true;
+              _scanSuccess();
+              procesarQR(res[0].rawValue);
+            }
+          }catch(e){}
+        }
         _detectLoop=requestAnimationFrame(loop);
       };
       _detectLoop=requestAnimationFrame(loop);
@@ -285,21 +324,30 @@ async function iniciarScanner(){
   // Motor 2: Html5Qrcode (iOS Safari y otros)
   if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: escáner no disponible en este navegador','err');return;}
   const _fmts=typeof Html5QrcodeSupportedFormats!=='undefined'
-    ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]}
+    ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.EAN_13]}
     :{};
   _html5QrScanner=new Html5Qrcode('qr-reader',_fmts);
   _html5QrScanner.start(
     {facingMode:'environment'},
-    {fps:12,qrbox:{width:300,height:110}},
+    {fps:25,qrbox:{width:250,height:250},aspectRatio:1.0,disableFlip:false},
     (decoded)=>{
       if(_scannerCooldown)return;
       _scannerCooldown=true;
+      _scanSuccess();
       procesarQR(decoded);
-      setTimeout(()=>{_scannerCooldown=false;},3000);
+      setTimeout(()=>{_scannerCooldown=false;},2500);
     },
     ()=>{}
-  ).then(()=>setScannerStatus('Listo — apunte al QR o código de barras del fotocheck','wait')
-  ).catch(err=>setScannerStatus('Error de cámara: '+err,'err'));
+  ).then(()=>{
+    setScannerStatus('📷 Apunte el código al centro del recuadro','wait');
+    // Inyectar overlay encima del video de Html5Qrcode
+    const qrDiv=document.getElementById('qr-reader');
+    const ov=document.createElement('div');
+    ov.innerHTML=_scanOverlayHTML();
+    ov.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:20';
+    qrDiv.style.position='relative';
+    qrDiv.appendChild(ov.firstChild);
+  }).catch(err=>setScannerStatus('Error de cámara: '+err,'err'));
 }
 async function procesarQR(texto){
   let p=null;
