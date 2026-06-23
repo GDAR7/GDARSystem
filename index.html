@@ -89,28 +89,28 @@
       </div>
     </div>
     <!-- FILTROS -->
-    <div style="display:flex;flex-direction:column;gap:.35rem;padding:.45rem 1rem;border-bottom:1px solid var(--border);background:var(--panel2)">
+    <div style="display:flex;flex-direction:column;gap:.25rem;padding:.3rem .8rem;border-bottom:1px solid var(--border);background:var(--panel2)">
       <!-- Fila 1: Proyecto -->
-      <div style="display:flex;gap:.45rem;align-items:center">
-        <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Proyecto:</span>
-        <select id="perFProy" onchange="_perFiltrar()" style="flex:1;min-width:0;font-size:.75rem;padding:.28rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+      <div style="display:flex;gap:.35rem;align-items:center">
+        <span style="font-size:.7rem;color:var(--muted2);flex-shrink:0">Proyecto:</span>
+        <select id="perFProy" onchange="_perFiltrar()" style="flex:1;min-width:0;max-width:420px;font-size:.72rem;padding:.18rem .35rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
           <option value="">— Todos —</option>
         </select>
       </div>
       <!-- Fila 2: Estado + Fechas + Acciones -->
-      <div style="display:flex;gap:.45rem;align-items:center">
-        <select id="perFEst" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+      <div style="display:flex;gap:.35rem;align-items:center">
+        <select id="perFEst" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .35rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
           <option value="">— Estado —</option>
           <option value="Activo">Activo</option>
           <option value="Inactivo">Inactivo</option>
         </select>
-        <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Desde:</span>
-        <input type="date" id="perFDesde" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
-        <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Hasta:</span>
-        <input type="date" id="perFHasta" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
-        <button onclick="_perLimpiarFiltros()" style="flex:0 0 auto;font-size:.72rem;padding:.28rem .65rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap">✕ Limpiar</button>
-        <span id="perContador" style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0"></span>
-        <button onclick="exportPersonalXLSX()" style="margin-left:auto;flex:0 0 auto;font-size:.75rem;padding:.28rem .85rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
+        <span style="font-size:.7rem;color:var(--muted2);flex-shrink:0">Desde:</span>
+        <input type="date" id="perFDesde" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .3rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+        <span style="font-size:.7rem;color:var(--muted2);flex-shrink:0">Hasta:</span>
+        <input type="date" id="perFHasta" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .3rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+        <button onclick="_perLimpiarFiltros()" style="font-size:.7rem;padding:.18rem .5rem;height:24px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+        <span id="perContador" style="font-size:.7rem;color:var(--muted2);flex-shrink:0"></span>
+        <button onclick="exportPersonalXLSX()" style="margin-left:auto;font-size:.72rem;padding:.18rem .75rem;height:24px;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
