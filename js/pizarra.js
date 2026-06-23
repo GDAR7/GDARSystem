@@ -3,6 +3,7 @@ function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-E
 function _pizImgUrlIso(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN_isometrico.JPG';}
 function _pizCurrentImgUrl(){return _pizActiveTabKey==='iso'?_pizImgUrlIso():_pizImgUrl();}
 let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null,_rutaZoomLocked=false;
+let _rutaVistaIso=false;
 let _pizActiveTabKey='plan';
 function _pizGetFecha(){return _pizFecha||today();}
 
@@ -703,6 +704,9 @@ function _pizRenderRutas(c){
       </div>
     </div>
     <button onclick="_rutaUndoUltimo()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #06b6d440;background:rgba(6,182,212,.08);color:#06b6d4;cursor:pointer;white-space:nowrap;flex-shrink:0">⌫ Deshacer</button>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <button id="rutaBtnVista" onclick="_rutaToggleVista()" title="Cambiar entre vista de plan (aérea) e isométrica" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #f9731640;background:rgba(249,115,22,.07);color:#f97316;cursor:pointer;white-space:nowrap;flex-shrink:0">🏔️ Vista Isométrico</button>
+    <button onclick="_rutaLimpiarTodas()" title="Borra los trazados de la vista ACTIVA para redibujar" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #f97316;background:rgba(249,115,22,.1);color:#f97316;cursor:pointer;white-space:nowrap;flex-shrink:0">🔄 Limpiar Trazados</button>
     <div id="rutaHint" style="font-size:.6rem;color:var(--muted2);white-space:nowrap"></div>
   </div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:.7rem;height:calc(100vh - 230px)">
@@ -720,7 +724,11 @@ function _pizRenderRutas(c){
             <span style="font-size:.68rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.codigo||'Sin código'}</span>
           </div>
           <div style="font-size:.58rem;color:var(--muted2);margin-top:2px;padding-left:14px">${t.inicio||''}${t.fin?' → '+t.fin:''}</div>
-          <div id="ruta-stat-${t.id}" style="font-size:.56rem;color:${pts?col:'var(--muted2)'};padding-left:14px;margin-top:1px">${pts?pts+' puntos':'Sin trazar'}</div>
+          <div id="ruta-stat-${t.id}" style="font-size:.56rem;padding-left:14px;margin-top:1px">
+            <span style="color:${pts?col:'var(--muted2)'}">Plan: ${pts||0}pts</span>
+            <span style="color:var(--muted2)"> · </span>
+            <span style="color:${(t.puntosIso||[]).length?'#f97316':'var(--muted2)'}">Iso: ${(t.puntosIso||[]).length||0}pts</span>
+          </div>
         </div>`;
       }).join(''):'<div style="color:var(--muted2);font-size:.68rem;text-align:center;padding:1rem">Sin tramos definidos</div>'}
     </div>
@@ -920,7 +928,7 @@ function _rutaRenderSvg(tramos,heat){
   const sorted=(tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
   const maxV=heat?_rutaMaxViajes(heat):1;
   sorted.forEach((t,i)=>{
-    const pts=t.puntos||[];if(pts.length<2)return;
+    const pts=(_rutaVistaIso?t.puntosIso:t.puntos)||[];if(pts.length<2)return;
     const baseCol=_rutaColors[i%_rutaColors.length];
     const h=heat?(heat[t.id]||null):null;
     const col=heat?(h?_rutaHeatColor(h.viajes,maxV):'#2a3040'):baseCol;
@@ -1093,18 +1101,17 @@ async function _rutaGuardar(){
   const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
   if(!tr){_rutaCancelarDraw();return;}
   if(_rutaPuntos.length<2){toast('Necesitas al menos 2 puntos para guardar la ruta',true);return;}
-  tr.puntos=[..._rutaPuntos];
+  if(_rutaVistaIso){tr.puntosIso=[..._rutaPuntos];}else{tr.puntos=[..._rutaPuntos];}
   syncSheet('saveTramo',tr);
-  toast(`✓ Ruta "${tr.codigo}" guardada (${_rutaPuntos.length} puntos)`);
+  const vista=_rutaVistaIso?'Isométrico':'Plan';
+  toast(`✓ Ruta "${tr.codigo}" [${vista}] guardada (${_rutaPuntos.length} puntos)`);
   _rutaCancelarDraw(false);
   // Limpiar temporales y re-renderizar SVG sin reload completo
   const svg=document.getElementById('rutaSvg');
   if(svg){svg.querySelectorAll('.ruta-temp,.ruta-preview').forEach(el=>el.remove());}
   const prev=svg&&svg.querySelector('#rutaPreview');if(prev)prev.remove();
   _rutaRenderSvg(DB.tramos||[]);
-  // Actualizar sidebar para mostrar el conteo de puntos
-  const item=document.getElementById(`ruta-item-${tr.id}`);
-  if(item){const c=item.querySelector('div:last-child');if(c)c.textContent=tr.puntos.length+' puntos dibujados';c&&(c.style.color=_rutaColors[(DB.tramos||[]).findIndex(t=>t.id===tr.id)%_rutaColors.length]);}
+  _rutaUpdateSidebarStats();
 }
 
 function _rutaCancelarDraw(reset=true){
@@ -1124,14 +1131,61 @@ async function _rutaBorrar(){
   if(!_rutaSelId)return;
   const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
   if(!tr)return;
-  if(!confirm(`¿Borrar la ruta trazada de "${tr.codigo}"?`))return;
-  tr.puntos=[];
+  const vista=_rutaVistaIso?'Isométrico':'Plan';
+  if(!confirm(`¿Borrar el trazado [${vista}] de "${tr.codigo}"?`))return;
+  if(_rutaVistaIso){tr.puntosIso=[];}else{tr.puntos=[];}
   syncSheet('saveTramo',tr);
-  toast(`Ruta de "${tr.codigo}" borrada`);
+  toast(`Trazado [${vista}] de "${tr.codigo}" borrado`);
   _rutaCancelarDraw();
   _rutaRenderSvg(DB.tramos||[]);
-  const item=document.getElementById(`ruta-item-${tr.id}`);
-  if(item){const c=item.querySelector('div:last-child');if(c){c.textContent='Sin trazar';c.style.color='var(--muted2)';}}
+  _rutaUpdateSidebarStats();
+}
+
+async function _rutaLimpiarTodas(){
+  const campo=_rutaVistaIso?'puntosIso':'puntos';
+  const vista=_rutaVistaIso?'Isométrico':'Plan';
+  const conRuta=(DB.tramos||[]).filter(t=>t[campo]&&t[campo].length>0);
+  if(!conRuta.length){toast(`No hay trazados [${vista}] para limpiar`,true);return;}
+  if(!confirm(`¿Limpiar los trazados [${vista}] de TODOS los tramos (${conRuta.length})?\n\nLos tramos en sí NO se eliminan.\nLos trazados de la otra vista NO se tocan.`))return;
+  for(const tr of conRuta){
+    tr[campo]=[];
+    syncSheet('saveTramo',tr);
+  }
+  _rutaCancelarDraw();
+  _rutaRenderSvg(DB.tramos||[]);
+  _rutaUpdateSidebarStats();
+  toast(`✓ ${conRuta.length} trazado${conRuta.length!==1?'s':''} [${vista}] limpiados. Selecciona un tramo y presiona ✏️ Dibujar.`);
+}
+
+function _rutaToggleVista(){
+  _rutaVistaIso=!_rutaVistaIso;
+  _rutaCancelarDraw();
+  // Cambiar imagen de fondo
+  const img=document.getElementById('rutaImg');
+  if(img){img.src=_rutaVistaIso?_pizImgUrlIso():_pizImgUrl();}
+  // Actualizar botón
+  const btn=document.getElementById('rutaBtnVista');
+  if(btn){
+    btn.textContent=_rutaVistaIso?'🗺️ Vista Plan':'🏔️ Vista Isométrico';
+    btn.style.background=_rutaVistaIso?'rgba(249,115,22,.25)':'rgba(249,115,22,.07)';
+    btn.style.borderColor=_rutaVistaIso?'#f97316':'#f9731640';
+  }
+  // Re-renderizar SVG con los puntos del modo activo
+  _rutaRenderSvg(DB.tramos||[]);
+  _rutaUpdateSidebarStats();
+  // Reajustar vista a la nueva imagen
+  setTimeout(()=>{_rutaFitView();},150);
+}
+
+function _rutaUpdateSidebarStats(){
+  (DB.tramos||[]).forEach((t,i)=>{
+    const el=document.getElementById(`ruta-stat-${t.id}`);
+    if(!el)return;
+    const col=_rutaColors[i%_rutaColors.length];
+    const ptsPlan=(t.puntos||[]).length;
+    const ptsIso=(t.puntosIso||[]).length;
+    el.innerHTML=`<span style="color:${ptsPlan?col:'var(--muted2)'}">Plan: ${ptsPlan}pts</span><span style="color:var(--muted2)"> · </span><span style="color:${ptsIso?'#f97316':'var(--muted2)'}">Iso: ${ptsIso}pts</span>`;
+  });
 }
 
 function _rutaCopyToggle(e){
