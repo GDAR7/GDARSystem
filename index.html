@@ -89,22 +89,22 @@
       </div>
     </div>
     <!-- FILTROS -->
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--border);background:var(--panel2)">
-      <select id="perFProy" onchange="_perFiltrar()" style="font-size:.75rem;padding:.28rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);min-width:130px">
+    <div style="display:flex;gap:.45rem;align-items:center;padding:.45rem 1rem;border-bottom:1px solid var(--border);background:var(--panel2);overflow-x:auto">
+      <select id="perFProy" onchange="_perFiltrar()" style="flex:0 1 190px;min-width:0;font-size:.75rem;padding:.28rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
         <option value="">— Proyecto —</option>
       </select>
-      <select id="perFEst" onchange="_perFiltrar()" style="font-size:.75rem;padding:.28rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+      <select id="perFEst" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
         <option value="">— Estado —</option>
         <option value="Activo">Activo</option>
         <option value="Inactivo">Inactivo</option>
       </select>
-      <label style="font-size:.72rem;color:var(--muted2);white-space:nowrap">F. Ingreso desde:</label>
-      <input type="date" id="perFDesde" onchange="_perFiltrar()" style="font-size:.75rem;padding:.28rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
-      <label style="font-size:.72rem;color:var(--muted2);white-space:nowrap">hasta:</label>
-      <input type="date" id="perFHasta" onchange="_perFiltrar()" style="font-size:.75rem;padding:.28rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
-      <button onclick="_perLimpiarFiltros()" style="font-size:.73rem;padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar</button>
-      <span id="perContador" style="font-size:.72rem;color:var(--muted2);margin-left:.2rem"></span>
-      <button onclick="exportPersonalXLSX()" style="margin-left:auto;font-size:.75rem;padding:.28rem .9rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Desde:</span>
+      <input type="date" id="perFDesde" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+      <span style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Hasta:</span>
+      <input type="date" id="perFHasta" onchange="_perFiltrar()" style="flex:0 0 auto;font-size:.75rem;padding:.28rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+      <button onclick="_perLimpiarFiltros()" style="flex:0 0 auto;font-size:.72rem;padding:.28rem .65rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+      <span id="perContador" style="font-size:.72rem;color:var(--muted2);white-space:nowrap;flex-shrink:0"></span>
+      <button onclick="exportPersonalXLSX()" style="margin-left:auto;flex:0 0 auto;font-size:.75rem;padding:.28rem .85rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
       <thead><tr><th>DNI</th><th>Apellidos y Nombres</th><th>Cargo</th><th>Categoría</th><th>Proyecto</th><th>Procedencia</th><th>Tipo</th><th>Guardia</th><th>F. Ingreso</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
