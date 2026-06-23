@@ -1,6 +1,9 @@
 // ══ PIZARRA DE DESPLIEGUE ══
 function _pizImgUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN.png';}
+function _pizImgUrlIso(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/R3_2026_IMAGEN_isometrico.JPG';}
+function _pizCurrentImgUrl(){return _pizActiveTabKey==='iso'?_pizImgUrlIso():_pizImgUrl();}
 let _pizTab=1,_pizMoving=null,_pizFecha=null,_realSelFrente=null,_rutaZoomLocked=false;
+let _pizActiveTabKey='plan';
 function _pizGetFecha(){return _pizFecha||today();}
 
 function rPizarra(){
@@ -22,16 +25,18 @@ function _pizTabSwitch(n){
   const allowed=CU&&CU.pizarraTabs?CU.pizarraTabs:null;
   if(allowed&&!allowed.includes(n))return;
   _pizTab=n;
+  _pizActiveTabKey=(n===5)?'iso':'plan';
   document.querySelectorAll('[data-piz-tab]').forEach(btn=>btn.classList.toggle('active',+btn.dataset.pizTab===n));
   _pizRenderTab();
 }
 
 function _pizRenderTab(){
   const c=document.getElementById('pizBody');if(!c)return;
-  if(_pizTab===1)_pizRenderPlan(c);
+  if(_pizTab===1){_pizActiveTabKey='plan';_pizRenderPlan(c);}
   else if(_pizTab===2)_pizRenderReal(c);
   else if(_pizTab===3)_pizRenderRutas(c);
-  else _pizRenderFrentes(c);
+  else if(_pizTab===4)_pizRenderFrentes(c);
+  else if(_pizTab===5){_pizActiveTabKey='iso';_pizRenderPlan(c);}
 }
 
 function _pizEqIcon(sub){
@@ -69,7 +74,7 @@ function _pizCondColor(cond){
 
 // ── VISTA 1: PLANIFICACIÓN (drag & drop) ───────────────────────────────────
 function _pizRenderPlan(c){
-  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo!=='frente');
+  const items=(DB.pizarraItems||[]).filter(x=>x.tab===_pizActiveTabKey&&x.tipo!=='frente');
   const equipos=(DB.equipos||[]).filter(e=>e.est!=='Baja');
 
   // ── Personal de piso: agrega desde lpsWbsRecursos (Personal) o fallback a DB.personal ──
@@ -147,7 +152,7 @@ function _pizRenderPlan(c){
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap"
       ondragover="event.preventDefault()" ondrop="_pizDrop(event)">
       <div id="rutaCanvas" style="position:relative;transform-origin:0 0;cursor:default;display:inline-block;min-width:100%">
-        <img id="rutaImg" src="${_pizImgUrl()}" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
+        <img id="rutaImg" src="${_pizCurrentImgUrl()}" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
         <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
         ${markers}
         ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
@@ -396,10 +401,10 @@ function _pizDrop(e){
   const y=+((e.clientY-rect.top)/rect.height*100).toFixed(1);
   // Para equipos: reubicar si ya existe. Para personal/nota: siempre crear nuevo
   if(tipo!=='personal'&&tipo!=='nota'){
-    const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab==='plan');
+    const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab===_pizActiveTabKey);
     if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
   }
-  const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:'plan',cant:1};
+  const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:_pizActiveTabKey,cant:1};
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
   _pizRenderTab();
@@ -416,7 +421,7 @@ function _pizMarkerDblClick(id){
   else{(DB.personal||[]).filter(p=>p.tipo!=='Staff'&&(p.est||'').toLowerCase()==='activo').forEach(p=>{const c=(p.cargo||'Sin cargo').trim();cargoMap[c]=(cargoMap[c]||0)+1;});}
   const total=cargoMap[cargo]||0;
   // Cuánto ocupan los OTROS marcadores de este cargo en el mapa
-  const otrosUsados=(DB.pizarraItems||[]).filter(x=>x.tab==='plan'&&x.tipo==='personal'&&x.etiqueta===cargo&&x.id!==id).reduce((s,x)=>s+(x.cant||1),0);
+  const otrosUsados=(DB.pizarraItems||[]).filter(x=>x.tab===_pizActiveTabKey&&x.tipo==='personal'&&x.etiqueta===cargo&&x.id!==id).reduce((s,x)=>s+(x.cant||1),0);
   const maxDisp=total-otrosUsados;
   if(maxDisp<1){toast('No quedan '+cargo+' disponibles',true);return;}
   const input=prompt(`Cantidad de "${cargo}" en esta etiqueta\n(disponibles: ${maxDisp} de ${total} totales):`, item.cant||1);
@@ -455,17 +460,18 @@ function _pizRemoveItem(id){
 }
 
 function _pizLimpiar(){
-  if(!confirm('¿Limpiar equipos y personal del mapa de planificación?'))return;
-  const toDelete=(DB.pizarraItems||[]).filter(i=>i.tab==='plan');
+  const label=_pizActiveTabKey==='iso'?'mapa isométrico':'mapa de planificación';
+  if(!confirm('¿Limpiar equipos y personal del '+label+'?'))return;
+  const toDelete=(DB.pizarraItems||[]).filter(i=>i.tab===_pizActiveTabKey);
   toDelete.forEach(i=>supaDelete('pizarraItems',i.id));
-  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>i.tab!=='plan');
+  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>i.tab!==_pizActiveTabKey);
   _pizRenderTab();
 }
 
 function _pizAgregarNota(){
   const txt=(prompt('Texto de la anotación:','')||'').trim();
   if(!txt)return;
-  const rec={id:nid('piz'),tipo:'nota',refId:0,etiqueta:txt,x:50,y:40,color:'#8b5cf6',tab:'plan'};
+  const rec={id:nid('piz'),tipo:'nota',refId:0,etiqueta:txt,x:50,y:40,color:'#8b5cf6',tab:_pizActiveTabKey};
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
   _pizRenderTab();
