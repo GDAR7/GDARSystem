@@ -2481,13 +2481,11 @@
 
       <!-- Solo Cisterna de agua -->
       <div id="cistSection" style="display:none">
-        <div class="fg-grid" style="grid-template-columns:1fr 1fr">
-          <div class="fg"><label>N° Tanques Regados</label><input id="rpNTanques" type="number" placeholder="0" min="0"></div>
-          <div class="fg"><label>Tramo Regado 🗺️</label>
-            <select id="rpCistTramoId">
-              <option value="">— Sin tramo —</option>
-            </select>
-          </div>
+        <div id="cistRiegosContainer"></div>
+        <button class="btn btn-out" style="width:100%;margin-top:.5rem" onclick="addCistRiego()">＋ Agregar Tramo Regado</button>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:.5rem;margin-top:.4rem;padding:.3rem .5rem;background:var(--panel2);border-radius:6px">
+          <span style="font-size:.7rem;color:var(--muted2)">Total tanques:</span>
+          <span id="cistTotalTanques" style="font-size:.85rem;font-weight:700;color:#06b6d4">0</span>
         </div>
       </div>
 

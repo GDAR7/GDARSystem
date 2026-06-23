@@ -324,13 +324,7 @@ function filtrarEquipos(){
       }
     }
   }
-  // Tramo para cisternas en cistSection
-  const cistTr=document.getElementById('rpCistTramoId');
-  if(cistTr&&cistTr.children.length<=1){
-    cistTr.innerHTML='<option value="">— Sin tramo —</option>'+
-      (DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''))
-        .map(t=>`<option value="${t.id}">${t.codigo}${t.inicio?` (${t.inicio}${t.fin?' → '+t.fin:''})`:''}</option>`).join('');
-  }
+  // (cistSection uses dynamic rows — no static select to fill)
 }
 
 function autoFillEquipo(){
@@ -466,6 +460,61 @@ function calcKm(){
 }
 
 let viajeCount = 0;
+let cistRiegoCount = 0;
+
+function _recalcCistTotal(){
+  let tot=0;
+  for(let i=1;i<=cistRiegoCount;i++){
+    const el=document.getElementById('crTanques'+i);
+    if(el)tot+=+el.value||0;
+  }
+  const lbl=document.getElementById('cistTotalTanques');
+  if(lbl)lbl.textContent=tot||0;
+}
+
+function addCistRiego(tanques,tramoId){
+  cistRiegoCount++;
+  const ci=cistRiegoCount;
+  const c=document.getElementById('cistRiegosContainer');if(!c)return;
+  const div=document.createElement('div');
+  div.className='viaje-block';
+  div.id='cistRiego-'+ci;
+  const _trOpts=(DB.tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''))
+    .map(t=>`<option value="${t.id}">${t.codigo}${t.inicio?` (${t.inicio}${t.fin?' → '+t.fin:''})`:''}</option>`).join('');
+  div.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+    <span style="font-size:.63rem;font-weight:700;color:#06b6d4;letter-spacing:.07em">TRAMO #${ci}</span>
+    <button onclick="document.getElementById('cistRiego-${ci}').remove();_recalcCistTotal()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;padding:0 .2rem" title="Quitar">✕</button>
+  </div>
+  <div class="fg-grid" style="grid-template-columns:1fr 2fr">
+    <div class="fg"><label>N° Tanques</label>
+      <input id="crTanques${ci}" type="number" min="0" placeholder="0" value="${tanques||''}" oninput="_recalcCistTotal()" style="text-align:center">
+    </div>
+    <div class="fg"><label>Tramo Regado 🗺️</label>
+      <select id="crTramo${ci}">
+        <option value="">— Sin tramo —</option>${_trOpts}
+      </select>
+    </div>
+  </div>`;
+  c.appendChild(div);
+  if(tramoId){const sel=document.getElementById('crTramo'+ci);if(sel)sel.value=tramoId;}
+  _recalcCistTotal();
+}
+
+function _cistRiegosClear(){
+  cistRiegoCount=0;
+  const c=document.getElementById('cistRiegosContainer');if(c)c.innerHTML='';
+  _recalcCistTotal();
+}
+
+function _cistRiegosGet(){
+  const list=[];
+  for(let i=1;i<=cistRiegoCount;i++){
+    const tanques=+document.getElementById('crTanques'+i)?.value||0;
+    const tramoId=+document.getElementById('crTramo'+i)?.value||0;
+    if(tanques>0||tramoId)list.push({tanques,tramoId:tramoId||null});
+  }
+  return list;
+}
 
 function _recalcViajes(){
   let totalViajes=0, totalMins=0;
@@ -495,7 +544,7 @@ function _setViajesMode(sub){
   if(cistS)cistS.style.display=isCist?'':'none';
   if(volqS)volqS.style.display=isCist?'none':'';
   if(hdr)hdr.textContent=isCist?'▸ Registro de Agua (Cisterna)':'▸ Registro de Viajes (Volquete)';
-  if(isCist){const e=document.getElementById('rpNTanques');if(e)e.value='';}
+  if(isCist){_cistRiegosClear();addCistRiego();}
 }
 
 function _vTramoChange(i){
@@ -668,13 +717,17 @@ function editParte(id){
   if(rpNV)rpNV.value=p.nViajes||0;
   const rpTT=document.getElementById('rpTiempoTrans');
   if(rpTT)rpTT.value=p.tiempoTrans||'';
-  const rpNT=document.getElementById('rpNTanques');
-  if(rpNT)rpNT.value=p.nTanques||'';
   // Tramo parte (no-volquete LA)
   const rpPTr=document.getElementById('rpParteTramoId');
   if(rpPTr&&p.tramoId){rpPTr.value=p.tramoId;}
-  const rpCTr=document.getElementById('rpCistTramoId');
-  if(rpCTr&&p.tramoId){rpCTr.value=p.tramoId;}
+  // Cisterna riegos
+  if(p.cistRiegos&&p.cistRiegos.length){
+    _cistRiegosClear();
+    p.cistRiegos.forEach(function(r){addCistRiego(r.tanques,r.tramoId);});
+  }else if(p.nTanques){
+    _cistRiegosClear();
+    addCistRiego(p.nTanques,p.tramoId||null);
+  }
   // Viajes
   if(p.viajes&&p.viajes.length){
     p.viajes.forEach(v=>{
@@ -730,8 +783,9 @@ async function gReporte(){
     observaciones: document.getElementById('rpObservaciones').value,
     nViajes:      +document.getElementById('rpNViajes').value||0,
     tiempoTrans:   document.getElementById('rpTiempoTrans').value,
-    nTanques:     +document.getElementById('rpNTanques')?.value||0,
-    tramoId:      +document.getElementById('rpParteTramoId')?.value||+document.getElementById('rpCistTramoId')?.value||0,
+    cistRiegos:   _cistRiegosGet(),
+    nTanques:     _cistRiegosGet().reduce(function(s,r){return s+r.tanques;},0),
+    tramoId:      +document.getElementById('rpParteTramoId')?.value||(_cistRiegosGet()[0]?.tramoId||0),
     conclusion:    document.getElementById('rpConclusion').value,
     colaborador:   CU.nombre,
     viajes
@@ -763,6 +817,7 @@ async function gReporte(){
     n_viajes:     parte.nViajes||null,
     tiempo_trans: parte.tiempoTrans||null,
     n_tanques:    parte.nTanques||null,
+    cist_riegos:  parte.cistRiegos&&parte.cistRiegos.length?parte.cistRiegos:null,
     tramo_id:     parte.tramoId||null,
     conclusion:   parte.conclusion||null,
     colaborador:  parte.colaborador||null,
