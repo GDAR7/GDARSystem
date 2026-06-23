@@ -280,12 +280,15 @@ function _scanOverlayHTML(){
 }
 
 async function iniciarScanner(){
+  console.log('[SCAN] iniciando. BarcodeDetector disponible:', 'BarcodeDetector' in window, '| Html5Qrcode:', typeof Html5Qrcode);
   // Motor 1: BarcodeDetector nativo (Android Chrome — rápido y preciso)
   if('BarcodeDetector' in window){
     try{
       const supported=await BarcodeDetector.getSupportedFormats().catch(()=>[]);
+      console.log('[SCAN M1] formatos soportados:', supported);
       const want=['qr_code','data_matrix','aztec','code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar'];
       const fmts=supported.length?want.filter(f=>supported.includes(f)):want;
+      console.log('[SCAN M1] usando formatos:', fmts);
       _barcodeDetector=new BarcodeDetector({formats:fmts});
       const stream=await navigator.mediaDevices.getUserMedia({
         video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
@@ -300,32 +303,39 @@ async function iniciarScanner(){
       vid.srcObject=stream;
       await new Promise(r=>vid.onloadedmetadata=r);
       vid.play();
+      console.log('[SCAN M1] video listo, readyState:', vid.readyState, 'size:', vid.videoWidth+'x'+vid.videoHeight);
       setScannerStatus('📷 Apunte el código al centro del recuadro','wait');
-      let _frameSkip=0;
+      let _frameSkip=0, _detectCount=0;
       const loop=async()=>{
         if(!_barcodeDetector)return;
-        _frameSkip=(_frameSkip+1)%2; // procesa 1 de cada 2 frames (~30fps efectivos)
+        _frameSkip=(_frameSkip+1)%2;
         if(!_frameSkip){
           try{
             const res=await _barcodeDetector.detect(vid);
+            _detectCount++;
+            if(_detectCount%60===0) console.log('[SCAN M1] frames procesados:',_detectCount,'| cooldown:',_scannerCooldown);
             if(res.length&&!_scannerCooldown){
+              console.log('[SCAN M1] ¡DETECTADO!', res[0].rawValue, 'formato:', res[0].format);
               _scannerCooldown=true;
               _scanSuccess();
               procesarQR(res[0].rawValue);
             }
-          }catch(e){}
+          }catch(e){if(_detectCount<3)console.warn('[SCAN M1] error detect:',e);}
         }
         _detectLoop=requestAnimationFrame(loop);
       };
       _detectLoop=requestAnimationFrame(loop);
       return;
     }catch(err){
-      console.warn('[Scanner Motor1]',err);
-      // cae al Motor 2 si BarcodeDetector falla
+      console.warn('[SCAN M1] falló, usando Motor 2:', err.message||err);
     }
   }
   // Motor 2: Html5Qrcode (iOS Safari y otros)
-  if(typeof Html5Qrcode==='undefined'){setScannerStatus('Error: escáner no disponible en este navegador','err');return;}
+  if(typeof Html5Qrcode==='undefined'){
+    console.error('[SCAN] Html5Qrcode no disponible');
+    setScannerStatus('Error: escáner no disponible en este navegador','err');return;
+  }
+  console.log('[SCAN M2] iniciando Html5Qrcode');
   const _fmts=typeof Html5QrcodeSupportedFormats!=='undefined'
     ?{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.EAN_13]}
     :{};
@@ -334,6 +344,7 @@ async function iniciarScanner(){
     {facingMode:'environment'},
     {fps:25,qrbox:{width:250,height:250},aspectRatio:1.0,disableFlip:false},
     (decoded)=>{
+      console.log('[SCAN M2] ¡DETECTADO!', decoded);
       if(_scannerCooldown)return;
       _scannerCooldown=true;
       _scanSuccess();
@@ -342,15 +353,18 @@ async function iniciarScanner(){
     },
     ()=>{}
   ).then(()=>{
+    console.log('[SCAN M2] cámara activa');
     setScannerStatus('📷 Apunte el código al centro del recuadro','wait');
-    // Inyectar overlay encima del video de Html5Qrcode
     const qrDiv=document.getElementById('qr-reader');
     const ov=document.createElement('div');
     ov.innerHTML=_scanOverlayHTML();
     ov.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:20';
     qrDiv.style.position='relative';
     qrDiv.appendChild(ov.firstChild);
-  }).catch(err=>setScannerStatus('Error de cámara: '+err,'err'));
+  }).catch(err=>{
+    console.error('[SCAN M2] error:', err);
+    setScannerStatus('Error de cámara: '+err,'err');
+  });
 }
 async function procesarQR(texto){
   let p=null;
