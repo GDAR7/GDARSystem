@@ -50,8 +50,49 @@ function rDash(){
 }
 
 // ══ PERSONAL ══
+let _perFiltered=[];
+
 function rPersonal(){
-  document.getElementById('tbPersonal').innerHTML=DB.personal.map(p=>{
+  // Poblar selector de proyectos
+  const selProy=document.getElementById('perFProy');
+  if(selProy&&selProy.options.length<=1){
+    const proyCodes=[...new Set(DB.personal.map(p=>p.proy).filter(Boolean))].sort();
+    proyCodes.forEach(cod=>{
+      const pr=DB.proyectos.find(x=>x.codigo===cod);
+      const opt=document.createElement('option');
+      opt.value=cod;opt.textContent=pr?`[${cod}] ${pr.nombre}`:cod;
+      selProy.appendChild(opt);
+    });
+  }
+  _perFiltrar();
+}
+
+function _perGetFiltros(){
+  return{
+    proy:(document.getElementById('perFProy')||{}).value||'',
+    est:(document.getElementById('perFEst')||{}).value||'',
+    desde:(document.getElementById('perFDesde')||{}).value||'',
+    hasta:(document.getElementById('perFHasta')||{}).value||'',
+    busq:((document.getElementById('perBuscador')||{}).value||'').toLowerCase().trim()
+  };
+}
+
+function _perFiltrar(){
+  const f=_perGetFiltros();
+  _perFiltered=DB.personal.filter(p=>{
+    if(f.proy&&p.proy!==f.proy)return false;
+    if(f.est&&p.est!==f.est)return false;
+    if(f.desde&&(p.ing||'')<f.desde)return false;
+    if(f.hasta&&(p.ing||'')>f.hasta)return false;
+    if(f.busq){
+      const txt=`${p.dni} ${p.ape} ${p.nom} ${p.cargo} ${p.proc||''} ${p.proy||''}`.toLowerCase();
+      if(!txt.includes(f.busq))return false;
+    }
+    return true;
+  });
+  const contador=document.getElementById('perContador');
+  if(contador)contador.textContent=`${_perFiltered.length} de ${DB.personal.length}`;
+  document.getElementById('tbPersonal').innerHTML=_perFiltered.map(p=>{
     const proy=p.proy?DB.proyectos.find(x=>x.codigo===p.proy):null;
     return`<tr>
     <td class="mono">${p.dni}</td><td><strong>${p.ape}, ${p.nom}</strong></td><td>${p.cargo}</td>
@@ -65,6 +106,76 @@ function rPersonal(){
     <td style="max-width:160px;font-size:.75rem;color:var(--muted2)">${p.notas||'<span style="color:var(--muted)">—</span>'}</td>
     <td style="display:flex;gap:.3rem"><button class="btn btn-sm" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;color:#f59e0b" onclick="openPersonalEdit(${p.id})">✏️</button></td>
   </tr>`;}).join('');
+}
+
+function _perLimpiarFiltros(){
+  ['perFProy','perFEst','perFDesde','perFHasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const b=document.getElementById('perBuscador');if(b)b.value='';
+  _perFiltrar();
+}
+
+function exportPersonalXLSX(){
+  const datos=_perFiltered.length?_perFiltered:DB.personal;
+  if(!datos.length){toast('Sin datos para exportar',true);return;}
+  const f=_perGetFiltros();
+
+  const BOR={top:{style:'thin',color:{rgb:'94a3b8'}},bottom:{style:'thin',color:{rgb:'94a3b8'}},left:{style:'thin',color:{rgb:'94a3b8'}},right:{style:'thin',color:{rgb:'94a3b8'}}};
+  const HDR='1E3A5F',HDRT='FFFFFF',SBGR='EFF6FF';
+
+  const S=(v,bold,bg,color,align)=>({v:v??'',t:'s',s:{
+    font:{bold:!!bold,color:{rgb:color||'1e293b'},sz:9},
+    fill:bg?{fgColor:{rgb:bg}}:{},
+    alignment:{horizontal:align||'left',vertical:'center',wrapText:true},
+    border:BOR
+  }});
+
+  const wsData=[];
+  // Título
+  const nCols=12;
+  wsData.push([S('LISTADO DE PERSONAL / RR.HH.',true,HDR,HDRT,'center'),...Array(nCols-1).fill(S('',false,HDR,HDRT))]);
+  const filtDesc=[
+    f.proy?`Proyecto: ${f.proy}`:'',
+    f.est?`Estado: ${f.est}`:'',
+    f.desde?`Desde: ${f.desde}`:'',
+    f.hasta?`Hasta: ${f.hasta}`:'',
+    f.busq?`Búsqueda: "${f.busq}"`:'',
+  ].filter(Boolean).join('  |  ')||'Sin filtros activos';
+  wsData.push([S(filtDesc,false,'EEF2FF','475569'),...Array(nCols-1).fill(S('',false,'EEF2FF'))]);
+  wsData.push([S(`Total: ${datos.length} trabajadores`,true,'DBEAFE','1e3a8a'),...Array(nCols-1).fill(S('',false,'DBEAFE'))]);
+  wsData.push(Array(nCols).fill(S('')));
+
+  // Cabeceras
+  const cols=['DNI','APELLIDOS','NOMBRES','CARGO','CATEGORÍA','PROYECTO','PROCEDENCIA','TIPO','GUARDIA','F. INGRESO','ESTADO','NOTAS'];
+  wsData.push(cols.map(c=>({v:c,t:'s',s:{font:{bold:true,color:{rgb:HDRT},sz:9},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'center',vertical:'center'},border:BOR}})));
+
+  // Filas
+  datos.forEach((p,i)=>{
+    const pr=p.proy?DB.proyectos.find(x=>x.codigo===p.proy):null;
+    const bg=i%2===0?'F8FAFC':'FFFFFF';
+    wsData.push([
+      S(p.dni||'',false,bg,'334155','center'),
+      S(p.ape||'',true,bg,'0f172a'),
+      S(p.nom||'',false,bg,'0f172a'),
+      S(p.cargo||'',false,bg,'334155'),
+      S(p.cat||'',false,bg,'1d4ed8','center'),
+      S(pr?pr.codigo:p.proy||'',false,bg,'7c3aed','center'),
+      S(p.proc||'',false,bg,'334155'),
+      S(p.tipo||'',false,bg,'047857','center'),
+      S(p.guardia?`Grd. ${p.guardia}`:'',false,bg,'b45309','center'),
+      S(p.ing||'',false,bg,'334155','center'),
+      S(p.est||'',p.est==='Activo',bg,p.est==='Activo'?'166534':'991b1b','center'),
+      S(p.notas||'',false,bg,'475569'),
+    ]);
+  });
+
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[8,18,14,22,12,12,12,10,9,11,10,22].map(w=>({wch:w}));
+  ws['!merges']=[[0,1,nCols-1],[1,1,nCols-1],[2,1,nCols-1]].map(([r,c,e])=>({s:{r,c:0},e:{r,c:e}}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Personal');
+  const fecha=today().replace(/-/g,'');
+  XLSX.writeFile(wb,`Personal_RRHH_${fecha}.xlsx`);
+  toast('✓ Excel exportado correctamente');
 }
 function _poblarProyPersonal(sel){
   sel.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');
