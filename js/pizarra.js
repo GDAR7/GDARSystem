@@ -36,7 +36,7 @@ function _pizRenderTab(){
   else if(_pizTab===2)_pizRenderReal(c);
   else if(_pizTab===3)_pizRenderRutas(c);
   else if(_pizTab===4)_pizRenderFrentes(c);
-  else if(_pizTab===5){_pizActiveTabKey='iso';_pizRenderPlan(c);}
+  else if(_pizTab===5){_pizActiveTabKey='iso';_pizRenderIso(c);}
 }
 
 function _pizEqIcon(sub){
@@ -71,6 +71,166 @@ function _pizCondColor(cond){
   if(c.includes('STANDBY'))return'#f59e0b';
   return'#ef4444';
 }
+
+// ── VISTA ISO: ISOMÉTRICO ─────────────────────────────────────────────────
+let _isoPanel='equipos', _isoEqFiltro='';
+
+function _pizRenderIso(c){
+  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente');
+  const equipos=(DB.equipos||[]).filter(e=>e.est!=='Baja');
+
+  // Sub-tipos únicos para filtro
+  const subtipos=[...new Set(equipos.map(e=>e.sub||'Otro').filter(Boolean))].sort();
+  const eqsFiltrados=_isoEqFiltro?equipos.filter(e=>(e.sub||'Otro')===_isoEqFiltro):equipos;
+
+  // Personal por cargo
+  const cargoMap={};
+  const lpsP=(DB.lpsWbsRecursos||[]).filter(r=>r.tipo==='Personal');
+  if(lpsP.length){lpsP.forEach(r=>{const cg=(r.nombre||'').split('–').slice(-1)[0].trim()||'Personal';cargoMap[cg]=(cargoMap[cg]||0)+(+(r.cantidad)||0);});}
+  else{(DB.personal||[]).filter(p=>p.tipo!=='Staff'&&(p.est||'').toLowerCase()==='activo').forEach(p=>{const cg=(p.cargo||'Sin cargo').trim();cargoMap[cg]=(cargoMap[cg]||0)+1;});}
+  const placedMap={};
+  items.filter(x=>x.tipo==='personal').forEach(x=>{placedMap[x.etiqueta||'']=(placedMap[x.etiqueta||'']||0)+(x.cant||1);});
+
+  // Markers
+  const markers=items.map(item=>{
+    const col=item.color||'#10b981';
+    const ic={equipo:'🚜',personal:'👷',nota:'📝'}[item.tipo]||'📌';
+    const esPersonal=item.tipo==='personal';
+    const cant=item.cant||1;
+    const cantLabel=esPersonal&&cant>1?`<span style="background:rgba(0,0,0,.25);border-radius:3px;padding:0 3px;margin-right:1px;font-size:.58rem">${cant}×</span>`:'';
+    const dblClick=esPersonal?`ondblclick="event.stopPropagation();_pizMarkerDblClick(${item.id})"`:'';
+    return`<div id="piz-m-${item.id}" class="eq-marker"
+      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none"
+      onmousedown="_pizMousedown(event,${item.id})" ${dblClick}>
+      <div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:flex;align-items:center;gap:3px">
+        ${ic} ${cantLabel}${_pizEqCode(item.etiqueta)}
+        <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
+      </div>
+      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
+    </div>`;
+  }).join('');
+
+  // Frentes para overlay
+  const frentesConArea=(DB.frentesTrabajo||[]).filter(f=>f.puntos&&f.puntos.length>=3);
+
+  // Panel según tab activo
+  const btnTab=(key,icon,label)=>{
+    const on=_isoPanel===key;
+    return`<button onclick="_isoSetPanel('${key}')" style="flex:1;padding:.3rem .2rem;font-size:.62rem;font-weight:${on?'700':'500'};border:1px solid ${on?'#06b6d4':'var(--border)'};border-radius:6px;background:${on?'rgba(6,182,212,.15)':'transparent'};color:${on?'#06b6d4':'var(--muted2)'};cursor:pointer">${icon}<br>${label}</button>`;
+  };
+
+  let panelContent='';
+  if(_isoPanel==='equipos'){
+    panelContent=`
+      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.4rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em">Tipo de equipo</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-bottom:.5rem">
+        <button onclick="_isoEqFiltro='';_pizRenderTab()" style="font-size:.6rem;padding:.15rem .4rem;border-radius:4px;border:1px solid ${!_isoEqFiltro?'#06b6d4':'var(--border)'};background:${!_isoEqFiltro?'rgba(6,182,212,.15)':'transparent'};color:${!_isoEqFiltro?'#06b6d4':'var(--muted2)'};cursor:pointer">Todos (${equipos.length})</button>
+        ${subtipos.map(s=>{
+          const cnt=equipos.filter(e=>(e.sub||'Otro')===s).length;
+          const on=_isoEqFiltro===s;
+          return`<button onclick="_isoEqFiltro='${s.replace(/'/g,"\\'")}';_pizRenderTab()" style="font-size:.6rem;padding:.15rem .4rem;border-radius:4px;border:1px solid ${on?'#06b6d4':'var(--border)'};background:${on?'rgba(6,182,212,.15)':'transparent'};color:${on?'#06b6d4':'var(--muted2)'};cursor:pointer">${s} (${cnt})</button>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.18rem">
+        ${eqsFiltrados.map(e=>`<div draggable="true"
+          ondragstart="_pizDragStart(event,'equipo',${e.id},'${(e.codigo||'').replace(/'/g,"\\'")}','#06b6d4')"
+          style="cursor:grab;padding:.22rem .4rem;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.18);border-radius:5px;font-size:.67rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+          title="${e.codigo} – ${e.nombre||''}">
+          ${_pizEqIcon(e.sub)} ${e.codigo}
+        </div>`).join('')}
+      </div>`;
+  } else if(_isoPanel==='personal'){
+    panelContent=Object.entries(cargoMap).map(([cargo,total])=>{
+      const placed=placedMap[cargo]||0;const avail=Math.max(0,total-placed);
+      const pct=total>0?Math.round(placed/total*100):0;const ok=avail>0;
+      const sc=cargo.replace(/'/g,"\\'");
+      return`<div draggable="${ok}" ondragstart="${ok}?_pizDragStart(event,'personal',0,'${sc}','#10b981'):event.preventDefault()"
+        style="cursor:${ok?'grab':'not-allowed'};padding:.25rem .4rem;margin-bottom:.2rem;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,${ok?'.22':'.08'});border-radius:5px;opacity:${ok?1:.45}">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:.67rem">
+          <span>👷 ${cargo}</span>
+          <span style="font-weight:700;color:${avail>0?'#10b981':'#ef4444'};font-size:.62rem">${avail}/${total}</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:.2rem">
+          <div style="height:100%;width:${pct}%;background:${pct>=90?'#ef4444':pct>=60?'#f59e0b':'#10b981'};border-radius:2px"></div>
+        </div>
+      </div>`;
+    }).join('')||'<div style="font-size:.62rem;color:var(--muted2);text-align:center;padding:.5rem">Sin personal en WBS</div>';
+  } else if(_isoPanel==='areas'){
+    panelContent=`
+      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.5rem">Áreas de trabajo del proyecto — se superponen al mapa isométrico como referencia visual.</div>
+      <div style="display:flex;flex-direction:column;gap:.3rem">
+        ${frentesConArea.length
+          ? frentesConArea.map(f=>`<div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .4rem;background:var(--panel);border:1px solid ${f.color||'#888'}40;border-radius:5px">
+              <div style="width:10px;height:10px;border-radius:2px;background:${f.color||'#888'};flex-shrink:0"></div>
+              <div style="font-size:.67rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.nombre||f.nom||'Área'}</div>
+              <span style="font-size:.58rem;color:var(--muted2)">${f.puntos.length}pts</span>
+            </div>`).join('')
+          : '<div style="font-size:.62rem;color:var(--muted2);text-align:center;padding:.5rem">Sin áreas dibujadas<br><span style="font-size:.58rem">Usa el tab Frentes para dibujar</span></div>'
+        }
+      </div>
+      <div style="margin-top:.8rem;padding:.4rem;background:rgba(245,158,11,.07);border:1px solid #f59e0b30;border-radius:6px;font-size:.6rem;color:#f59e0b">
+        💡 <b>Próximamente:</b> vincular áreas a actividades WBS para visualizar avance por zona en el mapa.
+      </div>`;
+  } else {
+    panelContent=`<button onclick="_pizAgregarNota()" style="width:100%;background:rgba(139,92,246,.1);border:1px dashed rgba(139,92,246,.4);border-radius:5px;color:#8b5cf6;cursor:pointer;padding:.4rem;font-size:.67rem;margin-bottom:.5rem">＋ Agregar nota al mapa</button>
+      ${items.filter(x=>x.tipo==='nota').map(n=>`<div style="display:flex;align-items:center;gap:.3rem;padding:.25rem .4rem;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:5px;font-size:.67rem;margin-bottom:.2rem">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📝 ${n.etiqueta}</span>
+        <span onclick="_pizRemoveItem(${n.id})" style="color:#ef4444;cursor:pointer;font-size:.7rem">✕</span>
+      </div>`).join('')}`;
+  }
+
+  c.innerHTML=`<div style="display:grid;grid-template-columns:195px 1fr;gap:.7rem;height:calc(100vh - 195px)">
+    <!-- SIDEBAR ISO -->
+    <div style="display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);overflow:hidden">
+      <!-- Tab selector -->
+      <div style="display:flex;gap:.25rem">
+        ${btnTab('equipos','🚜','Equipos')}
+        ${btnTab('personal','👷','Personal')}
+        ${btnTab('areas','📍','Áreas')}
+        ${btnTab('notas','📝','Notas')}
+      </div>
+      <hr style="border-color:var(--border);margin:.1rem 0">
+      <!-- Contenido del panel -->
+      <div style="flex:1;overflow-y:auto">${panelContent}</div>
+      <hr style="border-color:var(--border);margin:.1rem 0">
+      <button onclick="_pizLimpiar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:5px;color:#ef4444;cursor:pointer;padding:.25rem;font-size:.62rem">🗑 Limpiar mapa ISO</button>
+    </div>
+    <!-- MAPA -->
+    <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap"
+      ondragover="event.preventDefault()" ondrop="_pizDrop(event)">
+      <div id="rutaCanvas" style="position:relative;transform-origin:0 0;cursor:default;display:inline-block;min-width:100%">
+        <img id="rutaImg" src="${_pizImgUrlIso()}" style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false">
+        <svg id="rutaSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" xmlns="http://www.w3.org/2000/svg"></svg>
+        ${markers}
+        ${!items.length?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:.8rem 1.4rem;font-size:.75rem;text-align:center;backdrop-filter:blur(4px)">
+            Arrastra equipos o personal al mapa · Rueda=zoom · Arrastrar=pan<br>
+            <span style="font-size:.65rem;opacity:.6">Las posiciones se guardan automáticamente</span>
+          </div></div>`:''}
+      </div>
+      <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
+        <button onclick="_rutaZoomOut()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">−</button>
+        <span id="rutaZoomPct" style="font-size:.65rem;color:#e0e0e0;min-width:36px;text-align:center;font-weight:700">100%</span>
+        <button onclick="_rutaZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
+        <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+        <button onclick="_rutaZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+      </div>
+    </div>
+  </div>`;
+
+  const wrap=document.getElementById('rutaMapWrap');
+  if(wrap){
+    wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
+    wrap.addEventListener('mousedown',_pizPlanMapMousedown);
+  }
+  document.addEventListener('mousemove',_rutaOnGlobalMousemove);
+  document.addEventListener('mouseup',_pizPlanGlobalMouseup);
+  requestAnimationFrame(()=>{
+    if(_rutaZoom===1&&_rutaPanX===0)_rutaFitView();else _rutaApplyTransform();
+  });
+}
+
+function _isoSetPanel(p){_isoPanel=p;_pizRenderTab();}
 
 // ── VISTA 1: PLANIFICACIÓN (drag & drop) ───────────────────────────────────
 function _pizRenderPlan(c){
