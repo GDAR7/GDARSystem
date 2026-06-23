@@ -75,6 +75,7 @@ function _pizCondColor(cond){
 
 // ── VISTA ISO: ISOMÉTRICO ─────────────────────────────────────────────────
 let _isoPanel='equipos', _isoEqFiltro='';
+let _isoAreaSelId=null, _isoAreaDibujando=false, _isoAreaPuntos=[];
 
 function _pizRenderIso(c){
   const items=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente');
@@ -157,20 +158,32 @@ function _pizRenderIso(c){
       </div>`;
     }).join('')||'<div style="font-size:.62rem;color:var(--muted2);text-align:center;padding:.5rem">Sin personal en WBS</div>';
   } else if(_isoPanel==='areas'){
+    const frentesAll=(DB.frentesTrabajo||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
     panelContent=`
-      <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.5rem">Áreas de trabajo del proyecto — se superponen al mapa isométrico como referencia visual.</div>
-      <div style="display:flex;flex-direction:column;gap:.3rem">
-        ${frentesConArea.length
-          ? frentesConArea.map(f=>`<div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .4rem;background:var(--panel);border:1px solid ${f.color||'#888'}40;border-radius:5px">
-              <div style="width:10px;height:10px;border-radius:2px;background:${f.color||'#888'};flex-shrink:0"></div>
-              <div style="font-size:.67rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.nombre||f.nom||'Área'}</div>
-              <span style="font-size:.58rem;color:var(--muted2)">${f.puntos.length}pts</span>
-            </div>`).join('')
-          : '<div style="font-size:.62rem;color:var(--muted2);text-align:center;padding:.5rem">Sin áreas dibujadas<br><span style="font-size:.58rem">Usa el tab Frentes para dibujar</span></div>'
-        }
+      <div style="display:flex;gap:.3rem;margin-bottom:.4rem">
+        <button id="isoAreaBtnDraw" onclick="_isoAreaToggleDraw()" style="flex:1;font-size:.63rem;padding:.25rem .4rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap">✏️ Dibujar área</button>
+        <button onclick="_isoAreaBorrar()" title="Borrar área ISO del frente seleccionado" style="font-size:.63rem;padding:.25rem .5rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer">🗑</button>
       </div>
-      <div style="margin-top:.8rem;padding:.4rem;background:rgba(245,158,11,.07);border:1px solid #f59e0b30;border-radius:6px;font-size:.6rem;color:#f59e0b">
-        💡 <b>Próximamente:</b> vincular áreas a actividades WBS para visualizar avance por zona en el mapa.
+      <div id="isoAreaHint" style="font-size:.57rem;color:var(--muted2);margin-bottom:.4rem;min-height:1.1rem;line-height:1.3"></div>
+      <div style="display:flex;flex-direction:column;gap:.22rem;overflow-y:auto">
+        ${frentesAll.length ? frentesAll.map((f,i)=>{
+          const col=_frenteColors[i%_frenteColors.length];
+          const nom=(f.nombre||f.nom||f.frente||'Sin nombre').slice(0,26);
+          const ptsIso=(f.puntosIso||[]).length;
+          const ptsPlan=(f.puntos||[]).length;
+          return `<div id="iso-area-item-${f.id}" onclick="_isoAreaSelect(${f.id})"
+            style="cursor:pointer;padding:.3rem .4rem;border-radius:5px;border:2px solid ${col}30;background:${col}10;transition:.1s"
+            onmouseover="this.style.background='${col}22'" onmouseout="this.style.background='${col}10'">
+            <div style="display:flex;align-items:center;gap:.3rem">
+              <span style="width:9px;height:9px;border-radius:2px;background:${col};display:inline-block;flex-shrink:0"></span>
+              <span style="font-size:.63rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nom}</span>
+            </div>
+            <div id="iso-area-stat-${f.id}" style="font-size:.54rem;padding-left:13px;margin-top:2px">
+              <span style="color:${ptsIso>=3?col:'var(--muted2)'}">Iso: ${ptsIso}pts</span>
+              <span style="color:var(--muted2)"> · Plan: ${ptsPlan}pts</span>
+            </div>
+          </div>`;
+        }).join('') : '<div style="color:var(--muted2);font-size:.62rem;text-align:center;padding:.5rem">Sin frentes definidos</div>'}
       </div>`;
   } else {
     panelContent=`<button onclick="_pizAgregarNota()" style="width:100%;background:rgba(139,92,246,.1);border:1px dashed rgba(139,92,246,.4);border-radius:5px;color:#8b5cf6;cursor:pointer;padding:.4rem;font-size:.67rem;margin-bottom:.5rem">＋ Agregar nota al mapa</button>
@@ -223,15 +236,213 @@ function _pizRenderIso(c){
   if(wrap){
     wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
     wrap.addEventListener('mousedown',_pizPlanMapMousedown);
+    wrap.addEventListener('click',_isoAreaMapClick);
+    wrap.addEventListener('dblclick',_isoAreaMapDblClick);
+    wrap.addEventListener('mousemove',_isoAreaMouseMove);
+    wrap.addEventListener('contextmenu',e=>{if(_isoAreaDibujando){e.preventDefault();_isoAreaCancelar();}});
   }
   document.addEventListener('mousemove',_rutaOnGlobalMousemove);
   document.addEventListener('mouseup',_pizPlanGlobalMouseup);
   requestAnimationFrame(()=>{
     if(_rutaZoom===1&&_rutaPanX===0)_rutaFitView();else _rutaApplyTransform();
+    _isoAreaRenderSvg(DB.frentesTrabajo||[]);
   });
 }
 
 function _isoSetPanel(p){_isoPanel=p;_pizRenderTab();}
+
+// ══ ISO ÁREA – DIBUJO DE ÁREAS EN MAPA ISOMÉTRICO ══
+function _isoAreaSelect(id){
+  _isoAreaSelId=id;
+  document.querySelectorAll('[id^="iso-area-item-"]').forEach(el=>{
+    el.style.outline=el.id===`iso-area-item-${id}`?'2px solid #10b981':'none';
+  });
+  const f=(DB.frentesTrabajo||[]).find(x=>x.id===id);
+  const hint=document.getElementById('isoAreaHint');
+  if(hint)hint.textContent=f?`✔ ${(f.nombre||f.nom||'Frente').slice(0,28)} seleccionado`:'';
+  if(_isoAreaDibujando)_isoAreaCancelar(true);
+}
+
+function _isoAreaToggleDraw(){
+  if(!_isoAreaSelId){toast('Selecciona un frente primero',true);return;}
+  _isoAreaDibujando=!_isoAreaDibujando;
+  const btn=document.getElementById('isoAreaBtnDraw');
+  const cur=document.getElementById('rutaCursor');
+  const canvas=document.getElementById('rutaCanvas');
+  const hint=document.getElementById('isoAreaHint');
+  if(_isoAreaDibujando){
+    const f=(DB.frentesTrabajo||[]).find(x=>x.id===_isoAreaSelId);
+    _isoAreaPuntos=f&&f.puntosIso?[...f.puntosIso]:[];
+    if(btn){btn.textContent='✅ Guardar';btn.style.background='rgba(245,158,11,.15)';btn.style.color='#f59e0b';btn.style.borderColor='#f59e0b40';}
+    if(cur){cur.style.display='block';cur.style.borderRadius='2px';}
+    if(canvas)canvas.style.cursor='crosshair';
+    if(hint)hint.textContent='Clic = vértice · Doble clic = cerrar · Clic der. = cancelar';
+  }else{
+    _isoAreaGuardar();
+  }
+}
+
+function _isoAreaCancelar(reset=true){
+  _isoAreaDibujando=false;
+  if(reset)_isoAreaPuntos=[];
+  const btn=document.getElementById('isoAreaBtnDraw');
+  const cur=document.getElementById('rutaCursor');
+  const canvas=document.getElementById('rutaCanvas');
+  const hint=document.getElementById('isoAreaHint');
+  if(btn){btn.textContent='✏️ Dibujar área';btn.style.background='rgba(16,185,129,.1)';btn.style.color='#10b981';btn.style.borderColor='#10b98140';}
+  if(cur)cur.style.display='none';
+  if(canvas)canvas.style.cursor='default';
+  if(hint)hint.textContent='';
+  const svg=document.getElementById('rutaSvg');
+  if(svg){svg.querySelectorAll('.iso-area-temp').forEach(el=>el.remove());const p=svg.querySelector('#isoAreaPreview');if(p)p.remove();}
+}
+
+function _isoAreaGuardar(){
+  if(!_isoAreaSelId){_isoAreaCancelar();return;}
+  const f=(DB.frentesTrabajo||[]).find(x=>x.id===_isoAreaSelId);
+  if(!f){_isoAreaCancelar();return;}
+  if(_isoAreaPuntos.length<3){toast('Necesitas al menos 3 vértices para guardar el área',true);return;}
+  f.puntosIso=[..._isoAreaPuntos];
+  syncSheet('saveFrenteTrabajo',f);
+  toast(`✓ Área ISO "${(f.nombre||f.nom||'Frente').slice(0,25)}" guardada (${_isoAreaPuntos.length} vértices)`);
+  _isoAreaCancelar(false);
+  const svg=document.getElementById('rutaSvg');
+  if(svg){svg.querySelectorAll('.iso-area-temp').forEach(el=>el.remove());const p=svg.querySelector('#isoAreaPreview');if(p)p.remove();}
+  _isoAreaRenderSvg(DB.frentesTrabajo||[]);
+  _isoAreaUpdateStats();
+}
+
+function _isoAreaBorrar(){
+  if(!_isoAreaSelId){toast('Selecciona un frente primero',true);return;}
+  const f=(DB.frentesTrabajo||[]).find(x=>x.id===_isoAreaSelId);
+  if(!f)return;
+  if(!confirm(`¿Borrar el área ISO de "${f.nombre||f.nom||'Frente'}"?`))return;
+  f.puntosIso=[];
+  syncSheet('saveFrenteTrabajo',f);
+  toast('Área ISO borrada');
+  _isoAreaCancelar();
+  _isoAreaRenderSvg(DB.frentesTrabajo||[]);
+  _isoAreaUpdateStats();
+}
+
+function _isoAreaRenderSvg(frentes){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  svg.querySelectorAll('.iso-area-static').forEach(el=>el.remove());
+  const sorted=(frentes||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
+  sorted.forEach((f,i)=>{
+    const pts=f.puntosIso||[];if(pts.length<3)return;
+    const col=_frenteColors[i%_frenteColors.length];
+    const nom=(f.nombre||f.nom||f.frente||'').slice(0,22);
+    const px=pts.map(p=>({x:(p.x*W/100),y:(p.y*H/100)}));
+    const d='M '+px.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')+' Z';
+    const cx=px.reduce((s,p)=>s+p.x,0)/px.length;
+    const cy=px.reduce((s,p)=>s+p.y,0)/px.length;
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('iso-area-static');
+    const area=document.createElementNS('http://www.w3.org/2000/svg','path');
+    area.setAttribute('d',d);area.setAttribute('fill',col);area.setAttribute('fill-opacity','.22');
+    area.setAttribute('stroke',col);area.setAttribute('stroke-width','2');area.setAttribute('stroke-linejoin','round');
+    g.appendChild(area);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',cx.toFixed(1));txt.setAttribute('y',cy.toFixed(1));
+    txt.setAttribute('font-size','11');txt.setAttribute('font-weight','700');txt.setAttribute('fill',col);
+    txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','2.5');txt.setAttribute('paint-order','stroke');
+    txt.setAttribute('dominant-baseline','middle');txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','sans-serif');
+    txt.textContent=nom;
+    g.appendChild(txt);
+    svg.appendChild(g);
+  });
+}
+
+function _isoAreaTempRender(){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  svg.querySelectorAll('.iso-area-temp').forEach(el=>el.remove());
+  if(_isoAreaPuntos.length<1)return;
+  const px=_isoAreaPuntos.map(p=>({x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)}));
+  const d='M '+px.map(p=>`${p.x} ${p.y}`).join(' L ');
+  const sw=(2/(_rutaZoom||1)).toFixed(2);
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.classList.add('iso-area-temp');
+  path.setAttribute('d',d);path.setAttribute('stroke','#f59e0b');path.setAttribute('stroke-width',sw);
+  path.setAttribute('fill','none');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
+  svg.appendChild(path);
+  if(_isoAreaPuntos.length>=3){
+    const fp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    fp.classList.add('iso-area-temp');
+    fp.setAttribute('d',d+' Z');fp.setAttribute('fill','#f59e0b');fp.setAttribute('fill-opacity','.12');fp.setAttribute('stroke','none');
+    svg.appendChild(fp);
+    const cl=document.createElementNS('http://www.w3.org/2000/svg','line');
+    cl.classList.add('iso-area-temp');
+    cl.setAttribute('x1',px[px.length-1].x);cl.setAttribute('y1',px[px.length-1].y);
+    cl.setAttribute('x2',px[0].x);cl.setAttribute('y2',px[0].y);
+    cl.setAttribute('stroke','#f59e0b');cl.setAttribute('stroke-width',(1.5/(_rutaZoom||1)).toFixed(2));cl.setAttribute('stroke-dasharray','4 3');cl.setAttribute('opacity','.5');
+    svg.appendChild(cl);
+  }
+  px.forEach(p=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.classList.add('iso-area-temp');
+    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',(4/(_rutaZoom||1)).toFixed(2));
+    c.setAttribute('fill','#f59e0b');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width',(1.5/(_rutaZoom||1)).toFixed(2));
+    svg.appendChild(c);
+  });
+}
+
+function _isoAreaMapClick(e){
+  if(!_isoAreaDibujando||!_isoAreaSelId)return;
+  if(e.detail>1)return;
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  const x=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
+  const y=parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2));
+  _isoAreaPuntos.push({x,y});
+  _isoAreaTempRender();
+}
+
+function _isoAreaMapDblClick(e){
+  if(!_isoAreaDibujando)return;
+  e.preventDefault();
+  if(_isoAreaPuntos.length)_isoAreaPuntos.pop();
+  if(_isoAreaPuntos.length<3){toast('Necesitas al menos 3 vértices',true);return;}
+  _isoAreaGuardar();
+}
+
+function _isoAreaMouseMove(e){
+  if(!_isoAreaDibujando)return;
+  const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  const xPct=(e.clientX-r.left)/r.width*100;
+  const yPct=(e.clientY-r.top)/r.height*100;
+  const cur=document.getElementById('rutaCursor');
+  if(cur){cur.style.left=xPct+'%';cur.style.top=yPct+'%';cur.style.transform='translate(-50%,-50%) scale('+(1/(_rutaZoom||1))+')';}
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  const xPx=(xPct*W/100).toFixed(1),yPx=(yPct*H/100).toFixed(1);
+  const prev=svg.querySelector('#isoAreaPreview');
+  if(_isoAreaPuntos.length){
+    const last=_isoAreaPuntos[_isoAreaPuntos.length-1];
+    const lxPx=(last.x*W/100).toFixed(1),lyPx=(last.y*H/100).toFixed(1);
+    const line=prev||document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.id='isoAreaPreview';
+    line.setAttribute('x1',lxPx);line.setAttribute('y1',lyPx);
+    line.setAttribute('x2',xPx);line.setAttribute('y2',yPx);
+    line.setAttribute('stroke','#f59e0b');line.setAttribute('stroke-width',(2/(_rutaZoom||1)).toFixed(2));
+    line.setAttribute('stroke-dasharray','5 3');line.setAttribute('opacity','.8');
+    if(!prev)svg.appendChild(line);
+  }else if(prev){prev.remove();}
+}
+
+function _isoAreaUpdateStats(){
+  (DB.frentesTrabajo||[]).forEach((f,i)=>{
+    const el=document.getElementById(`iso-area-stat-${f.id}`);
+    if(!el)return;
+    const col=_frenteColors[i%_frenteColors.length];
+    const ptsIso=(f.puntosIso||[]).length;
+    const ptsPlan=(f.puntos||[]).length;
+    el.innerHTML=`<span style="color:${ptsIso>=3?col:'var(--muted2)'}">Iso: ${ptsIso}pts</span><span style="color:var(--muted2)"> · Plan: ${ptsPlan}pts</span>`;
+  });
+}
 
 // ── VISTA 1: PLANIFICACIÓN (drag & drop) ───────────────────────────────────
 function _pizRenderPlan(c){
