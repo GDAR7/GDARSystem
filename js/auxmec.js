@@ -443,12 +443,12 @@ function _rpFrenteNuevo(){
 function calcHoras(){
   const ini = +document.getElementById('rpHrIni').value||0;
   const fin = +document.getElementById('rpHrFin').value||0;
-  const diff = fin > ini ? parseFloat((fin-ini).toFixed(1)) : 0;
-  document.getElementById('rpHrsTrab').value = diff;
+  const diff = fin > ini ? parseFloat((fin-ini).toFixed(2)) : 0;
+  document.getElementById('rpHrsTrab').value = diff.toFixed(2);
   const cond = document.getElementById('rpCondicion')?.value||'';
   if(cond==='OPERATIVO/INOPERATIVO'){
-    const inop = parseFloat(Math.max(0,10-diff).toFixed(1));
-    document.getElementById('rpHrsInop').value = inop;
+    const inop = parseFloat(Math.max(0,10-diff).toFixed(2));
+    document.getElementById('rpHrsInop').value = inop.toFixed(2);
   }
 }
 
@@ -456,7 +456,7 @@ function calcKm(){
   const ini = +document.getElementById('rpKmIni').value||0;
   const fin = +document.getElementById('rpKmFin').value||0;
   const diff = fin > ini ? fin-ini : 0;
-  document.getElementById('rpKmRec').value = diff;
+  document.getElementById('rpKmRec').value = diff.toFixed(2);
 }
 
 let viajeCount = 0;
