@@ -287,7 +287,7 @@ function filtrarEquipos(){
   const linea = currentReporteTipo;
   const eq = DB.equipos.filter(e=>e.tipo===linea&&(!sub||e.sub===sub)&&!(linea==='Vehículo Menor'&&(e.sub||'').toLowerCase().includes('luminaria')));
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-    eq.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+    eq.map(e=>`<option value="${e.id}">${e.codigo}${e.placa?' – '+e.placa:''}</option>`).join('');
   const tabV = document.getElementById('tab2');
   if(tabV) tabV.style.display = (currentReporteTipo==='Línea Blanca' || sub.toUpperCase()==='VOLQUETE') ? 'block' : 'none';
   // Filtrar operadores por cargo según subtipo (LA, LB, VM)
@@ -608,7 +608,7 @@ function openReporte(tipo){
   tipoSel.innerHTML = '<option value="">— Seleccionar —</option>' + subs.map(s=>`<option>${s}</option>`).join('');
   // Poblar equipos (todos de esta línea inicialmente)
   const selEq = document.getElementById('rpCodigo');
-  selEq.innerHTML = '<option value="">— Seleccionar —</option>' + eqsLinea.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre}</option>`).join('');
+  selEq.innerHTML = '<option value="">— Seleccionar —</option>' + eqsLinea.map(e=>`<option value="${e.id}">${e.codigo}${e.placa?' – '+e.placa:''}</option>`).join('');
   // Poblar áreas
   const areas = [...new Set(DB.partes.map(p=>p.areaT).filter(Boolean))];
   if(areas.length === 0) areas.push('R3','NINGUNO');
