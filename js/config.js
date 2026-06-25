@@ -43,7 +43,7 @@ const USERS=[
   {codigo:'ECOOPE',dni:'11223344',nombre:'Luis Flores Cóndor',cargo:'Residente de Obra',areas:['operaciones']},
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
-  {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento',areas:['mantenimiento'],areaModules:{controlEquipos:['reporteEquipos']}},
+  {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
   {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['administracion','controlProyecto','controlEquipos'],excludeModules:['planilla']},
   {codigo:'J_A_TA',dni:'73441348',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto'],areaModules:{controlProyecto:['pizarra']},pizarraTabs:[3,4,5]},
   {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion'],areaModules:{administracion:['asistencia','tareaje']}},
