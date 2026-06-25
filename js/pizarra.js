@@ -528,21 +528,42 @@ function _pizRenderPlan(c){
     </div>`;
   }).join('')||'<div style="font-size:.62rem;color:var(--muted2);padding:.3rem;text-align:center">Sin personal en WBS</div>';
 
+  const eqByCodeP={};
+  equipos.forEach(e=>{eqByCodeP[e.codigo]=e;});
   const markers=items.map(item=>{
     const col=item.color||'#10b981';
-    const ic={equipo:'🚜',personal:'👷',frente:'📍',nota:'📝'}[item.tipo]||'📌';
     const esPersonal=item.tipo==='personal';
     const cant=item.cant||1;
     const cantLabel=esPersonal&&cant>1?`<span style="background:rgba(0,0,0,.25);border-radius:3px;padding:0 3px;margin-right:1px;font-size:.58rem">${cant}×</span> `:'';
     const dblClick=esPersonal?`ondblclick="event.stopPropagation();_pizMarkerDblClick(${item.id})"`:'';
+    let icHtml, hasSp=false;
+    if(item.tipo==='equipo'){
+      const eq=eqByCodeP[item.etiqueta];
+      const sp=eq?_pizEqSprite(eq.sub):null;
+      hasSp=!!sp;
+      icHtml=sp
+        ?`<div style="width:52px;height:38px;flex-shrink:0;background-image:url('${_pizSpriteUrl()}');background-size:500% 300%;background-position:${sp};background-repeat:no-repeat"></div>`
+        :`<span style="font-size:.8rem">🚜</span>`;
+    } else {
+      icHtml=`<span style="font-size:.8rem">${{personal:'👷',nota:'📝'}[item.tipo]||'📌'}</span>`;
+    }
     return`<div id="piz-m-${item.id}" class="eq-marker"
-      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none"
+      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none;text-align:center"
       onmousedown="_pizMousedown(event,${item.id})" ${dblClick}>
-      <div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:flex;align-items:center;gap:3px">
-        ${ic} ${cantLabel}${_pizEqCode(item.etiqueta)}
-        <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
-      </div>
-      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
+      ${hasSp
+        ?`<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))">
+            ${icHtml}
+            <div style="background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;border-radius:4px;padding:1px 5px;font-size:.6rem;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:3px">
+              ${cantLabel}${_pizEqCode(item.etiqueta)}
+              <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="cursor:pointer;opacity:.7;line-height:1;font-size:.65rem">✕</span>
+            </div>
+          </div>`
+        :`<div style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:inline-flex;align-items:center;gap:3px">
+            ${icHtml}${cantLabel}${_pizEqCode(item.etiqueta)}
+            <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>`
+      }
     </div>`;
   }).join('');
 
