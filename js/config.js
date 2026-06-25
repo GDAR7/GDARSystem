@@ -14,7 +14,7 @@ const AREAS={
   mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
   controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'}]},
+    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'}]},
     //-Menu para control de equipos.
   controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
     modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
@@ -98,7 +98,8 @@ const SUPA_TABLES={
   lpsWbsRecursos:'lps_wbs_recursos',
   lpsSectores:'lps_sectores',
   pizarraItems:'pizarra_items',
-  lpsWbsDeps:'lps_wbs_deps'
+  lpsWbsDeps:'lps_wbs_deps',
+  capas:'capas'
 };
 
 const ACTION_MAP={
@@ -242,7 +243,7 @@ async function loadSheetsData(){
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
       tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
-      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep'};
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -365,8 +366,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1}
 };
 
 // ══ STATE ══
