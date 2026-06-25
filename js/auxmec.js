@@ -296,9 +296,8 @@ function filtrarEquipos(){
   if(opEl){
     let ops;
     if(linea==='Vehículo Menor'){
-      ops=sub
-        ? DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes(sub.toLowerCase()))
-        : DB.personal.filter(p=>p.est==='Activo');
+      ops=sub ? DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes(sub.toLowerCase())) : [];
+      if(!ops.length) ops=DB.personal.filter(p=>p.est==='Activo');
     }else if(linea==='Línea Amarilla'||linea==='Línea Blanca'){
       const cat=_catFiltro[linea];
       ops=DB.personal.filter(p=>p.est==='Activo'&&p.cat===cat&&(!sub||p.cargo.toLowerCase().includes(sub.toLowerCase())));
