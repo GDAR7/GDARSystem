@@ -66,6 +66,20 @@ function _pizEqIcon(sub){
 }
 function _pizEqCode(c){return(c||'').replace(/\s*ECOP/g,'');}
 
+function _pizSpriteUrl(){return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/equipos/equipos_sprite.png';}
+function _pizEqSprite(sub){
+  const map={
+    'Excavadora':      '0% 0%',
+    'Tractor Oruga':   '0% 50%',
+    'Cargador Frontal':'25% 50%',
+    'Motoniveladora':  '50% 50%',
+    'Retroexcavadora': '75% 50%',
+    'Rodillo':         '100% 50%',
+    'Volquete':        '0% 100%',
+  };
+  return map[sub]||null;
+}
+
 function _pizCondColor(cond){
   const c=(cond||'').toUpperCase();
   if(c.includes('OPERATIVO'))return'#10b981';
@@ -133,13 +147,22 @@ function _pizRenderIso(c){
           return`<button onclick="_isoEqFiltro='${s.replace(/'/g,"\\'")}';_pizRenderTab()" style="font-size:.6rem;padding:.15rem .4rem;border-radius:4px;border:1px solid ${on?'#06b6d4':'var(--border)'};background:${on?'rgba(6,182,212,.15)':'transparent'};color:${on?'#06b6d4':'var(--muted2)'};cursor:pointer">${s} (${cnt})</button>`;
         }).join('')}
       </div>
-      <div style="display:flex;flex-direction:column;gap:.18rem">
-        ${eqsFiltrados.map(e=>`<div draggable="true"
-          ondragstart="_pizDragStart(event,'equipo',${e.id},'${(e.codigo||'').replace(/'/g,"\\'")}','#06b6d4')"
-          style="cursor:grab;padding:.22rem .4rem;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.18);border-radius:5px;font-size:.67rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
-          title="${e.codigo} – ${e.nombre||''}">
-          ${_pizEqIcon(e.sub)} ${e.codigo}
-        </div>`).join('')}
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        ${eqsFiltrados.map(e=>{
+          const sp=_pizEqSprite(e.sub);
+          const imgEl=sp?`<div style="width:52px;height:38px;flex-shrink:0;border-radius:4px;overflow:hidden;background-image:url('${_pizSpriteUrl()}');background-size:500% 300%;background-position:${sp};background-repeat:no-repeat"></div>`
+            :`<div style="width:38px;height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border-radius:4px;background:rgba(6,182,212,.1)">${_pizEqIcon(e.sub)}</div>`;
+          return`<div draggable="true"
+            ondragstart="_pizDragStart(event,'equipo',${e.id},'${(e.codigo||'').replace(/'/g,"\\'")}','#06b6d4')"
+            style="cursor:grab;display:flex;align-items:center;gap:.4rem;padding:.2rem .3rem;background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.18);border-radius:6px"
+            title="${e.codigo} – ${e.nombre||''}">
+            ${imgEl}
+            <div style="min-width:0">
+              <div style="font-size:.67rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_pizEqCode(e.codigo)}</div>
+              <div style="font-size:.58rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.sub||''}</div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>`;
   } else if(_isoPanel==='personal'){
     panelContent=Object.entries(cargoMap).map(([cargo,total])=>{
