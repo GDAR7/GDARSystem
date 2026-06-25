@@ -121,19 +121,29 @@ function _pizRenderIso(c){
       const eq=eqByCode[item.etiqueta];
       const sp=eq?_pizEqSprite(eq.sub):null;
       icHtml=sp
-        ?`<div style="width:32px;height:24px;flex-shrink:0;background-image:url('${_pizSpriteUrl()}');background-size:500% 300%;background-position:${sp};background-repeat:no-repeat;border-radius:3px"></div>`
+        ?`<div style="width:52px;height:38px;flex-shrink:0;background-image:url('${_pizSpriteUrl()}');background-size:500% 300%;background-position:${sp};background-repeat:no-repeat"></div>`
         :`<span style="font-size:.8rem">🚜</span>`;
     } else {
       icHtml=`<span style="font-size:.8rem">${{personal:'👷',nota:'📝'}[item.tipo]||'📌'}</span>`;
     }
+    const hasSp=item.tipo==='equipo'&&(eqByCode[item.etiqueta]?!!_pizEqSprite(eqByCode[item.etiqueta].sub):false);
     return`<div id="piz-m-${item.id}" class="eq-marker"
-      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none"
+      style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none;text-align:center"
       onmousedown="_pizMousedown(event,${item.id})" ${dblClick}>
-      <div style="background:${col};color:#fff;border-radius:6px;padding:2px 6px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:flex;align-items:center;gap:4px">
-        ${icHtml}${cantLabel}${_pizEqCode(item.etiqueta)}
-        <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
-      </div>
-      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
+      ${hasSp
+        ?`<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))">
+            ${icHtml}
+            <div style="background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;border-radius:4px;padding:1px 5px;font-size:.6rem;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:3px">
+              ${cantLabel}${_pizEqCode(item.etiqueta)}
+              <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="cursor:pointer;opacity:.7;line-height:1;font-size:.65rem">✕</span>
+            </div>
+          </div>`
+        :`<div style="background:${col};color:#fff;border-radius:6px;padding:2px 6px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:inline-flex;align-items:center;gap:4px">
+            ${icHtml}${cantLabel}${_pizEqCode(item.etiqueta)}
+            <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>`
+      }
     </div>`;
   }).join('');
 
