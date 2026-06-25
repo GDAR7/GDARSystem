@@ -295,15 +295,16 @@ function filtrarEquipos(){
   const opEl=document.getElementById('rpOperador');
   if(opEl){
     let ops;
+    const isAct=p=>(p.est||'').toLowerCase()==='activo';
     if(linea==='Vehículo Menor'){
-      ops=sub ? DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes(sub.toLowerCase())) : [];
-      if(!ops.length) ops=DB.personal.filter(p=>p.est==='Activo');
+      ops=sub ? DB.personal.filter(p=>isAct(p)&&p.cargo.toLowerCase().includes(sub.toLowerCase())) : [];
+      if(!ops.length) ops=DB.personal.filter(p=>isAct(p));
     }else if(linea==='Línea Amarilla'||linea==='Línea Blanca'){
       const cat=_catFiltro[linea];
-      ops=DB.personal.filter(p=>p.est==='Activo'&&p.cat===cat&&(!sub||p.cargo.toLowerCase().includes(sub.toLowerCase())));
-      if(!ops.length) ops=DB.personal.filter(p=>p.est==='Activo'&&p.cat===cat);
+      ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat&&(!sub||p.cargo.toLowerCase().includes(sub.toLowerCase())));
+      if(!ops.length) ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat);
     }
-    if(ops) opEl.innerHTML=ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+    if(ops) opEl.innerHTML='<option value="">— Seleccionar —</option>'+ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   }
   _setViajesMode(sub);
   // Tramo de trabajo: mostrar para LA no-volquete (moto, rodillo, tractor, etc.)
@@ -615,8 +616,8 @@ function openReporte(tipo){
   // Operadores filtrados por categoría según línea
   const _catOp={'Línea Amarilla':'Operador LA','Línea Blanca':'Operador LB'};
   const _catFiltro=_catOp[tipo];
-  const _opList=DB.personal.filter(p=>p.est==='Activo'&&(!_catFiltro||p.cat===_catFiltro));
-  document.getElementById('rpOperador').innerHTML=_opList.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  const _opList=DB.personal.filter(p=>(p.est||'').toLowerCase()==='activo'&&(!_catFiltro||p.cat===_catFiltro));
+  document.getElementById('rpOperador').innerHTML='<option value="">— Seleccionar —</option>'+_opList.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   // Ocultar Operador en Equipos Menores (luminarias y similares sin operador asignado)
   const _opRow=document.getElementById('rpOperadorRow');
   if(_opRow)_opRow.style.display=tipo==='Equipos Menores'?'none':'';
