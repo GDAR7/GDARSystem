@@ -47,7 +47,7 @@ const USERS=[
   {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['administracion','controlProyecto','controlEquipos'],excludeModules:['planilla']},
   {codigo:'J_A_TA',dni:'73441348',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto'],areaModules:{controlProyecto:['pizarra']},pizarraTabs:[3,4,5]},
   {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion'],areaModules:{administracion:['asistencia','tareaje']}},
-  {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion'],areaModules:{administracion:['asistencia']}},
+  {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion'],areaModules:{administracion:['asistencia','resumenTareaje']}},
 ];
 
 // ══ SUPABASE CONFIG ══
