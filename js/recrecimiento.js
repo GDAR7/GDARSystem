@@ -93,13 +93,37 @@ function rRecrecimiento(){
       </div>
 
       <!-- PANEL DERECHO: imagen -->
-      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#0a0a0f;position:relative" id="recImgWrap">
-        <img src="${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.jpg"
-          onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
-          style="width:100%;height:100%;object-fit:contain;display:block"
-          alt="${dq.label} – ${_recVista==='seccion'?'Sección':'Planta'}">
-        <div style="position:absolute;top:.5rem;left:.5rem;background:rgba(0,0,0,.6);border-radius:6px;padding:.25rem .6rem;font-size:.62rem;color:#fff;backdrop-filter:blur(4px)">
-          ${_recVista==='seccion'?'📐 Sección transversal':'🗺️ Vista en planta'} · ${dq.label}
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#0a0a0f;position:relative;display:flex;flex-direction:column" id="recImgWrap">
+        <!-- Imagen + overlay SVG -->
+        <div style="flex:1;position:relative;overflow:hidden">
+          <img id="recSecImg" src="${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.jpg"
+            onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
+            style="width:100%;height:100%;object-fit:contain;display:block"
+            alt="${dq.label} – ${_recVista==='seccion'?'Sección':'Planta'}"
+            onload="_recDrawOverlay()">
+          ${_recVista==='seccion'?`<svg id="recSvgOverlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg>`:''}
+        </div>
+        <!-- Barra inferior: leyenda + calibración -->
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem .6rem;background:rgba(0,0,0,.4);border-top:1px solid var(--border);flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:.35rem;font-size:.58rem">
+            <span style="display:inline-block;width:12px;height:8px;background:#10b981;border-radius:2px;opacity:.75"></span>Completado
+            <span style="display:inline-block;width:12px;height:8px;background:#f59e0b;border-radius:2px;opacity:.75;margin-left:.3rem"></span>En progreso
+            <span style="display:inline-block;width:12px;height:8px;background:#6b7280;border-radius:2px;opacity:.4;margin-left:.3rem"></span>Pendiente
+          </div>
+          ${_recVista==='seccion'?`
+          <div style="display:flex;align-items:center;gap:.3rem;margin-left:auto;font-size:.6rem;color:var(--muted2)">
+            <span>Cota img:</span>
+            <input id="recCotaMin" type="number" step="0.25" placeholder="Min"
+              value="${_recGetCotaMin(capas)}"
+              style="width:62px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.15rem .3rem;color:var(--text);font-size:.6rem"
+              oninput="_recDrawOverlay()">
+            <span>→</span>
+            <input id="recCotaMax" type="number" step="0.25" placeholder="Max"
+              value="${_recGetCotaMax(capas)}"
+              style="width:62px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.15rem .3rem;color:var(--text);font-size:.6rem"
+              oninput="_recDrawOverlay()">
+            <button onclick="_recDrawOverlay()" style="padding:.15rem .4rem;border-radius:4px;border:1px solid ${dq.color}40;background:${dq.color}15;color:${dq.color};cursor:pointer;font-size:.6rem">↺</button>
+          </div>`:''}
         </div>
       </div>
     </div>
@@ -244,6 +268,61 @@ async function _recDelCapa(){
   DB.capas=(DB.capas||[]).filter(x=>x.id!==id);
   document.getElementById('mRecCapa').style.display='none';
   rRecrecimiento();
+}
+
+// ── SVG OVERLAY ──────────────────────────────────────────────────────────────
+function _recGetCotaMin(capas){
+  if(!capas||!capas.length)return 4386;
+  return Math.min(...capas.map(c=>+c.cota||0))-0.75;
+}
+function _recGetCotaMax(capas){
+  if(!capas||!capas.length)return 4416;
+  return Math.max(...capas.map(c=>+c.cota||0));
+}
+
+function _recDrawOverlay(){
+  const svg=document.getElementById('recSvgOverlay');
+  const img=document.getElementById('recSecImg');
+  if(!svg||!img)return;
+
+  const cotaMin=+document.getElementById('recCotaMin')?.value||_recGetCotaMin((DB.capas||[]).filter(c=>c.dique===_recDique));
+  const cotaMax=+document.getElementById('recCotaMax')?.value||_recGetCotaMax((DB.capas||[]).filter(c=>c.dique===_recDique));
+  const range=cotaMax-cotaMin;
+  if(range<=0)return;
+
+  const capas=(DB.capas||[]).filter(c=>c.dique===_recDique).sort((a,b)=>+a.cota-+b.cota);
+
+  const wrap=svg.parentElement;
+  const W=wrap.clientWidth||800;
+  const H=wrap.clientHeight||500;
+
+  // Área real de la imagen dentro del contenedor (object-fit:contain)
+  const natW=img.naturalWidth||1;const natH=img.naturalHeight||1;
+  const imgRatio=natW/natH;const wrapRatio=W/H;
+  let imgW,imgH,imgX,imgY;
+  if(imgRatio>wrapRatio){imgW=W;imgH=W/imgRatio;imgX=0;imgY=(H-imgH)/2;}
+  else{imgH=H;imgW=H*imgRatio;imgX=(W-imgW)/2;imgY=0;}
+
+  svg.innerHTML=capas.map(c=>{
+    const pct=+c.pctAvance||0;
+    if(pct<=0)return'';
+    const col=pct>=100?'#10b981':'#f59e0b';
+
+    // Y: cota alta = arriba en imagen
+    const yTopPct=(cotaMax-(+c.cota))/(range);
+    const yBotPct=(cotaMax-((+c.cota)-0.75))/(range);
+    const yTop=imgY+yTopPct*imgH;
+    const yBot=imgY+yBotPct*imgH;
+    const bandH=Math.max(yBot-yTop,1.5);
+    // Ancho proporcional al % completado
+    const bandW=imgW*(pct/100);
+
+    const label=pct>=100?'✓ '+c.nombre:c.nombre+' '+pct+'%';
+    const fs=Math.min(Math.max(bandH*0.65,7),11);
+    return`<rect x="${imgX}" y="${yTop.toFixed(1)}" width="${bandW.toFixed(1)}" height="${bandH.toFixed(1)}" fill="${col}" rx="1">
+      <title>${c.nombre} · ${c.cota}m · ${pct}%</title></rect>
+    <text x="${(imgX+3).toFixed(1)}" y="${(yTop+bandH*0.75).toFixed(1)}" font-size="${fs}" fill="#000" font-weight="700" style="pointer-events:none">${label}</text>`;
+  }).join('');
 }
 
 // Actualizar % desde la lista directamente (doble clic en barra)
