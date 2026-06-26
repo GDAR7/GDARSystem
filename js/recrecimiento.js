@@ -128,7 +128,7 @@ function rRecrecimiento(){
       <div style="margin-bottom:.5rem"><label style="font-size:.65rem;color:var(--muted2)">Actividad WBS vinculada (opcional)</label>
         <select id="rcWbs" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem">
           <option value="">— Sin vínculo WBS —</option>
-          ${(DB.lpsWbs||[]).map(w=>`<option value="${w.id}">${w.codigo||''} ${w.nombre||''}</option>`).join('')}
+          ${[...(DB.lpsWbs||[])].sort((a,b)=>+a.id-+b.id).map(w=>`<option value="${w.id}">${w.codigo||''}</option>`).join('')}
         </select></div>
       <div style="margin-bottom:.8rem"><label style="font-size:.65rem;color:var(--muted2)">Notas</label>
         <input id="rcNotas" placeholder="Observaciones..." style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
