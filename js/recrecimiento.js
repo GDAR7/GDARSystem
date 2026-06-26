@@ -1,5 +1,10 @@
 // ══ MÓDULO RECRECIMIENTO R3 ══════════════════════════════════════════════════
 let _recDique='DA', _recVista='seccion';
+// Zoom/pan
+let _recZoom=1, _recPanX=0, _recPanY=0, _recZoomLocked=false;
+let _recIsPanning=false, _recPanStart=null, _recDidPan=false;
+// Dibujo de polígonos
+let _recDibujando=false, _recSelCapaId=null, _recAreaPuntos=[];
 
 const _REC_DIQUES=[
   {key:'DA',label:'Dique Auxiliar',       color:'#06b6d4'},
@@ -19,12 +24,14 @@ function rRecrecimiento(){
   const dq=_REC_DIQUES.find(d=>d.key===_recDique)||_REC_DIQUES[0];
   const capas=(DB.capas||[]).filter(c=>c.dique===_recDique).sort((a,b)=>b.cota-a.cota);
 
-  // ── KPIs ──
   const total=capas.length;
   const comp=capas.filter(c=>+c.pctAvance>=100).length;
   const enCurso=capas.filter(c=>+c.pctAvance>0&&+c.pctAvance<100).length;
   const pend=total-comp-enCurso;
   const pctGlobal=total?Math.round(capas.reduce((s,c)=>s+(+c.pctAvance||0),0)/total):0;
+
+  const selCapa=_recSelCapaId?(DB.capas||[]).find(c=>c.id===_recSelCapaId):null;
+  const esSec=_recVista==='seccion';
 
   pg.innerHTML=`
   <div style="padding:.8rem 1rem;height:calc(100vh - 52px);display:flex;flex-direction:column;gap:.6rem;overflow:hidden">
@@ -35,19 +42,14 @@ function rRecrecimiento(){
         <div style="font-size:1.1rem;font-weight:800;color:#10b981">🏔️ Recrecimiento R3</div>
         <div style="font-size:.68rem;color:var(--muted2)">Control visual de avance por capa · ${new Date().toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()}</div>
       </div>
-
-      <!-- Tabs dique -->
       <div style="display:flex;gap:.3rem;margin-left:auto">
         ${_REC_DIQUES.map(d=>`<button onclick="_recSetDique('${d.key}')"
           style="padding:.3rem .9rem;border-radius:8px;border:1px solid ${_recDique===d.key?d.color:'var(--border)'};background:${_recDique===d.key?d.color+'22':'transparent'};color:${_recDique===d.key?d.color:'var(--muted2)'};font-size:.72rem;font-weight:${_recDique===d.key?'700':'500'};cursor:pointer">${d.label}</button>`).join('')}
       </div>
-
-      <!-- Toggle vista -->
       <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        <button onclick="_recSetVista('seccion')" style="padding:.3rem .8rem;font-size:.7rem;border:none;background:${_recVista==='seccion'?dq.color+'33':'transparent'};color:${_recVista==='seccion'?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${_recVista==='seccion'?'700':'400'}">📐 Sección</button>
-        <button onclick="_recSetVista('planta')" style="padding:.3rem .8rem;font-size:.7rem;border:none;border-left:1px solid var(--border);background:${_recVista==='planta'?dq.color+'33':'transparent'};color:${_recVista==='planta'?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${_recVista==='planta'?'700':'400'}">🗺️ Planta</button>
+        <button onclick="_recSetVista('seccion')" style="padding:.3rem .8rem;font-size:.7rem;border:none;background:${esSec?dq.color+'33':'transparent'};color:${esSec?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${esSec?'700':'400'}">📐 Sección</button>
+        <button onclick="_recSetVista('planta')" style="padding:.3rem .8rem;font-size:.7rem;border:none;border-left:1px solid var(--border);background:${!esSec?dq.color+'33':'transparent'};color:${!esSec?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${!esSec?'700':'400'}">🗺️ Planta</button>
       </div>
-
       <button onclick="rRecrecimiento()" style="padding:.3rem .7rem;border-radius:7px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;font-size:.7rem;cursor:pointer">🔄 Actualizar</button>
     </div>
 
@@ -63,7 +65,6 @@ function rRecrecimiento(){
         <div style="font-size:1.1rem;font-weight:800;color:${k.c}">${k.v}</div>
         <div style="font-size:.58rem;color:var(--muted2)">${k.l}</div>
       </div>`).join('')}
-      <!-- Barra progreso global -->
       <div style="flex:3;background:var(--panel2);border:1px solid ${dq.color}30;border-radius:8px;padding:.4rem .8rem;display:flex;flex-direction:column;justify-content:center;gap:.3rem">
         <div style="display:flex;justify-content:space-between;font-size:.63rem;color:var(--muted2)">
           <span>Progreso ${dq.label}</span><span style="font-weight:700;color:${dq.color}">${pctGlobal}%</span>
@@ -75,15 +76,38 @@ function rRecrecimiento(){
     </div>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <div style="flex:1;overflow:hidden;display:grid;grid-template-columns:260px 1fr;gap:.6rem;min-height:0">
+    <div style="flex:1;overflow:hidden;display:grid;grid-template-columns:270px 1fr;gap:.6rem;min-height:0">
 
-      <!-- PANEL IZQUIERDO: lista de capas -->
+      <!-- PANEL IZQUIERDO -->
       <div style="display:flex;flex-direction:column;gap:.3rem;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);overflow:hidden">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.1rem">
           <span style="font-size:.65rem;font-weight:700;color:${dq.color};text-transform:uppercase;letter-spacing:.08em">Capas · ${dq.label}</span>
           <button onclick="_recAddCapa('${_recDique}')" style="font-size:.6rem;padding:.15rem .45rem;border-radius:5px;border:1px solid ${dq.color}50;background:${dq.color}15;color:${dq.color};cursor:pointer">＋ Agregar</button>
         </div>
-        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.2rem" id="recCapaList">
+
+        ${esSec?`
+        <div style="background:var(--panel);border:1px solid ${_recDibujando?'#f59e0b40':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem">
+          ${selCapa
+            ?`<div style="font-size:.62rem;color:${dq.color};font-weight:700;margin-bottom:.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                ◼ ${selCapa.nombre||'—'}
+                <span style="font-weight:400;color:var(--muted2)">${selCapa.cota?' '+selCapa.cota+' m':''}</span>
+                ${(selCapa.puntos||[]).length>=3
+                  ?`<span style="color:#10b981;font-size:.58rem"> · ${(selCapa.puntos||[]).length} pts ✓</span>`
+                  :`<span style="color:#6b7280;font-size:.58rem"> · sin área</span>`}
+              </div>`
+            :`<div style="font-size:.6rem;color:var(--muted2);margin-bottom:.3rem">← Selecciona una capa de la lista</div>`}
+          <div style="display:flex;gap:.3rem">
+            <button id="recBtnDraw" onclick="_recToggleDraw()"
+              style="flex:1;padding:.25rem .4rem;border-radius:5px;font-size:.62rem;font-weight:700;cursor:pointer;border:1px solid ${_recDibujando?'#f59e0b':'#10b98140'};background:${_recDibujando?'rgba(245,158,11,.15)':'rgba(16,185,129,.1)'};color:${_recDibujando?'#f59e0b':'#10b981'}">
+              ${_recDibujando?'✅ Guardar área':'✏️ Dibujar área'}
+            </button>
+            ${_recDibujando?`<button onclick="_recCancelarDraw()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.1);color:#ef4444;font-size:.62rem;font-weight:700;cursor:pointer">✗</button>`:''}
+            ${!_recDibujando&&selCapa&&(selCapa.puntos||[]).length>=3?`<button onclick="_recBorrarPuntos()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.08);color:#ef4444;font-size:.62rem;cursor:pointer" title="Borrar área">🗑</button>`:''}
+          </div>
+          ${_recDibujando?`<div style="font-size:.57rem;color:#f59e0b;margin-top:.3rem">Clic = vértice · Doble clic = cerrar · Clic der. = cancelar</div>`:`<div style="font-size:.57rem;color:var(--muted2);margin-top:.25rem">Haz clic en una capa y presiona ✏️ Dibujar</div>`}
+        </div>`:''}
+
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.18rem" id="recCapaList">
           ${capas.length ? capas.map(c=>_recCapaRow(c,dq)).join('') :
             `<div style="text-align:center;padding:1.5rem;color:var(--muted2);font-size:.68rem">
               Sin capas registradas<br>
@@ -92,45 +116,50 @@ function rRecrecimiento(){
         </div>
       </div>
 
-      <!-- PANEL DERECHO: imagen -->
+      <!-- PANEL DERECHO: mapa con zoom/pan -->
       <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#0a0a0f;position:relative;display:flex;flex-direction:column" id="recImgWrap">
-        <!-- Imagen + overlay SVG -->
-        <div style="flex:1;position:relative;overflow:hidden">
-          <img id="recSecImg" src="${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.jpg"
-            onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
-            style="width:100%;height:100%;object-fit:contain;display:block"
-            alt="${dq.label} – ${_recVista==='seccion'?'Sección':'Planta'}"
-            onload="_recDrawOverlay()">
-          ${_recVista==='seccion'?`<svg id="recSvgOverlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg>`:''}
-        </div>
-        <!-- Barra inferior: leyenda + calibración -->
-        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem .6rem;background:rgba(0,0,0,.4);border-top:1px solid var(--border);flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:.35rem;font-size:.58rem">
-            <span style="display:inline-block;width:12px;height:8px;background:#10b981;border-radius:2px;opacity:.75"></span>Completado
-            <span style="display:inline-block;width:12px;height:8px;background:#f59e0b;border-radius:2px;opacity:.75;margin-left:.3rem"></span>En progreso
-            <span style="display:inline-block;width:12px;height:8px;background:#6b7280;border-radius:2px;opacity:.4;margin-left:.3rem"></span>Pendiente
+        <div style="flex:1;position:relative;overflow:hidden" id="recMapWrap">
+          <div id="recCanvas" style="position:absolute;transform-origin:0 0;touch-action:none">
+            <img id="recImg"
+              src="${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.jpg"
+              onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
+              style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false"
+              alt="${dq.label}" onload="_recFitView()">
+            <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="recCursor" style="display:none;position:absolute;width:10px;height:10px;background:#f59e0b;border:2px solid #fff;border-radius:2px;pointer-events:none;z-index:5"></div>
           </div>
-          ${_recVista==='seccion'?`
-          <div style="display:flex;align-items:center;gap:.3rem;margin-left:auto;font-size:.6rem;color:var(--muted2)">
-            <span>Cota img:</span>
-            <input id="recCotaMin" type="number" step="0.25" placeholder="Min"
-              value="${_recGetCotaMin(capas)}"
-              style="width:62px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.15rem .3rem;color:var(--text);font-size:.6rem"
-              oninput="_recDrawOverlay()">
-            <span>→</span>
-            <input id="recCotaMax" type="number" step="0.25" placeholder="Max"
-              value="${_recGetCotaMax(capas)}"
-              style="width:62px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.15rem .3rem;color:var(--text);font-size:.6rem"
-              oninput="_recDrawOverlay()">
-            <button onclick="_recDrawOverlay()" style="padding:.15rem .4rem;border-radius:4px;border:1px solid ${dq.color}40;background:${dq.color}15;color:${dq.color};cursor:pointer;font-size:.6rem">↺</button>
-          </div>`:''}
+          <!-- Controles zoom -->
+          <div style="position:absolute;bottom:.6rem;right:.6rem;display:flex;align-items:center;gap:.25rem;z-index:20;background:rgba(10,10,20,.75);border:1px solid #ffffff18;border-radius:7px;padding:.25rem .4rem;backdrop-filter:blur(6px)">
+            <button onclick="_recZoomOut()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">−</button>
+            <span id="recZoomPct" style="font-size:.65rem;color:#e0e0e0;min-width:36px;text-align:center;font-weight:700">100%</span>
+            <button onclick="_recZoomIn()" style="width:22px;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.9rem;line-height:1">+</button>
+            <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+            <button onclick="_recZoomReset()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.65rem">↺ Fit</button>
+            <div style="width:1px;height:14px;background:#ffffff20;margin:0 .1rem"></div>
+            <button id="recLockBtn" onclick="_recToggleLock()" style="padding:0 .35rem;height:22px;border-radius:4px;border:1px solid #ffffff20;background:#ffffff10;color:#e0e0e0;cursor:pointer;font-size:.85rem">${_recZoomLocked?'🔒':'🔓'}</button>
+          </div>
+        </div>
+        <!-- Leyenda -->
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.25rem .6rem;background:rgba(0,0,0,.4);border-top:1px solid var(--border);flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:.35rem;font-size:.58rem">
+            <span style="display:inline-block;width:12px;height:8px;background:#10b981;border-radius:2px"></span>Completado
+            <span style="display:inline-block;width:12px;height:8px;background:#f59e0b;border-radius:2px;margin-left:.3rem"></span>En proceso
+            <span style="display:inline-block;width:12px;height:8px;background:#6b7280;border-radius:2px;opacity:.6;margin-left:.3rem"></span>Pendiente
+          </div>
+          <span style="font-size:.58rem;color:var(--muted2);margin-left:auto">Rueda=zoom · Arrastrar=pan${esSec?' · Clic polígono=info':''}</span>
         </div>
       </div>
+
     </div>
   </div>
 
-  <!-- MODAL agregar/editar capa -->
-  <div id="mRecCapa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center">
+  <!-- POPUP info capa -->
+  <div id="recPopupWrap" style="display:none;position:fixed;inset:0;z-index:990;pointer-events:none">
+    <div id="recPopupCard" onclick="event.stopPropagation()" style="pointer-events:all;position:absolute;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;min-width:210px;max-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.65)"></div>
+  </div>
+
+  <!-- MODAL capa -->
+  <div id="mRecCapa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center">
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem;width:380px;max-width:95vw">
       <div style="font-weight:700;margin-bottom:.8rem;font-size:.9rem">🏔️ Capa de recrecimiento</div>
       <input type="hidden" id="rcId">
@@ -168,34 +197,379 @@ function rRecrecimiento(){
       </div>
     </div>
   </div>`;
+
+  // Event listeners
+  const wrap=document.getElementById('recMapWrap');
+  if(wrap){
+    wrap.addEventListener('wheel',_recOnWheel,{passive:false});
+    wrap.addEventListener('mousedown',_recMapMousedown);
+    wrap.addEventListener('contextmenu',e=>{e.preventDefault();if(_recDibujando)_recCancelarDraw();});
+  }
+  const svg=document.getElementById('recSvg');
+  if(svg){
+    svg.addEventListener('click',_recSvgClick);
+    svg.addEventListener('dblclick',_recSvgDblClick);
+    svg.addEventListener('mousemove',_recSvgMouseMove);
+  }
+  document.addEventListener('mousemove',_recGlobalMousemove);
+  document.addEventListener('mouseup',_recGlobalMouseup);
+  requestAnimationFrame(()=>{
+    _recFitView();
+    setTimeout(_recRenderCapasSvg,150);
+  });
 }
+
+// ── Lista de capas ────────────────────────────────────────────────────────────
 
 function _recCapaRow(c,dq){
   const pct=+c.pctAvance||0;
   const col=pct>=100?'#10b981':pct>0?'#f59e0b':'#6b7280';
   const est=pct>=100?'✅':pct>0?'🔄':'⏳';
-  const vol=c.volM3?`${(+c.volM3).toLocaleString('es-PE',{maximumFractionDigits:0})} m³`:'';
-  const volColocado=c.volM3&&pct>0?`${Math.round(+c.volM3*pct/100).toLocaleString('es-PE')}/${Math.round(+c.volM3).toLocaleString('es-PE')} m³`:'';
-  return`<div style="padding:.3rem .45rem;background:var(--panel);border:1px solid ${col}30;border-radius:6px;cursor:pointer" onclick="_recEditCapa(${c.id})">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
-      <div style="display:flex;align-items:center;gap:.3rem">
-        <span style="font-size:.62rem">${est}</span>
+  const volColocado=c.volM3&&pct>0?`${Math.round(+c.volM3*pct/100).toLocaleString('es-PE')}/${Math.round(+c.volM3).toLocaleString('es-PE')} m³`
+    :c.volM3?`${(+c.volM3).toLocaleString('es-PE',{maximumFractionDigits:0})} m³`:'';
+  const hasPts=(c.puntos||[]).length>=3;
+  const isSel=_recSelCapaId===c.id;
+  const bdr=isSel?`2px solid ${dq.color}`:`1px solid ${col}25`;
+  return`<div id="rec-capa-${c.id}"
+    style="padding:.28rem .45rem;background:${isSel?dq.color+'18':'var(--panel)'};border:${bdr};border-radius:6px;cursor:pointer"
+    onclick="_recSelCapa(${c.id})">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.12rem">
+      <div style="display:flex;align-items:center;gap:.28rem">
+        <span title="${hasPts?'Área dibujada':'Sin área'}" style="font-size:.6rem;color:${hasPts?'#10b981':'#6b7280'}">${hasPts?'◼':'○'}</span>
+        <span style="font-size:.6rem">${est}</span>
         <span style="font-size:.7rem;font-weight:700;color:${col}">${c.nombre||'—'}</span>
-        <span style="font-size:.55rem;color:var(--muted2)">${c.cota?c.cota+' m':''}</span>
+        <span style="font-size:.54rem;color:var(--muted2)">${c.cota?c.cota+' m':''}</span>
       </div>
-      <span style="font-size:.65rem;font-weight:700;color:${col}">${pct}%</span>
+      <div style="display:flex;align-items:center;gap:.22rem">
+        <span style="font-size:.65rem;font-weight:700;color:${col}">${pct}%</span>
+        <button onclick="event.stopPropagation();_recEditCapa(${c.id})" style="font-size:.55rem;padding:0 .25rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;line-height:1.5">✎</button>
+      </div>
     </div>
-    <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:.15rem">
-      <div style="height:100%;width:${pct}%;background:${col};border-radius:2px;transition:width .3s"></div>
+    <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:.1rem">
+      <div style="height:100%;width:${pct}%;background:${col};border-radius:2px"></div>
     </div>
-    <div style="display:flex;justify-content:space-between">
-      <span style="font-size:.55rem;color:var(--muted2)">${volColocado||vol}</span>
-      <span style="font-size:.55rem;color:var(--muted2)">${c.areaM2?(+c.areaM2).toLocaleString('es-PE',{maximumFractionDigits:0})+' m²':''}</span>
-    </div>
+    <div style="font-size:.52rem;color:var(--muted2)">${volColocado}</div>
   </div>`;
 }
 
-function _recSetDique(k){_recDique=k;rRecrecimiento();}
+function _recSelCapa(id){
+  if(_recDibujando)_recCancelarDraw();
+  _recSelCapaId=(_recSelCapaId===id)?null:id;
+  rRecrecimiento();
+}
+
+// ══ ZOOM / PAN ════════════════════════════════════════════════════════════════
+
+function _recApplyTransform(){
+  const c=document.getElementById('recCanvas');if(!c)return;
+  c.style.transform=`translate(${_recPanX}px,${_recPanY}px) scale(${_recZoom})`;
+  const pct=document.getElementById('recZoomPct');if(pct)pct.textContent=Math.round(_recZoom*100)+'%';
+  const lb=document.getElementById('recLockBtn');if(lb)lb.textContent=_recZoomLocked?'🔒':'🔓';
+}
+
+function _recFitView(){
+  const wrap=document.getElementById('recMapWrap');
+  const canvas=document.getElementById('recCanvas');
+  const img=document.getElementById('recImg');
+  if(!wrap||!canvas||!img)return;
+  if(!img.naturalWidth){setTimeout(_recFitView,200);return;}
+  const wW=wrap.clientWidth, wH=wrap.clientHeight;
+  const iW=img.naturalWidth, iH=img.naturalHeight;
+  const scale=Math.min(wW/iW, wH/iH);
+  canvas.style.width=iW+'px';
+  _recZoom=scale;
+  _recPanX=(wW-iW*scale)/2;
+  _recPanY=(wH-iH*scale)/2;
+  _recApplyTransform();
+  setTimeout(_recRenderCapasSvg,50);
+}
+
+function _recZoomIn(){ if(!_recZoomLocked)_recSetZoom(_recZoom*1.25); }
+function _recZoomOut(){ if(!_recZoomLocked)_recSetZoom(_recZoom/1.25); }
+function _recZoomReset(){ _recFitView(); }
+function _recToggleLock(){
+  _recZoomLocked=!_recZoomLocked;
+  const lb=document.getElementById('recLockBtn');if(lb)lb.textContent=_recZoomLocked?'🔒':'🔓';
+}
+
+function _recSetZoom(z,cx,cy){
+  const nz=Math.max(0.1,Math.min(10,z));
+  if(cx!==undefined){_recPanX=cx-(cx-_recPanX)*(nz/_recZoom);}
+  if(cy!==undefined){_recPanY=cy-(cy-_recPanY)*(nz/_recZoom);}
+  _recZoom=nz;_recApplyTransform();
+}
+
+function _recOnWheel(e){
+  e.preventDefault();
+  if(_recZoomLocked)return;
+  const wrap=document.getElementById('recMapWrap');if(!wrap)return;
+  const r=wrap.getBoundingClientRect();
+  _recSetZoom(_recZoom*(e.deltaY<0?1.12:0.89),e.clientX-r.left,e.clientY-r.top);
+}
+
+function _recMapMousedown(e){
+  if(_recDibujando||e.button!==0)return;
+  _recIsPanning=true;_recDidPan=false;
+  _recPanStart={x:e.clientX-_recPanX,y:e.clientY-_recPanY};
+  const c=document.getElementById('recCanvas');if(c)c.style.cursor='grabbing';
+}
+function _recGlobalMousemove(e){
+  if(_recDibujando||!_recIsPanning||!_recPanStart)return;
+  const nx=e.clientX-_recPanStart.x, ny=e.clientY-_recPanStart.y;
+  if(Math.abs(nx-_recPanX)>2||Math.abs(ny-_recPanY)>2)_recDidPan=true;
+  _recPanX=nx;_recPanY=ny;_recApplyTransform();
+}
+function _recGlobalMouseup(){
+  _recIsPanning=false;_recDidPan=false;
+  const c=document.getElementById('recCanvas');
+  if(c)c.style.cursor=_recDibujando?'crosshair':'grab';
+}
+
+// ══ DIBUJO DE POLÍGONOS ═══════════════════════════════════════════════════════
+
+function _recToggleDraw(){
+  if(!_recSelCapaId){toast('Selecciona una capa de la lista primero',true);return;}
+  if(_recDibujando){
+    _recGuardarPuntos();
+  }else{
+    _recDibujando=true;
+    const c=(DB.capas||[]).find(x=>x.id===_recSelCapaId);
+    _recAreaPuntos=(c&&c.puntos)?[...c.puntos]:[];
+    const canvas=document.getElementById('recCanvas');if(canvas)canvas.style.cursor='crosshair';
+    const svg=document.getElementById('recSvg');if(svg)svg.style.pointerEvents='all';
+    _recTempRender();
+    rRecrecimiento();
+  }
+}
+
+function _recCancelarDraw(reset=true){
+  _recDibujando=false;
+  if(reset)_recAreaPuntos=[];
+  const canvas=document.getElementById('recCanvas');if(canvas)canvas.style.cursor='grab';
+  const svg=document.getElementById('recSvg');
+  if(svg){
+    svg.querySelectorAll('.rec-temp').forEach(el=>el.remove());
+    const p=svg.querySelector('#recAreaPreview');if(p)p.remove();
+    svg.style.pointerEvents='none';
+  }
+  rRecrecimiento();
+}
+
+async function _recGuardarPuntos(){
+  if(!_recSelCapaId){_recCancelarDraw();return;}
+  if(_recAreaPuntos.length<3){toast('Necesitas al menos 3 vértices para guardar',true);return;}
+  const pts=[..._recAreaPuntos];
+  const{error}=await supa.from('capas').update({puntos:pts}).eq('id',_recSelCapaId);
+  if(error){toast('Error al guardar: '+error.message,true);return;}
+  const c=(DB.capas||[]).find(x=>x.id===_recSelCapaId);
+  if(c)c.puntos=pts;
+  toast(`✓ Área guardada (${pts.length} vértices)`);
+  _recCancelarDraw(false);
+  _recRenderCapasSvg();
+}
+
+async function _recBorrarPuntos(){
+  if(!_recSelCapaId||!confirm('¿Borrar el área dibujada de esta capa?'))return;
+  const{error}=await supa.from('capas').update({puntos:[]}).eq('id',_recSelCapaId);
+  if(error){toast('Error: '+error.message,true);return;}
+  const c=(DB.capas||[]).find(x=>x.id===_recSelCapaId);
+  if(c)c.puntos=[];
+  toast('Área borrada');
+  rRecrecimiento();
+  _recRenderCapasSvg();
+}
+
+function _recSvgClick(e){
+  if(!_recDibujando||!_recSelCapaId)return;
+  if(e.detail>1)return;
+  const canvas=document.getElementById('recCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  _recAreaPuntos.push({
+    x:parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2)),
+    y:parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2))
+  });
+  _recTempRender();
+}
+
+function _recSvgDblClick(e){
+  if(!_recDibujando)return;
+  e.preventDefault();
+  if(_recAreaPuntos.length)_recAreaPuntos.pop();
+  if(_recAreaPuntos.length<3){toast('Necesitas al menos 3 vértices',true);return;}
+  _recGuardarPuntos();
+}
+
+function _recSvgMouseMove(e){
+  if(!_recDibujando)return;
+  const canvas=document.getElementById('recCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  const xPct=(e.clientX-r.left)/r.width*100;
+  const yPct=(e.clientY-r.top)/r.height*100;
+
+  const cur=document.getElementById('recCursor');
+  if(cur){cur.style.display='block';cur.style.left=xPct+'%';cur.style.top=yPct+'%';
+    cur.style.transform=`translate(-50%,-50%) scale(${1/(_recZoom||1)})`;}
+
+  const svg=document.getElementById('recSvg');if(!svg||!_recAreaPuntos.length)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  const xPx=(xPct*W/100).toFixed(1),yPx=(yPct*H/100).toFixed(1);
+  const last=_recAreaPuntos[_recAreaPuntos.length-1];
+  const lx=(last.x*W/100).toFixed(1),ly=(last.y*H/100).toFixed(1);
+  const sw=(2/(_recZoom||1)).toFixed(2);
+  const prev=svg.querySelector('#recAreaPreview');
+  if(prev){prev.setAttribute('x1',lx);prev.setAttribute('y1',ly);prev.setAttribute('x2',xPx);prev.setAttribute('y2',yPx);prev.setAttribute('stroke-width',sw);}
+  else{
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.id='recAreaPreview';
+    line.setAttribute('x1',lx);line.setAttribute('y1',ly);line.setAttribute('x2',xPx);line.setAttribute('y2',yPx);
+    line.setAttribute('stroke','#f59e0b');line.setAttribute('stroke-width',sw);line.setAttribute('stroke-dasharray','5 3');line.setAttribute('pointer-events','none');
+    svg.appendChild(line);
+  }
+}
+
+function _recTempRender(){
+  const svg=document.getElementById('recSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;
+  svg.querySelectorAll('.rec-temp').forEach(el=>el.remove());
+  if(!_recAreaPuntos.length)return;
+  const px=_recAreaPuntos.map(p=>({x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)}));
+  const d='M '+px.map(p=>`${p.x} ${p.y}`).join(' L ');
+  const sw=(2/(_recZoom||1)).toFixed(2);
+
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.classList.add('rec-temp');
+  path.setAttribute('d',d);path.setAttribute('stroke','#f59e0b');path.setAttribute('stroke-width',sw);
+  path.setAttribute('fill','none');path.setAttribute('pointer-events','none');
+  svg.appendChild(path);
+
+  if(_recAreaPuntos.length>=3){
+    const fp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    fp.classList.add('rec-temp');
+    fp.setAttribute('d',d+' Z');fp.setAttribute('fill','#f59e0b');fp.setAttribute('fill-opacity','.18');fp.setAttribute('stroke','none');fp.setAttribute('pointer-events','none');
+    svg.appendChild(fp);
+    const cl=document.createElementNS('http://www.w3.org/2000/svg','line');
+    cl.classList.add('rec-temp');
+    cl.setAttribute('x1',px[px.length-1].x);cl.setAttribute('y1',px[px.length-1].y);
+    cl.setAttribute('x2',px[0].x);cl.setAttribute('y2',px[0].y);
+    cl.setAttribute('stroke','#f59e0b');cl.setAttribute('stroke-width',(1.5/(_recZoom||1)).toFixed(2));
+    cl.setAttribute('stroke-dasharray','4 3');cl.setAttribute('opacity','.5');cl.setAttribute('pointer-events','none');
+    svg.appendChild(cl);
+  }
+  px.forEach(p=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.classList.add('rec-temp');
+    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',(4/(_recZoom||1)).toFixed(2));
+    c.setAttribute('fill','#f59e0b');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width',(1.5/(_recZoom||1)).toFixed(2));
+    c.setAttribute('pointer-events','none');
+    svg.appendChild(c);
+  });
+}
+
+// ══ RENDER POLÍGONOS GUARDADOS ════════════════════════════════════════════════
+
+function _recRenderCapasSvg(){
+  const svg=document.getElementById('recSvg');if(!svg)return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  svg.querySelectorAll('.rec-static').forEach(el=>el.remove());
+
+  const capas=(DB.capas||[]).filter(c=>c.dique===_recDique);
+
+  capas.forEach(c=>{
+    const pts=c.puntos||[];if(pts.length<3)return;
+    const pct=+c.pctAvance||0;
+    const col=pct>=100?'#10b981':pct>0?'#f59e0b':'#6b7280';
+    const isSel=c.id===_recSelCapaId;
+
+    const px=pts.map(p=>({x:(p.x*W/100),y:(p.y*H/100)}));
+    const d='M '+px.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')+' Z';
+    const cx=px.reduce((s,p)=>s+p.x,0)/px.length;
+    const cy=px.reduce((s,p)=>s+p.y,0)/px.length;
+
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('rec-static');
+    g.style.cursor='pointer';
+
+    const area=document.createElementNS('http://www.w3.org/2000/svg','path');
+    area.setAttribute('d',d);
+    area.setAttribute('fill',col);
+    area.setAttribute('fill-opacity',isSel?'.45':'.32');
+    area.setAttribute('stroke',col);
+    area.setAttribute('stroke-width',isSel?'2.5':'1.5');
+    area.setAttribute('stroke-linejoin','round');
+    const cId=c.id;
+    area.addEventListener('click',()=>{if(!_recDibujando)_recShowCapaPopup(cId,cx,cy);});
+    g.appendChild(area);
+
+    const fs=Math.max(11/_recZoom,8).toFixed(1);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',cx.toFixed(1));txt.setAttribute('y',cy.toFixed(1));
+    txt.setAttribute('font-size',fs);txt.setAttribute('font-weight','700');txt.setAttribute('fill',col);
+    txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','2.5');txt.setAttribute('paint-order','stroke');
+    txt.setAttribute('dominant-baseline','middle');txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('font-family','sans-serif');txt.setAttribute('pointer-events','none');
+    txt.textContent=`${c.nombre||''}${pct>0?' '+pct+'%':''}`;
+    g.appendChild(txt);
+    svg.appendChild(g);
+  });
+}
+
+function _recShowCapaPopup(id,svgCx,svgCy){
+  const c=(DB.capas||[]).find(x=>x.id===id);if(!c)return;
+  const dq=_REC_DIQUES.find(d=>d.key===c.dique)||_REC_DIQUES[0];
+  const pct=+c.pctAvance||0;
+  const col=pct>=100?'#10b981':pct>0?'#f59e0b':'#6b7280';
+  const est=pct>=100?'Completada':pct>0?'En Proceso':'Pendiente';
+  const wbs=c.wbsId?(DB.lpsWbs||[]).find(w=>+w.id===+c.wbsId):null;
+  const volEjec=c.volM3&&pct>0?Math.round(+c.volM3*pct/100).toLocaleString('es-PE')+' m³':null;
+
+  const popup=document.getElementById('recPopupCard');
+  const wrap=document.getElementById('recPopupWrap');
+  if(!popup||!wrap)return;
+
+  popup.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <span style="font-weight:800;font-size:.85rem;color:${dq.color}">◼ ${c.nombre||'—'}</span>
+      <button onclick="document.getElementById('recPopupWrap').style.display='none'" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.95rem;padding:0">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:.22rem .45rem;font-size:.69rem;align-items:center">
+      <span style="color:var(--muted2)">ESTADO</span>
+      <span style="background:${col}22;color:${col};padding:1px 8px;border-radius:10px;font-weight:700;font-size:.62rem;display:inline-block">${est}</span>
+      <span style="color:var(--muted2)">AVANCE</span>
+      <div>
+        <span style="font-weight:800;color:${col}">${pct}%</span>
+        <div style="height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:2px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:2px"></div>
+        </div>
+      </div>
+      ${c.cota?`<span style="color:var(--muted2)">COTA</span><span style="font-weight:700">${c.cota} msnm</span>`:''}
+      ${volEjec?`<span style="color:var(--muted2)">VOL. EJEC.</span><span style="font-weight:700">${volEjec}</span>`:''}
+      ${c.volM3&&!volEjec?`<span style="color:var(--muted2)">VOLUMEN</span><span>${(+c.volM3).toLocaleString('es-PE',{maximumFractionDigits:0})} m³</span>`:''}
+      ${c.areaM2?`<span style="color:var(--muted2)">ÁREA</span><span>${(+c.areaM2).toLocaleString('es-PE',{maximumFractionDigits:0})} m²</span>`:''}
+      ${c.fechaIni?`<span style="color:var(--muted2)">INICIO</span><span>${c.fechaIni}</span>`:''}
+      ${wbs?`<span style="color:var(--muted2)">WBS</span><span style="font-size:.63rem">${wbs.codigo||''}</span>`:''}
+      ${c.notas?`<span style="color:var(--muted2)">NOTAS</span><span style="font-size:.63rem">${c.notas}</span>`:''}
+    </div>
+    <button onclick="document.getElementById('recPopupWrap').style.display='none';_recEditCapa(${c.id})" style="margin-top:.6rem;width:100%;background:${dq.color}22;border:1px solid ${dq.color}40;border-radius:6px;color:${dq.color};cursor:pointer;padding:.3rem;font-size:.67rem;font-weight:700">✎ Editar capa</button>`;
+
+  // Posicionar cerca del polígono
+  const canvas=document.getElementById('recCanvas');
+  const svg=document.getElementById('recSvg');
+  let left=300, top=200;
+  if(canvas&&svg){
+    const r=canvas.getBoundingClientRect();
+    left=r.left+(svgCx/svg.clientWidth)*r.width+12;
+    top=r.top+(svgCy/svg.clientHeight)*r.height-70;
+  }
+  left=Math.max(10,Math.min(window.innerWidth-275,left));
+  top=Math.max(10,Math.min(window.innerHeight-320,top));
+  popup.style.left=left+'px';
+  popup.style.top=top+'px';
+  wrap.style.display='block';
+}
+
+// ══ CRUD ══════════════════════════════════════════════════════════════════════
+
+function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;rRecrecimiento();}
 function _recSetVista(v){_recVista=v;rRecrecimiento();}
 
 function _recAddCapa(dique){
@@ -215,8 +589,7 @@ function _recAddCapa(dique){
 }
 
 function _recEditCapa(id){
-  const c=(DB.capas||[]).find(x=>x.id==id);
-  if(!c)return;
+  const c=(DB.capas||[]).find(x=>x.id==id);if(!c)return;
   document.getElementById('rcId').value=c.id;
   document.getElementById('rcDique').value=c.dique||_recDique;
   document.getElementById('rcNombre').value=c.nombre||'';
@@ -254,7 +627,9 @@ async function _recSaveCapa(){
 
   const idx=(DB.capas||[]).findIndex(x=>x.id==rec.id);
   const camelRec=toCamel(rec);
-  if(idx>=0)DB.capas[idx]=camelRec;else(DB.capas=DB.capas||[]).push(camelRec);
+  // Preservar puntos existentes al actualizar
+  if(idx>=0){camelRec.puntos=DB.capas[idx].puntos||[];DB.capas[idx]=camelRec;}
+  else{(DB.capas=DB.capas||[]).push(camelRec);}
 
   document.getElementById('mRecCapa').style.display='none';
   rRecrecimiento();
@@ -266,66 +641,11 @@ async function _recDelCapa(){
   const{error}=await supa.from('capas').delete().eq('id',id);
   if(error){alert('Error: '+error.message);return;}
   DB.capas=(DB.capas||[]).filter(x=>x.id!==id);
+  if(_recSelCapaId===id)_recSelCapaId=null;
   document.getElementById('mRecCapa').style.display='none';
   rRecrecimiento();
 }
 
-// ── SVG OVERLAY ──────────────────────────────────────────────────────────────
-function _recGetCotaMin(capas){
-  if(!capas||!capas.length)return 4386;
-  return Math.min(...capas.map(c=>+c.cota||0))-0.75;
-}
-function _recGetCotaMax(capas){
-  if(!capas||!capas.length)return 4416;
-  return Math.max(...capas.map(c=>+c.cota||0));
-}
-
-function _recDrawOverlay(){
-  const svg=document.getElementById('recSvgOverlay');
-  const img=document.getElementById('recSecImg');
-  if(!svg||!img)return;
-
-  const cotaMin=+document.getElementById('recCotaMin')?.value||_recGetCotaMin((DB.capas||[]).filter(c=>c.dique===_recDique));
-  const cotaMax=+document.getElementById('recCotaMax')?.value||_recGetCotaMax((DB.capas||[]).filter(c=>c.dique===_recDique));
-  const range=cotaMax-cotaMin;
-  if(range<=0)return;
-
-  const capas=(DB.capas||[]).filter(c=>c.dique===_recDique).sort((a,b)=>+a.cota-+b.cota);
-
-  const wrap=svg.parentElement;
-  const W=wrap.clientWidth||800;
-  const H=wrap.clientHeight||500;
-
-  // Área real de la imagen dentro del contenedor (object-fit:contain)
-  const natW=img.naturalWidth||1;const natH=img.naturalHeight||1;
-  const imgRatio=natW/natH;const wrapRatio=W/H;
-  let imgW,imgH,imgX,imgY;
-  if(imgRatio>wrapRatio){imgW=W;imgH=W/imgRatio;imgX=0;imgY=(H-imgH)/2;}
-  else{imgH=H;imgW=H*imgRatio;imgX=(W-imgW)/2;imgY=0;}
-
-  svg.innerHTML=capas.map(c=>{
-    const pct=+c.pctAvance||0;
-    if(pct<=0)return'';
-    const col=pct>=100?'#10b981':'#f59e0b';
-
-    // Y: cota alta = arriba en imagen
-    const yTopPct=(cotaMax-(+c.cota))/(range);
-    const yBotPct=(cotaMax-((+c.cota)-0.75))/(range);
-    const yTop=imgY+yTopPct*imgH;
-    const yBot=imgY+yBotPct*imgH;
-    const bandH=Math.max(yBot-yTop,1.5);
-    // Ancho proporcional al % completado
-    const bandW=imgW*(pct/100);
-
-    const label=pct>=100?'✓ '+c.nombre:c.nombre+' '+pct+'%';
-    const fs=Math.min(Math.max(bandH*0.65,7),11);
-    return`<rect x="${imgX}" y="${yTop.toFixed(1)}" width="${bandW.toFixed(1)}" height="${bandH.toFixed(1)}" fill="${col}" rx="1">
-      <title>${c.nombre} · ${c.cota}m · ${pct}%</title></rect>
-    <text x="${(imgX+3).toFixed(1)}" y="${(yTop+bandH*0.75).toFixed(1)}" font-size="${fs}" fill="#000" font-weight="700" style="pointer-events:none">${label}</text>`;
-  }).join('');
-}
-
-// Actualizar % desde la lista directamente (doble clic en barra)
 async function _recQuickPct(id,val){
   val=Math.min(100,Math.max(0,+val||0));
   const{error}=await supa.from('capas').update({pct_avance:val}).eq('id',id);
