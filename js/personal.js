@@ -493,19 +493,40 @@ async function procesarQR(texto){
   document.getElementById('qr-reader').style.display='none';
   _scannerCooldown=false;
   const _h=new Date().getHours();
-  const _autoTipo=(_h>=5&&_h<17)?'TD':'TN';
-  _scanWorker=p;_scanTipoSel=_autoTipo;
+  const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
+  _scanWorker=p;
   const fecha=document.getElementById('asiDate')?.value||today();
   await loadAsistenciaFecha(fecha);
+
+  // ── Detectar primeros 4 días del mes → A5 ──────────────────────────────
+  const [fY,fM]=fecha.split('-').map(Number);
+  const mesPrefix=`${fY}-${String(fM).padStart(2,'0')}`;
+  const presenciasMes=(DB.tareaje||[]).filter(r=>
+    r.personalId===p.id &&
+    r.fecha&&r.fecha.startsWith(mesPrefix) &&
+    ['TD','TN','DLT','A5'].includes(r.tipo) &&
+    r.fecha!==fecha  // no contar el día actual si ya existe
+  );
+  const diasMes=new Set(presenciasMes.map(r=>r.fecha)).size;
+  const esA5=diasMes<4;
+  const _autoTipo=esA5?'A5':_turnoTipo;
+  _scanTipoSel=_autoTipo;
+  // ────────────────────────────────────────────────────────────────────────
+
   const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
   const proy=p.proy?(DB.proyectos.find(x=>x.codigo===p.proy)||null):null;
   document.getElementById('swNombre').textContent=`${p.ape}, ${p.nom}`;
   document.getElementById('swCargo').textContent=p.cargo||'—';
   document.getElementById('swDni').textContent='DNI '+p.dni;
   document.getElementById('swProy').textContent=proy?`[${proy.codigo}] ${proy.nombre}`:(p.proy||'Sin proyecto');
-  document.getElementById('swTipos').innerHTML=['TD','TN'].map(k=>{
+
+  // Botones: siempre TD y TN; agregar A5 si aplica (con indicador)
+  const tiposBtn=esA5?['A5','TD','TN']:['TD','TN'];
+  document.getElementById('swTipos').innerHTML=tiposBtn.map(k=>{
     const v=_TARE_T[k];
-    return`<button id="swT-${k}" onclick="_swSelTipo('${k}')" style="background:${k===_autoTipo?v.bg:'var(--panel2)'};color:${k===_autoTipo?v.tx:'var(--text)'};border:2px solid ${v.bg};border-radius:5px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer">${k} – ${v.l}</button>`;
+    const sel=k===_autoTipo;
+    const nota=k==='A5'?` <span style="font-size:.6rem;opacity:.85">(día ${diasMes+1}/4)</span>`:'';
+    return`<button id="swT-${k}" onclick="_swSelTipo('${k}')" style="background:${sel?v.bg:'var(--panel2)'};color:${sel?v.tx:'var(--text)'};border:2px solid ${v.bg};border-radius:5px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer">${k} – ${v.l}${nota}</button>`;
   }).join('');
   const asiRec=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
   const est=document.getElementById('swEstado');
@@ -527,7 +548,7 @@ async function procesarQR(texto){
 }
 function _swSelTipo(k){
   _scanTipoSel=k;
-  ['TD','TN'].forEach(t=>{
+  ['TD','TN','A5'].forEach(t=>{
     const b=document.getElementById('swT-'+t);if(!b)return;
     const v=_TARE_T[t];
     b.style.background=t===k?v.bg:'var(--panel2)';
