@@ -2,9 +2,10 @@
 let _recDique='DA', _recVista='seccion';
 
 const _REC_DIQUES=[
-  {key:'DA',label:'Dique Auxiliar',  color:'#06b6d4'},
-  {key:'DP',label:'Dique Principal', color:'#10b981'},
-  {key:'DI',label:'Dique Intermedio',color:'#f59e0b'},
+  {key:'DA',label:'Dique Auxiliar',       color:'#06b6d4'},
+  {key:'CA',label:'Contrafuerte DA',      color:'#8b5cf6'},
+  {key:'DP',label:'Dique Principal',      color:'#10b981'},
+  {key:'DI',label:'Dique Intermedio',     color:'#f59e0b'},
 ];
 
 function _recImgBase(){
@@ -124,6 +125,10 @@ function rRecrecimiento(){
           <input id="rcFechaIni" type="date" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
         <div><label style="font-size:.65rem;color:var(--muted2)">Fecha fin plan.</label>
           <input id="rcFechaFin" type="date" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
+        <div><label style="font-size:.65rem;color:var(--muted2)">Volumen m³</label>
+          <input id="rcVolM3" type="number" step="0.001" placeholder="0.000" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
+        <div><label style="font-size:.65rem;color:var(--muted2)">Área m²</label>
+          <input id="rcAreaM2" type="number" step="0.001" placeholder="0.000" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
       </div>
       <div style="margin-bottom:.5rem"><label style="font-size:.65rem;color:var(--muted2)">Actividad WBS vinculada (opcional)</label>
         <select id="rcWbs" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem">
@@ -144,23 +149,25 @@ function rRecrecimiento(){
 function _recCapaRow(c,dq){
   const pct=+c.pctAvance||0;
   const col=pct>=100?'#10b981':pct>0?'#f59e0b':'#6b7280';
-  const est=pct>=100?'✅ Completado':pct>0?'🔄 En progreso':'⏳ Pendiente';
-  // Vínculo WBS
-  const wbs=c.wbsId?(DB.lpsWbs||[]).find(w=>w.id==c.wbsId):null;
-  const wbsPct=wbs&&wbs.avance!=null?`<span style="font-size:.55rem;color:#06b6d4;margin-left:.3rem">WBS ${wbs.avance||0}%</span>`:'';
+  const est=pct>=100?'✅':pct>0?'🔄':'⏳';
+  const vol=c.volM3?`${(+c.volM3).toLocaleString('es-PE',{maximumFractionDigits:0})} m³`:'';
+  const volColocado=c.volM3&&pct>0?`${Math.round(+c.volM3*pct/100).toLocaleString('es-PE')}/${Math.round(+c.volM3).toLocaleString('es-PE')} m³`:'';
   return`<div style="padding:.3rem .45rem;background:var(--panel);border:1px solid ${col}30;border-radius:6px;cursor:pointer" onclick="_recEditCapa(${c.id})">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
-      <span style="font-size:.7rem;font-weight:700;color:${col}">${c.nombre||'—'}</span>
       <div style="display:flex;align-items:center;gap:.3rem">
-        <span style="font-size:.58rem;color:var(--muted2)">${c.cota?c.cota+' m':''}</span>
-        <span style="font-size:.62rem;font-weight:700;color:${col}">${pct}%</span>
-        ${wbsPct}
+        <span style="font-size:.62rem">${est}</span>
+        <span style="font-size:.7rem;font-weight:700;color:${col}">${c.nombre||'—'}</span>
+        <span style="font-size:.55rem;color:var(--muted2)">${c.cota?c.cota+' m':''}</span>
       </div>
+      <span style="font-size:.65rem;font-weight:700;color:${col}">${pct}%</span>
     </div>
-    <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
+    <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:.15rem">
       <div style="height:100%;width:${pct}%;background:${col};border-radius:2px;transition:width .3s"></div>
     </div>
-    <div style="font-size:.55rem;color:var(--muted2);margin-top:.15rem">${est}</div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:.55rem;color:var(--muted2)">${volColocado||vol}</span>
+      <span style="font-size:.55rem;color:var(--muted2)">${c.areaM2?(+c.areaM2).toLocaleString('es-PE',{maximumFractionDigits:0})+' m²':''}</span>
+    </div>
   </div>`;
 }
 
@@ -175,6 +182,8 @@ function _recAddCapa(dique){
   document.getElementById('rcPct').value='0';
   document.getElementById('rcFechaIni').value='';
   document.getElementById('rcFechaFin').value='';
+  document.getElementById('rcVolM3').value='';
+  document.getElementById('rcAreaM2').value='';
   document.getElementById('rcWbs').value='';
   document.getElementById('rcNotas').value='';
   document.getElementById('rcBtnDel').style.display='none';
@@ -191,6 +200,8 @@ function _recEditCapa(id){
   document.getElementById('rcPct').value=c.pctAvance||0;
   document.getElementById('rcFechaIni').value=c.fechaIni||'';
   document.getElementById('rcFechaFin').value=c.fechaFin||'';
+  document.getElementById('rcVolM3').value=c.volM3||'';
+  document.getElementById('rcAreaM2').value=c.areaM2||'';
   document.getElementById('rcWbs').value=c.wbsId||'';
   document.getElementById('rcNotas').value=c.notas||'';
   document.getElementById('rcBtnDel').style.display='';
@@ -206,6 +217,8 @@ async function _recSaveCapa(){
     pct_avance:+document.getElementById('rcPct').value||0,
     fecha_ini:document.getElementById('rcFechaIni').value||null,
     fecha_fin:document.getElementById('rcFechaFin').value||null,
+    vol_m3:+document.getElementById('rcVolM3').value||null,
+    area_m2:+document.getElementById('rcAreaM2').value||null,
     wbs_id:document.getElementById('rcWbs').value||null,
     notas:document.getElementById('rcNotas').value.trim()||null,
   };
