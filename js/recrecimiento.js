@@ -104,7 +104,12 @@ function rRecrecimiento(){
             ${_recDibujando?`<button onclick="_recCancelarDraw()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.1);color:#ef4444;font-size:.62rem;font-weight:700;cursor:pointer">✗</button>`:''}
             ${!_recDibujando&&selCapa&&(selCapa.puntos||[]).length>=3?`<button onclick="_recBorrarPuntos()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.08);color:#ef4444;font-size:.62rem;cursor:pointer" title="Borrar área">🗑</button>`:''}
           </div>
-          ${_recDibujando?`<div style="font-size:.57rem;color:#f59e0b;margin-top:.3rem">Clic = vértice · Doble clic = cerrar · Clic der. = cancelar</div>`:`<div style="font-size:.57rem;color:var(--muted2);margin-top:.25rem">Haz clic en una capa y presiona ✏️ Dibujar</div>`}
+          ${_recDibujando
+            ?`<div style="font-size:.57rem;color:#f59e0b;margin-top:.3rem">Clic = vértice · Doble clic = cerrar · Clic der. = cancelar</div>`
+            :`<div style="display:flex;align-items:center;gap:.3rem;margin-top:.3rem">
+                <div style="font-size:.57rem;color:var(--muted2);flex:1">Haz clic en una capa y presiona ✏️ Dibujar</div>
+                <button onclick="_recAbrirDXF()" title="Importar polígonos desde archivo DXF" style="padding:.2rem .4rem;border-radius:5px;border:1px solid #8b5cf640;background:rgba(139,92,246,.1);color:#8b5cf6;font-size:.6rem;cursor:pointer;white-space:nowrap">📐 DXF</button>
+              </div>`}
         </div>`:''}
 
         <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.18rem" id="recCapaList">
@@ -125,7 +130,7 @@ function rRecrecimiento(){
               onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
               style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false"
               alt="${dq.label}" onload="_recFitView()">
-            <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:${_recDibujando?'all':'none'}" xmlns="http://www.w3.org/2000/svg"></svg>
             <div id="recCursor" style="display:none;position:absolute;width:10px;height:10px;background:#f59e0b;border:2px solid #fff;border-radius:2px;pointer-events:none;z-index:5"></div>
           </div>
           <!-- Controles zoom -->
@@ -215,7 +220,14 @@ function rRecrecimiento(){
   document.addEventListener('mouseup',_recGlobalMouseup);
   requestAnimationFrame(()=>{
     _recFitView();
-    setTimeout(_recRenderCapasSvg,150);
+    setTimeout(()=>{
+      _recRenderCapasSvg();
+      if(_recDibujando){
+        const canvas=document.getElementById('recCanvas');
+        if(canvas)canvas.style.cursor='crosshair';
+        _recTempRender();
+      }
+    },150);
   });
 }
 
@@ -335,24 +347,14 @@ function _recToggleDraw(){
     _recDibujando=true;
     const c=(DB.capas||[]).find(x=>x.id===_recSelCapaId);
     _recAreaPuntos=(c&&c.puntos)?[...c.puntos]:[];
-    const canvas=document.getElementById('recCanvas');if(canvas)canvas.style.cursor='crosshair';
-    const svg=document.getElementById('recSvg');if(svg)svg.style.pointerEvents='all';
-    _recTempRender();
-    rRecrecimiento();
+    rRecrecimiento(); // SVG se recrea con pointer-events:all (estado _recDibujando=true)
   }
 }
 
 function _recCancelarDraw(reset=true){
   _recDibujando=false;
   if(reset)_recAreaPuntos=[];
-  const canvas=document.getElementById('recCanvas');if(canvas)canvas.style.cursor='grab';
-  const svg=document.getElementById('recSvg');
-  if(svg){
-    svg.querySelectorAll('.rec-temp').forEach(el=>el.remove());
-    const p=svg.querySelector('#recAreaPreview');if(p)p.remove();
-    svg.style.pointerEvents='none';
-  }
-  rRecrecimiento();
+  rRecrecimiento(); // SVG se recrea con pointer-events:none
 }
 
 async function _recGuardarPuntos(){
@@ -651,4 +653,231 @@ async function _recQuickPct(id,val){
   const{error}=await supa.from('capas').update({pct_avance:val}).eq('id',id);
   if(!error){const c=(DB.capas||[]).find(x=>x.id==id);if(c)c.pctAvance=val;}
   rRecrecimiento();
+}
+
+// ══ IMPORTAR DXF ══════════════════════════════════════════════════════════════
+
+let _recDxfEntities=[], _recDxfSelIdx=null, _recDxfBB=null;
+
+function _recAbrirDXF(){
+  // Inyectar input file invisible y activarlo
+  let inp=document.getElementById('_recDxfInput');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.id='_recDxfInput';inp.type='file';inp.accept='.dxf';inp.style.display='none';
+    inp.addEventListener('change',_recDxfOnFile);
+    document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.click();
+}
+
+function _recDxfOnFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      _recDxfEntities=_parseDXF(ev.target.result);
+      _recDxfSelIdx=null;
+      _recMostrarModalDXF();
+    }catch(err){toast('Error leyendo DXF: '+err.message,true);}
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function _parseDXF(text){
+  const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim());
+  const entities=[];
+  let i=0;
+  while(i<lines.length-1){
+    const code=lines[i], val=lines[i+1];
+    if(code==='0'&&val==='LWPOLYLINE'){
+      const pts=[],ent={type:'LWPOLYLINE',layer:'0',closed:false,pts};
+      i+=2;
+      while(i<lines.length-1&&!(lines[i]==='0')){
+        const c=lines[i],v=lines[i+1];
+        if(c==='8')ent.layer=v;
+        if(c==='70')ent.closed=(+v&1)===1;
+        if(c==='10')pts.push({x:parseFloat(v),y:0});
+        if(c==='20'&&pts.length)pts[pts.length-1].y=parseFloat(v);
+        i+=2;
+      }
+      if(pts.length>=3)entities.push(ent);
+    } else if(code==='0'&&val==='POLYLINE'){
+      const pts=[],ent={type:'POLYLINE',layer:'0',closed:false,pts};
+      i+=2;
+      while(i<lines.length-1){
+        if(lines[i]==='0'&&lines[i+1]==='VERTEX'){
+          let vx=0,vy=0;i+=2;
+          while(i<lines.length-1&&!(lines[i]==='0')){
+            if(lines[i]==='10')vx=parseFloat(lines[i+1]);
+            if(lines[i]==='20')vy=parseFloat(lines[i+1]);
+            i+=2;
+          }
+          pts.push({x:vx,y:vy});
+        } else if(lines[i]==='0'&&lines[i+1]==='SEQEND'){i+=2;break;}
+        else i+=2;
+      }
+      if(pts.length>=3)entities.push(ent);
+    } else {i+=2;}
+  }
+  return entities;
+}
+
+function _recDxfBBox(ents){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  ents.forEach(e=>e.pts.forEach(p=>{
+    if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;
+    if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;
+  }));
+  return{minX,minY,maxX,maxY,w:maxX-minX,h:maxY-minY};
+}
+
+function _recMostrarModalDXF(){
+  const dq=_REC_DIQUES.find(d=>d.key===_recDique)||_REC_DIQUES[0];
+  const capas=(DB.capas||[]).filter(c=>c.dique===_recDique).sort((a,b)=>b.cota-a.cota);
+  _recDxfBB=_recDxfBBox(_recDxfEntities);
+  const n=_recDxfEntities.length;
+
+  // Crear o reusar modal
+  let modal=document.getElementById('mRecDXF');
+  if(!modal){modal=document.createElement('div');modal.id='mRecDXF';document.body.appendChild(modal);}
+  modal.style.cssText='display:flex;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center';
+
+  modal.innerHTML=`
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;width:780px;max-width:96vw;max-height:94vh;display:flex;flex-direction:column;gap:.6rem">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:800;font-size:.9rem;color:#8b5cf6">📐 Importar desde DXF · ${n} polilíneas encontradas</div>
+        <button onclick="document.getElementById('mRecDXF').style.display='none'" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1.1rem">✕</button>
+      </div>
+
+      <div style="font-size:.63rem;color:var(--muted2)">
+        Rango DXF: X [${_recDxfBB.minX.toFixed(0)} – ${_recDxfBB.maxX.toFixed(0)}] · Y [${_recDxfBB.minY.toFixed(0)} – ${_recDxfBB.maxY.toFixed(0)}]
+        · Haz clic en una polilínea del plano para seleccionarla
+      </div>
+
+      <!-- Canvas DXF -->
+      <div style="flex:1;min-height:0;position:relative;background:#0d1117;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <canvas id="recDxfCanvas" style="display:block;width:100%;height:100%"></canvas>
+        <div style="position:absolute;top:.3rem;left:.3rem;font-size:.58rem;color:#4ade80;opacity:.6">${_recDxfSelIdx!==null?`Seleccionada: polilínea #${_recDxfSelIdx+1} (${_recDxfEntities[_recDxfSelIdx].pts.length} vértices)`:'Ninguna seleccionada'}</div>
+      </div>
+
+      <!-- Controles de asignación -->
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+        <label style="font-size:.65rem;color:var(--muted2)">Asignar a capa:</label>
+        <select id="recDxfCapaSel" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.72rem;flex:1">
+          <option value="">— Seleccionar capa —</option>
+          ${capas.map(c=>`<option value="${c.id}" ${_recSelCapaId===c.id?'selected':''}>${c.nombre||'—'} · ${c.cota||''}m</option>`).join('')}
+        </select>
+        <button onclick="_recDxfAsignar()" style="padding:.3rem .9rem;border-radius:6px;background:#8b5cf6;border:none;color:#fff;font-weight:700;font-size:.72rem;cursor:pointer">✅ Asignar</button>
+        <button onclick="document.getElementById('mRecDXF').style.display='none'" style="padding:.3rem .7rem;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--muted2);font-size:.72rem;cursor:pointer">Cancelar</button>
+      </div>
+    </div>`;
+
+  // Dibujar canvas después de insertar en DOM
+  requestAnimationFrame(_recDxfDrawCanvas);
+  const canvas=document.getElementById('recDxfCanvas');
+  if(canvas)canvas.addEventListener('click',_recDxfCanvasClick);
+}
+
+function _recDxfDrawCanvas(){
+  const canvas=document.getElementById('recDxfCanvas');if(!canvas)return;
+  const wrap=canvas.parentElement;
+  canvas.width=wrap.clientWidth;canvas.height=wrap.clientHeight;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+
+  const bb=_recDxfBB;if(!bb||!bb.w||!bb.h)return;
+  const pad=30;
+  const scaleX=(W-pad*2)/bb.w;
+  const scaleY=(H-pad*2)/bb.h;
+  const scale=Math.min(scaleX,scaleY);
+  const offX=pad+(W-pad*2-bb.w*scale)/2;
+  const offY=pad+(H-pad*2-bb.h*scale)/2;
+
+  function toScreen(p){return{sx:offX+(p.x-bb.minX)*scale, sy:offY+(bb.maxY-p.y)*scale};}
+
+  _recDxfEntities.forEach((ent,idx)=>{
+    const sel=idx===_recDxfSelIdx;
+    ctx.beginPath();
+    ent.pts.forEach((p,j)=>{const s=toScreen(p);j===0?ctx.moveTo(s.sx,s.sy):ctx.lineTo(s.sx,s.sy);});
+    if(ent.closed)ctx.closePath();
+    ctx.strokeStyle=sel?'#f59e0b':'#4ade80';
+    ctx.lineWidth=sel?2.5:1;
+    ctx.stroke();
+    if(sel){
+      ctx.fillStyle='rgba(245,158,11,.15)';ctx.fill();
+      // Nro de vértices en centroide
+      const cx=ent.pts.reduce((s,p)=>s+p.x,0)/ent.pts.length;
+      const cy=ent.pts.reduce((s,p)=>s+p.y,0)/ent.pts.length;
+      const sc=toScreen({x:cx,y:cy});
+      ctx.fillStyle='#f59e0b';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+      ctx.fillText(`${ent.pts.length} pts`,sc.sx,sc.sy);
+    }
+  });
+}
+
+function _recDxfCanvasClick(e){
+  const canvas=document.getElementById('recDxfCanvas');if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(canvas.width/r.width);
+  const my=(e.clientY-r.top)*(canvas.height/r.height);
+
+  const bb=_recDxfBB;
+  const W=canvas.width,H=canvas.height;
+  const pad=30;
+  const scaleX=(W-pad*2)/bb.w, scaleY=(H-pad*2)/bb.h;
+  const scale=Math.min(scaleX,scaleY);
+  const offX=pad+(W-pad*2-bb.w*scale)/2;
+  const offY=pad+(H-pad*2-bb.h*scale)/2;
+  function toScreen(p){return{sx:offX+(p.x-bb.minX)*scale, sy:offY+(bb.maxY-p.y)*scale};}
+
+  // Encontrar entidad más cercana al click
+  let best=-1,bestDist=Infinity;
+  _recDxfEntities.forEach((ent,idx)=>{
+    for(let i=0;i<ent.pts.length-1;i++){
+      const a=toScreen(ent.pts[i]),b=toScreen(ent.pts[i+1]);
+      // Distancia punto a segmento
+      const dx=b.sx-a.sx,dy=b.sy-a.sy;
+      const t=Math.max(0,Math.min(1,((mx-a.sx)*dx+(my-a.sy)*dy)/(dx*dx+dy*dy)||0));
+      const d=Math.hypot(mx-a.sx-t*dx,my-a.sy-t*dy);
+      if(d<bestDist){bestDist=d;best=idx;}
+    }
+  });
+  if(best>=0&&bestDist<20){
+    _recDxfSelIdx=best;
+    _recDxfDrawCanvas();
+    // Actualizar texto de selección
+    const lbl=document.querySelector('#mRecDXF .rec-dxf-sel');
+    const info=document.querySelector('#mRecDXF canvas+div');
+    if(info)info.textContent=`Seleccionada: polilínea #${best+1} (${_recDxfEntities[best].pts.length} vértices) · capa: ${_recDxfEntities[best].layer}`;
+  }
+}
+
+async function _recDxfAsignar(){
+  if(_recDxfSelIdx===null){toast('Selecciona primero una polilínea en el plano',true);return;}
+  const capaId=+document.getElementById('recDxfCapaSel').value;
+  if(!capaId){toast('Selecciona a qué capa asignar',true);return;}
+
+  const ent=_recDxfEntities[_recDxfSelIdx];
+  const bb=_recDxfBB;
+
+  // Convertir puntos DXF a porcentajes de imagen (Y invertido)
+  const pts=ent.pts.map(p=>({
+    x:parseFloat(((p.x-bb.minX)/bb.w*100).toFixed(2)),
+    y:parseFloat(((1-(p.y-bb.minY)/bb.h)*100).toFixed(2))
+  }));
+
+  const{error}=await supa.from('capas').update({puntos:pts}).eq('id',capaId);
+  if(error){toast('Error al guardar: '+error.message,true);return;}
+  const c=(DB.capas||[]).find(x=>x.id===capaId);
+  if(c)c.puntos=pts;
+
+  const nombre=c?c.nombre:'capa';
+  toast(`✓ Polilínea asignada a "${nombre}" (${pts.length} vértices)`);
+  document.getElementById('mRecDXF').style.display='none';
+  _recSelCapaId=capaId;
+  rRecrecimiento();
+  setTimeout(_recRenderCapasSvg,200);
 }
