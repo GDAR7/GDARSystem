@@ -201,23 +201,20 @@ function verComb(id){
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Arial',sans-serif;background:#fff;color:#0a1330;font-size:11pt;padding:1.5cm;}
-  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:.7rem;margin-bottom:1rem;}
-  .logo-area{display:flex;align-items:center;gap:.7rem;}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1e3a5f;padding-bottom:.7rem;margin-bottom:1rem;}
   .logo-area img{height:55px;object-fit:contain;}
-  .brand{font-size:1.1rem;font-weight:900;color:#0a1330;letter-spacing:.08em;}
-  .brand-sub{font-size:.62rem;color:#555;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;}
   .doc-title{text-align:right;}
-  .doc-title h2{font-size:1.2rem;font-weight:900;color:#f97316;text-transform:uppercase;letter-spacing:.06em;}
+  .doc-title h2{font-size:1.2rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:.06em;}
   .doc-title .fmt{font-size:.85rem;font-family:monospace;color:#333;margin-top:3px;}
   .estado-badge{display:inline-block;background:#10b98122;color:#10b981;border:1px solid #10b981;border-radius:4px;padding:2px 10px;font-size:.75rem;font-weight:700;letter-spacing:.08em;margin-top:4px;}
-  .section-title{font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:#f97316;font-weight:700;margin:1rem 0 .4rem;border-bottom:1px solid #f9731622;padding-bottom:3px;}
+  .section-title{font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:#1e3a5f;font-weight:700;margin:1rem 0 .4rem;border-bottom:1px solid #1e3a5f22;padding-bottom:3px;}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem .8rem;margin-bottom:.5rem;}
   .grid2{grid-template-columns:repeat(2,1fr);}
   .field label{font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:#666;display:block;margin-bottom:2px;}
   .field span{font-size:.88rem;font-weight:600;color:#0a1330;}
   .field span.mono{font-family:monospace;}
   table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.4rem;}
-  th{background:#f97316;color:#fff;padding:.3rem .6rem;text-align:left;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;}
+  th{background:#1e3a5f;color:#fff;padding:.3rem .6rem;text-align:left;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;}
   td{padding:.3rem .6rem;border-bottom:1px solid #e5e7eb;}
   tr:last-child td{border-bottom:none;}
   .footer{margin-top:2rem;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
@@ -225,13 +222,7 @@ function verComb(id){
   @media print{body{padding:.8cm;}@page{size:A4;margin:1.2cm;}}
 </style></head><body>
 <div class="header">
-  <div class="logo-area">
-    <img src="${_logoUrlV}" alt="Ecosermo">
-    <div>
-      <div class="brand">ECOSERMO S.A.C.</div>
-      <div class="brand-sub">Sistema de Gestión Operativa · Oyón / Uchuchacua</div>
-    </div>
-  </div>
+  <div class="logo-area"><img src="${_logoUrlV}" alt="Ecosermo"></div>
   <div class="doc-title">
     <h2>Despacho de Combustible</h2>
     <div class="fmt">N° Formato: ${mu(r.numFormato)}</div>
@@ -326,33 +317,25 @@ function _combExportPDF(){
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:Arial,sans-serif;background:#fff;color:#0a1330;font-size:9.5pt;padding:1.2cm;}
-  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:.7rem;margin-bottom:.8rem;}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1e3a5f;padding-bottom:.7rem;margin-bottom:.8rem;}
   .header-logo{flex:0 0 auto}.header-logo img{height:52px;object-fit:contain}
-  .brand{font-size:1rem;font-weight:900;color:#0a1330;line-height:1.2;}
-  .brand-sub{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-top:3px;}
   .doc-title{text-align:right;}
-  .doc-title h2{font-size:1.15rem;font-weight:900;color:#f97316;text-transform:uppercase;letter-spacing:.06em;}
+  .doc-title h2{font-size:1.15rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:.06em;}
   .doc-title p{font-size:.7rem;color:#555;margin-top:4px;}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.8rem;}
   .kpi{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px;padding:.4rem .7rem;text-align:center;}
   .kpi-l{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.08em;}
   .kpi-v{font-size:1rem;font-weight:800;margin-top:2px;}
   table{width:100%;border-collapse:collapse;font-size:.76rem;}
-  th{background:#f97316;color:#fff;padding:.28rem .45rem;text-align:left;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;}
+  th{background:#1e3a5f;color:#fff;padding:.28rem .45rem;text-align:left;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;}
   td{padding:.25rem .45rem;border-bottom:1px solid #f1f1f1;vertical-align:middle;}
-  tr:nth-child(even) td{background:#fafafa;}
+  tr:nth-child(even) td{background:#f6f8fb;}
   .footer{margin-top:1.5rem;font-size:.65rem;color:#aaa;text-align:center;border-top:1px solid #e5e7eb;padding-top:.5rem;}
-  .totales td{font-weight:800;background:#fff7ed;border-top:2px solid #f97316;}
+  .totales td{font-weight:800;background:#eef2f8;border-top:2px solid #1e3a5f;}
   @media print{body{padding:.7cm;}@page{size:A4 landscape;margin:.8cm;}}
 </style></head><body>
 <div class="header">
-  <div style="display:flex;align-items:center;gap:.8rem">
-    <div class="header-logo"><img src="${_logoUrl}" alt="Ecosermo"></div>
-    <div>
-      <div class="brand">ECOSERMO S.A.C.</div>
-      <div class="brand-sub">Transporte, Minería, Construcción e Ingeniería</div>
-    </div>
-  </div>
+  <div class="header-logo"><img src="${_logoUrl}" alt="Ecosermo"></div>
   <div class="doc-title">
     <h2>Kardex de Combustible</h2>
     <p>${filtVal?`Pedido / Atendido: <strong>${filtVal}</strong> · `:''}Emitido: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
