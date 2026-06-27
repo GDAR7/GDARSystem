@@ -1825,31 +1825,59 @@ function _isoPlanDibujoDelete(id){
 }
 
 // ── WBS Popup (asignación de actividad a equipo en mapa ISO) ─────────────────
+let _isoWbsVerTodas=false;
+
+function _isoWbsSemana(fecha){
+  const d=new Date(fecha+'T12:00:00');
+  const day=d.getDay();
+  d.setDate(d.getDate()-day+(day===0?-6:1));
+  return d.toISOString().split('T')[0];
+}
+
+function _isoWbsParaFecha(fecha){
+  if(!fecha)return null;
+  const semana=_isoWbsSemana(fecha);
+  const planeados=(DB.lpsPlanSemanal||[]).filter(p=>p.semanaInicio===semana);
+  if(!planeados.length)return [];
+  const ids=new Set(planeados.map(p=>p.wbsId));
+  return (DB.lpsWbs||[]).filter(w=>ids.has(w.id)&&+(w.pctAvance||w.pct||0)<100);
+}
+
 function _isoShowWbsPopup(itemId,cx,cy){
   const old=document.getElementById('isoWbsPopup');if(old)old.remove();
   const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
   if(!item)return;
+  _isoWbsVerTodas=false;
+  const wbsFecha=_isoWbsParaFecha(_isoFecha);
   const wbsAll=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
+  const hayFiltroFecha=Array.isArray(wbsFecha);
+  const listaActiva=hayFiltroFecha?wbsFecha:wbsAll;
+  const semana=_isoFecha?_isoWbsSemana(_isoFecha):'';
   const popup=document.createElement('div');
   popup.id='isoWbsPopup';
-  const left=Math.min(cx+10,window.innerWidth-260);
-  const top=Math.min(cy-10,window.innerHeight-340);
-  popup.style.cssText=`position:fixed;left:${left}px;top:${top}px;width:250px;max-height:320px;background:#1a2030;border:1px solid #334155;border-radius:10px;padding:.65rem;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:.3rem`;
+  const left=Math.min(cx+10,window.innerWidth-265);
+  const top=Math.min(cy-10,window.innerHeight-360);
+  popup.style.cssText=`position:fixed;left:${left}px;top:${top}px;width:255px;max-height:350px;background:#1a2030;border:1px solid #334155;border-radius:10px;padding:.65rem;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:.3rem`;
   const wbsActual=(DB.lpsWbs||[]).find(w=>w.id===item.wbsId);
   popup.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:.68rem;font-weight:700;color:#e2e8f0">📋 Asignar actividad WBS</span>
       <span onclick="document.getElementById('isoWbsPopup')?.remove()" style="cursor:pointer;color:#64748b;font-size:.9rem;line-height:1">✕</span>
     </div>
-    <div style="font-size:.6rem;color:#94a3b8">${item.etiqueta||'Equipo'}${wbsActual?` · <span style="color:#10b981">${wbsActual.codigo}</span>`:''}</div>
+    <div style="font-size:.6rem;color:#94a3b8">${item.etiqueta||'Equipo'}${wbsActual?` · <span style="color:#10b981;font-weight:700">${wbsActual.codigo}</span>`:''}</div>
+    ${hayFiltroFecha?`<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:6px;padding:.2rem .4rem">
+      <span id="isoWbsConteo" style="font-size:.58rem;color:#a5b4fc">📅 Sem. ${semana.slice(5).replace('-','/')} · ${listaActiva.length} act.</span>
+      <button id="isoWbsToggleAll" onclick="_isoWbsToggleTodas(${itemId})"
+        style="font-size:.55rem;padding:1px 7px;border-radius:4px;border:1px solid rgba(99,102,241,.4);background:rgba(99,102,241,.15);color:#a5b4fc;cursor:pointer">🌐 Ver todas</button>
+    </div>`:''}
     <input id="isoWbsSearch" placeholder="Buscar código o actividad..."
       style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:.3rem .45rem;color:#e2e8f0;font-size:.65rem;box-sizing:border-box;outline:none"
       oninput="_isoWbsSearchFilter(${itemId})">
-    <div id="isoWbsList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.12rem;max-height:190px">
-      ${_isoWbsListHTML(wbsAll,item.wbsId,itemId)}
+    <div id="isoWbsList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.12rem;max-height:200px">
+      ${_isoWbsListHTML(listaActiva,item.wbsId,itemId)}
     </div>
     ${item.wbsId?`<button onclick="_isoAsignarWbs(${itemId},null)"
-      style="width:100%;font-size:.62rem;padding:.25rem;border-radius:6px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;margin-top:.15rem">
+      style="width:100%;font-size:.62rem;padding:.25rem;border-radius:6px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;margin-top:.1rem">
       ✕ Quitar asignación WBS</button>`:''}
   `;
   document.body.appendChild(popup);
@@ -1861,11 +1889,29 @@ function _isoShowWbsPopup(itemId,cx,cy){
   },150);
 }
 
+function _isoWbsToggleTodas(itemId){
+  _isoWbsVerTodas=!_isoWbsVerTodas;
+  const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
+  const wbsFecha=_isoWbsParaFecha(_isoFecha);
+  const wbsAll=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
+  const lista=_isoWbsVerTodas?wbsAll:(wbsFecha||wbsAll);
+  const btn=document.getElementById('isoWbsToggleAll');
+  if(btn)btn.textContent=_isoWbsVerTodas?'📅 Solo semana':'🌐 Ver todas';
+  const cont=document.getElementById('isoWbsConteo');
+  const semana=_isoFecha?_isoWbsSemana(_isoFecha):'';
+  if(cont)cont.textContent=_isoWbsVerTodas?`🌐 Todas · ${lista.length} act.`:`📅 Sem. ${semana.slice(5).replace('-','/')} · ${lista.length} act.`;
+  const listEl=document.getElementById('isoWbsList');
+  if(listEl)listEl.innerHTML=_isoWbsListHTML(lista,item?.wbsId,itemId);
+}
+
 function _isoWbsListHTML(list,wbsActualId,itemId){
-  if(!list.length)return`<div style="font-size:.62rem;color:#64748b;text-align:center;padding:.5rem 0">Sin actividades WBS activas</div>`;
+  if(!list.length)return`<div style="font-size:.62rem;color:#64748b;text-align:center;padding:.5rem 0;line-height:1.6">
+    Sin actividades planificadas para esta semana.<br>
+    <span style="color:#a5b4fc;cursor:pointer;text-decoration:underline" onclick="_isoWbsToggleTodas(${itemId})">Ver todas las WBS →</span>
+  </div>`;
   return list.map(w=>{
     const cod=w.codigo||w.cod||'—';
-    const nom=(w.nombre||w.desc||w.descripcion||'Sin nombre').slice(0,38);
+    const nom=(w.nombre||w.desc||w.descripcion||'Sin nombre').slice(0,40);
     const pct=+(w.pctAvance||w.pct||0);
     const sel=w.id===wbsActualId;
     const pctColor=pct>=75?'#10b981':pct>=30?'#f59e0b':'#64748b';
@@ -1885,10 +1931,12 @@ function _isoWbsSearchFilter(itemId){
   const inp=document.getElementById('isoWbsSearch');
   const q=(inp?.value||'').toLowerCase().trim();
   const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
-  const all=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
-  const filtered=q?all.filter(w=>(w.codigo||'').toLowerCase().includes(q)||(w.nombre||w.desc||'').toLowerCase().includes(q)):all;
-  const list=document.getElementById('isoWbsList');
-  if(list)list.innerHTML=_isoWbsListHTML(filtered,item?.wbsId,itemId);
+  const wbsFecha=_isoWbsParaFecha(_isoFecha);
+  const wbsAll=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
+  const base=_isoWbsVerTodas||!Array.isArray(wbsFecha)||!wbsFecha.length?wbsAll:wbsFecha;
+  const filtered=q?base.filter(w=>(w.codigo||'').toLowerCase().includes(q)||(w.nombre||w.desc||'').toLowerCase().includes(q)):base;
+  const listEl=document.getElementById('isoWbsList');
+  if(listEl)listEl.innerHTML=_isoWbsListHTML(filtered,item?.wbsId,itemId);
 }
 
 function _isoAsignarWbs(itemId,wbsId){
