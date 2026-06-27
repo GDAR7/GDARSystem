@@ -992,9 +992,14 @@ function _pizDrop(e){
   const rect=canvas.getBoundingClientRect();
   const x=+((e.clientX-rect.left)/rect.width*100).toFixed(1);
   const y=+((e.clientY-rect.top)/rect.height*100).toFixed(1);
-  // Para equipos: reubicar si ya existe. Para personal/nota: siempre crear nuevo
+  // Reubicar si ya existe EN EL MISMO CONTEXTO de fecha (importante para ISO plan mode)
   if(tipo!=='personal'&&tipo!=='nota'){
-    const existing=(DB.pizarraItems||[]).find(i=>i.tipo===tipo&&i.refId===refId&&i.tab===_pizActiveTabKey);
+    const existing=(DB.pizarraItems||[]).find(i=>
+      i.tipo===tipo&&i.refId===refId&&i.tab===_pizActiveTabKey&&
+      (_pizActiveTabKey==='iso'
+        ? (_isoFecha ? i.fecha===_isoFecha : !i.fecha)
+        : true)
+    );
     if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
   }
   const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:_pizActiveTabKey,cant:1};
