@@ -1693,11 +1693,12 @@ function _isoSetFecha(fecha){
   if(!fecha){_isoSalirPlan();return;}
   const anterior=_isoFecha;
   _isoFecha=fecha;
-  // Si hay items en la fecha anterior, preguntar si copiar al nuevo día
-  if(anterior&&anterior!==fecha){
-    const itemsAnterior=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===anterior);
-    if(itemsAnterior.length>0){
-      const op=confirm(`Hay ${itemsAnterior.length} equipos en el plan del ${anterior}.\n¿Copiarlos al ${fecha}?\n\nAceptar = Copiar · Cancelar = Empezar vacío`);
+  // Solo preguntar si la fecha DESTINO no tiene datos aún
+  const itemsDestino=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===fecha);
+  if(itemsDestino.length===0&&anterior&&anterior!==fecha){
+    const itemsOrigen=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===anterior);
+    if(itemsOrigen.length>0){
+      const op=confirm(`El ${fecha} no tiene plan registrado aún.\n¿Copiar el plan del ${anterior} (${itemsOrigen.length} equipos)?\n\nAceptar = Copiar · Cancelar = Empezar vacío`);
       if(op)_isoCopiarFecha(anterior,fecha);
     }
   }
