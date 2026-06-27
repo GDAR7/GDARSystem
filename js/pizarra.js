@@ -124,6 +124,11 @@ function _pizRenderIso(c){
     const cant=item.cant||1;
     const cantLabel=esPersonal&&cant>1?`<span style="background:rgba(0,0,0,.25);border-radius:3px;padding:0 3px;margin-right:1px;font-size:.58rem">${cant}×</span>`:'';
     const dblClick=esPersonal?`ondblclick="event.stopPropagation();_pizMarkerDblClick(${item.id})"`:'';
+    const isoWbsClick=item.tipo==='equipo'?`onclick="event.stopPropagation();if(!_rutaDidPan)_isoShowWbsPopup(${item.id},event.clientX,event.clientY)"`:'';
+    const wbsLinked=(DB.lpsWbs||[]).find(w=>w.id===item.wbsId);
+    const wbsBadge=wbsLinked
+      ?`<div style="background:rgba(16,185,129,.9);color:#fff;border-radius:3px;padding:1px 5px;font-size:.5rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;max-width:90px" title="${wbsLinked.nombre||wbsLinked.desc||''}">${wbsLinked.codigo||'WBS'}</div>`
+      :`<div style="background:rgba(0,0,0,.4);color:rgba(255,255,255,.45);border-radius:3px;padding:1px 5px;font-size:.48rem;margin-top:1px;cursor:pointer" title="Clic para asignar WBS">+ WBS</div>`;
     let icHtml;
     if(item.tipo==='equipo'){
       const eq=eqByCode[item.etiqueta];
@@ -137,7 +142,7 @@ function _pizRenderIso(c){
     const hasSp=item.tipo==='equipo'&&(eqByCode[item.etiqueta]?!!_pizEqSprite(eqByCode[item.etiqueta].sub):false);
     return`<div id="piz-m-${item.id}" class="eq-marker"
       style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-100%);transform-origin:50% 100%;cursor:grab;z-index:10;user-select:none;text-align:center"
-      onmousedown="_pizMousedown(event,${item.id})" ${dblClick}>
+      onmousedown="_pizMousedown(event,${item.id})" ${dblClick} ${isoWbsClick}>
       ${hasSp
         ?`<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))">
             ${icHtml}
@@ -145,12 +150,16 @@ function _pizRenderIso(c){
               ${cantLabel}${_pizEqCode(item.etiqueta)}
               <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="cursor:pointer;opacity:.7;line-height:1;font-size:.65rem">✕</span>
             </div>
+            ${item.tipo==='equipo'?wbsBadge:''}
           </div>`
-        :`<div style="background:${col};color:#fff;border-radius:6px;padding:2px 6px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:inline-flex;align-items:center;gap:4px">
-            ${icHtml}${cantLabel}${_pizEqCode(item.etiqueta)}
-            <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
-          </div>
-          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>`
+        :`<div style="display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+            <div style="background:${col};color:#fff;border-radius:6px;padding:2px 6px;font-size:.65rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.55);display:inline-flex;align-items:center;gap:4px">
+              ${icHtml}${cantLabel}${_pizEqCode(item.etiqueta)}
+              <span onclick="event.stopPropagation();_pizRemoveItem(${item.id})" style="margin-left:3px;cursor:pointer;opacity:.7;line-height:1">✕</span>
+            </div>
+            <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${col};margin:0 auto"></div>
+            ${item.tipo==='equipo'?wbsBadge:''}
+          </div>`
       }
     </div>`;
   }).join('');
@@ -992,6 +1001,7 @@ function _pizDrop(e){
   const rect=canvas.getBoundingClientRect();
   const x=+((e.clientX-rect.left)/rect.width*100).toFixed(1);
   const y=+((e.clientY-rect.top)/rect.height*100).toFixed(1);
+  const cx=e.clientX, cy=e.clientY;
   // Reubicar si ya existe EN EL MISMO CONTEXTO de fecha (importante para ISO plan mode)
   if(tipo!=='personal'&&tipo!=='nota'){
     const existing=(DB.pizarraItems||[]).find(i=>
@@ -1000,13 +1010,18 @@ function _pizDrop(e){
         ? (_isoFecha ? i.fecha===_isoFecha : !i.fecha)
         : true)
     );
-    if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
+    if(existing){
+      existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();
+      if(_pizActiveTabKey==='iso'&&tipo==='equipo')setTimeout(()=>_isoShowWbsPopup(existing.id,cx,cy),120);
+      return;
+    }
   }
   const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:_pizActiveTabKey,cant:1};
   if(_pizActiveTabKey==='iso'&&_isoFecha)rec.fecha=_isoFecha;
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
   _pizRenderTab();
+  if(_pizActiveTabKey==='iso'&&tipo==='equipo')setTimeout(()=>_isoShowWbsPopup(rec.id,cx,cy),120);
 }
 
 function _pizMarkerDblClick(id){
@@ -1807,4 +1822,82 @@ function _isoPlanDibujoDelete(id){
   toast('Dibujo eliminado');
   _pizRenderTab();
   setTimeout(()=>_isoAreaRenderSvg(DB.frentesTrabajo||[]),100);
+}
+
+// ── WBS Popup (asignación de actividad a equipo en mapa ISO) ─────────────────
+function _isoShowWbsPopup(itemId,cx,cy){
+  const old=document.getElementById('isoWbsPopup');if(old)old.remove();
+  const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
+  if(!item)return;
+  const wbsAll=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
+  const popup=document.createElement('div');
+  popup.id='isoWbsPopup';
+  const left=Math.min(cx+10,window.innerWidth-260);
+  const top=Math.min(cy-10,window.innerHeight-340);
+  popup.style.cssText=`position:fixed;left:${left}px;top:${top}px;width:250px;max-height:320px;background:#1a2030;border:1px solid #334155;border-radius:10px;padding:.65rem;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:.3rem`;
+  const wbsActual=(DB.lpsWbs||[]).find(w=>w.id===item.wbsId);
+  popup.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.68rem;font-weight:700;color:#e2e8f0">📋 Asignar actividad WBS</span>
+      <span onclick="document.getElementById('isoWbsPopup')?.remove()" style="cursor:pointer;color:#64748b;font-size:.9rem;line-height:1">✕</span>
+    </div>
+    <div style="font-size:.6rem;color:#94a3b8">${item.etiqueta||'Equipo'}${wbsActual?` · <span style="color:#10b981">${wbsActual.codigo}</span>`:''}</div>
+    <input id="isoWbsSearch" placeholder="Buscar código o actividad..."
+      style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:.3rem .45rem;color:#e2e8f0;font-size:.65rem;box-sizing:border-box;outline:none"
+      oninput="_isoWbsSearchFilter(${itemId})">
+    <div id="isoWbsList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.12rem;max-height:190px">
+      ${_isoWbsListHTML(wbsAll,item.wbsId,itemId)}
+    </div>
+    ${item.wbsId?`<button onclick="_isoAsignarWbs(${itemId},null)"
+      style="width:100%;font-size:.62rem;padding:.25rem;border-radius:6px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;margin-top:.15rem">
+      ✕ Quitar asignación WBS</button>`:''}
+  `;
+  document.body.appendChild(popup);
+  const inp=document.getElementById('isoWbsSearch');
+  if(inp)inp.focus();
+  setTimeout(()=>{
+    const closer=ev=>{if(!popup.contains(ev.target)){popup.remove();document.removeEventListener('mousedown',closer);}};
+    document.addEventListener('mousedown',closer);
+  },150);
+}
+
+function _isoWbsListHTML(list,wbsActualId,itemId){
+  if(!list.length)return`<div style="font-size:.62rem;color:#64748b;text-align:center;padding:.5rem 0">Sin actividades WBS activas</div>`;
+  return list.map(w=>{
+    const cod=w.codigo||w.cod||'—';
+    const nom=(w.nombre||w.desc||w.descripcion||'Sin nombre').slice(0,38);
+    const pct=+(w.pctAvance||w.pct||0);
+    const sel=w.id===wbsActualId;
+    const pctColor=pct>=75?'#10b981':pct>=30?'#f59e0b':'#64748b';
+    return`<div onclick="_isoAsignarWbs(${itemId},${w.id})"
+      style="cursor:pointer;padding:.25rem .45rem;border-radius:6px;border:1px solid ${sel?'#10b981':'transparent'};background:${sel?'rgba(16,185,129,.12)':'rgba(255,255,255,.025)'}"
+      onmouseover="this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.background='${sel?'rgba(16,185,129,.12)':'rgba(255,255,255,.025)'}'">
+      <div style="display:flex;align-items:center;gap:.35rem">
+        <div style="font-size:.58rem;font-weight:700;color:#10b981;min-width:52px;flex-shrink:0;font-family:monospace">${cod}</div>
+        <div style="font-size:.6rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cbd5e1" title="${nom}">${nom}</div>
+        <div style="font-size:.55rem;color:${pctColor};flex-shrink:0;font-weight:700">${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _isoWbsSearchFilter(itemId){
+  const inp=document.getElementById('isoWbsSearch');
+  const q=(inp?.value||'').toLowerCase().trim();
+  const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
+  const all=(DB.lpsWbs||[]).filter(w=>+(w.pctAvance||w.pct||0)<100);
+  const filtered=q?all.filter(w=>(w.codigo||'').toLowerCase().includes(q)||(w.nombre||w.desc||'').toLowerCase().includes(q)):all;
+  const list=document.getElementById('isoWbsList');
+  if(list)list.innerHTML=_isoWbsListHTML(filtered,item?.wbsId,itemId);
+}
+
+function _isoAsignarWbs(itemId,wbsId){
+  const item=(DB.pizarraItems||[]).find(i=>i.id===itemId);
+  if(!item)return;
+  item.wbsId=wbsId||null;
+  syncSheet('savePizItem',item);
+  document.getElementById('isoWbsPopup')?.remove();
+  const w=wbsId?(DB.lpsWbs||[]).find(x=>x.id===wbsId):null;
+  toast(w?`✓ ${item.etiqueta} → ${w.codigo||''} ${(w.nombre||w.desc||'').slice(0,25)}`:`WBS removido de ${item.etiqueta}`);
+  _pizRenderTab();
 }
