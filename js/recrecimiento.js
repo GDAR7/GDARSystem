@@ -5,6 +5,8 @@ let _recZoom=1, _recPanX=0, _recPanY=0, _recZoomLocked=false;
 let _recIsPanning=false, _recPanStart=null, _recDidPan=false;
 // Dibujo de polígonos
 let _recDibujando=false, _recSelCapaId=null, _recAreaPuntos=[];
+// Detección de bordes
+let _recEdgeMap=null, _recEdgeThreshold=45, _recShowEdges=true, _recSnapEnabled=true, _recSnapRadius=14;
 
 const _REC_DIQUES=[
   {key:'DA',label:'Dique Auxiliar',       color:'#06b6d4'},
@@ -105,11 +107,15 @@ function rRecrecimiento(){
             ${!_recDibujando&&selCapa&&(selCapa.puntos||[]).length>=3?`<button onclick="_recBorrarPuntos()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.08);color:#ef4444;font-size:.62rem;cursor:pointer" title="Borrar área">🗑</button>`:''}
           </div>
           ${_recDibujando
-            ?`<div style="font-size:.57rem;color:#f59e0b;margin-top:.3rem">Clic = vértice · Doble clic = cerrar · Clic der. = cancelar</div>`
-            :`<div style="display:flex;align-items:center;gap:.3rem;margin-top:.3rem">
-                <div style="font-size:.57rem;color:var(--muted2);flex:1">Haz clic en una capa y presiona ✏️ Dibujar</div>
-                <button onclick="_recAbrirDXF()" title="Importar polígonos desde archivo DXF" style="padding:.2rem .4rem;border-radius:5px;border:1px solid #8b5cf640;background:rgba(139,92,246,.1);color:#8b5cf6;font-size:.6rem;cursor:pointer;white-space:nowrap">📐 DXF</button>
+            ?`<div style="font-size:.57rem;color:#f59e0b;margin-top:.3rem">Clic = vértice · Doble clic = cerrar · Clic der. = cancelar
+                ${_recSnapEnabled&&_recEdgeMap?`<span style="color:#10b981;margin-left:.4rem">⊙ Snap activo</span>`:''}
+              </div>`
+            :`<div style="display:flex;align-items:center;gap:.25rem;margin-top:.3rem;flex-wrap:wrap">
+                <div style="font-size:.56rem;color:var(--muted2);flex:1;min-width:60px">Selecciona una capa y presiona ✏️ Dibujar</div>
+                <button onclick="_recAbrirDXF()" title="Importar desde DXF" style="padding:.18rem .35rem;border-radius:5px;border:1px solid #8b5cf640;background:rgba(139,92,246,.1);color:#8b5cf6;font-size:.58rem;cursor:pointer;white-space:nowrap">📐 DXF</button>
+                <button onclick="_recDetectarLineas()" title="Detectar bordes de la imagen para guiar el dibujo" style="padding:.18rem .35rem;border-radius:5px;border:1px solid #06b6d440;background:rgba(6,182,212,.1);color:#06b6d4;font-size:.58rem;cursor:pointer;white-space:nowrap">🔍 Líneas</button>
               </div>`}
+          <div id="recEdgeControls"></div>
         </div>`:''}
 
         <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.18rem" id="recCapaList">
@@ -130,6 +136,7 @@ function rRecrecimiento(){
               onerror="this.src='${_recImgBase()}${_recDique.toLowerCase()}_${_recVista}.png';this.onerror=null"
               style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false"
               alt="${dq.label}" onload="_recFitView()">
+            <canvas id="recEdgeCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;mix-blend-mode:screen;display:${_recEdgeMap&&_recShowEdges?'block':'none'}"></canvas>
             <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:${_recDibujando?'all':'none'}" xmlns="http://www.w3.org/2000/svg"></svg>
             <div id="recCursor" style="display:none;position:absolute;width:10px;height:10px;background:#f59e0b;border:2px solid #fff;border-radius:2px;pointer-events:none;z-index:5"></div>
           </div>
@@ -227,6 +234,8 @@ function rRecrecimiento(){
         if(canvas)canvas.style.cursor='crosshair';
         _recTempRender();
       }
+      if(_recEdgeMap&&_recShowEdges)_recMostrarEdgeOverlay();
+      _recUpdateEdgePanel();
     },150);
   });
 }
@@ -386,10 +395,10 @@ function _recSvgClick(e){
   if(e.detail>1)return;
   const canvas=document.getElementById('recCanvas');if(!canvas)return;
   const r=canvas.getBoundingClientRect();
-  _recAreaPuntos.push({
-    x:parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2)),
-    y:parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2))
-  });
+  const xRaw=(e.clientX-r.left)/r.width*100;
+  const yRaw=(e.clientY-r.top)/r.height*100;
+  const snapped=_recSnapToEdge(xRaw,yRaw);
+  _recAreaPuntos.push({x:parseFloat(snapped.x.toFixed(2)),y:parseFloat(snapped.y.toFixed(2))});
   _recTempRender();
 }
 
@@ -405,12 +414,17 @@ function _recSvgMouseMove(e){
   if(!_recDibujando)return;
   const canvas=document.getElementById('recCanvas');if(!canvas)return;
   const r=canvas.getBoundingClientRect();
-  const xPct=(e.clientX-r.left)/r.width*100;
-  const yPct=(e.clientY-r.top)/r.height*100;
+  const xRaw=(e.clientX-r.left)/r.width*100;
+  const yRaw=(e.clientY-r.top)/r.height*100;
+  const snapped=_recSnapToEdge(xRaw,yRaw);
+  const xPct=snapped.x, yPct=snapped.y;
 
   const cur=document.getElementById('recCursor');
-  if(cur){cur.style.display='block';cur.style.left=xPct+'%';cur.style.top=yPct+'%';
-    cur.style.transform=`translate(-50%,-50%) scale(${1/(_recZoom||1)})`;}
+  if(cur){
+    cur.style.display='block';cur.style.left=xPct+'%';cur.style.top=yPct+'%';
+    cur.style.transform=`translate(-50%,-50%) scale(${1/(_recZoom||1)})`;
+    cur.style.background=snapped.snapped?'#06b6d4':'#f59e0b';
+  }
 
   const svg=document.getElementById('recSvg');if(!svg||!_recAreaPuntos.length)return;
   const W=svg.clientWidth,H=svg.clientHeight;
@@ -880,4 +894,127 @@ async function _recDxfAsignar(){
   _recSelCapaId=capaId;
   rRecrecimiento();
   setTimeout(_recRenderCapasSvg,200);
+}
+
+// ══ DETECCIÓN DE BORDES (Sobel) ══════════════════════════════════════════════
+
+function _recSnapToEdge(xPct,yPct){
+  if(!_recSnapEnabled||!_recEdgeMap)return{x:xPct,y:yPct,snapped:false};
+  const{edges,width,height}=_recEdgeMap;
+  const xPx=Math.round(xPct*width/100);
+  const yPx=Math.round(yPct*height/100);
+  const R=_recSnapRadius;
+  let bestDist=Infinity,bestX=xPx,bestY=yPx;
+  for(let dy=-R;dy<=R;dy++){
+    for(let dx=-R;dx<=R;dx++){
+      const nx=xPx+dx,ny=yPx+dy;
+      if(nx<0||nx>=width||ny<0||ny>=height)continue;
+      if(edges[ny*width+nx]>0){
+        const d=dx*dx+dy*dy;
+        if(d<bestDist){bestDist=d;bestX=nx;bestY=ny;}
+      }
+    }
+  }
+  const snapped=bestDist<Infinity;
+  return{x:bestX/width*100,y:bestY/height*100,snapped};
+}
+
+function _sobelEdgeDetect(imageData,threshold){
+  const w=imageData.width,h=imageData.height;
+  const d=imageData.data;
+  const gray=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){gray[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];}
+  const edges=new Uint8Array(w*h);
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      const gx=-gray[(y-1)*w+(x-1)]-2*gray[y*w+(x-1)]-gray[(y+1)*w+(x-1)]
+               +gray[(y-1)*w+(x+1)]+2*gray[y*w+(x+1)]+gray[(y+1)*w+(x+1)];
+      const gy=-gray[(y-1)*w+(x-1)]-2*gray[(y-1)*w+x]-gray[(y-1)*w+(x+1)]
+               +gray[(y+1)*w+(x-1)]+2*gray[(y+1)*w+x]+gray[(y+1)*w+(x+1)];
+      if(Math.sqrt(gx*gx+gy*gy)>threshold)edges[y*w+x]=255;
+    }
+  }
+  return{edges,width:w,height:h};
+}
+
+function _recDetectarLineas(){
+  const img=document.getElementById('recImg');
+  if(!img||!img.naturalWidth){toast('Carga la imagen de la sección primero',true);return;}
+  const tmp=document.createElement('canvas');
+  tmp.width=img.naturalWidth;tmp.height=img.naturalHeight;
+  const ctx=tmp.getContext('2d');
+  try{
+    ctx.drawImage(img,0,0);
+    const imgData=ctx.getImageData(0,0,tmp.width,tmp.height);
+    _recEdgeMap=_sobelEdgeDetect(imgData,_recEdgeThreshold);
+    _recShowEdges=true;
+    _recSnapEnabled=true;
+    _recMostrarEdgeOverlay();
+    _recUpdateEdgePanel();
+    toast('✓ Bordes detectados — cursor se ajustará a las líneas');
+  }catch(err){
+    toast('No se pudo acceder a la imagen (posible CORS)',true);
+  }
+}
+
+function _recMostrarEdgeOverlay(){
+  const c=document.getElementById('recEdgeCanvas');
+  if(!c||!_recEdgeMap)return;
+  const{edges,width,height}=_recEdgeMap;
+  c.width=width;c.height=height;
+  const ctx=c.getContext('2d');
+  const out=ctx.createImageData(width,height);
+  for(let i=0;i<width*height;i++){
+    if(edges[i]>0){out.data[i*4]=0;out.data[i*4+1]=220;out.data[i*4+2]=220;out.data[i*4+3]=210;}
+  }
+  ctx.putImageData(out,0,0);
+  c.style.display=_recShowEdges?'block':'none';
+}
+
+function _recUpdateEdgePanel(){
+  const el=document.getElementById('recEdgeControls');
+  if(!el)return;
+  if(!_recEdgeMap){el.innerHTML='';return;}
+  el.innerHTML=
+    '<div style="display:flex;align-items:center;gap:.25rem;margin-top:.25rem;flex-wrap:wrap">'
+    +'<button id="recEdgeTogBtn" onclick="_recToggleEdges()" style="padding:.18rem .4rem;border-radius:5px;border:1px solid #06b6d440;background:rgba(6,182,212,.1);color:'+(_recShowEdges?'#06b6d4':'#6b7280')+';font-size:.58rem;cursor:pointer">👁 '+(_recShowEdges?'Ocultar':'Ver')+'</button>'
+    +'<button id="recSnapTogBtn" onclick="_recToggleSnap()" style="padding:.18rem .4rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:'+(_recSnapEnabled?'#10b981':'#6b7280')+';font-size:.58rem;cursor:pointer;font-weight:700">⊙ Snap '+(_recSnapEnabled?'ON':'OFF')+'</button>'
+    +'<button onclick="_recDetectarLineas()" style="padding:.18rem .35rem;border-radius:5px;border:1px solid #f59e0b40;background:rgba(245,158,11,.1);color:#f59e0b;font-size:.58rem;cursor:pointer">🔄 Re-detect</button>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:.3rem;margin-top:.2rem">'
+    +'<span style="font-size:.55rem;color:var(--muted2)">Sensib.</span>'
+    +'<input type="range" min="10" max="150" value="'+_recEdgeThreshold+'" step="5" style="flex:1;accent-color:#06b6d4;height:3px" oninput="_recEdgeThreshold=+this.value;_recReDetect()">'
+    +'<span style="font-size:.56rem;font-weight:700;color:#06b6d4;min-width:20px">'+_recEdgeThreshold+'</span>'
+    +'<span style="font-size:.55rem;color:var(--muted2);margin-left:.3rem">Snap radio</span>'
+    +'<input type="range" min="4" max="30" value="'+_recSnapRadius+'" step="2" style="flex:1;accent-color:#10b981;height:3px" oninput="_recSnapRadius=+this.value">'
+    +'</div>';
+}
+
+function _recToggleEdges(){
+  _recShowEdges=!_recShowEdges;
+  const c=document.getElementById('recEdgeCanvas');
+  if(c)c.style.display=_recShowEdges?'block':'none';
+  if(_recShowEdges&&_recEdgeMap)_recMostrarEdgeOverlay();
+  const b=document.getElementById('recEdgeTogBtn');
+  if(b){b.textContent='👁 '+(_recShowEdges?'Ocultar':'Ver');b.style.color=_recShowEdges?'#06b6d4':'#6b7280';}
+}
+
+function _recToggleSnap(){
+  _recSnapEnabled=!_recSnapEnabled;
+  const b=document.getElementById('recSnapTogBtn');
+  if(b){b.textContent='⊙ Snap '+(_recSnapEnabled?'ON':'OFF');b.style.color=_recSnapEnabled?'#10b981':'#6b7280';}
+}
+
+function _recReDetect(){
+  if(!_recEdgeMap)return;
+  const img=document.getElementById('recImg');
+  if(!img||!img.naturalWidth)return;
+  const tmp=document.createElement('canvas');
+  tmp.width=img.naturalWidth;tmp.height=img.naturalHeight;
+  const ctx=tmp.getContext('2d');
+  try{
+    ctx.drawImage(img,0,0);
+    _recEdgeMap=_sobelEdgeDetect(ctx.getImageData(0,0,tmp.width,tmp.height),_recEdgeThreshold);
+    if(_recShowEdges)_recMostrarEdgeOverlay();
+  }catch(e){}
 }
