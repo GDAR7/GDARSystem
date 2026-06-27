@@ -56,10 +56,13 @@ function rComb(){
     const saldoColor=(saldoMap[r.id]||0)<0?'#ef4444':'#10b981';
     const costoCell=esIngreso?`<span style="color:var(--muted);font-size:.72rem">—</span>`:fmt((r.gal||0)*(r.precio||0));
     const estBadge=cerrado?`<span class="badge b-green">Cerrado</span>`:`<span class="badge b-orange">Ingresado</span>`;
+    const _bloq48=(Date.now()-new Date(r.fecha+'T00:00:00').getTime())>172800000;
     const btns=cerrado
       ?`<button class="btn btn-out btn-sm" onclick="verComb(${r.id})" style="color:#3b82f6;border-color:#3b82f640">👁 Ver</button>`
       :`<button class="btn btn-out btn-sm" onclick="editComb(${r.id})" style="color:#f59e0b;border-color:#f59e0b40">✏️</button>
-        <button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`;
+        ${_bloq48
+          ?`<button class="btn btn-del btn-sm" disabled title="Registro bloqueado después de 48 horas" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`
+          :`<button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`}`;
     const pedRef=esIngreso
       ?[(r.numReserva?`<span style="font-size:.68rem;color:var(--alm)">Res: ${r.numReserva}</span>`:''),
         (r.numAtendido?`<span style="font-size:.68rem;color:#10b981">Atn: ${r.numAtendido}</span>`:'')]
@@ -265,5 +268,110 @@ function verComb(id){
 <script>window.onload=function(){window.print();}<${'/'}script>
 ${S}body>${S}html>`;
   win.document.write(html);win.document.close();
+}
+
+// ── Exportar Kardex completo a PDF ───────────────────────────────────────────
+function _combExportPDF(){
+  const pfEl=document.getElementById('cbKardexFilter');
+  const filtVal=pfEl?pfEl.value:'';
+  const listaFilt=filtVal
+    ?DB.combustible.filter(r=>r.tipoMov==='Ingreso'?r.numAtendido===filtVal:r.refPedido===filtVal)
+    :DB.combustible;
+  const sorted=[...listaFilt].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id);
+  if(!sorted.length){toast('No hay registros para exportar',true);return;}
+
+  // Saldo acumulado
+  let sal=0;
+  const salMap={};
+  [...DB.combustible].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id).forEach(r=>{
+    sal+=(r.tipoMov==='Ingreso'?r.gal:-r.gal);
+    salMap[r.id]=sal;
+  });
+
+  const totEnt=listaFilt.filter(r=>r.tipoMov==='Ingreso').reduce((a,c)=>a+c.gal,0);
+  const totSal=listaFilt.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+c.gal,0);
+  const totCost=listaFilt.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+(c.gal*(c.precio||0)),0);
+  const saldo=totEnt-totSal;
+
+  const filas=sorted.map(r=>{
+    const eq=DB.equipos.find(e=>e.id===r.eqId);
+    const esIng=r.tipoMov==='Ingreso';
+    const ref=esIng?(r.proveedor||'—'):(eq?`${eq.codigo} – ${eq.nombre.split(' ').slice(0,2).join(' ')}`:(r.op||'—'));
+    const ped=esIng?(r.numAtendido?`Atn: ${r.numAtendido}`:r.numReserva?`Res: ${r.numReserva}`:'—'):(r.refPedido?`Ref: ${r.refPedido}`:'—');
+    const saldoR=(salMap[r.id]||0).toFixed(1);
+    const costo=esIng?'—':`S/ ${((r.gal||0)*(r.precio||0)).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    return`<tr>
+      <td>${r.fecha}</td>
+      <td><span style="background:${esIng?'#10b98122':'#f9731622'};color:${esIng?'#10b981':'#f97316'};padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:700">${esIng?'⬆ Ingreso':'⬇ Despacho'}</span></td>
+      <td>${ref}</td>
+      <td style="font-size:.78rem">${ped}</td>
+      <td>${r.tipo||'—'}</td>
+      <td style="text-align:right;color:${esIng?'#10b981':'#999'};font-weight:${esIng?'700':'400'}">${esIng?'+'+r.gal:'—'}</td>
+      <td style="text-align:right;color:${!esIng?'#ef4444':'#999'};font-weight:${!esIng?'700':'400'}">${!esIng?'-'+r.gal:'—'}</td>
+      <td style="text-align:right;color:${+saldoR<0?'#ef4444':'#10b981'};font-weight:700">${saldoR}</td>
+      <td style="text-align:right">${costo}</td>
+      <td style="font-size:.75rem">${r.numFormato||'—'}</td>
+      <td><span style="background:${r.estado==='Cerrado'?'#10b98122':'#f9731622'};color:${r.estado==='Cerrado'?'#10b981':'#f97316'};padding:1px 6px;border-radius:4px;font-size:.68rem">${r.estado||'—'}</span></td>
+    </tr>`;
+  }).join('');
+
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  const S='<'+'/';
+  const titulo=filtVal?`Kardex Combustible – Pedido/Atn N° ${filtVal}`:'Kardex de Combustible – Todos los registros';
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>${titulo}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;background:#fff;color:#0a1330;font-size:9.5pt;padding:1.2cm;}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:.7rem;margin-bottom:.8rem;}
+  .brand{font-size:1rem;font-weight:900;color:#0a1330;}
+  .brand-sub{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-top:2px;}
+  .doc-title h2{font-size:1.1rem;font-weight:900;color:#f97316;text-align:right;}
+  .doc-title p{font-size:.7rem;color:#555;text-align:right;margin-top:3px;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.8rem;}
+  .kpi{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px;padding:.4rem .7rem;text-align:center;}
+  .kpi-l{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.08em;}
+  .kpi-v{font-size:1rem;font-weight:800;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:.76rem;}
+  th{background:#f97316;color:#fff;padding:.28rem .45rem;text-align:left;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;}
+  td{padding:.25rem .45rem;border-bottom:1px solid #f1f1f1;vertical-align:middle;}
+  tr:nth-child(even) td{background:#fafafa;}
+  .footer{margin-top:1.5rem;font-size:.65rem;color:#aaa;text-align:center;border-top:1px solid #e5e7eb;padding-top:.5rem;}
+  .totales td{font-weight:800;background:#fff7ed;border-top:2px solid #f97316;}
+  @media print{body{padding:.7cm;}@page{size:A4 landscape;margin:.8cm;}}
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="brand">ECOSERMO S.A.C.</div>
+    <div class="brand-sub">Transporte, Minería, Construcción e Ingeniería</div>
+  </div>
+  <div class="doc-title">
+    <h2>KARDEX DE COMBUSTIBLE</h2>
+    <p>${filtVal?`Pedido / Atendido: <strong>${filtVal}</strong> · `:''}Emitido: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
+  </div>
+</div>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-l">Total Ingresado</div><div class="kpi-v" style="color:#3b82f6">${totEnt.toFixed(1)} gal</div></div>
+  <div class="kpi"><div class="kpi-l">Total Despachado</div><div class="kpi-v" style="color:#f97316">${totSal.toFixed(1)} gal</div></div>
+  <div class="kpi"><div class="kpi-l">Saldo</div><div class="kpi-v" style="color:${saldo<0?'#ef4444':'#10b981'}">${saldo.toFixed(1)} gal</div></div>
+  <div class="kpi"><div class="kpi-l">Costo Total</div><div class="kpi-v" style="color:#ef4444">S/ ${totCost.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+</div>
+<table>
+  <thead><tr><th>Fecha</th><th>Tipo Mov.</th><th>Referencia</th><th>N° Reserva / Ref.</th><th>Tipo Comb.</th><th style="text-align:right">Entrada (gal)</th><th style="text-align:right">Salida (gal)</th><th style="text-align:right">Saldo (gal)</th><th style="text-align:right">Costo S/</th><th>N° Formato</th><th>Estado</th></tr></thead>
+  <tbody>${filas}</tbody>
+  <tfoot><tr class="totales">
+    <td colspan="5">TOTALES</td>
+    <td style="text-align:right;color:#10b981">+${totEnt.toFixed(1)}</td>
+    <td style="text-align:right;color:#ef4444">-${totSal.toFixed(1)}</td>
+    <td style="text-align:right;color:${saldo<0?'#ef4444':'#10b981'}">${saldo.toFixed(1)}</td>
+    <td style="text-align:right">S/ ${totCost.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    <td colspan="2"></td>
+  </tr></tfoot>
+</table>
+<div class="footer">Generado por GDAR – ECOSERMO · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</div>
+<script>window.onload=function(){window.print();}<${'/'}script>
+${S}body>${S}html>`);
+  win.document.close();
 }
 
