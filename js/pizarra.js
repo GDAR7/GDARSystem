@@ -90,9 +90,17 @@ function _pizCondColor(cond){
 // ── VISTA ISO: ISOMÉTRICO ─────────────────────────────────────────────────
 let _isoPanel='equipos', _isoEqFiltro='';
 let _isoAreaSelId=null, _isoAreaDibujando=false, _isoAreaPuntos=[];
+// Plan diario ISO
+let _isoFecha=null; // null=vista permanente, 'YYYY-MM-DD'=modo plan
+let _isoHiddenFrentes=new Set(); // IDs de frentes ocultos
+// Dibujos de planificación
+let _isoPlanDibujando=false, _isoPlanPuntos=[], _isoPlanSelId=null;
 
 function _pizRenderIso(c){
-  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente');
+  const items=(DB.pizarraItems||[]).filter(x=>
+    x.tab==='iso'&&x.tipo!=='frente'&&
+    (_isoFecha ? x.fecha===_isoFecha : !x.fecha)
+  );
   const equipos=(DB.equipos||[]).filter(e=>e.est!=='Baja');
 
   // Sub-tipos únicos para filtro
@@ -212,22 +220,87 @@ function _pizRenderIso(c){
       <div style="display:flex;flex-direction:column;gap:.22rem;overflow-y:auto">
         ${frentesAll.length ? frentesAll.map((f,i)=>{
           const col=_frenteColors[i%_frenteColors.length];
-          const nom=(f.nombre||f.nom||f.frente||'Sin nombre').slice(0,26);
+          const nom=(f.nombre||f.nom||f.frente||'Sin nombre').slice(0,24);
           const ptsIso=(f.puntosIso||[]).length;
-          const ptsPlan=(f.puntos||[]).length;
+          const hidden=_isoHiddenFrentes.has(f.id);
           return `<div id="iso-area-item-${f.id}" onclick="_isoAreaSelect(${f.id})"
-            style="cursor:pointer;padding:.3rem .4rem;border-radius:5px;border:2px solid ${col}30;background:${col}10;transition:.1s"
-            onmouseover="this.style.background='${col}22'" onmouseout="this.style.background='${col}10'">
-            <div style="display:flex;align-items:center;gap:.3rem">
-              <span style="width:9px;height:9px;border-radius:2px;background:${col};display:inline-block;flex-shrink:0"></span>
-              <span style="font-size:.63rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nom}</span>
+            style="cursor:pointer;padding:.25rem .35rem;border-radius:5px;border:2px solid ${col}${hidden?'18':'30'};background:${col}${hidden?'06':'10'};opacity:${hidden?.55:1};transition:.1s"
+            onmouseover="this.style.background='${col}22'" onmouseout="this.style.background='${col}${hidden?'06':'10'}'">
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <span style="width:8px;height:8px;border-radius:2px;background:${col};display:inline-block;flex-shrink:0"></span>
+              <span style="font-size:.62rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${nom}</span>
+              <button onclick="event.stopPropagation();_isoToggleFrente(${f.id})"
+                title="${hidden?'Mostrar':'Ocultar'} área"
+                style="background:none;border:none;cursor:pointer;font-size:.75rem;color:${hidden?'#6b7280':'#06b6d4'};padding:0;line-height:1;flex-shrink:0">
+                ${hidden?'🙈':'👁'}
+              </button>
             </div>
-            <div id="iso-area-stat-${f.id}" style="font-size:.54rem;padding-left:13px;margin-top:2px">
-              <span style="color:${ptsIso>=3?col:'var(--muted2)'}">Iso: ${ptsIso}pts</span>
-              <span style="color:var(--muted2)"> · Plan: ${ptsPlan}pts</span>
+            <div style="font-size:.52rem;padding-left:12px;margin-top:1px;color:${ptsIso>=3?col:'var(--muted2)'}">
+              ${ptsIso>=3?ptsIso+' vértices':'Sin área dibujada'}
             </div>
           </div>`;
         }).join('') : '<div style="color:var(--muted2);font-size:.62rem;text-align:center;padding:.5rem">Sin frentes definidos</div>'}
+      </div>`;
+  } else if(_isoPanel==='dibujos'){
+    // Dibujos de planificación vinculados a WBS
+    const dibujosActivos=(DB.planDibujos||[]).filter(d=>{
+      if(!d.activo)return false;
+      if(d.wbsCodigo){
+        const w=(DB.lpsWbs||[]).find(x=>x.codigo===d.wbsCodigo);
+        if(w&&+(w.pctAvance||w.pct||0)>=100)return false;
+      }
+      return true;
+    });
+    const _TIPOS_DIBUJO=['Acceso temporal','Zona de relleno','Límite de corte','Acceso definitivo','Zona de acopio','Otro'];
+    panelContent=`
+      <div style="display:flex;gap:.25rem;margin-bottom:.4rem">
+        <button id="isoPlanDibujarBtn" onclick="_isoPlanDibujarToggle()"
+          style="flex:1;font-size:.62rem;padding:.25rem .35rem;border-radius:5px;border:1px solid ${_isoPlanDibujando?'#f59e0b40':'#ef444440'};background:${_isoPlanDibujando?'rgba(245,158,11,.1)':'rgba(239,68,68,.08)'};color:${_isoPlanDibujando?'#f59e0b':'#ef4444'};cursor:pointer;white-space:nowrap">
+          ${_isoPlanDibujando?'✅ Guardar dibujo':'📐 Nuevo dibujo'}
+        </button>
+        ${_isoPlanDibujando?`<button onclick="_isoPlanDibujarCancelar()" style="padding:.25rem .4rem;border-radius:5px;border:1px solid #6b728040;background:var(--panel2);color:var(--muted2);font-size:.62rem;cursor:pointer">✗</button>`:''}
+      </div>
+      ${_isoPlanDibujando?`<div style="font-size:.56rem;color:#f59e0b;background:rgba(245,158,11,.07);border:1px solid #f59e0b20;border-radius:5px;padding:.3rem .4rem;margin-bottom:.4rem">
+        Clic=vértice · Doble clic=cerrar · Clic der.=cancelar<br>
+        Vértices: ${_isoPlanPuntos.length}
+      </div>`:''}
+      <div id="isoPlanDibujoForm" style="display:none;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.4rem;margin-bottom:.4rem;font-size:.62rem">
+        <div style="font-weight:700;margin-bottom:.3rem">Guardar dibujo</div>
+        <input id="isoPlanDibLabel" placeholder="Ej: Acceso Norte" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.62rem;margin-bottom:.25rem">
+        <select id="isoPlanDibTipo" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .35rem;color:var(--text);font-size:.62rem;margin-bottom:.25rem">
+          ${_TIPOS_DIBUJO.map(t=>`<option>${t}</option>`).join('')}
+        </select>
+        <input id="isoPlanDibWbs" placeholder="Código WBS (opcional)" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.62rem;margin-bottom:.25rem">
+        <div style="display:flex;gap:.25rem;align-items:center;margin-bottom:.3rem">
+          <label style="font-size:.58rem;color:var(--muted2)">Color:</label>
+          ${['#ef4444','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899'].map(c=>`
+            <div onclick="document.querySelectorAll('.pld-color-btn').forEach(b=>b.style.outline='none');this.style.outline='2px solid #fff';document.getElementById('isoPlanDibColor').value='${c}'"
+              class="pld-color-btn" style="width:16px;height:16px;border-radius:3px;background:${c};cursor:pointer;flex-shrink:0"></div>`).join('')}
+          <input type="hidden" id="isoPlanDibColor" value="#ef4444">
+        </div>
+        <div style="display:flex;gap:.25rem">
+          <button onclick="_isoPlanDibujoSave()" style="flex:1;background:#10b981;border:none;border-radius:5px;color:#fff;padding:.25rem;font-size:.62rem;font-weight:700;cursor:pointer">💾 Guardar</button>
+          <button onclick="document.getElementById('isoPlanDibujoForm').style.display='none'" style="padding:.25rem .5rem;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--muted2);font-size:.62rem;cursor:pointer">✗</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.22rem">
+        ${dibujosActivos.length?dibujosActivos.map(d=>{
+          const wbsOk=d.wbsCodigo?((DB.lpsWbs||[]).find(x=>x.codigo===d.wbsCodigo)||null):null;
+          const pct=wbsOk?+(wbsOk.pctAvance||wbsOk.pct||0):null;
+          return`<div style="padding:.28rem .4rem;background:${d.color}12;border:1px solid ${d.color}30;border-radius:5px">
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <span style="width:8px;height:8px;border-radius:50%;background:${d.color};flex-shrink:0"></span>
+              <span style="font-size:.62rem;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.label||'Sin nombre'}</span>
+              <button onclick="_isoPlanDibujoDelete(${d.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.65rem;padding:0">✕</button>
+            </div>
+            <div style="font-size:.52rem;padding-left:12px;color:var(--muted2)">
+              ${d.tipo||'Otro'}${d.wbsCodigo?` · WBS: ${d.wbsCodigo}`:''}${pct!==null?` · ${pct}%`:''}
+            </div>
+          </div>`;
+        }).join(''):`<div style="text-align:center;color:var(--muted2);font-size:.62rem;padding:.8rem .4rem">
+          Sin dibujos activos<br>
+          <span style="font-size:.55rem">Usa 📐 Nuevo dibujo para agregar accesos, zonas, etc.</span>
+        </div>`}
       </div>`;
   } else {
     panelContent=`<button onclick="_pizAgregarNota()" style="width:100%;background:rgba(139,92,246,.1);border:1px dashed rgba(139,92,246,.4);border-radius:5px;color:#8b5cf6;cursor:pointer;padding:.4rem;font-size:.67rem;margin-bottom:.5rem">＋ Agregar nota al mapa</button>
@@ -237,21 +310,40 @@ function _pizRenderIso(c){
       </div>`).join('')}`;
   }
 
-  c.innerHTML=`<div style="display:grid;grid-template-columns:195px 1fr;gap:.7rem;height:calc(100vh - 195px)">
+  c.innerHTML=`
+    <!-- BARRA DE FECHA / PLAN DIARIO -->
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;margin-bottom:.4rem;background:var(--panel2);border:1px solid ${_isoFecha?'#f59e0b40':'var(--border)'};border-radius:7px;flex-wrap:wrap">
+      <span style="font-size:.6rem;font-weight:700;color:${_isoFecha?'#f59e0b':'var(--muted2)'};white-space:nowrap">📅 Plan del día:</span>
+      <input type="date" value="${_isoFecha||''}" max="${today()}"
+        onchange="_isoSetFecha(this.value)"
+        style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:.15rem .35rem;color:var(--text);font-size:.65rem;cursor:pointer">
+      ${_isoFecha?`
+        <span style="font-size:.58rem;color:#f59e0b;font-weight:700">${new Date(_isoFecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase()}</span>
+        <button onclick="_isoMantenerPlan()" title="Copiar plan del día anterior a esta fecha"
+          style="padding:.15rem .4rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;font-size:.58rem;cursor:pointer;white-space:nowrap">📋 Copiar ayer</button>
+        <button onclick="_isoLimpiarDia()" title="Eliminar todos los equipos planificados para este día"
+          style="padding:.15rem .4rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;font-size:.58rem;cursor:pointer;white-space:nowrap">🗑 Limpiar día</button>
+        <button onclick="_isoSalirPlan()" style="padding:.15rem .35rem;border-radius:5px;border:1px solid #6b728040;background:var(--panel);color:var(--muted2);font-size:.58rem;cursor:pointer">✕ Salir</button>
+      `:`<span style="font-size:.55rem;color:var(--muted2)">Selecciona una fecha para activar el modo planificación diaria</span>`}
+    </div>
+    <div style="display:grid;grid-template-columns:195px 1fr;gap:.7rem;height:calc(100vh - 235px)">
     <!-- SIDEBAR ISO -->
     <div style="display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:var(--panel2);overflow:hidden">
       <!-- Tab selector -->
-      <div style="display:flex;gap:.25rem">
+      <div style="display:flex;gap:.2rem;flex-wrap:wrap">
         ${btnTab('equipos','🚜','Equipos')}
         ${btnTab('personal','👷','Personal')}
         ${btnTab('areas','📍','Áreas')}
+        ${btnTab('dibujos','📐','Dibujos')}
         ${btnTab('notas','📝','Notas')}
       </div>
       <hr style="border-color:var(--border);margin:.1rem 0">
       <!-- Contenido del panel -->
       <div style="flex:1;overflow-y:auto">${panelContent}</div>
       <hr style="border-color:var(--border);margin:.1rem 0">
-      <button onclick="_pizLimpiar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:5px;color:#ef4444;cursor:pointer;padding:.25rem;font-size:.62rem">🗑 Limpiar mapa ISO</button>
+      <button onclick="_pizLimpiar()" style="width:100%;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:5px;color:#ef4444;cursor:pointer;padding:.25rem;font-size:.62rem">
+        ${_isoFecha?`🗑 Limpiar equipos del ${_isoFecha}`:'🗑 Limpiar mapa ISO'}
+      </button>
     </div>
     <!-- MAPA -->
     <div style="position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#111" id="rutaMapWrap"
@@ -283,7 +375,11 @@ function _pizRenderIso(c){
     wrap.addEventListener('click',_isoAreaMapClick);
     wrap.addEventListener('dblclick',_isoAreaMapDblClick);
     wrap.addEventListener('mousemove',_isoAreaMouseMove);
-    wrap.addEventListener('contextmenu',e=>{if(_isoAreaDibujando){e.preventDefault();_isoAreaCancelar();}});
+    wrap.addEventListener('contextmenu',e=>{
+      e.preventDefault();
+      if(_isoAreaDibujando)_isoAreaCancelar();
+      if(_isoPlanDibujando)_isoPlanDibujarCancelar();
+    });
   }
   document.addEventListener('mousemove',_rutaOnGlobalMousemove);
   document.addEventListener('mouseup',_pizPlanGlobalMouseup);
@@ -372,9 +468,12 @@ function _isoAreaBorrar(){
 function _isoAreaRenderSvg(frentes){
   const svg=document.getElementById('rutaSvg');if(!svg)return;
   const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
-  svg.querySelectorAll('.iso-area-static').forEach(el=>el.remove());
+  svg.querySelectorAll('.iso-area-static,.iso-plan-dibujo').forEach(el=>el.remove());
+
+  // ── Frentes de trabajo (con toggle de visibilidad) ──────────────────────
   const sorted=(frentes||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
   sorted.forEach((f,i)=>{
+    if(_isoHiddenFrentes.has(f.id))return; // oculto por usuario
     const pts=f.puntosIso||[];if(pts.length<3)return;
     const col=_frenteColors[i%_frenteColors.length];
     const nom=(f.nombre||f.nom||f.frente||'').slice(0,22);
@@ -397,6 +496,55 @@ function _isoAreaRenderSvg(frentes){
     g.appendChild(txt);
     svg.appendChild(g);
   });
+
+  // ── Dibujos de planificación (persistentes, filtrados por WBS) ──────────
+  (DB.planDibujos||[]).forEach(d=>{
+    if(!d.activo)return;
+    if(d.wbsCodigo){
+      const w=(DB.lpsWbs||[]).find(x=>x.codigo===d.wbsCodigo);
+      if(w&&+(w.pctAvance||w.pct||0)>=100)return; // oculto si WBS completo
+    }
+    const pts=d.puntos||[];if(pts.length<3)return;
+    const col=d.color||'#ef4444';
+    const px=pts.map(p=>({x:(p.x*W/100),y:(p.y*H/100)}));
+    const dPath='M '+px.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')+' Z';
+    const cx=px.reduce((s,p)=>s+p.x,0)/px.length;
+    const cy=px.reduce((s,p)=>s+p.y,0)/px.length;
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('iso-plan-dibujo');
+    const area=document.createElementNS('http://www.w3.org/2000/svg','path');
+    area.setAttribute('d',dPath);area.setAttribute('fill',col);area.setAttribute('fill-opacity','.18');
+    area.setAttribute('stroke',col);area.setAttribute('stroke-width','2');area.setAttribute('stroke-dasharray','6 3');area.setAttribute('stroke-linejoin','round');
+    g.appendChild(area);
+    if(d.label){
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',cx.toFixed(1));txt.setAttribute('y',cy.toFixed(1));
+      txt.setAttribute('font-size','10');txt.setAttribute('font-weight','700');txt.setAttribute('fill',col);
+      txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','2');txt.setAttribute('paint-order','stroke');
+      txt.setAttribute('dominant-baseline','middle');txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','sans-serif');
+      txt.textContent=d.label;
+      g.appendChild(txt);
+    }
+    svg.appendChild(g);
+  });
+
+  // ── Dibujo en curso ─────────────────────────────────────────────────────
+  if(_isoPlanDibujando&&_isoPlanPuntos.length>=1){
+    const px=_isoPlanPuntos.map(p=>({x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)}));
+    const pathEl=document.createElementNS('http://www.w3.org/2000/svg','path');
+    pathEl.classList.add('iso-plan-dibujo');
+    pathEl.setAttribute('d','M '+px.map(p=>`${p.x} ${p.y}`).join(' L '));
+    pathEl.setAttribute('stroke','#f59e0b');pathEl.setAttribute('stroke-width','2');
+    pathEl.setAttribute('stroke-dasharray','5 3');pathEl.setAttribute('fill','none');
+    svg.appendChild(pathEl);
+    px.forEach(p=>{
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.classList.add('iso-plan-dibujo');
+      c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r','4');
+      c.setAttribute('fill','#f59e0b');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+      svg.appendChild(c);
+    });
+  }
 }
 
 function _isoAreaTempRender(){
@@ -434,17 +582,25 @@ function _isoAreaTempRender(){
 }
 
 function _isoAreaMapClick(e){
-  if(!_isoAreaDibujando||!_isoAreaSelId)return;
   if(e.detail>1)return;
   const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
   const r=canvas.getBoundingClientRect();
   const x=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
   const y=parseFloat(((e.clientY-r.top)/r.height*100).toFixed(2));
+  if(_isoPlanDibujando){_isoPlanPuntos.push({x,y});_isoAreaRenderSvg(DB.frentesTrabajo||[]);return;}
+  if(!_isoAreaDibujando||!_isoAreaSelId)return;
   _isoAreaPuntos.push({x,y});
   _isoAreaTempRender();
 }
 
 function _isoAreaMapDblClick(e){
+  if(_isoPlanDibujando){
+    e.preventDefault();
+    if(_isoPlanPuntos.length)_isoPlanPuntos.pop();
+    if(_isoPlanPuntos.length<3){toast('Necesitas al menos 3 vértices',true);return;}
+    document.getElementById('isoPlanDibujoForm').style.display='block';
+    return;
+  }
   if(!_isoAreaDibujando)return;
   e.preventDefault();
   if(_isoAreaPuntos.length)_isoAreaPuntos.pop();
@@ -842,6 +998,7 @@ function _pizDrop(e){
     if(existing){existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();return;}
   }
   const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:_pizActiveTabKey,cant:1};
+  if(_pizActiveTabKey==='iso'&&_isoFecha)rec.fecha=_isoFecha;
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
   _pizRenderTab();
@@ -897,11 +1054,16 @@ function _pizRemoveItem(id){
 }
 
 function _pizLimpiar(){
-  const label=_pizActiveTabKey==='iso'?'mapa isométrico':'mapa de planificación';
-  if(!confirm('¿Limpiar equipos y personal del '+label+'?'))return;
-  const toDelete=(DB.pizarraItems||[]).filter(i=>i.tab===_pizActiveTabKey);
+  const label=_pizActiveTabKey==='iso'
+    ?(_isoFecha?`equipos planificados para ${_isoFecha}`:'mapa isométrico permanente')
+    :'mapa de planificación';
+  if(!confirm('¿Limpiar '+label+'?'))return;
+  const toDelete=(DB.pizarraItems||[]).filter(i=>
+    i.tab===_pizActiveTabKey&&
+    (_pizActiveTabKey==='iso' ? (_isoFecha ? i.fecha===_isoFecha : !i.fecha) : true)
+  );
   toDelete.forEach(i=>supaDelete('pizarraItems',i.id));
-  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>i.tab!==_pizActiveTabKey);
+  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>!toDelete.includes(i));
   _pizRenderTab();
 }
 
@@ -1499,4 +1661,144 @@ function _rutaUndoUltimo(){
   _rutaPuntos.pop();
   _rutaRedibujarTemp();
   if(!_rutaPuntos.length){const hint=document.getElementById('rutaHint');if(hint)hint.textContent='Clic=punto · Doble clic=guardar · Clic derecho=cancelar';}
+}
+
+// ══ ISO - TOGGLE FRENTE VISIBILIDAD ══════════════════════════════════════════
+function _isoToggleFrente(id){
+  if(_isoHiddenFrentes.has(id))_isoHiddenFrentes.delete(id);
+  else _isoHiddenFrentes.add(id);
+  _isoAreaRenderSvg(DB.frentesTrabajo||[]);
+  // Actualiza solo el item de lista (sin re-render completo)
+  const el=document.getElementById('iso-area-item-'+id);
+  const f=(DB.frentesTrabajo||[]).find(x=>x.id===id);
+  const i=(DB.frentesTrabajo||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||'')).findIndex(x=>x.id===id);
+  if(el&&f){
+    const col=_frenteColors[i>=0?i%_frenteColors.length:0];
+    const hidden=_isoHiddenFrentes.has(id);
+    el.style.opacity=hidden?'.55':'1';
+    el.style.border=`2px solid ${col}${hidden?'18':'30'}`;
+    el.style.background=`${col}${hidden?'06':'10'}`;
+    const btn=el.querySelector('button');
+    if(btn){btn.textContent=hidden?'🙈':'👁';btn.style.color=hidden?'#6b7280':'#06b6d4';}
+  }
+}
+
+// ══ ISO - MODO PLAN DIARIO ════════════════════════════════════════════════════
+function _isoSetFecha(fecha){
+  if(!fecha){_isoSalirPlan();return;}
+  const anterior=_isoFecha;
+  _isoFecha=fecha;
+  // Si hay items en la fecha anterior, preguntar si copiar al nuevo día
+  if(anterior&&anterior!==fecha){
+    const itemsAnterior=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===anterior);
+    if(itemsAnterior.length>0){
+      const op=confirm(`Hay ${itemsAnterior.length} equipos en el plan del ${anterior}.\n¿Copiarlos al ${fecha}?\n\nAceptar = Copiar · Cancelar = Empezar vacío`);
+      if(op)_isoCopiarFecha(anterior,fecha);
+    }
+  }
+  _pizRenderTab();
+}
+
+function _isoSalirPlan(){
+  _isoFecha=null;
+  _pizRenderTab();
+}
+
+function _isoMantenerPlan(){
+  if(!_isoFecha){toast('Selecciona una fecha primero',true);return;}
+  // Calcula el día anterior
+  const d=new Date(_isoFecha+'T12:00:00');
+  d.setDate(d.getDate()-1);
+  const prev=d.toISOString().slice(0,10);
+  const prevItems=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===prev);
+  if(!prevItems.length){toast('No hay plan registrado para el día anterior ('+prev+')',true);return;}
+  // Verifica si ya hay items en la fecha actual
+  const existentes=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===_isoFecha);
+  if(existentes.length>0){
+    if(!confirm(`Ya hay ${existentes.length} equipos para el ${_isoFecha}. ¿Reemplazar con el plan del ${prev}?`))return;
+    existentes.forEach(i=>supaDelete('pizarraItems',i.id));
+    DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>!existentes.includes(i));
+  }
+  _isoCopiarFecha(prev,_isoFecha);
+  toast(`✓ Plan del ${prev} copiado a ${_isoFecha} (${prevItems.length} equipos)`);
+  _pizRenderTab();
+}
+
+function _isoCopiarFecha(origen,destino){
+  const src=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===origen);
+  src.forEach(item=>{
+    const copia={...item,id:nid('piz'),fecha:destino};
+    DB.pizarraItems.push(copia);
+    syncSheet('savePizItem',copia);
+  });
+}
+
+function _isoLimpiarDia(){
+  if(!_isoFecha){toast('Activa el modo plan primero',true);return;}
+  const items=(DB.pizarraItems||[]).filter(x=>x.tab==='iso'&&x.tipo!=='frente'&&x.fecha===_isoFecha);
+  if(!items.length){toast('No hay equipos planificados para este día',true);return;}
+  if(!confirm(`¿Eliminar los ${items.length} equipos del plan del ${_isoFecha}?`))return;
+  items.forEach(i=>supaDelete('pizarraItems',i.id));
+  DB.pizarraItems=(DB.pizarraItems||[]).filter(i=>!items.includes(i));
+  toast(`✓ Plan del ${_isoFecha} limpiado`);
+  _pizRenderTab();
+}
+
+// ══ ISO - DIBUJOS DE PLANIFICACIÓN ══════════════════════════════════════════
+function _isoPlanDibujarToggle(){
+  if(_isoPlanDibujando){
+    // Mostrar form si hay puntos suficientes
+    if(_isoPlanPuntos.length>=3){
+      const form=document.getElementById('isoPlanDibujoForm');
+      if(form)form.style.display='block';
+    }else{
+      toast('Dibuja al menos 3 vértices',true);
+    }
+  }else{
+    _isoPlanDibujando=true;
+    _isoPlanPuntos=[];
+    const canvas=document.getElementById('rutaCanvas');
+    if(canvas)canvas.style.cursor='crosshair';
+    _pizRenderTab();
+  }
+}
+
+function _isoPlanDibujarCancelar(){
+  _isoPlanDibujando=false;
+  _isoPlanPuntos=[];
+  const canvas=document.getElementById('rutaCanvas');
+  if(canvas)canvas.style.cursor='default';
+  const form=document.getElementById('isoPlanDibujoForm');
+  if(form)form.style.display='none';
+  _pizRenderTab();
+}
+
+async function _isoPlanDibujoSave(){
+  const label=(document.getElementById('isoPlanDibLabel')?.value||'').trim();
+  const tipo=document.getElementById('isoPlanDibTipo')?.value||'Acceso temporal';
+  const wbsCodigo=(document.getElementById('isoPlanDibWbs')?.value||'').trim();
+  const color=document.getElementById('isoPlanDibColor')?.value||'#ef4444';
+  if(!_isoPlanPuntos.length||_isoPlanPuntos.length<3){toast('Dibuja al menos 3 vértices',true);return;}
+  const rec={id:nid('pld'),puntos:[..._isoPlanPuntos],label,tipo,wbsCodigo:wbsCodigo||null,color,activo:true,fecha:today()};
+  DB.planDibujos.push(rec);
+  syncSheet('savePlanDibujo',rec);
+  toast(`✓ "${label||tipo}" guardado (${rec.puntos.length} vértices)${wbsCodigo?' · WBS: '+wbsCodigo:''}`);
+  _isoPlanDibujando=false;
+  _isoPlanPuntos=[];
+  const canvas=document.getElementById('rutaCanvas');
+  if(canvas)canvas.style.cursor='default';
+  _pizRenderTab();
+  setTimeout(()=>_isoAreaRenderSvg(DB.frentesTrabajo||[]),100);
+}
+
+function _isoPlanDibujoDelete(id){
+  if(!confirm('¿Eliminar este dibujo del mapa?'))return;
+  const d=(DB.planDibujos||[]).find(x=>x.id===id);
+  if(!d)return;
+  d.activo=false;
+  syncSheet('savePlanDibujo',d);
+  DB.planDibujos=(DB.planDibujos||[]).filter(x=>x.id!==id);
+  toast('Dibujo eliminado');
+  _pizRenderTab();
+  setTimeout(()=>_isoAreaRenderSvg(DB.frentesTrabajo||[]),100);
 }
