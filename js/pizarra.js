@@ -323,7 +323,7 @@ function _pizRenderIso(c){
     <!-- BARRA DE FECHA / PLAN DIARIO -->
     <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;margin-bottom:.4rem;background:var(--panel2);border:1px solid ${_isoFecha?'#f59e0b40':'var(--border)'};border-radius:7px;flex-wrap:wrap">
       <span style="font-size:.6rem;font-weight:700;color:${_isoFecha?'#f59e0b':'var(--muted2)'};white-space:nowrap">📅 Plan del día:</span>
-      <input type="date" value="${_isoFecha||''}" max="${today()}"
+      <input type="date" value="${_isoFecha||''}"
         onchange="_isoSetFecha(this.value)"
         style="background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:.15rem .35rem;color:var(--text);font-size:.65rem;cursor:pointer">
       ${_isoFecha?`
