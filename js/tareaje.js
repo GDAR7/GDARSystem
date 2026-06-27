@@ -584,10 +584,13 @@ function _tarResDetail(event,grupo,cargoEnc,tipo){
     <button onclick="document.getElementById('_tarResPop').style.display='none'" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1rem;line-height:1;padding:0">✕</button>
   </div>
   <div style="font-size:.7rem;color:var(--muted2);margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.05em">${personas.length} persona${personas.length!==1?'s':''}</div>
-  <div style="display:flex;flex-direction:column;gap:.28rem;max-height:260px;overflow-y:auto">
-    ${personas.map((p,i)=>`<div style="display:flex;gap:.55rem;align-items:center;padding:.3rem .5rem;background:var(--panel2);border-radius:6px;border:1px solid var(--border)">
-      <span style="font-size:.68rem;color:var(--muted2);font-family:monospace;min-width:82px">${p.dni||'—'}</span>
-      <span style="font-size:.75rem;font-weight:600;color:var(--text)">${(p.ape||'').toUpperCase()}, ${p.nom||''}</span>
+  <div style="display:flex;flex-direction:column;gap:.28rem;max-height:280px;overflow-y:auto">
+    ${personas.map(p=>`<div id="_trp_${p.id}" style="display:flex;gap:.45rem;align-items:center;padding:.3rem .5rem;background:var(--panel2);border-radius:6px;border:1px solid var(--border)">
+      <span style="font-size:.65rem;color:var(--muted2);font-family:monospace;min-width:75px;flex-shrink:0">${p.dni||'—'}</span>
+      <span style="font-size:.72rem;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(p.ape||'').toUpperCase()}, ${p.nom||''}</span>
+      <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:700;flex-shrink:0;min-width:22px;text-align:center">${p.guardia||'—'}</span>
+      <button onclick="_tarCambiarGuardia(${p.id})" title="Cambiar guardia"
+        style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#818cf8;border-radius:5px;padding:2px 7px;font-size:.62rem;cursor:pointer;flex-shrink:0;white-space:nowrap">✏️ Grd.</button>
     </div>`).join('')}
   </div>`;
   const x=Math.min(event.clientX+4,window.innerWidth-350);
@@ -596,6 +599,58 @@ function _tarResDetail(event,grupo,cargoEnc,tipo){
   pop.style.top=Math.max(6,y)+'px';
   pop.style.display='block';
   event.stopPropagation();
+}
+
+function _tarCambiarGuardia(personalId){
+  const p=(DB.personal||[]).find(x=>x.id===personalId);
+  if(!p)return;
+  const row=document.getElementById('_trp_'+personalId);
+  if(!row)return;
+  // Si ya hay un inline-form abierto en esta fila, cerrarlo
+  const existente=row.querySelector('._tarGrdForm');
+  if(existente){existente.remove();return;}
+  // Crear mini-form inline
+  const form=document.createElement('div');
+  form.className='_tarGrdForm';
+  form.style.cssText='display:flex;align-items:center;gap:.3rem;margin-top:.3rem;padding:.25rem .4rem;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:6px';
+  form.innerHTML=`
+    <span style="font-size:.6rem;color:#a5b4fc;flex-shrink:0">Guardia:</span>
+    <select id="_tarGrdSel_${personalId}"
+      style="background:var(--panel);border:1px solid rgba(99,102,241,.4);border-radius:4px;color:var(--text);padding:2px 5px;font-size:.67rem;flex:1;outline:none">
+      <option value="">— Sin guardia —</option>
+      <option value="A" ${p.guardia==='A'?'selected':''}>A</option>
+      <option value="B" ${p.guardia==='B'?'selected':''}>B</option>
+      <option value="C" ${p.guardia==='C'?'selected':''}>C</option>
+    </select>
+    <button onclick="_tarGuardiaSave(${personalId})"
+      style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#10b981;border-radius:4px;padding:2px 8px;font-size:.62rem;cursor:pointer;font-weight:700">✓</button>
+    <button onclick="document.querySelector('._tarGrdForm')?.remove()"
+      style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.8rem;line-height:1;padding:0 2px">✕</button>
+  `;
+  // Insertar el form debajo de la fila convirtiéndola en columna
+  row.style.flexWrap='wrap';
+  row.appendChild(form);
+  document.getElementById('_tarGrdSel_'+personalId)?.focus();
+}
+
+function _tarGuardiaSave(personalId){
+  const p=(DB.personal||[]).find(x=>x.id===personalId);
+  if(!p)return;
+  const sel=document.getElementById('_tarGrdSel_'+personalId);
+  if(!sel)return;
+  const nueva=sel.value;
+  p.guardia=nueva;
+  syncSheet('savePersonal',p);
+  // Actualizar badge en la fila
+  const row=document.getElementById('_trp_'+personalId);
+  if(row){
+    const badge=row.querySelector('span[style*="f59e0b"]');
+    if(badge)badge.textContent=nueva||'—';
+    const form=row.querySelector('._tarGrdForm');
+    if(form)form.remove();
+    row.style.flexWrap='';
+  }
+  toast(`✓ ${p.ape}, ${p.nom} → Guardia ${nueva||'sin asignar'}`);
 }
 // ── Filtro de columnas del Resumen ──
 function _toggleTarColMenu(e){
