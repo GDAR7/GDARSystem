@@ -195,6 +195,7 @@ function verComb(id){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   const S='<'+'/';
+  const _logoUrlV=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Despacho de Combustible – ${r.numFormato||r.id}</title>
 <style>
@@ -202,7 +203,7 @@ function verComb(id){
   body{font-family:'Arial',sans-serif;background:#fff;color:#0a1330;font-size:11pt;padding:1.5cm;}
   .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:.7rem;margin-bottom:1rem;}
   .logo-area{display:flex;align-items:center;gap:.7rem;}
-  .logo-area img{width:70px;height:70px;object-fit:contain;}
+  .logo-area img{height:55px;object-fit:contain;}
   .brand{font-size:1.1rem;font-weight:900;color:#0a1330;letter-spacing:.08em;}
   .brand-sub{font-size:.62rem;color:#555;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;}
   .doc-title{text-align:right;}
@@ -225,9 +226,9 @@ function verComb(id){
 </style></head><body>
 <div class="header">
   <div class="logo-area">
-    <img src="09.-ERP/Imagenes/GDAR-LOGO_2.png" alt="GDAR Logo">
+    <img src="${_logoUrlV}" alt="Ecosermo">
     <div>
-      <div class="brand">GDAR – ECOSERMO</div>
+      <div class="brand">ECOSERMO S.A.C.</div>
       <div class="brand-sub">Sistema de Gestión Operativa · Oyón / Uchuchacua</div>
     </div>
   </div>
@@ -318,6 +319,7 @@ function _combExportPDF(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   const S='<'+'/';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const titulo=filtVal?`Kardex Combustible – Pedido/Atn N° ${filtVal}`:'Kardex de Combustible – Todos los registros';
   win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>${titulo}</title>
@@ -325,10 +327,12 @@ function _combExportPDF(){
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:Arial,sans-serif;background:#fff;color:#0a1330;font-size:9.5pt;padding:1.2cm;}
   .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:.7rem;margin-bottom:.8rem;}
-  .brand{font-size:1rem;font-weight:900;color:#0a1330;}
-  .brand-sub{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-top:2px;}
-  .doc-title h2{font-size:1.1rem;font-weight:900;color:#f97316;text-align:right;}
-  .doc-title p{font-size:.7rem;color:#555;text-align:right;margin-top:3px;}
+  .header-logo{flex:0 0 auto}.header-logo img{height:52px;object-fit:contain}
+  .brand{font-size:1rem;font-weight:900;color:#0a1330;line-height:1.2;}
+  .brand-sub{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-top:3px;}
+  .doc-title{text-align:right;}
+  .doc-title h2{font-size:1.15rem;font-weight:900;color:#f97316;text-transform:uppercase;letter-spacing:.06em;}
+  .doc-title p{font-size:.7rem;color:#555;margin-top:4px;}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.8rem;}
   .kpi{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px;padding:.4rem .7rem;text-align:center;}
   .kpi-l{font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.08em;}
@@ -342,12 +346,15 @@ function _combExportPDF(){
   @media print{body{padding:.7cm;}@page{size:A4 landscape;margin:.8cm;}}
 </style></head><body>
 <div class="header">
-  <div>
-    <div class="brand">ECOSERMO S.A.C.</div>
-    <div class="brand-sub">Transporte, Minería, Construcción e Ingeniería</div>
+  <div style="display:flex;align-items:center;gap:.8rem">
+    <div class="header-logo"><img src="${_logoUrl}" alt="Ecosermo"></div>
+    <div>
+      <div class="brand">ECOSERMO S.A.C.</div>
+      <div class="brand-sub">Transporte, Minería, Construcción e Ingeniería</div>
+    </div>
   </div>
   <div class="doc-title">
-    <h2>KARDEX DE COMBUSTIBLE</h2>
+    <h2>Kardex de Combustible</h2>
     <p>${filtVal?`Pedido / Atendido: <strong>${filtVal}</strong> · `:''}Emitido: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
   </div>
 </div>
