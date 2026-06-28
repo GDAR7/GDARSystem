@@ -728,3 +728,232 @@ function gHosp(){DB.hospedaje.push({id:nid('hosp'),fecha:document.getElementById
 function rLav(){document.getElementById('tbLav').innerHTML=DB.lavanderia.map(r=>`<tr><td class="mono">${r.fecha}</td><td>${r.trab}</td><td><span class="badge b-blue">${r.prendas}</span></td><td class="mono tr">${r.cant}</td><td class="mono">${r.fEnt}</td><td>${bge(r.est)}</td><td><button class="btn btn-del btn-sm" onclick="del('lavanderia',${r.id})">🗑</button></td></tr>`).join('');}
 function gLav(){DB.lavanderia.push({id:nid('lav'),fecha:document.getElementById('lvF').value||today(),trab:document.getElementById('lvT').value,prendas:document.getElementById('lvP').value,cant:+document.getElementById('lvC').value||1,fEnt:document.getElementById('lvFE').value,est:document.getElementById('lvE').value});syncSheet('saveLavanderia',DB.lavanderia[DB.lavanderia.length-1]);closeM('mLav');rLav();toast('Lavandería registrada');}
 
+// ══════════════════════════════════════════════════════════════
+// ROSTER DE GUARDIAS – Ciclo 14T / 7D proyectado
+// ══════════════════════════════════════════════════════════════
+let _rosterInicioVista=null; // lunes de la semana en vista
+const _ROSTER_CICLO_T=14, _ROSTER_CICLO_D=7, _ROSTER_CICLO=21;
+const _ROSTER_GUARDIAS=['A','B','C'];
+
+function _rosterLunes(d=new Date()){
+  const dx=new Date(d);const day=dx.getDay();
+  dx.setDate(dx.getDate()-day+(day===0?-6:1));
+  return dx.toISOString().split('T')[0];
+}
+function _rosterAddDays(iso,n){
+  const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];
+}
+function _rosterFmt(iso){
+  const[,m,d]=iso.split('-');return`${d}/${m}`;
+}
+function _rosterDia(iso){return new Date(iso+'T12:00:00').getDay();}
+const _DN=['DO','LU','MA','MI','JU','VI','SA'];
+
+function _rosterTipo(fecha,cfg){
+  if(!cfg||!cfg.fechaInicio)return null;
+  const ini=new Date(cfg.fechaInicio+'T12:00:00');
+  const f=new Date(fecha+'T12:00:00');
+  const diff=Math.round((f-ini)/(86400000));
+  if(diff<0)return null;
+  const pos=((diff%_ROSTER_CICLO)+_ROSTER_CICLO)%_ROSTER_CICLO;
+  return pos<_ROSTER_CICLO_T?(cfg.turno==='NOCHE'?'TN':'TD'):'D';
+}
+
+function _rosterGetCfg(guardia){
+  return (DB.rosterConfig||[]).find(r=>r.guardia===guardia&&r.activo!==false)||null;
+}
+
+function rRoster(){
+  if(!_rosterInicioVista)_rosterInicioVista=_rosterLunes();
+  const hoy=today();
+  const dias35=Array.from({length:35},(_,i)=>_rosterAddDays(_rosterInicioVista,i));
+  const mesLabel=()=>{
+    const meses=new Set(dias35.map(d=>d.slice(0,7)));
+    return [...meses].map(m=>{const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleString('es-PE',{month:'long'}).replace(/^\w/,c=>c.toUpperCase())+' '+y;}).join(' / ');
+  };
+
+  const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
+  const filtroGrd=document.getElementById('rosterFiltroGrd')?.value||'';
+  const filtroCargo=document.getElementById('rosterFiltroCargo')?.value||'';
+  const cargos=[...new Set(personalActivo.map(p=>(p.cargo||'Sin cargo').toUpperCase()))].sort();
+
+  const personasFiltradas=personalActivo.filter(p=>{
+    if(filtroGrd&&p.guardia!==filtroGrd)return false;
+    if(filtroCargo&&(p.cargo||'Sin cargo').toUpperCase()!==filtroCargo)return false;
+    return true;
+  });
+
+  // ── cabecera de días ──
+  const hdrs=dias35.map(d=>{
+    const dow=_rosterDia(d);
+    const esHoy=d===hoy;
+    const esDom=dow===0;
+    return`<th style="min-width:30px;width:30px;padding:2px 1px;text-align:center;font-size:.55rem;${esHoy?'background:#f59e0b20;color:#f59e0b;border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':esDom?'color:#64748b;background:rgba(255,255,255,.03)':''}">${_rosterFmt(d)}<div style="font-size:.45rem;opacity:.7">${_DN[dow]}</div></th>`;
+  }).join('');
+
+  // ── secciones por guardia ──
+  const secciones=_ROSTER_GUARDIAS.map(grd=>{
+    if(filtroGrd&&filtroGrd!==grd)return'';
+    const cfg=_rosterGetCfg(grd);
+    const personas=personasFiltradas.filter(p=>p.guardia===grd);
+    if(!personas.length&&!cfg)return'';
+
+    const cfgLabel=cfg
+      ?`<span style="font-size:.62rem;color:var(--muted2)">· Inicio ciclo: <strong style="color:#e2e8f0">${_rosterFmt(cfg.fechaInicio)}</strong> · <strong style="color:${cfg.turno==='NOCHE'?'#6366f1':'#f59e0b'}">${cfg.turno==='NOCHE'?'🌙 Turno Noche':'☀️ Turno Día'}</strong></span>`
+      :`<span style="font-size:.6rem;color:#ef4444">⚠️ Sin configurar</span>`;
+
+    const rows=personas.map(p=>{
+      const cells=dias35.map(d=>{
+        const tipo=_rosterTipo(d,cfg);
+        const esHoy=d===hoy;
+        const dow=_rosterDia(d);
+        const esDom=dow===0;
+        let bg='',tx='',lbl='';
+        if(!tipo){bg='rgba(255,255,255,.02)';tx='#374151';lbl='·';}
+        else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
+        else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
+        else{bg=esDom?'rgba(255,255,255,.02)':'rgba(239,68,68,.1)';tx='#64748b';lbl='D';}
+        return`<td style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}${esDom?'opacity:.5':''}">${lbl}</td>`;
+      }).join('');
+      const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
+      return`<tr>
+        <td style="padding:.2rem .5rem;white-space:nowrap;font-size:.68rem;font-weight:600;color:var(--text);min-width:170px">${(p.ape||'').split(' ')[0]}, ${p.nom||''} ${grdBadge}</td>
+        <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;min-width:120px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
+        ${cells}
+      </tr>`;
+    }).join('');
+
+    const sinPersonas=personas.length===0
+      ?`<tr><td colspan="${35+2}" style="text-align:center;font-size:.65rem;color:var(--muted2);padding:.6rem">Sin personal asignado a Guardia ${grd}</td></tr>`:'';
+
+    return`<div style="margin-bottom:1.2rem">
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;border-radius:0 6px 6px 0;margin-bottom:.4rem;flex-wrap:wrap">
+        <span style="font-size:.75rem;font-weight:800;color:#f59e0b">GUARDIA ${grd}</span>
+        <span style="font-size:.62rem;color:var(--muted2)">· ${personas.length} persona${personas.length!==1?'s':''}</span>
+        ${cfgLabel}
+        <button onclick="_rosterOpenCfg('${grd}')" style="margin-left:auto;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#818cf8;border-radius:5px;padding:2px 8px;font-size:.6rem;cursor:pointer">⚙️ Configurar</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%;font-size:.65rem">
+          <thead><tr>
+            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;min-width:170px">Nombre</th>
+            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;min-width:120px">Cargo</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${rows}${sinPersonas}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── leyenda ──
+  const leyenda=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
+    <span style="background:rgba(16,185,129,.18);color:#10b981;border-radius:4px;padding:2px 8px;font-weight:700">TD = Turno Día</span>
+    <span style="background:rgba(99,102,241,.18);color:#818cf8;border-radius:4px;padding:2px 8px;font-weight:700">TN = Turno Noche</span>
+    <span style="background:rgba(239,68,68,.1);color:#64748b;border-radius:4px;padding:2px 8px;font-weight:700">D = Descanso</span>
+    <span style="background:#f59e0b20;color:#f59e0b;border-radius:4px;padding:2px 8px;font-weight:700;border:1px solid #f59e0b40">HOY</span>
+    <span style="font-size:.58rem;color:var(--muted2);margin-left:.3rem">Ciclo: ${_ROSTER_CICLO_T} días trabajando · ${_ROSTER_CICLO_D} días descansando</span>
+  </div>`;
+
+  document.getElementById('rosterBody').innerHTML=`
+    <!-- Controles -->
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.9rem">
+      <div>
+        <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Guardia</div>
+        <select id="rosterFiltroGrd" onchange="rRoster()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.78rem">
+          <option value="">Todas</option>
+          <option value="A" ${filtroGrd==='A'?'selected':''}>Guardia A</option>
+          <option value="B" ${filtroGrd==='B'?'selected':''}>Guardia B</option>
+          <option value="C" ${filtroGrd==='C'?'selected':''}>Guardia C</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Cargo</div>
+        <select id="rosterFiltroCargo" onchange="rRoster()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.78rem">
+          <option value="">Todos</option>
+          ${cargos.map(c=>`<option value="${c}" ${filtroCargo===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;margin-left:auto">
+        <button onclick="_rosterNavegar(-35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas atrás">«</button>
+        <button onclick="_rosterNavegar(-7)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem">◀</button>
+        <span style="font-size:.78rem;font-weight:700;color:var(--text);min-width:200px;text-align:center">${mesLabel()}</span>
+        <button onclick="_rosterNavegar(7)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem">▶</button>
+        <button onclick="_rosterNavegar(35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas adelante">»</button>
+        <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
+      </div>
+    </div>
+    ${leyenda}
+    ${secciones||'<div style="text-align:center;color:var(--muted2);padding:2rem">Sin personal activo con guardia asignada. Asigna guardias en el módulo Personal / RR.HH.</div>'}
+    <!-- Modal config -->
+    <div id="rosterCfgModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.6rem;min-width:320px;max-width:400px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <span id="rosterCfgTitle" style="font-weight:700;font-size:.9rem;color:var(--text)">⚙️ Configurar Guardia</span>
+          <button onclick="_rosterCloseCfg()" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1.1rem">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.8rem">
+          <div>
+            <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Fecha de inicio del ciclo (día 1 de los 14 trabajando)</label>
+            <input type="date" id="rosterCfgFecha" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem;box-sizing:border-box;color-scheme:dark">
+          </div>
+          <div>
+            <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Tipo de turno</label>
+            <div style="display:flex;gap:.5rem">
+              <label style="flex:1;cursor:pointer">
+                <input type="radio" name="rosterCfgTurno" value="DIA" style="margin-right:.3rem;accent-color:#f59e0b">
+                <span style="font-size:.8rem;color:#f59e0b;font-weight:600">☀️ Turno Día</span>
+              </label>
+              <label style="flex:1;cursor:pointer">
+                <input type="radio" name="rosterCfgTurno" value="NOCHE" style="margin-right:.3rem;accent-color:#6366f1">
+                <span style="font-size:.8rem;color:#818cf8;font-weight:600">🌙 Turno Noche</span>
+              </label>
+            </div>
+          </div>
+          <button onclick="_rosterGuardarCfg()" style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:#10b981;border-radius:8px;padding:.55rem;font-size:.82rem;font-weight:700;cursor:pointer;width:100%">✓ Guardar configuración</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _rosterNavegar(dias){
+  _rosterInicioVista=_rosterAddDays(_rosterInicioVista||_rosterLunes(),dias);
+  rRoster();
+}
+
+let _rosterCfgGrd=null;
+function _rosterOpenCfg(guardia){
+  _rosterCfgGrd=guardia;
+  const modal=document.getElementById('rosterCfgModal');
+  if(!modal)return;
+  const cfg=_rosterGetCfg(guardia);
+  document.getElementById('rosterCfgTitle').textContent=`⚙️ Configurar Guardia ${guardia}`;
+  document.getElementById('rosterCfgFecha').value=cfg?.fechaInicio||today();
+  const turno=cfg?.turno||'DIA';
+  document.querySelectorAll('input[name="rosterCfgTurno"]').forEach(r=>r.checked=r.value===turno);
+  modal.style.display='flex';
+}
+function _rosterCloseCfg(){
+  const modal=document.getElementById('rosterCfgModal');
+  if(modal)modal.style.display='none';
+  _rosterCfgGrd=null;
+}
+function _rosterGuardarCfg(){
+  if(!_rosterCfgGrd)return;
+  const fecha=document.getElementById('rosterCfgFecha').value;
+  if(!fecha){toast('Selecciona la fecha de inicio del ciclo',true);return;}
+  const turno=document.querySelector('input[name="rosterCfgTurno"]:checked')?.value||'DIA';
+  let cfg=(DB.rosterConfig||[]).find(r=>r.guardia===_rosterCfgGrd);
+  if(cfg){
+    cfg.fechaInicio=fecha;cfg.turno=turno;cfg.activo=true;
+  } else {
+    cfg={id:nid('rc'),guardia:_rosterCfgGrd,fechaInicio:fecha,turno,activo:true};
+    DB.rosterConfig.push(cfg);
+  }
+  syncSheet('saveRosterConfig',cfg);
+  toast(`✓ Guardia ${_rosterCfgGrd} configurada · ${turno==='NOCHE'?'Turno Noche':'Turno Día'} · inicio ${_rosterFmt(fecha)}`);
+  _rosterCloseCfg();
+  rRoster();
+}
+
