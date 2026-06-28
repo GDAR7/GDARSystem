@@ -812,7 +812,7 @@ function rRoster(){
         if(!tipo){bg='rgba(255,255,255,.02)';tx='#374151';lbl='·';}
         else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
         else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
-        else{bg=esDom?'rgba(255,255,255,.02)':'rgba(239,68,68,.1)';tx='#64748b';lbl='D';}
+        else{bg=esDom?'rgba(255,255,255,.02)':'rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
         return`<td style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}${esDom?'opacity:.5':''}">${lbl}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
@@ -850,7 +850,7 @@ function rRoster(){
   const leyenda=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
     <span style="background:rgba(16,185,129,.18);color:#10b981;border-radius:4px;padding:2px 8px;font-weight:700">TD = Turno Día</span>
     <span style="background:rgba(99,102,241,.18);color:#818cf8;border-radius:4px;padding:2px 8px;font-weight:700">TN = Turno Noche</span>
-    <span style="background:rgba(239,68,68,.1);color:#64748b;border-radius:4px;padding:2px 8px;font-weight:700">D = Descanso</span>
+    <span style="background:rgba(239,68,68,.1);color:#64748b;border-radius:4px;padding:2px 8px;font-weight:700">DL = Día Libre</span>
     <span style="background:#f59e0b20;color:#f59e0b;border-radius:4px;padding:2px 8px;font-weight:700;border:1px solid #f59e0b40">HOY</span>
     <span style="font-size:.58rem;color:var(--muted2);margin-left:.3rem">Ciclo: ${_ROSTER_CICLO_T} días trabajando · ${_ROSTER_CICLO_D} días descansando</span>
   </div>`;
