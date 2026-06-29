@@ -39,11 +39,27 @@ let _lpsSectorFilt='';
 let _lpsEditWbsId=null;
 
 // ── helpers de fecha ──────────────────────────────────────────────────────────
-function _lpsMonday(d=new Date()){
-  const dx=new Date(d);
-  const day=dx.getDay();
-  dx.setDate(dx.getDate()-day+(day===0?-6:1));
+// Día de inicio de semana: 0=DOM,1=LUN,2=MAR,3=MIÉ,4=JUE,5=VIE,6=SÁB
+let _lpsDiaInicio=+localStorage.getItem('_lpsDiaInicio')||1;
+const _LPS_DIAS_LABEL=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+
+function _lpsWeekStart(d=new Date(),startDay=_lpsDiaInicio){
+  const dx=new Date(typeof d==='string'?d+'T12:00:00':d);
+  let diff=dx.getDay()-startDay;
+  if(diff<0)diff+=7;
+  dx.setDate(dx.getDate()-diff);
   return dx.toISOString().split('T')[0];
+}
+function _lpsMonday(d=new Date()){return _lpsWeekStart(d,1);}
+
+function _lpsChangeDiaInicio(v){
+  _lpsDiaInicio=+v;
+  localStorage.setItem('_lpsDiaInicio',_lpsDiaInicio);
+  // Recalcular _lpsSemana al nuevo día de inicio más cercano
+  _lpsSemana=_lpsWeekStart(new Date(_lpsSemana+'T12:00:00'),_lpsDiaInicio);
+  localStorage.setItem('_lpsSemana',_lpsSemana);
+  _lpsRenderTab();
+  toast('✓ Semana inicia el '+_LPS_DIAS_LABEL[_lpsDiaInicio]);
 }
 function _lpsAddDays(iso,n){
   const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];
@@ -54,7 +70,7 @@ function _lpsDaysRange(isoStart,n){return Array.from({length:n},(_,i)=>_lpsAddDa
 
 // ── entrada principal ─────────────────────────────────────────────────────────
 function rLps(){
-  if(!_lpsSemana){_lpsSemana=localStorage.getItem('_lpsSemana')||_lpsMonday();}
+  if(!_lpsSemana){_lpsSemana=localStorage.getItem('_lpsSemana')||_lpsWeekStart();}
   // Cargar fechas de proyecto desde Supabase (DB.lpsConfig), fallback a localStorage
   const cfg=(DB.lpsConfig||[])[0];
   _lpsProyInicio=cfg?.proyectoInicio||localStorage.getItem('_lpsProyInicio')||'';
@@ -895,7 +911,14 @@ function _lpsRenderLookahead(c){
       <input type="checkbox" ${_lpsLaManual?'checked':''} onchange="_lpsToggleLaManual(this.checked)" style="accent-color:#f59e0b;cursor:pointer">
       ✏️ Planificación manual
     </label>
-    <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.18rem .4rem" title="Día de inicio de semana">
+        <span style="font-size:.6rem;color:var(--muted2);white-space:nowrap">Inicio sem:</span>
+        <select onchange="_lpsChangeDiaInicio(this.value)"
+          style="background:transparent;border:none;color:${LPS_COLOR};font-size:.72rem;font-weight:700;cursor:pointer;outline:none;padding:0 .15rem">
+          ${[1,2,3,4,5,6,0].map(d=>`<option value="${d}" ${d===_lpsDiaInicio?'selected':''}>${_LPS_DIAS_LABEL[d]}</option>`).join('')}
+        </select>
+      </div>
       <button onclick="_lpsRodarAtras()" ${_canAtras?'':' disabled'} style="${_btnStyle(_canAtras)}" title="${_canAtras?'Retroceder semana':'Límite de inicio de proyecto'}">◀ Atrás</button>
       <span style="font-size:.82rem;font-weight:700;color:${LPS_COLOR};min-width:130px;text-align:center">${_lpsFmtSem(_lpsSemana)}</span>
       <button onclick="_lpsRodarSemana()" ${_canAdelante?'':' disabled'} style="${_btnStyle(_canAdelante)}" title="${_canAdelante?'Avanzar semana':'Límite de fin de proyecto'}">Adelante ▶</button>
