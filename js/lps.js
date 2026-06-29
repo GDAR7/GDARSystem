@@ -762,7 +762,7 @@ function _lpsSaveWbs(){
   const sector=document.getElementById('lpsWbsSect').value;
   const fechaIni=document.getElementById('lpsWbsIni')?.value||'';
   const fechaFin=document.getElementById('lpsWbsFin')?.value||'';
-  const cantDias=+document.getElementById('lpsWbsCantDias')?.value||0;
+  const cantDias=Math.round(+document.getElementById('lpsWbsCantDias')?.value||0);
   if(!codPrefix||!nombre||!sector){toast('Complete número, descripción y sector',true);return;}
   let savedId=_lpsEditWbsId;
   if(_lpsEditWbsId){
