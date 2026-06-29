@@ -477,6 +477,14 @@ async function iniciarScanner(){
     setScannerStatus('Error de cámara: '+err,'err');
   });
 }
+function _hablar(texto){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(texto);
+  u.lang='es-PE';u.rate=1.05;u.volume=1;
+  window.speechSynthesis.speak(u);
+}
+
 async function procesarQR(texto){
   let p=null;
   const match=texto.match(/ECO-PERSONAL-(\d+)/);
@@ -484,67 +492,49 @@ async function procesarQR(texto){
   if(!p){p=DB.personal.find(x=>x.dni===texto.trim());}
   if(!p){p=DB.personal.find(x=>x.codigoQr&&x.codigoQr===texto.trim());}
   if(!p){
+    _hablar('No está en el sistema');
     setScannerStatus('⚠ No encontrado: '+texto.trim(),'err');
-    setTimeout(()=>{_scannerCooldown=false;setScannerStatus('📷 Apunte el código al centro del recuadro','wait');},2000);
+    setTimeout(()=>{_scannerCooldown=false;setScannerStatus('📷 Apunte el código al centro del recuadro','wait');},2500);
     return;
   }
-  // Detener cámara
-  _detenerCamara();
-  document.getElementById('qr-reader').style.display='none';
-  _scannerCooldown=false;
+
+  // ── Calcular tipo de tareo automático ──
   const _h=new Date().getHours();
   const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
-  _scanWorker=p;
   const fecha=document.getElementById('asiDate')?.value||today();
   await loadAsistenciaFecha(fecha);
-
-  // ── Detectar primeros 4 días del mes → A5 ──────────────────────────────
   const [fY,fM]=fecha.split('-').map(Number);
   const mesPrefix=`${fY}-${String(fM).padStart(2,'0')}`;
   const presenciasMes=(DB.tareaje||[]).filter(r=>
-    r.personalId===p.id &&
-    r.fecha&&r.fecha.startsWith(mesPrefix) &&
-    ['TD','TN','DLT','A5'].includes(r.tipo) &&
-    r.fecha!==fecha  // no contar el día actual si ya existe
+    r.personalId===p.id&&r.fecha&&r.fecha.startsWith(mesPrefix)&&
+    ['TD','TN','DLT','A5'].includes(r.tipo)&&r.fecha!==fecha
   );
   const diasMes=new Set(presenciasMes.map(r=>r.fecha)).size;
   const esA5=diasMes<4;
-  const _autoTipo=esA5?'A5':_turnoTipo;
-  _scanTipoSel=_autoTipo;
-  // ────────────────────────────────────────────────────────────────────────
+  const autoTipo=esA5?'A5':_turnoTipo;
 
+  // ── Auto-guardar tareaje ──
+  const ahora=new Date().toTimeString().slice(0,5);
   const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
-  const proy=p.proy?(DB.proyectos.find(x=>x.codigo===p.proy)||null):null;
-  document.getElementById('swNombre').textContent=`${p.ape}, ${p.nom}`;
-  document.getElementById('swCargo').textContent=p.cargo||'—';
-  document.getElementById('swDni').textContent='DNI '+p.dni;
-  document.getElementById('swProy').textContent=proy?`[${proy.codigo}] ${proy.nombre}`:(p.proy||'Sin proyecto');
+  if(existente){existente.tipo=autoTipo;syncSheet('saveTareaje',existente);}
+  else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);syncSheet('saveTareaje',rec);}
 
-  // Botones: siempre TD y TN; agregar A5 si aplica (con indicador)
-  const tiposBtn=esA5?['A5','TD','TN']:['TD','TN'];
-  document.getElementById('swTipos').innerHTML=tiposBtn.map(k=>{
-    const v=_TARE_T[k];
-    const sel=k===_autoTipo;
-    const nota=k==='A5'?` <span style="font-size:.6rem;opacity:.85">(día ${diasMes+1}/4)</span>`:'';
-    return`<button id="swT-${k}" onclick="_swSelTipo('${k}')" style="background:${sel?v.bg:'var(--panel2)'};color:${sel?v.tx:'var(--text)'};border:2px solid ${v.bg};border-radius:5px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer">${k} – ${v.l}${nota}</button>`;
-  }).join('');
-  const asiRec=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
-  const est=document.getElementById('swEstado');
-  const btn=document.getElementById('swBtnGuardar');
-  btn.disabled=false;
-  if(existente){
-    const asiInfo=asiRec?.horaEntrada?` | Entrada ya registrada ${asiRec.horaEntrada}`:'';
-    est.style.cssText='background:rgba(245,158,11,.15);color:#f59e0b;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
-    est.innerHTML=`⚠ Tareo: <strong>${existente.tipo}</strong> ya registrado${asiInfo}`;
-    btn.textContent='🔄 Actualizar Tareo';
-  }else{
-    const asiInfo=asiRec?.horaEntrada?` | Entrada ${asiRec.horaEntrada}`:'';
-    est.style.cssText='background:rgba(16,185,129,.12);color:#10b981;border-radius:6px;padding:.35rem .65rem;font-size:.72rem';
-    est.innerHTML=`✅ Sin tareo — ${fecha}${asiInfo}`;
-    btn.textContent='💾 Guardar Tareo + Asistencia';
+  // ── Auto-guardar asistencia (solo si no tiene entrada aún) ──
+  const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
+  if(!asiExist){
+    const newRec={personalId:p.id,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente'};
+    const{data}=await supa.from('asistencia').insert(toSnake(newRec)).select().single();
+    if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
   }
-  setScannerStatus(`${p.ape}, ${p.nom} identificado ✓`,'ok');
-  document.getElementById('scanWorkerPanel').style.display='block';
+
+  // ── Feedback y reinicio ──
+  const nombreCorto=(p.ape||'').split(' ')[0]+', '+(p.nom||'').split(' ')[0];
+  _hablar('Registrado');
+  setScannerStatus(`✓ ${nombreCorto} — ${autoTipo}${existente?' (actualizado)':''} · ${ahora}`,'ok');
+  if(AP==='tareaje')rTareaje();
+  if(AP==='asistencia')rAsistencia();
+  document.getElementById('scanWorkerPanel').style.display='none';
+  setTimeout(reiniciarEscaner,2000);
 }
 function _swSelTipo(k){
   _scanTipoSel=k;
