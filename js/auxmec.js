@@ -1399,6 +1399,12 @@ function rReporteEquipos(){
   const fHasta=(document.getElementById('reqFiltHasta')||{}).value||'';
   const hMinDia=+(document.getElementById('reqHmin')||{}).value||0;
   const hMinMes=+(document.getElementById('reqHminMes')||{}).value||0;
+  const _esVMFilt=fTipo==='Vehículo Menor';
+  // Encabezados dinámicos según tipo filtrado
+  const _hdrIni=document.getElementById('thColIni'),_hdrFin=document.getElementById('thColFin'),_hdrTrab=document.getElementById('thColTrab');
+  if(_hdrIni)_hdrIni.textContent=_esVMFilt?'Km Inicial':'Hr Inicial';
+  if(_hdrFin)_hdrFin.textContent=_esVMFilt?'Km Final':'Hr Final';
+  if(_hdrTrab)_hdrTrab.textContent=_esVMFilt?'Km Recorridos':'Hs Trabajadas';
 
   let partes=[...(DB.partes||[])];
   if(fEq)partes=partes.filter(p=>p.eqId===fEq);
@@ -1431,16 +1437,22 @@ function rReporteEquipos(){
       tb.innerHTML=partes.map(p=>{
         const eq=DB.equipos.find(e=>e.id===p.eqId);
         const ef=+p.ef||0;
-        const cumple=hMinDia>0?ef>=hMinDia:null;
+        const esVM=eq?.tipo==='Vehículo Menor';
+        const kmIni=+p.kmIni||0,kmFin=+p.kmFin||0,kmRec=kmFin>kmIni?kmFin-kmIni:0;
+        const cumple=hMinDia>0?(esVM?kmRec>=hMinDia:ef>=hMinDia):null;
         const hminCell=cumple===null?'—':cumple?'<span style="color:#10b981;font-weight:700">SI</span>':'<span style="color:#ef4444;font-weight:600">NO</span>';
+        const colIni=esVM?(kmIni>0?fmtN(kmIni)+' km':'—'):(+p.hrIni||+p.hrIni===0?parseFloat((+p.hrIni).toFixed(1)):'—');
+        const colFin=esVM?(kmFin>0?fmtN(kmFin)+' km':'—'):(+p.hrFin||+p.hrFin===0?parseFloat((+p.hrFin).toFixed(1)):'—');
+        const colTrab=esVM?(kmRec>0?fmtN(kmRec)+' km':'—'):(ef>0?parseFloat(ef.toFixed(2))+'h':'—');
+        const colTrabColor=esVM?(kmRec>0?'#10b981':'var(--muted2)'):(ef>0?'#10b981':'var(--muted2)');
         return`<tr>
           <td class="mono">${p.fecha}</td>
           <td><span class="badge b-blue" style="font-size:.62rem">${p.turno||'—'}</span></td>
           <td>${eq?`<span class="badge b-cyan" style="font-size:.62rem">${eq.tipo||eq.sub||''}</span>`:''}</td>
           <td class="mono" style="color:var(--ceq);font-weight:700">${eq?eq.codigo:'—'}</td>
-          <td class="mono">${+p.hrIni||+p.hrIni===0?parseFloat((+p.hrIni).toFixed(1)):'—'}</td>
-          <td class="mono">${+p.hrFin||+p.hrFin===0?parseFloat((+p.hrFin).toFixed(1)):'—'}</td>
-          <td class="mono" style="font-weight:700;color:${ef>0?'#10b981':'var(--muted2)'}">${ef>0?parseFloat(ef.toFixed(2))+'h':'—'}</td>
+          <td class="mono">${colIni}</td>
+          <td class="mono">${colFin}</td>
+          <td class="mono" style="font-weight:700;color:${colTrabColor}">${colTrab}</td>
           <td style="text-align:center">${hminCell}</td>
           <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.areaT||''}">${p.areaT||'—'}</td>
           <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.act||''}">${p.act||'—'}</td>
@@ -1451,15 +1463,16 @@ function rReporteEquipos(){
   }
 
   // Totales en tfoot
+  const totKmRec=_esVMFilt?partes.reduce((s,p)=>{const ki=+p.kmIni||0,kf=+p.kmFin||0;return s+(kf>ki?kf-ki:0);},0):0;
   const tf=document.getElementById('tfReporteEquipos');
   if(tf&&partes.length){
     tf.innerHTML=`
       <tr style="background:rgba(30,58,95,.25);font-weight:700;border-top:2px solid var(--ceq)">
-        <td colspan="6" style="text-align:right;padding:.4rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Hs Efectivas Total</td>
-        <td class="mono" style="color:#10b981;font-weight:800">${parseFloat(totEf.toFixed(2))}h</td>
+        <td colspan="6" style="text-align:right;padding:.4rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">${_esVMFilt?'Km Recorridos Total':'Hs Efectivas Total'}</td>
+        <td class="mono" style="color:#10b981;font-weight:800">${_esVMFilt?fmtN(totKmRec)+' km':parseFloat(totEf.toFixed(2))+'h'}</td>
         <td colspan="4"></td>
       </tr>
-      ${hMinMes>0?`<tr style="background:rgba(30,58,95,.15)">
+      ${hMinMes>0&&!_esVMFilt?`<tr style="background:rgba(30,58,95,.15)">
         <td colspan="6" style="text-align:right;padding:.3rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Hs Stanby a Pagar</td>
         <td class="mono" style="color:#8b5cf6;font-weight:700">${stanby}h</td>
         <td colspan="4"></td>
