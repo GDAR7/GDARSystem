@@ -18,6 +18,14 @@ let _tarResCache=null;
 let _tarPgColVis=null;
 let _tarPgColsAvail=[];
 let _tarPickerCb=null;
+let _tarShowCargo=localStorage.getItem('_tarShowCargo')!=='0';
+let _tarShowProc=localStorage.getItem('_tarShowProc')!=='0';
+
+function _tarToggleCol(col){
+  if(col==='cargo'){_tarShowCargo=!_tarShowCargo;localStorage.setItem('_tarShowCargo',_tarShowCargo?'1':'0');}
+  else{_tarShowProc=!_tarShowProc;localStorage.setItem('_tarShowProc',_tarShowProc?'1':'0');}
+  rTareaje();
+}
 let _tarMultiMode=false;
 let _tarHoverMode=false;
 const _tarSel=new Set();
@@ -182,21 +190,27 @@ function rTareaje(){
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
-      <td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>
+      ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
+      ${_tarShowProc?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#a78bfa;min-width:90px">${p.proc||'—'}</td>`:''}
       ${cells}
       <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span></td>
     </tr>`;
   }).join('');
+  // Actualizar apariencia de botones toggle
+  const _btnC=document.getElementById('tarBtnCargo'),_btnP=document.getElementById('tarBtnProc');
+  if(_btnC){_btnC.style.opacity=_tarShowCargo?'1':'.45';_btnC.style.textDecoration=_tarShowCargo?'none':'line-through';}
+  if(_btnP){_btnP.style.opacity=_tarShowProc?'1':'.45';_btnP.style.textDecoration=_tarShowProc?'none':'line-through';}
   document.getElementById('tbTareaje').innerHTML=`
     <thead>
       <tr style="background:var(--panel2)">
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:30px">N°</th>
         <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
-        <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px">Cargo</th>
+        ${_tarShowCargo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px">Cargo</th>`:''}
+        ${_tarShowProc?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:90px;color:#a78bfa">Procedencia</th>`:''}
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
-      <tr style="background:var(--panel2)"><th></th><th></th><th></th>${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}<th></th>${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
 }
