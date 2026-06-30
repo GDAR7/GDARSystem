@@ -169,7 +169,7 @@ function _amtRenderTramos(body){
   </div>`;
 }
 
-// ── TAB 2: VOLUMEN POR ÁREA ──────────────────────────────────────────────────
+// ── TAB 2: VOLUMEN POR FRENTE DE TRABAJO ──────────────────────────────────────────────────
 function _amtRenderAreas(body){
   const partes=_amtPartesFiltradas();
   const hoy=today();
