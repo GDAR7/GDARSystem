@@ -838,7 +838,7 @@ function rRoster(){
 
   // ── KPI del día activo (hoy) ──
   let _kpiTD=0,_kpiTN=0,_kpiDL=0;
-  personalActivo.filter(p=>p.guardia).forEach(p=>{
+  personasFiltradas.filter(p=>p.guardia).forEach(p=>{
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
     const t=_rosterTipo(hoy,cfg);
