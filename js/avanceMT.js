@@ -1,5 +1,7 @@
 // ══ AVANCE MT ══
 let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMaterial='', _amtFiltroTramos='todos';
+let _amtCapM3=+localStorage.getItem('_amtCapM3')||12;
+function _amtSetCap(v){_amtCapM3=Math.max(1,+v||12);localStorage.setItem('_amtCapM3',_amtCapM3);_amtRender();}
 
 function rAvanceMT(){
   if(!_amtFechaD){
@@ -59,6 +61,9 @@ function _amtFiltroBar(){
         return '<button onclick="_amtFiltroTramos=\''+op[0]+'\';_amtRender()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid '+(sel?op[2]+'80':'var(--border)')+';background:'+(sel?op[2]+'18':'transparent')+';color:'+(sel?op[2]:'var(--muted2)')+';cursor:pointer;white-space:nowrap;font-weight:'+(sel?'700':'400')+'">'+op[1]+'</button>';
       }).join('')}
     </div>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Cap. m³/viaje</span>
+    <input type="number" min="1" step="0.5" value="${_amtCapM3}" onchange="_amtSetCap(this.value)" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);width:58px;flex-shrink:0" title="Capacidad de carga por viaje en m³">
   </div>`;
 }
 
@@ -75,7 +80,7 @@ function _amtRenderTramos(body){
       if(_amtMaterial && v.material!==_amtMaterial) return;
       if(!byTramo[v.tramoId]) byTramo[v.tramoId]={viajes:0,m3:0,parteIds:new Set(),lastFecha:''};
       byTramo[v.tramoId].viajes++;
-      byTramo[v.tramoId].m3+=parseFloat(v.cant)||0;
+      byTramo[v.tramoId].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
       byTramo[v.tramoId].parteIds.add(p.id);
       if(p.fecha>byTramo[v.tramoId].lastFecha) byTramo[v.tramoId].lastFecha=p.fecha;
     });
@@ -182,14 +187,14 @@ function _amtRenderAreas(body){
       const dest=v.destino;
       if(!byDest[dest]) byDest[dest]={viajes:0,m3:0,parteIds:new Set(),lastFecha:'',materiales:{},tramos:{}};
       byDest[dest].viajes++;
-      byDest[dest].m3+=parseFloat(v.cant)||0;
+      byDest[dest].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
       byDest[dest].parteIds.add(p.id);
       if(p.fecha>byDest[dest].lastFecha) byDest[dest].lastFecha=p.fecha;
-      if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+(parseFloat(v.cant)||0);}
+      if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+((parseFloat(v.cant)||0)*_amtCapM3);}
       if(v.tramoId){
         if(!byDest[dest].tramos[v.tramoId]) byDest[dest].tramos[v.tramoId]={viajes:0,m3:0};
         byDest[dest].tramos[v.tramoId].viajes++;
-        byDest[dest].tramos[v.tramoId].m3+=(parseFloat(v.cant)||0);
+        byDest[dest].tramos[v.tramoId].m3+=((parseFloat(v.cant)||0)*_amtCapM3);
       }
     });
   });
