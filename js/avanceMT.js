@@ -79,7 +79,7 @@ function _amtRenderTramos(body){
       if(!v.tramoId) return;
       if(_amtMaterial && v.material!==_amtMaterial) return;
       if(!byTramo[v.tramoId]) byTramo[v.tramoId]={viajes:0,m3:0,parteIds:new Set(),lastFecha:''};
-      byTramo[v.tramoId].viajes++;
+      byTramo[v.tramoId].viajes+=(parseFloat(v.cant)||0);
       byTramo[v.tramoId].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
       byTramo[v.tramoId].parteIds.add(p.id);
       if(p.fecha>byTramo[v.tramoId].lastFecha) byTramo[v.tramoId].lastFecha=p.fecha;
@@ -186,15 +186,16 @@ function _amtRenderAreas(body){
       if(_amtMaterial && v.material!==_amtMaterial) return;
       const dest=v.destino;
       if(!byDest[dest]) byDest[dest]={viajes:0,m3:0,parteIds:new Set(),lastFecha:'',materiales:{},tramos:{}};
-      byDest[dest].viajes++;
-      byDest[dest].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
+      const _cant=parseFloat(v.cant)||0;
+      byDest[dest].viajes+=_cant;
+      byDest[dest].m3+=_cant*_amtCapM3;
       byDest[dest].parteIds.add(p.id);
       if(p.fecha>byDest[dest].lastFecha) byDest[dest].lastFecha=p.fecha;
-      if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+((parseFloat(v.cant)||0)*_amtCapM3);}
+      if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+(_cant*_amtCapM3);}
       if(v.tramoId){
         if(!byDest[dest].tramos[v.tramoId]) byDest[dest].tramos[v.tramoId]={viajes:0,m3:0};
-        byDest[dest].tramos[v.tramoId].viajes++;
-        byDest[dest].tramos[v.tramoId].m3+=((parseFloat(v.cant)||0)*_amtCapM3);
+        byDest[dest].tramos[v.tramoId].viajes+=_cant;
+        byDest[dest].tramos[v.tramoId].m3+=_cant*_amtCapM3;
       }
     });
   });
