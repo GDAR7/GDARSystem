@@ -807,8 +807,8 @@ function rRoster(){
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       return`<tr>
-        <td style="padding:.2rem .5rem;white-space:nowrap;font-size:.68rem;font-weight:600;color:var(--text);min-width:170px">${(p.ape||'').split(' ')[0]}, ${p.nom||''} ${grdBadge}</td>
-        <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;min-width:120px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
+        <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${(p.ape||'').split(' ')[0]}, ${p.nom||''} ${grdBadge}</td>
+        <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:125px;max-width:125px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
         ${cells}
       </tr>`;
     }).join('');
@@ -824,10 +824,10 @@ function rRoster(){
         <button onclick="_rosterOpenCfg('${grd}')" style="margin-left:auto;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#818cf8;border-radius:5px;padding:2px 8px;font-size:.6rem;cursor:pointer">⚙️ Configurar</button>
       </div>
       <div style="overflow-x:auto">
-        <table style="border-collapse:collapse;width:100%;font-size:.65rem">
+        <table style="border-collapse:collapse;table-layout:fixed;font-size:.65rem">
           <thead><tr>
-            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;min-width:170px">Nombre</th>
-            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;min-width:120px">Cargo</th>
+            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;width:175px;min-width:175px">Nombre</th>
+            <th style="text-align:left;padding:.2rem .5rem;font-size:.6rem;color:var(--muted2);white-space:nowrap;width:125px;min-width:125px">Cargo</th>
             ${hdrs}
           </tr></thead>
           <tbody>${rows}${sinPersonas}</tbody>
@@ -835,6 +835,39 @@ function rRoster(){
       </div>
     </div>`;
   }).join('');
+
+  // ── KPI del día activo (hoy) ──
+  let _kpiTD=0,_kpiTN=0,_kpiDL=0;
+  personalActivo.filter(p=>p.guardia).forEach(p=>{
+    const cfg=_rosterGetCfg(p.guardia);
+    if(!cfg)return;
+    const t=_rosterTipo(hoy,cfg);
+    if(t==='TD')_kpiTD++;
+    else if(t==='TN')_kpiTN++;
+    else if(t==='DL')_kpiDL++;
+  });
+  const kpiHoy=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
+    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #10b981;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
+      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">TD · Hoy</span>
+      <span style="font-size:1.8rem;font-weight:800;color:#10b981;line-height:1">${_kpiTD}</span>
+      <span style="font-size:.58rem;color:var(--muted2)">personas en obra</span>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #818cf8;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
+      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">TN · Hoy</span>
+      <span style="font-size:1.8rem;font-weight:800;color:#818cf8;line-height:1">${_kpiTN}</span>
+      <span style="font-size:.58rem;color:var(--muted2)">turno noche</span>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #64748b;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
+      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">DL · Hoy</span>
+      <span style="font-size:1.8rem;font-weight:800;color:#64748b;line-height:1">${_kpiDL}</span>
+      <span style="font-size:.58rem;color:var(--muted2)">día libre</span>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #f59e0b;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
+      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">Total activos</span>
+      <span style="font-size:1.8rem;font-weight:800;color:#f59e0b;line-height:1">${_kpiTD+_kpiTN+_kpiDL}</span>
+      <span style="font-size:.58rem;color:var(--muted2)">con guardia asignada</span>
+    </div>
+  </div>`;
 
   // ── leyenda ──
   const leyenda=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
@@ -873,6 +906,7 @@ function rRoster(){
         <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
       </div>
     </div>
+    ${kpiHoy}
     ${leyenda}
     ${secciones||'<div style="text-align:center;color:var(--muted2);padding:2rem">Sin personal activo con guardia asignada. Asigna guardias en el módulo Personal / RR.HH.</div>'}
     <!-- Modal config -->
