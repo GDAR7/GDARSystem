@@ -168,11 +168,12 @@ function rTareaje(){
     {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'}
   ].map(k=>`<div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid ${k.c};border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem"><span style="font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:600">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div style="font-size:2.4rem;font-weight:800;color:${k.c};line-height:1;margin-bottom:.25rem">${k.v}</div><div style="font-size:.68rem;color:var(--muted2)">${k.sub}</div></div>`).join('');
   document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>`<span style="background:${v.bg};color:${v.tx};font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap">${k} – ${v.l}</span>`).join('');
+  const _tarRO=isModuleReadOnly('tareaje');
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th onclick="_tarColClick('${fecha}')" style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;cursor:pointer;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
+    return`<th ${_tarRO?'':` onclick="_tarColClick('${fecha}')"`} style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${_tarRO?'':'cursor:pointer;'}${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
     const _matchProy=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
@@ -182,7 +183,7 @@ function rTareaje(){
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-      return`<td id="tar-${p.id}-${fecha}" onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
+      return`<td id="tar-${p.id}-${fecha}" ${_tarRO?'':` onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)"`} style="text-align:center;${_tarRO?'':'cursor:pointer;'}height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
     }).join('');
     const totD=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TD'&&_matchProy(r)).length;
     const totN=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_matchProy(r)).length;
@@ -196,10 +197,15 @@ function rTareaje(){
       <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span></td>
     </tr>`;
   }).join('');
-  // Actualizar apariencia de botones toggle
+  // Actualizar apariencia de botones toggle y modo solo lectura
   const _btnC=document.getElementById('tarBtnCargo'),_btnP=document.getElementById('tarBtnProc');
   if(_btnC){_btnC.style.opacity=_tarShowCargo?'1':'.45';_btnC.style.textDecoration=_tarShowCargo?'none':'line-through';}
   if(_btnP){_btnP.style.opacity=_tarShowProc?'1':'.45';_btnP.style.textDecoration=_tarShowProc?'none':'line-through';}
+  const _mBtn=document.getElementById('tarMultBtn'),_hBtn=document.getElementById('tarHoverBtn');
+  if(_mBtn)_mBtn.style.display=_tarRO?'none':'';
+  if(_hBtn)_hBtn.style.display=_tarRO?'none':'';
+  const _roBadgeEl=document.getElementById('tarROBadge');
+  if(_roBadgeEl)_roBadgeEl.style.display=_tarRO?'inline-flex':'none';
   document.getElementById('tbTareaje').innerHTML=`
     <thead>
       <tr style="background:var(--panel2)">

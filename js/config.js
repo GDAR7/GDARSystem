@@ -35,7 +35,7 @@ const USERS=[
   {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:Object.keys(AREAS)},
   {codigo:'OMARSI',dni:'87654321',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['administracion']},
   {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['administracion']},
-  {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
+  {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']},readOnlyModules:['tareaje']},
   {codigo:'FLOBEN',dni:'10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['almacenLogistica','seguridad']},
   {codigo:'ECOALM',dni:'11112222',nombre:'Logistica Central',cargo:'Ecosermo',areas:['almacenLogistica'],modules:['requerimientos','facturasPago']},
   {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['administracion']},
@@ -47,7 +47,7 @@ const USERS=[
   {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['administracion','controlProyecto','controlEquipos'],excludeModules:['planilla']},
   {codigo:'J_A_TA',dni:'8_73441348',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto'],areaModules:{controlProyecto:['pizarra']},pizarraTabs:[3,4,5]},
   {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion'],areaModules:{administracion:['asistencia','tareaje']}},
-  {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos'],areaModules:{administracion:['asistencia','resumenTareaje']}},
+  {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
 ];
 
 // ══ SUPABASE CONFIG ══
@@ -376,4 +376,10 @@ const DB={
 
 // ══ STATE ══
 let CU=null,AP='dashboard';
+
+// Devuelve true si el usuario actual tiene el módulo en modo solo lectura
+function isModuleReadOnly(key){
+  if(!CU)return false;
+  return (CU.readOnlyModules||[]).includes(key);
+}
 

@@ -904,11 +904,36 @@ function rRoster(){
         <button onclick="_rosterNavegar(7)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem">▶</button>
         <button onclick="_rosterNavegar(35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas adelante">»</button>
         <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
+        <button onclick="_rosterOpenExport()" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:.3rem .7rem;color:#10b981;cursor:pointer;font-size:.72rem;font-weight:700">📥 Excel</button>
       </div>
     </div>
     ${kpiHoy}
     ${leyenda}
     ${secciones||'<div style="text-align:center;color:var(--muted2);padding:2rem">Sin personal activo con guardia asignada. Asigna guardias en el módulo Personal / RR.HH.</div>'}
+    <!-- Modal export Excel -->
+    <div id="rosterExportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.6rem;min-width:320px;max-width:380px;box-shadow:0 16px 48px rgba(0,0,0,.7)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <span style="font-weight:700;font-size:.9rem;color:var(--text)">📥 Exportar Roster a Excel</span>
+          <button onclick="_rosterCloseExport()" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1.1rem">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.8rem">
+          <div>
+            <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Fecha inicio</label>
+            <input type="date" id="rosterExportDesde" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem;box-sizing:border-box;color-scheme:dark">
+          </div>
+          <div>
+            <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Fecha fin</label>
+            <input type="date" id="rosterExportHasta" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem;box-sizing:border-box;color-scheme:dark">
+          </div>
+          <div style="font-size:.62rem;color:var(--muted2)">Máximo 90 días por exportación. Se incluyen todas las guardias con personal activo.</div>
+        </div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.1rem">
+          <button onclick="_rosterCloseExport()" style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.4rem 1rem;color:var(--text);cursor:pointer;font-size:.8rem">Cancelar</button>
+          <button onclick="_rosterDoExport()" style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);border-radius:7px;padding:.4rem 1rem;color:#10b981;cursor:pointer;font-size:.8rem;font-weight:700">📥 Exportar</button>
+        </div>
+      </div>
+    </div>
     <!-- Modal config -->
     <div id="rosterCfgModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center">
       <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.6rem;min-width:320px;max-width:400px">
@@ -944,6 +969,92 @@ function rRoster(){
 function _rosterNavegar(dias){
   _rosterInicioVista=_rosterAddDays(_rosterInicioVista||_rosterLunes(),dias);
   rRoster();
+}
+
+function _rosterOpenExport(){
+  const modal=document.getElementById('rosterExportModal');
+  if(!modal)return;
+  // Fecha inicio: inicio de vista actual (la menor fecha visible)
+  const desde=_rosterInicioVista||_rosterLunes();
+  // Fecha fin: 34 días después (5 semanas = vista completa actual)
+  const hasta=_rosterAddDays(desde,34);
+  document.getElementById('rosterExportDesde').value=desde;
+  document.getElementById('rosterExportHasta').value=hasta;
+  modal.style.display='flex';
+}
+function _rosterCloseExport(){
+  const m=document.getElementById('rosterExportModal');
+  if(m)m.style.display='none';
+}
+function _rosterDoExport(){
+  const desde=document.getElementById('rosterExportDesde').value;
+  const hasta=document.getElementById('rosterExportHasta').value;
+  if(!desde||!hasta){toast('Selecciona ambas fechas',true);return;}
+  if(desde>hasta){toast('La fecha inicio debe ser menor a la fecha fin',true);return;}
+  _rosterCloseExport();
+  _rosterExportXLSX(desde,hasta);
+}
+function _rosterExportXLSX(desde,hasta){
+  // Construir rango de días
+  const dias=[];let cur=desde;
+  while(cur<=hasta){dias.push(cur);cur=_rosterAddDays(cur,1);}
+  if(dias.length>91){toast('Máximo 90 días por exportación',true);return;}
+  const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
+  const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const _fmt=iso=>{const[,m,d]=iso.split('-');return`${d}/${m}`;};
+  const _dow=iso=>new Date(iso+'T12:00:00').getDay();
+  const BOR={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+  const S=(v,bold,bg,color,align,sz)=>({v:v??'',t:'s',s:{font:{bold:!!bold,color:{rgb:color||'334155'},sz:sz||8},fill:bg?{fgColor:{rgb:bg}}:{},alignment:{horizontal:align||'left',vertical:'center',wrapText:false},border:BOR}});
+  const nCols=2+dias.length;
+  const wsData=[];
+  // Títulos
+  wsData.push([S('ROSTER DE GUARDIAS',true,'1E3A5F','FFFFFF','center',10),...Array(nCols-1).fill(S('',false,'1E3A5F','FFFFFF'))]);
+  wsData.push([S(`Período: ${_fmt(desde)} al ${_fmt(hasta)}  ·  ${dias.length} días`,false,'EFF6FF','3B82F6','center'),...Array(nCols-1).fill(S('',false,'EFF6FF'))]);
+  wsData.push([S(`Exportado: ${today()}`,false,'F8FAFC','64748b','center'),...Array(nCols-1).fill(S('',false,'F8FAFC'))]);
+  wsData.push(Array(nCols).fill(S('')));
+  const GRD_HDR={'A':['14532D','FFFFFF'],'B':['1E1B4B','FFFFFF'],'C':['7C2D12','FFFFFF']};
+  const GRD_ROW={'A':['D1FAE5','10b981'],'B':['EDE9FE','6366F1'],'C':['FEE2E2','DC2626']};
+  const merges=[{s:{r:0,c:0},e:{r:0,c:nCols-1}},{s:{r:1,c:0},e:{r:1,c:nCols-1}},{s:{r:2,c:0},e:{r:2,c:nCols-1}}];
+  let curRow=4;
+  _ROSTER_GUARDIAS.forEach(grd=>{
+    const cfg=_rosterGetCfg(grd);
+    const personas=personalActivo.filter(p=>p.guardia===grd);
+    if(!personas.length)return;
+    const [hBg,hTx]=GRD_HDR[grd]||['1E3A5F','FFFFFF'];
+    const [rBg,rTx]=GRD_ROW[grd]||['EFF6FF','334155'];
+    const turno=cfg?(cfg.turno==='NOCHE'?'Turno Noche':'Turno Día'):'Sin configurar';
+    const ciclo=cfg?`· Inicio ciclo: ${cfg.fechaInicio}`:'';
+    // Encabezado guardia
+    wsData.push([S(`GUARDIA ${grd}  ·  ${personas.length} personas  ·  ${turno}  ${ciclo}`,true,hBg,hTx,'left',9),...Array(nCols-1).fill(S('',false,hBg))]);
+    merges.push({s:{r:curRow,c:0},e:{r:curRow,c:nCols-1}});
+    curRow++;
+    // Cabecera columnas
+    const dayHdrs=dias.map(d=>{const dow=_dow(d);return{v:`${_fmt(d)}\n${DN[dow]}`,t:'s',s:{font:{bold:true,color:{rgb:dow===0?'DC2626':'FFFFFF'},sz:7},fill:{fgColor:{rgb:'334155'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOR}};});
+    wsData.push([S('NOMBRE',true,'334155','FFFFFF'),S('CARGO',true,'334155','FFFFFF'),...dayHdrs]);
+    curRow++;
+    // Filas de personas
+    personas.forEach((p,i)=>{
+      const bg=i%2===0?'F8FAFC':'FFFFFF';
+      const dayCells=dias.map(d=>{
+        const t=_rosterTipo(d,cfg);
+        const lbl=!t?'':t==='TD'?'TD':t==='TN'?'TN':'DL';
+        const col=!t?'CBD5E1':t==='TD'?'059669':t==='TN'?'4338CA':'6B7280';
+        const cb=!t?bg:t==='TD'?'D1FAE5':t==='TN'?'EDE9FE':'F1F5F9';
+        return{v:lbl,t:'s',s:{font:{bold:!!t,color:{rgb:col},sz:7},fill:{fgColor:{rgb:cb}},alignment:{horizontal:'center',vertical:'center'},border:BOR}};
+      });
+      wsData.push([S(`${p.ape||''}, ${p.nom||''}`,false,bg,'0F172A'),S((p.cargo||'').toUpperCase().slice(0,22),false,bg,'334155'),...dayCells]);
+      curRow++;
+    });
+    wsData.push(Array(nCols).fill(S('')));
+    curRow++;
+  });
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:24},{wch:20},...dias.map(()=>({wch:5}))];
+  ws['!merges']=merges;
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Roster');
+  XLSX.writeFile(wb,`Roster_Guardias_${desde}_${hasta}.xlsx`);
+  toast(`✓ Excel exportado · ${dias.length} días · ${personalActivo.filter(p=>p.guardia).length} personas`);
 }
 
 let _rosterCfgGrd=null;
