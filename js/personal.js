@@ -778,7 +778,7 @@ function rRoster(){
     const dow=_rosterDia(d);
     const esHoy=d===hoy;
     const esDom=dow===0;
-    return`<th style="min-width:30px;width:30px;padding:2px 1px;text-align:center;font-size:.55rem;${esHoy?'background:#f59e0b20;color:#f59e0b;border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':esDom?'color:#64748b;background:rgba(255,255,255,.03)':''}">${_rosterFmt(d)}<div style="font-size:.45rem;opacity:.7">${_DN[dow]}</div></th>`;
+    return`<th style="min-width:30px;width:30px;padding:2px 1px;text-align:center;font-size:.55rem;${esHoy?'background:#f59e0b20;color:#f59e0b;border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}">${_rosterFmt(d)}<div style="font-size:.45rem;opacity:.7;${esDom?'color:#ef4444;font-weight:700':''}">${_DN[dow]}</div></th>`;
   }).join('');
 
   // ── secciones por guardia ──
@@ -802,8 +802,8 @@ function rRoster(){
         if(!tipo){bg='rgba(255,255,255,.02)';tx='#374151';lbl='·';}
         else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
         else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
-        else{bg=esDom?'rgba(255,255,255,.02)':'rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
-        return`<td style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}${esDom?'opacity:.5':''}">${lbl}</td>`;
+        else{bg='rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
+        return`<td style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}">${lbl}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       return`<tr>
