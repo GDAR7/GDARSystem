@@ -216,7 +216,7 @@ function rTareaje(){
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
-      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}<th></th>${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
 }
