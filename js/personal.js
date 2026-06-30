@@ -844,7 +844,7 @@ function rRoster(){
     const t=_rosterTipo(hoy,cfg);
     if(t==='TD')_kpiTD++;
     else if(t==='TN')_kpiTN++;
-    else if(t==='DL')_kpiDL++;
+    else if(t==='D')_kpiDL++;
   });
   const kpiHoy=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #10b981;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
