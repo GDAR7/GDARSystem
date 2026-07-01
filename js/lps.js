@@ -944,6 +944,7 @@ function _lpsLaFecha(wbsId,tipo,val){
 
 function _lpsLaDias(wbsId,dias){
   const w=DB.lpsWbs.find(x=>x.id===wbsId);
+  dias=Math.round(+dias);
   if(!w||dias<1)return;
   w.cantDias=dias;
   // Calcular fechaFin a partir de fechaIni + cantDias
