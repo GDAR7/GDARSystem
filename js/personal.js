@@ -505,12 +505,11 @@ async function procesarQR(texto){
   await loadAsistenciaFecha(fecha);
   const [fY,fM]=fecha.split('-').map(Number);
   const mesPrefix=`${fY}-${String(fM).padStart(2,'0')}`;
-  const presenciasMes=(DB.tareaje||[]).filter(r=>
-    r.personalId===p.id&&r.fecha&&r.fecha.startsWith(mesPrefix)&&
-    ['TD','TN','DLT','A5'].includes(r.tipo)&&r.fecha!==fecha
+  const prevDias=(DB.tareaje||[]).filter(r=>
+    r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
+    ['TD','TN','DLT','A5'].includes(r.tipo)
   );
-  const diasMes=new Set(presenciasMes.map(r=>r.fecha)).size;
-  const esA5=diasMes<4;
+  const esA5=prevDias.length===0;
   const autoTipo=esA5?'A5':_turnoTipo;
 
   // ── Auto-guardar tareaje ──
