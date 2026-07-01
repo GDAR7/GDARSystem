@@ -776,7 +776,7 @@ function _lpsSaveWbs(){
       if(idx>=0){
         const cur=allS[idx].orden||0;
         const nxt=idx<allS.length-1?(allS[idx+1].orden||cur+20):cur+20;
-        newOrden=(cur+nxt)/2;
+        newOrden=Math.round((cur+nxt)/2);
       }
     }
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
