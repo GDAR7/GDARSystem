@@ -1164,25 +1164,36 @@ function _rosterOpenCargoFilter(ev){
   const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
   const cargos=[...new Set(personalActivo.map(p=>(p.cargo||'Sin cargo').toUpperCase()))].sort();
   const div=document.createElement('div');
-  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.5rem;box-shadow:0 8px 32px rgba(0,0,0,.4);min-width:220px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px';
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.4rem;box-shadow:0 8px 32px rgba(0,0,0,.5);width:260px;max-height:360px;overflow-y:auto';
   const allChecked=_rosterFiltroCargos.size===0;
-  div.innerHTML=`<div style="padding:.2rem .4rem;margin-bottom:.2rem;border-bottom:1px solid var(--border)">
-    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.75rem;font-weight:700;color:var(--muted2)">
-      <input type="checkbox" ${allChecked?'checked':''} onchange="_rosterCargoToggleAll(this.checked)"> Todos los cargos
-    </label>
-  </div>`+cargos.map(c=>{
-    const sel=_rosterFiltroCargos.has(c);
-    return`<label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.25rem .4rem;border-radius:5px;font-size:.74rem;${sel?'background:rgba(168,85,247,.12);color:#a855f7':'color:var(--text)'}">
-      <input type="checkbox" ${sel?'checked':''} onchange="_rosterCargoToggle('${c.replace(/'/g,"\\'")}',this.checked)" style="accent-color:#a855f7"> ${c}
-    </label>`;
-  }).join('');
+  const countByCargo={};
+  personalActivo.forEach(p=>{const k=(p.cargo||'Sin cargo').toUpperCase();countByCargo[k]=(countByCargo[k]||0)+1;});
+  div.innerHTML=
+    '<div style="padding:.35rem .5rem .3rem;border-bottom:1px solid var(--border);margin-bottom:.25rem">'+
+      '<label style="display:grid;grid-template-columns:16px 1fr;align-items:center;gap:.45rem;cursor:pointer;user-select:none">'+
+        '<input type="checkbox" '+(allChecked?'checked':'')+' onchange="_rosterCargoToggleAll(this.checked)" style="accent-color:#a855f7;width:14px;height:14px;cursor:pointer">'+
+        '<span style="font-size:.72rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em">Todos los cargos</span>'+
+      '</label>'+
+    '</div>'+
+    cargos.map(c=>{
+      const sel=_rosterFiltroCargos.has(c);
+      const cnt=countByCargo[c]||0;
+      const csafe=c.replace(/'/g,"\\'");
+      return '<label style="display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:.45rem;cursor:pointer;padding:.28rem .5rem;border-radius:6px;user-select:none;'+(sel?'background:rgba(168,85,247,.14)':'')+'" '+
+        'onmouseover="if(!this.style.background.includes(\'168\'))this.style.background=\'rgba(255,255,255,.05)\'" '+
+        'onmouseout="if(!this.style.background.includes(\'168\'))this.style.background=\'\'">'+
+        '<input type="checkbox" '+(sel?'checked':'')+' onchange="_rosterCargoToggle(\''+csafe+'\',this.checked)" style="accent-color:#a855f7;width:14px;height:14px;cursor:pointer">'+
+        '<span style="font-size:.72rem;font-weight:'+(sel?'700':'400')+';color:'+(sel?'#a855f7':'var(--text)')+'">'+c+'</span>'+
+        '<span style="font-size:.62rem;color:var(--muted2);background:rgba(255,255,255,.07);border-radius:10px;padding:1px 6px;min-width:20px;text-align:center">'+cnt+'</span>'+
+      '</label>';
+    }).join('');
   document.body.appendChild(div);
   _rosterCargoDropEl=div;
   const btn=document.getElementById('rosterCargoBtn');
   const r=btn?btn.getBoundingClientRect():{top:100,left:100,bottom:130};
   let top=r.bottom+4,left=r.left;
-  if(left+230>window.innerWidth)left=window.innerWidth-235;
-  if(top+330>window.innerHeight)top=r.top-335;
+  if(left+265>window.innerWidth)left=window.innerWidth-270;
+  if(top+370>window.innerHeight)top=r.top-375;
   div.style.top=top+'px';div.style.left=left+'px';
   setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)&&e.target.id!=='rosterCargoBtn'){div.remove();_rosterCargoDropEl=null;document.removeEventListener('click',h);}},{capture:true,once:false}),50);
 }
