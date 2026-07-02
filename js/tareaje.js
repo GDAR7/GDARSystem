@@ -189,13 +189,16 @@ function rTareaje(){
     const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_matchProy(r)).map(r=>r.fecha)).size;
     const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_matchProy(r)).map(r=>r.fecha)).size;
     const totA5=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='A5'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totDLT=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const _a5html=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
+    const _dlthtml=totDLT>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
       ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
       ${_tarShowProc?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#a78bfa;min-width:90px">${p.proc||'—'}</td>`:''}
       ${cells}
-      <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span>${totA5>0?`<br><span style="color:#f97316;font-weight:700">${totA5}</span><span style="color:var(--muted2);font-size:.6rem">A5</span>`:''}</td>
+      <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span>${_dlthtml}${_a5html}</td>
     </tr>`;
   }).join('');
   // Actualizar apariencia de botones toggle y modo solo lectura
@@ -272,8 +275,11 @@ function setTareaje(personalId,fecha,tipo){
     const totN=new Set(DB.tareaje.filter(r=>r.personalId===personalId&&r.fecha.startsWith(ms)&&r.tipo==='TN').map(r=>r.fecha)).size;
     const totDL=new Set(DB.tareaje.filter(r=>r.personalId===personalId&&r.fecha.startsWith(ms)&&r.tipo==='DL').map(r=>r.fecha)).size;
     const totA5=new Set(DB.tareaje.filter(r=>r.personalId===personalId&&r.fecha.startsWith(ms)&&r.tipo==='A5').map(r=>r.fecha)).size;
+    const totDLT2=new Set(DB.tareaje.filter(r=>r.personalId===personalId&&r.fecha.startsWith(ms)&&r.tipo==='DLT').map(r=>r.fecha)).size;
+    const _qa5=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
+    const _qdlt=totDLT2>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT2+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
     const row=cell.closest('tr');
-    if(row){const last=row.querySelector('td:last-child');if(last)last.innerHTML=`<span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span>${totA5>0?`<br><span style="color:#f97316;font-weight:700">${totA5}</span><span style="color:var(--muted2);font-size:.6rem">A5</span>`:''}`;}
+    if(row){const last=row.querySelector('td:last-child');if(last)last.innerHTML='<span style="color:#10b981;font-weight:700">'+totD+'</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">'+totN+'</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">'+totDL+'</span><span style="color:var(--muted2);font-size:.6rem">DL</span>'+_qdlt+_qa5;}
   }
 }
 function printTareaje(){
@@ -313,7 +319,10 @@ function printTareaje(){
     const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_mp(r)).map(r=>r.fecha)).size;
     const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_mp(r)).map(r=>r.fecha)).size;
     const totA5p=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='A5'&&_mp(r)).map(r=>r.fecha)).size;
-    return`<tr><td style="text-align:center;font-size:7px;padding:1px 2px;border:1px solid #e2e8f0">${idx+1}</td><td style="font-size:7.5px;font-weight:700;padding:1px 4px;border:1px solid #e2e8f0;white-space:nowrap">${p.ape}, ${p.nom}</td><td style="font-size:6.5px;padding:1px 3px;border:1px solid #e2e8f0;white-space:nowrap;color:#64748b">${p.cargo||'—'}</td>${cells}<td style="text-align:center;font-size:7px;padding:1px 3px;border:1px solid #e2e8f0;background:#e0f2fe;line-height:1.6"><span style="color:#059669;font-weight:700">${totD}</span>TD <span style="color:#1e40af;font-weight:700">${totN}</span>TN<br><span style="color:#6b7280;font-weight:700">${totDL}</span>DL${totA5p>0?` <span style="color:#ea580c;font-weight:700">${totA5p}</span>A5`:''}</td></tr>`;
+    const totDLTp=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_mp(r)).map(r=>r.fecha)).size;
+    const _pa5=totA5p>0?' <span style="color:#ea580c;font-weight:700">'+totA5p+'</span>A5':'';
+    const _pdlt=totDLTp>0?' <span style="color:#65a30d;font-weight:700">'+totDLTp+'</span>DLT':'';
+    return`<tr><td style="text-align:center;font-size:7px;padding:1px 2px;border:1px solid #e2e8f0">${idx+1}</td><td style="font-size:7.5px;font-weight:700;padding:1px 4px;border:1px solid #e2e8f0;white-space:nowrap">${p.ape}, ${p.nom}</td><td style="font-size:6.5px;padding:1px 3px;border:1px solid #e2e8f0;white-space:nowrap;color:#64748b">${p.cargo||'—'}</td>${cells}<td style="text-align:center;font-size:7px;padding:1px 3px;border:1px solid #e2e8f0;background:#e0f2fe;line-height:1.6"><span style="color:#059669;font-weight:700">${totD}</span>TD <span style="color:#1e40af;font-weight:700">${totN}</span>TN<br><span style="color:#6b7280;font-weight:700">${totDL}</span>DL${_pdlt}${_pa5}</td></tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tareaje ${mesNombre} ${y}</title>
 <style>@page{size:A4 landscape;margin:.7cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
