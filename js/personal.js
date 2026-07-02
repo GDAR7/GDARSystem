@@ -745,6 +745,11 @@ function _rosterTipo(fecha,cfg){
   const diff=Math.round((f-ini)/(86400000));
   if(diff<0)return null;
   const pos=((diff%_ROSTER_CICLO)+_ROSTER_CICLO)%_ROSTER_CICLO;
+  if(cfg.turno==='MIXTO'){
+    if(pos<7)return'TD';
+    if(pos<14)return'TN';
+    return'D';
+  }
   return pos<_ROSTER_CICLO_T?(cfg.turno==='NOCHE'?'TN':'TD'):'D';
 }
 
@@ -788,7 +793,7 @@ function rRoster(){
     if(!personas.length&&!cfg)return'';
 
     const cfgLabel=cfg
-      ?`<span style="font-size:.62rem;color:var(--muted2)">· Inicio ciclo: <strong style="color:#e2e8f0">${_rosterFmt(cfg.fechaInicio)}</strong> · <strong style="color:${cfg.turno==='NOCHE'?'#6366f1':'#f59e0b'}">${cfg.turno==='NOCHE'?'🌙 Turno Noche':'☀️ Turno Día'}</strong></span>`
+      ?`<span style="font-size:.62rem;color:var(--muted2)">· Inicio ciclo: <strong style="color:#e2e8f0">${_rosterFmt(cfg.fechaInicio)}</strong> · <strong style="color:${cfg.turno==='NOCHE'?'#6366f1':cfg.turno==='MIXTO'?'#10b981':'#f59e0b'}">${cfg.turno==='NOCHE'?'🌙 Turno Noche':cfg.turno==='MIXTO'?'☀️🌙 Mixto 7D+7N':'☀️ Turno Día'}</strong></span>`
       :`<span style="font-size:.6rem;color:#ef4444">⚠️ Sin configurar</span>`;
 
     const rows=personas.map(p=>{
@@ -999,14 +1004,18 @@ function rRoster(){
           </div>
           <div>
             <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Tipo de turno</label>
-            <div style="display:flex;gap:.5rem">
-              <label style="flex:1;cursor:pointer">
-                <input type="radio" name="rosterCfgTurno" value="DIA" style="margin-right:.3rem;accent-color:#f59e0b">
-                <span style="font-size:.8rem;color:#f59e0b;font-weight:600">☀️ Turno Día</span>
+            <div style="display:flex;flex-direction:column;gap:.4rem">
+              <label style="cursor:pointer;display:flex;align-items:center;gap:.4rem;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:.35rem .6rem">
+                <input type="radio" name="rosterCfgTurno" value="DIA" style="accent-color:#f59e0b">
+                <span style="font-size:.8rem;color:#f59e0b;font-weight:600">☀️ Turno Día — 14 días TD · 7 días DL</span>
               </label>
-              <label style="flex:1;cursor:pointer">
-                <input type="radio" name="rosterCfgTurno" value="NOCHE" style="margin-right:.3rem;accent-color:#6366f1">
-                <span style="font-size:.8rem;color:#818cf8;font-weight:600">🌙 Turno Noche</span>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:.4rem;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:6px;padding:.35rem .6rem">
+                <input type="radio" name="rosterCfgTurno" value="NOCHE" style="accent-color:#6366f1">
+                <span style="font-size:.8rem;color:#818cf8;font-weight:600">🌙 Turno Noche — 14 días TN · 7 días DL</span>
+              </label>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:.4rem;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:.35rem .6rem">
+                <input type="radio" name="rosterCfgTurno" value="MIXTO" style="accent-color:#10b981">
+                <span style="font-size:.8rem;color:#10b981;font-weight:600">☀️🌙 Mixto — 7 días TD · 7 días TN · 7 días DL</span>
               </label>
             </div>
           </div>
@@ -1138,7 +1147,8 @@ function _rosterGuardarCfg(){
     DB.rosterConfig.push(cfg);
   }
   syncSheet('saveRosterConfig',cfg);
-  toast(`✓ Guardia ${_rosterCfgGrd} configurada · ${turno==='NOCHE'?'Turno Noche':'Turno Día'} · inicio ${_rosterFmt(fecha)}`);
+  const _turnoLabel=turno==='NOCHE'?'Turno Noche':turno==='MIXTO'?'Mixto 7D+7N':'Turno Día';
+  toast(`✓ Guardia ${_rosterCfgGrd} configurada · ${_turnoLabel} · inicio ${_rosterFmt(fecha)}`);
   _rosterCloseCfg();
   rRoster();
 }
