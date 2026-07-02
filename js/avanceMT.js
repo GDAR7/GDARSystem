@@ -306,8 +306,8 @@ function _amtRenderAreas(body){
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function _amtKpi(label, valueHtml, color){
-  return `<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;border-left:3px solid ${color}">
-    <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted2);margin-bottom:.25rem">${label}</div>
-    <div style="color:${color}">${valueHtml}</div>
+  return `<div style="background:#f5f1e8;border:2px solid ${color};border-radius:8px;padding:.6rem .8rem">
+    <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#5a6376;margin-bottom:.25rem">${label}</div>
+    <div style="color:#0f172a">${valueHtml}</div>
   </div>`;
 }
