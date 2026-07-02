@@ -793,16 +793,18 @@ function rRoster(){
 
     const rows=personas.map(p=>{
       const cells=dias35.map(d=>{
-        const tipo=_rosterTipo(d,cfg);
+        const tipoBase=_rosterTipo(d,cfg);
+        const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===d);
+        const tipo=ovr?ovr.tipo:tipoBase;
+        const esOvr=!!ovr;
         const esHoy=d===hoy;
         const dow=_rosterDia(d);
-        const esDom=dow===0;
         let bg='',tx='',lbl='';
         if(!tipo){bg='rgba(255,255,255,.02)';tx='#374151';lbl='·';}
         else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
         else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
         else{bg='rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
-        return`<td style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''}">${lbl}</td>`;
+        return`<td onclick="_rosterOvrPicker(${p.id},'${d}',event)" title="${esOvr?'⚠️ Día sobreescrito (click para editar)':'Click para cambiar este día'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${esOvr?'outline:2px solid #f59e0b;outline-offset:-2px;':''}">${lbl}${esOvr?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       return`<tr>
@@ -1116,6 +1118,44 @@ function _rosterGuardarCfg(){
   syncSheet('saveRosterConfig',cfg);
   toast(`✓ Guardia ${_rosterCfgGrd} configurada · ${turno==='NOCHE'?'Turno Noche':'Turno Día'} · inicio ${_rosterFmt(fecha)}`);
   _rosterCloseCfg();
+  rRoster();
+}
+
+// ── OVERRIDE DE DÍAS DEL ROSTER ──────────────────────────────────────────────
+let _rosterOvrEl=null;
+function _rosterOvrPicker(personalId,fecha,ev){
+  if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
+  const ovr=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:.35rem;min-width:130px;font-size:.72rem';
+  div.innerHTML=`<div style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.1rem">${fecha}</div>
+    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','TD')" style="background:rgba(16,185,129,.18);color:#10b981;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">☀️ TD – Turno Día</button>
+    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','TN')" style="background:rgba(99,102,241,.18);color:#818cf8;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">🌙 TN – Turno Noche</button>
+    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','DL')" style="background:rgba(239,68,68,.1);color:#64748b;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">🔵 DL – Día Libre</button>
+    ${ovr?`<button onclick="_rosterDelOvr(${personalId},'${fecha}')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">↺ Restaurar ciclo</button>`:''}`;
+  document.body.appendChild(div);
+  _rosterOvrEl=div;
+  const r=ev.target.getBoundingClientRect();
+  let top=r.bottom+4,left=r.left;
+  if(left+140>window.innerWidth)left=window.innerWidth-145;
+  if(top+160>window.innerHeight)top=r.top-165;
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();_rosterOvrEl=null;document.removeEventListener('click',h);}},{once:false}),10);
+}
+function _rosterSaveOvr(personalId,fecha,tipo){
+  if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
+  let rec=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  if(rec){rec.tipo=tipo;}
+  else{rec={id:nid('rovr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
+  syncSheet('saveRosterOvr',rec);
+  rRoster();
+}
+function _rosterDelOvr(personalId,fecha){
+  if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
+  const rec=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  if(!rec)return;
+  DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);
+  supaDelete('rosterOvr',rec.id);
   rRoster();
 }
 

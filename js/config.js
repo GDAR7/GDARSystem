@@ -101,7 +101,8 @@ const SUPA_TABLES={
   lpsWbsDeps:'lps_wbs_deps',
   capas:'capas',
   planDibujos:'plan_dibujos',
-  rosterConfig:'roster_config'
+  rosterConfig:'roster_config',
+  rosterOvr:'roster_ovr'
 };
 
 const ACTION_MAP={
@@ -128,7 +129,8 @@ const ACTION_MAP={
   savePizItem:'pizarraItems',
   saveLpsWbsDep:'lpsWbsDeps',
   savePlanDibujo:'planDibujos',
-  saveRosterConfig:'rosterConfig'
+  saveRosterConfig:'rosterConfig',
+  saveRosterOvr:'rosterOvr'
 };
 
 let _pendingSaves=0;
@@ -247,7 +249,7 @@ async function loadSheetsData(){
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
       tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
-      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc'};
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc',rosterOvr:'rovr'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -370,8 +372,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1}
 };
 
 // ══ STATE ══
