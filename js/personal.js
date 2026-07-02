@@ -720,8 +720,10 @@ function gLav(){DB.lavanderia.push({id:nid('lav'),fecha:document.getElementById(
 // ══════════════════════════════════════════════════════════════
 // ROSTER DE GUARDIAS – Ciclo 14T / 7D proyectado
 // ══════════════════════════════════════════════════════════════
-let _rosterInicioVista=null; // lunes de la semana en vista
+let _rosterInicioVista=null;
 const _ROSTER_CICLO_T=14, _ROSTER_CICLO_D=7, _ROSTER_CICLO=21;
+let _rosterFiltroCargos=new Set(); // cargos seleccionados (vacío = todos)
+let _rosterCargoDropEl=null;
 const _ROSTER_GUARDIAS=['A','B','C'];
 
 function _rosterLunes(d=new Date()){
@@ -768,14 +770,14 @@ function rRoster(){
 
   const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
   const filtroGrd=document.getElementById('rosterFiltroGrd')?.value||'';
-  const filtroCargo=document.getElementById('rosterFiltroCargo')?.value||'';
   const cargos=[...new Set(personalActivo.map(p=>(p.cargo||'Sin cargo').toUpperCase()))].sort();
 
   const personasFiltradas=personalActivo.filter(p=>{
     if(filtroGrd&&p.guardia!==filtroGrd)return false;
-    if(filtroCargo&&(p.cargo||'Sin cargo').toUpperCase()!==filtroCargo)return false;
+    if(_rosterFiltroCargos.size&&!_rosterFiltroCargos.has((p.cargo||'Sin cargo').toUpperCase()))return false;
     return true;
   });
+  const _cargoLabel=_rosterFiltroCargos.size===0?'Todos los cargos':_rosterFiltroCargos.size===1?[..._rosterFiltroCargos][0].slice(0,20):`${_rosterFiltroCargos.size} cargos`;
 
   // ── cabecera de días ──
   const hdrs=dias35.map(d=>{
@@ -934,12 +936,13 @@ function rRoster(){
           <option value="C" ${filtroGrd==='C'?'selected':''}>Guardia C</option>
         </select>
       </div>
-      <div>
+      <div style="position:relative">
         <div style="font-size:.6rem;color:var(--muted2);margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Cargo</div>
-        <select id="rosterFiltroCargo" onchange="rRoster()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.78rem">
-          <option value="">Todos</option>
-          ${cargos.map(c=>`<option value="${c}" ${filtroCargo===c?'selected':''}>${c}</option>`).join('')}
-        </select>
+        <button id="rosterCargoBtn" onclick="_rosterOpenCargoFilter(event)" style="background:var(--panel2);border:1px solid ${_rosterFiltroCargos.size?'#a855f7':'var(--border)'};border-radius:6px;color:${_rosterFiltroCargos.size?'#a855f7':'var(--text)'};padding:.3rem .65rem;font-size:.78rem;cursor:pointer;min-width:160px;text-align:left;display:flex;align-items:center;gap:.4rem">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cargoLabel}</span>
+          <span style="font-size:.6rem;color:var(--muted2)">▾</span>
+          ${_rosterFiltroCargos.size?`<span onclick="event.stopPropagation();_rosterFiltroCargos.clear();rRoster()" style="font-size:.65rem;color:#ef4444;margin-left:.2rem" title="Limpiar filtro">✕</span>`:''}
+        </button>
       </div>
       <div style="display:flex;align-items:center;gap:.4rem;margin-left:auto">
         <button onclick="_rosterNavegar(-35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas atrás">«</button>
@@ -1155,6 +1158,46 @@ function _rosterGuardarCfg(){
 
 // ── MULTI-SELECCIÓN DEL ROSTER ───────────────────────────────────────────────
 let _rosterMultiMode=false, _rosterMultiSel=new Set();
+
+function _rosterOpenCargoFilter(ev){
+  if(_rosterCargoDropEl){_rosterCargoDropEl.remove();_rosterCargoDropEl=null;return;}
+  const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
+  const cargos=[...new Set(personalActivo.map(p=>(p.cargo||'Sin cargo').toUpperCase()))].sort();
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.5rem;box-shadow:0 8px 32px rgba(0,0,0,.4);min-width:220px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px';
+  const allChecked=_rosterFiltroCargos.size===0;
+  div.innerHTML=`<div style="padding:.2rem .4rem;margin-bottom:.2rem;border-bottom:1px solid var(--border)">
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.75rem;font-weight:700;color:var(--muted2)">
+      <input type="checkbox" ${allChecked?'checked':''} onchange="_rosterCargoToggleAll(this.checked)"> Todos los cargos
+    </label>
+  </div>`+cargos.map(c=>{
+    const sel=_rosterFiltroCargos.has(c);
+    return`<label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.25rem .4rem;border-radius:5px;font-size:.74rem;${sel?'background:rgba(168,85,247,.12);color:#a855f7':'color:var(--text)'}">
+      <input type="checkbox" ${sel?'checked':''} onchange="_rosterCargoToggle('${c.replace(/'/g,"\\'")}',this.checked)" style="accent-color:#a855f7"> ${c}
+    </label>`;
+  }).join('');
+  document.body.appendChild(div);
+  _rosterCargoDropEl=div;
+  const btn=document.getElementById('rosterCargoBtn');
+  const r=btn?btn.getBoundingClientRect():{top:100,left:100,bottom:130};
+  let top=r.bottom+4,left=r.left;
+  if(left+230>window.innerWidth)left=window.innerWidth-235;
+  if(top+330>window.innerHeight)top=r.top-335;
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)&&e.target.id!=='rosterCargoBtn'){div.remove();_rosterCargoDropEl=null;document.removeEventListener('click',h);}},{capture:true,once:false}),50);
+}
+function _rosterCargoToggle(cargo,checked){
+  if(checked)_rosterFiltroCargos.add(cargo);
+  else _rosterFiltroCargos.delete(cargo);
+  rRoster();
+  // Mantener dropdown abierto tras re-render
+  setTimeout(()=>_rosterOpenCargoFilter({target:document.getElementById('rosterCargoBtn')}),10);
+}
+function _rosterCargoToggleAll(checked){
+  _rosterFiltroCargos.clear();
+  if(_rosterCargoDropEl){_rosterCargoDropEl.remove();_rosterCargoDropEl=null;}
+  rRoster();
+}
 function _rosterToggleMulti(){
   _rosterMultiMode=!_rosterMultiMode;
   _rosterMultiSel.clear();
