@@ -153,11 +153,13 @@ function rTareaje(){
   const proyEl=document.getElementById('tareProy');
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
+  const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
   let persF;
   if(proyFiltro){
     const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
+  if(guardiaFiltro) persF=persF.filter(p=>p.guardia===guardiaFiltro);
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
