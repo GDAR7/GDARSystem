@@ -794,7 +794,7 @@ function rRoster(){
     const rows=personas.map(p=>{
       const cells=dias35.map(d=>{
         const tipoBase=_rosterTipo(d,cfg);
-        const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===d);
+        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const tipo=ovr?ovr.tipo:tipoBase;
         const esOvr=!!ovr;
         const esHoy=d===hoy;
@@ -820,7 +820,7 @@ function rRoster(){
     const _tipoHoyBase=cfg?_rosterTipo(hoy,cfg):null;
     let _cTD=0,_cTN=0,_cDL=0;
     personas.forEach(p=>{
-      const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===hoy);
+      const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===hoy);
       const t=ovr?ovr.tipo:_tipoHoyBase;
       if(t==='TD')_cTD++;else if(t==='TN')_cTN++;else if(t==='D'||t==='DL')_cDL++;
     });
@@ -853,7 +853,7 @@ function rRoster(){
   personasFiltradas.filter(p=>p.guardia).forEach(p=>{
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
-    const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===hoy);
+    const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===hoy);
     const t=ovr?ovr.tipo:_rosterTipo(hoy,cfg);
     if(t==='TD')_kpiTD++;
     else if(t==='TN')_kpiTN++;
@@ -889,7 +889,7 @@ function rRoster(){
       const cfg=_rosterGetCfg(g);if(!cfg)return;
       const tipoBase=_rosterTipo(d,cfg);
       personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
-        const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===d);
+        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const t=ovr?ovr.tipo:tipoBase;
         if(t==='TD'||t==='TN')n++;
       });
@@ -1134,7 +1134,7 @@ function _rosterGuardarCfg(){
 let _rosterOvrEl=null;
 function _rosterOvrPicker(personalId,fecha,ev){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  const ovr=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  const ovr=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
   const div=document.createElement('div');
   div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:.35rem;min-width:130px;font-size:.72rem';
   div.innerHTML=`<div style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.1rem">${fecha}</div>
@@ -1153,7 +1153,7 @@ function _rosterOvrPicker(personalId,fecha,ev){
 }
 function _rosterSaveOvr(personalId,fecha,tipo){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  let rec=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  let rec=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
   if(rec){rec.tipo=tipo;}
   else{rec={id:nid('rovr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
   syncSheet('saveRosterOvr',rec);
@@ -1161,7 +1161,7 @@ function _rosterSaveOvr(personalId,fecha,tipo){
 }
 function _rosterDelOvr(personalId,fecha){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  const rec=DB.rosterOvr.find(o=>o.personalId===personalId&&o.fecha===fecha);
+  const rec=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
   if(!rec)return;
   DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);
   supaDelete('rosterOvr',rec.id);
