@@ -112,6 +112,7 @@ function openEngraseEjecForm(eqId,fecha){
   const personal=DB.personal||[];
   const opts='<option value="">— Seleccionar —</option>'+personal.map(p=>`<option value="${p.ape}, ${p.nom}">${p.ape}, ${p.nom}</option>`).join('');
   document.getElementById('ejecMec').innerHTML=opts;
+  document.getElementById('ejecMec2').innerHTML=opts;
   document.getElementById('ejecAyu').innerHTML=opts;
   document.getElementById('ejecCant').value='';
   document.getElementById('ejecHH').value='';
@@ -126,6 +127,7 @@ function gEngraseEjec(){
   ex.tiempoHH=+document.getElementById('ejecHH').value||0;
   ex.obs=document.getElementById('ejecObs').value.trim();
   ex.mecanico=document.getElementById('ejecMec').value;
+  ex.mecanico2=document.getElementById('ejecMec2').value;
   ex.ayudante=document.getElementById('ejecAyu').value;
   syncSheet('saveEngrase',ex);
   document.getElementById('mEngraseEjec').style.display='none';
@@ -134,7 +136,7 @@ function gEngraseEjec(){
 }
 function showEngraseDetail(eqId,fecha){
   const rec=DB.engrase.find(r=>r.eqId===eqId&&r.fecha===fecha);if(!rec)return;
-  toast(`Ejecutado • Engrase:${rec.cantEngrase||0} • HH:${rec.tiempoHH||0}${rec.obs?' • '+rec.obs:''}${rec.mecanico?' • Mec:'+rec.mecanico:''}`);
+  toast(`Ejecutado • Engrase:${rec.cantEngrase||0} • HH:${rec.tiempoHH||0}${rec.obs?' • '+rec.obs:''}${rec.mecanico?' • Mec1:'+rec.mecanico:''}${rec.mecanico2?' • Mec2:'+rec.mecanico2:''}${rec.ayudante?' • Ayu:'+rec.ayudante:''}`);
 }
 function _refreshEngraseCell(eqId,fecha){
   const rec=DB.engrase.find(r=>r.eqId===eqId&&r.fecha===fecha);

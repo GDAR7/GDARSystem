@@ -664,10 +664,11 @@
       <div><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Tiempo (HH)</label><input id="ejecHH" type="number" min="0" step="0.1" placeholder="0" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></div>
     </div>
     <div style="margin-bottom:.75rem"><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Observaciones</label><textarea id="ejecObs" rows="2" placeholder="Observaciones..." style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%;resize:vertical"></textarea></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.1rem">
-      <div><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Mecánico</label><select id="ejecMec" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></select></div>
-      <div><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Ayudante Mecánico</label><select id="ejecAyu" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+      <div><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Mecánico 1</label><select id="ejecMec" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></select></div>
+      <div><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Mecánico 2</label><select id="ejecMec2" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></select></div>
     </div>
+    <div style="margin-bottom:1.1rem"><label style="font-size:.72rem;color:var(--muted2);font-weight:600;display:block;margin-bottom:.2rem">Ayudante Mecánico</label><select id="ejecAyu" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.82rem;width:100%"></select></div>
     <div style="display:flex;gap:.5rem;justify-content:flex-end">
       <button class="btn btn-out btn-sm" onclick="document.getElementById('mEngraseEjec').style.display='none'">Cancelar</button>
       <button class="btn btn-sm" onclick="gEngraseEjec()" style="background:#10b981;color:#fff;border:none">✔ Guardar Ejecución</button>

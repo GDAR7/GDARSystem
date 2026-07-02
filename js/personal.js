@@ -815,11 +815,18 @@ function rRoster(){
     const sinPersonas=personas.length===0
       ?`<tr><td colspan="${35+2}" style="text-align:center;font-size:.65rem;color:var(--muted2);padding:.6rem">Sin personal asignado a Guardia ${grd}</td></tr>`:'';
 
+    const _tipoHoy=cfg&&personas.length?_rosterTipo(hoy,cfg):null;
+    const _cTD=_tipoHoy==='TD'?personas.length:0;
+    const _cTN=_tipoHoy==='TN'?personas.length:0;
+    const _cDL=_tipoHoy==='D'?personas.length:0;
+    const _badge=(n,lbl,bg,col)=>n>0?`<span style="font-size:.65rem;font-weight:700;background:${bg};color:${col};padding:2px 9px;border-radius:4px">${n} ${lbl}</span>`:'';
+    const resumenHoy=_tipoHoy?`<div style="display:flex;align-items:center;gap:.35rem;margin-left:.4rem"><span style="font-size:.58rem;color:var(--muted2);font-weight:600">HOY:</span>${_badge(_cTD,'TD','rgba(16,185,129,.22)','#10b981')}${_badge(_cTN,'TN','rgba(99,102,241,.22)','#818cf8')}${_badge(_cDL,'DL','rgba(100,116,139,.22)','#94a3b8')}</div>`:'';
     return`<div style="margin-bottom:1.2rem">
       <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;border-radius:0 6px 6px 0;margin-bottom:.4rem;flex-wrap:wrap">
         <span style="font-size:.75rem;font-weight:800;color:#f59e0b">GUARDIA ${grd}</span>
         <span style="font-size:.62rem;color:var(--muted2)">· ${personas.length} persona${personas.length!==1?'s':''}</span>
         ${cfgLabel}
+        ${resumenHoy}
         <button onclick="_rosterOpenCfg('${grd}')" style="margin-left:auto;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#818cf8;border-radius:5px;padding:2px 8px;font-size:.6rem;cursor:pointer">⚙️ Configurar</button>
       </div>
       <div style="overflow-x:auto">
