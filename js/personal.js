@@ -823,7 +823,7 @@ function rRoster(){
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       return`<tr>
-        <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${(p.ape||'').split(' ')[0]}, ${p.nom||''} ${grdBadge}</td>
+        <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${p.ape||''}, ${(p.nom||'').split(' ')[0]} ${grdBadge}</td>
         <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:125px;max-width:125px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
         ${cells}
       </tr>`;
