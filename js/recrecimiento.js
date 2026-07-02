@@ -188,7 +188,7 @@ function rRecrecimiento(){
 
   <!-- MODAL capa -->
   <div id="mRecCapa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center">
-    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem;width:380px;max-width:95vw">
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem;width:420px;max-width:96vw;max-height:92vh;overflow-y:auto">
       <div style="font-weight:700;margin-bottom:.8rem;font-size:.9rem">🏔️ Capa de recrecimiento</div>
       <input type="hidden" id="rcId">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem">
@@ -223,6 +223,8 @@ function rRecrecimiento(){
         <button onclick="document.getElementById('mRecCapa').style.display='none'" style="padding:.4rem .9rem;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--muted2);font-size:.75rem;cursor:pointer">Cancelar</button>
         <button id="rcBtnDel" onclick="_recDelCapa()" style="padding:.4rem .6rem;background:rgba(239,68,68,.1);border:1px solid #ef444440;border-radius:7px;color:#ef4444;font-size:.75rem;cursor:pointer;display:none">🗑</button>
       </div>
+      <!-- HISTORIAL DE AVANCE -->
+      <div id="rcHistPanel" style="display:none;margin-top:.7rem;border-top:1px solid var(--border);padding-top:.6rem"></div>
     </div>
   </div>`;
 
@@ -554,6 +556,7 @@ function _recShowCapaPopup(id,svgCx,svgCy){
   const wbs=c.wbsId?(DB.lpsWbs||[]).find(w=>+w.id===+c.wbsId):null;
   const volEjec=c.volM3&&pct>0?Math.round(+c.volM3*pct/100).toLocaleString('es-PE')+' m³':null;
 
+  const hist=(DB.capasAvance||[]).filter(e=>+e.capaId===+id).sort((a,b)=>a.fecha<b.fecha?-1:1);
   const popup=document.getElementById('recPopupCard');
   const wrap=document.getElementById('recPopupWrap');
   if(!popup||!wrap)return;
@@ -581,7 +584,18 @@ function _recShowCapaPopup(id,svgCx,svgCy){
       ${wbs?`<span style="color:var(--muted2)">WBS</span><span style="font-size:.63rem">${wbs.codigo||''}</span>`:''}
       ${c.notas?`<span style="color:var(--muted2)">NOTAS</span><span style="font-size:.63rem">${c.notas}</span>`:''}
     </div>
-    <button onclick="document.getElementById('recPopupWrap').style.display='none';_recEditCapa(${c.id})" style="margin-top:.6rem;width:100%;background:${dq.color}22;border:1px solid ${dq.color}40;border-radius:6px;color:${dq.color};cursor:pointer;padding:.3rem;font-size:.67rem;font-weight:700">✎ Editar capa</button>`;
+    ${hist.length>0?`<div style="margin-top:.5rem;border-top:1px solid var(--border);padding-top:.4rem">
+      <div style="font-size:.57rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem">Historial de avance</div>
+      <div style="display:flex;flex-direction:column;gap:.12rem">
+        ${hist.map(e=>{const hc=+e.pct>=100?'#10b981':+e.pct>50?'#f59e0b':'#6b7280';return`<div style="display:flex;align-items:center;gap:.3rem;font-size:.62rem">
+          <span style="color:var(--muted2);min-width:62px;font-size:.58rem">${e.fecha}</span>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden"><div style="height:100%;width:${e.pct}%;background:${hc};border-radius:2px"></div></div>
+          <span style="font-weight:700;color:${hc};min-width:28px;text-align:right">${e.pct}%</span>
+          ${e.notas?`<span style="color:var(--muted2);font-size:.55rem;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.notas}">${e.notas}</span>`:''}
+        </div>`;}).join('')}
+      </div>
+    </div>`:''}
+    <button onclick="document.getElementById('recPopupWrap').style.display='none';_recEditCapa(${c.id})" style="margin-top:.6rem;width:100%;background:${dq.color}22;border:1px solid ${dq.color}40;border-radius:6px;color:${dq.color};cursor:pointer;padding:.3rem;font-size:.67rem;font-weight:700">✎ Editar / Registrar avance</button>`;
 
   // Posicionar cerca del polígono
   const canvas=document.getElementById('recCanvas');
@@ -617,6 +631,7 @@ function _recAddCapa(dique){
   document.getElementById('rcWbs').value='';
   document.getElementById('rcNotas').value='';
   document.getElementById('rcBtnDel').style.display='none';
+  const hp=document.getElementById('rcHistPanel');if(hp)hp.style.display='none';
   document.getElementById('mRecCapa').style.display='flex';
 }
 
@@ -635,6 +650,7 @@ function _recEditCapa(id){
   document.getElementById('rcNotas').value=c.notas||'';
   document.getElementById('rcBtnDel').style.display='';
   document.getElementById('mRecCapa').style.display='flex';
+  setTimeout(()=>_recRenderHistorial(id),30);
 }
 
 async function _recSaveCapa(){
@@ -1033,4 +1049,94 @@ function _recReDetect(){
     _recEdgeMap=_sobelEdgeDetect(ctx.getImageData(0,0,tmp.width,tmp.height),_recEdgeThreshold);
     if(_recShowEdges)_recMostrarEdgeOverlay();
   }catch(e){}
+}
+
+// ══ HISTORIAL DE AVANCE ═══════════════════════════════════════════════════════
+
+function _recRenderHistorial(capaId){
+  const panel=document.getElementById('rcHistPanel');if(!panel)return;
+  const entries=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId).sort((a,b)=>a.fecha<b.fecha?-1:1);
+  panel.style.display='';
+  const today=new Date().toISOString().slice(0,10);
+  panel.innerHTML=`
+    <div style="font-size:.65rem;font-weight:700;color:#10b981;margin-bottom:.45rem">📈 Historial de Avance</div>
+    <div style="display:flex;gap:.3rem;margin-bottom:.45rem;align-items:flex-end">
+      <div style="flex:1.2">
+        <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Fecha</div>
+        <input id="rcHFecha" type="date" value="${today}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
+      </div>
+      <div style="flex:0.7">
+        <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">% Avance</div>
+        <input id="rcHPct" type="number" min="0" max="100" placeholder="0" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
+      </div>
+      <div style="flex:1.4">
+        <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Notas (opcional)</div>
+        <input id="rcHNotas" placeholder="..." style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
+      </div>
+      <button onclick="_recSaveAvance(${capaId})" style="padding:.28rem .55rem;border-radius:5px;background:rgba(16,185,129,.12);border:1px solid #10b98140;color:#10b981;font-size:.65rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">＋ Agregar</button>
+    </div>
+    ${entries.length===0
+      ?`<div style="font-size:.6rem;color:var(--muted2);text-align:center;padding:.3rem 0">Sin registros aún — agrega el primer avance</div>`
+      :`<div style="display:flex;flex-direction:column;gap:.13rem;max-height:130px;overflow-y:auto">
+          ${entries.map(e=>{
+            const col=+e.pct>=100?'#10b981':+e.pct>60?'#f59e0b':+e.pct>0?'#6b7280':'#374151';
+            return`<div style="display:flex;align-items:center;gap:.35rem;padding:.18rem .3rem;background:var(--panel2);border-radius:5px">
+              <span style="color:var(--muted2);font-size:.6rem;min-width:62px">${e.fecha}</span>
+              <div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${e.pct}%;background:${col};border-radius:3px"></div>
+              </div>
+              <span style="font-weight:800;color:${col};min-width:28px;text-align:right;font-size:.67rem">${e.pct}%</span>
+              ${e.notas?`<span style="color:var(--muted2);font-size:.57rem;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.notas}">${e.notas}</span>`:''}
+              <button onclick="_recDelAvance(${e.id},${capaId})" style="background:none;border:none;color:#ef444455;cursor:pointer;font-size:.7rem;padding:0;line-height:1;flex-shrink:0" title="Eliminar">✕</button>
+            </div>`;
+          }).join('')}
+        </div>`}`;
+}
+
+async function _recSaveAvance(capaId){
+  const fecha=document.getElementById('rcHFecha').value;
+  const pct=+document.getElementById('rcHPct').value;
+  const notas=(document.getElementById('rcHNotas').value||'').trim();
+  if(!fecha){toast('Selecciona una fecha',true);return;}
+  if(isNaN(pct)||pct<0||pct>100){toast('% debe ser entre 0 y 100',true);return;}
+
+  const id=DB.nx.cav++;
+  const{error}=await supa.from('capas_avance').insert({id,capa_id:+capaId,fecha,pct,notas:notas||null});
+  if(error){toast('Error al guardar: '+error.message,true);DB.nx.cav--;return;}
+
+  (DB.capasAvance=DB.capasAvance||[]).push({id,capaId:+capaId,fecha,pct,notas:notas||null});
+
+  // Actualizar pct_avance de la capa al valor más reciente (mayor fecha)
+  const allE=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const latestPct=allE[0]?.pct??pct;
+  const{error:e2}=await supa.from('capas').update({pct_avance:latestPct}).eq('id',+capaId);
+  if(!e2){
+    const c=(DB.capas||[]).find(x=>+x.id===+capaId);
+    if(c)c.pctAvance=latestPct;
+    const rcPct=document.getElementById('rcPct');
+    if(rcPct)rcPct.value=latestPct;
+  }
+
+  document.getElementById('rcHPct').value='';
+  document.getElementById('rcHNotas').value='';
+  _recRenderHistorial(capaId);
+  toast('✓ Avance registrado');
+}
+
+async function _recDelAvance(id,capaId){
+  if(!confirm('¿Eliminar este registro de avance?'))return;
+  const{error}=await supa.from('capas_avance').delete().eq('id',+id);
+  if(error){toast('Error: '+error.message,true);return;}
+  DB.capasAvance=(DB.capasAvance||[]).filter(e=>+e.id!==+id);
+
+  // Actualizar pct_avance al registro más reciente restante
+  const remaining=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const latestPct=remaining.length>0?remaining[0].pct:+document.getElementById('rcPct').value||0;
+  const{error:e2}=await supa.from('capas').update({pct_avance:latestPct}).eq('id',+capaId);
+  if(!e2){
+    const c=(DB.capas||[]).find(x=>+x.id===+capaId);
+    if(c)c.pctAvance=latestPct;
+  }
+
+  _recRenderHistorial(capaId);
 }
