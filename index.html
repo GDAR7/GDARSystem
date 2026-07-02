@@ -128,6 +128,7 @@
     <div class="card-head" style="flex-wrap:nowrap">
       <span class="card-title">Registro del Día</span>
       <div class="card-head-right" style="flex-wrap:nowrap">
+        <input type="text" id="asiNomFiltro" placeholder="🔍 Buscar nombre o apellido..." oninput="rAsistencia()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .75rem;font-size:.8rem;min-width:220px;outline:none">
         <input type="date" id="asiDate" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;color-scheme:dark" onchange="rAsistencia()">
         <select id="asiGuardia" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;max-width:140px" onchange="rAsistencia()">
           <option value="">Todas las Guardias</option>

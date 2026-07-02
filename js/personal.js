@@ -276,8 +276,14 @@ async function rAsistencia(){
   const fecha=dateEl.value;
   const guardia=document.getElementById('asiGuardia').value;
   const tareoFilt=document.getElementById('asiTareo')?.value||'';
+  const nomFiltro=(document.getElementById('asiNomFiltro')?.value||'').trim().toLowerCase();
   await loadAsistenciaFecha(fecha);
-  let trabajadores=DB.personal.filter(p=>p.est==='Activo'&&(!guardia||p.guardia===guardia));
+  let trabajadores=DB.personal.filter(p=>{
+    if(p.est!=='Activo') return false;
+    if(guardia&&p.guardia!==guardia) return false;
+    if(nomFiltro){const full=((p.ape||'')+' '+(p.nom||'')).toLowerCase();if(!full.includes(nomFiltro)) return false;}
+    return true;
+  });
   if(tareoFilt){
     trabajadores=trabajadores.filter(p=>{
       const tr=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
