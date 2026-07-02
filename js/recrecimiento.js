@@ -31,6 +31,9 @@ function rRecrecimiento(){
   const enCurso=capas.filter(c=>+c.pctAvance>0&&+c.pctAvance<100).length;
   const pend=total-comp-enCurso;
   const pctGlobal=total?Math.round(capas.reduce((s,c)=>s+(+c.pctAvance||0),0)/total):0;
+  const volTotal=capas.reduce((s,c)=>s+(+c.volM3||0),0);
+  const volAvanz=capas.reduce((s,c)=>s+(+c.volM3||0)*(+c.pctAvance||0)/100,0);
+  const pctVol=volTotal>0?Math.round(volAvanz/volTotal*100):0;
 
   const selCapa=_recSelCapaId?(DB.capas||[]).find(c=>c.id===_recSelCapaId):null;
   const esSec=_recVista==='seccion';
@@ -67,6 +70,19 @@ function rRecrecimiento(){
         <div style="font-size:1.1rem;font-weight:800;color:${k.c}">${k.v}</div>
         <div style="font-size:.58rem;color:var(--muted2)">${k.l}</div>
       </div>`).join('')}
+      ${volTotal>0?`<div style="flex:2;background:var(--panel2);border:1px solid #06b6d430;border-radius:8px;padding:.4rem .8rem;display:flex;flex-direction:column;justify-content:center;gap:.3rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.1rem">
+          <span style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em">Volumen m³</span>
+          <span style="font-size:.78rem;font-weight:800;color:#06b6d4">${pctVol}%</span>
+        </div>
+        <div style="height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-bottom:.2rem">
+          <div style="height:100%;width:${pctVol}%;background:linear-gradient(90deg,#06b6d4,#0891b2);border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.6rem">
+          <span style="color:#06b6d4;font-weight:700">${Math.round(volAvanz).toLocaleString('es-PE')} m³</span>
+          <span style="color:var(--muted2)">/ ${Math.round(volTotal).toLocaleString('es-PE')} m³</span>
+        </div>
+      </div>`:''}
       <div style="flex:3;background:var(--panel2);border:1px solid ${dq.color}30;border-radius:8px;padding:.4rem .8rem;display:flex;flex-direction:column;justify-content:center;gap:.3rem">
         <div style="display:flex;justify-content:space-between;font-size:.63rem;color:var(--muted2)">
           <span>Progreso ${dq.label}</span><span style="font-weight:700;color:${dq.color}">${pctGlobal}%</span>
