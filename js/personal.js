@@ -875,6 +875,26 @@ function rRoster(){
     </div>
   </div>`;
 
+  // ── barra resumen diario TD+TN ──
+  const _sumaDia=dias35.map(d=>{
+    let n=0;
+    _ROSTER_GUARDIAS.forEach(g=>{
+      const cfg=_rosterGetCfg(g);if(!cfg)return;
+      const t=_rosterTipo(d,cfg);
+      if(t==='TD'||t==='TN') n+=personasFiltradas.filter(p=>p.guardia===g).length;
+    });
+    return n;
+  });
+  const barraResumen=`<div style="overflow-x:auto;margin-bottom:.5rem">
+    <table style="border-collapse:collapse;table-layout:fixed;font-size:.65rem">
+      <tbody><tr>
+        <td style="width:175px;min-width:175px;padding:.3rem .5rem;font-size:.6rem;font-weight:700;color:#10b981;white-space:nowrap;background:rgba(16,185,129,.07);border-left:3px solid #10b981;border-radius:0 4px 4px 0">TD + TN · TOTAL</td>
+        <td style="width:125px;min-width:125px;background:rgba(16,185,129,.07)"></td>
+        ${dias35.map((d,i)=>{const n=_sumaDia[i];const esHoy=d===hoy;const dow=_rosterDia(d);const esDom=dow===0;return`<td style="text-align:center;width:30px;min-width:30px;padding:2px 0;font-size:.68rem;font-weight:800;color:${n>0?'#10b981':'var(--muted2)'};background:${esHoy?'rgba(245,158,11,.15)':n>0?'rgba(16,185,129,.07)':'transparent'};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};${esDom?'color:#f87171':''}border-bottom:1px solid var(--border)">${n>0?n:'·'}</td>`;}).join('')}
+      </tr></tbody>
+    </table>
+  </div>`;
+
   // ── leyenda ──
   const leyenda=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
     <span style="background:rgba(16,185,129,.18);color:#10b981;border-radius:4px;padding:2px 8px;font-weight:700">TD = Turno Día</span>
@@ -915,6 +935,7 @@ function rRoster(){
     </div>
     ${kpiHoy}
     ${leyenda}
+    ${barraResumen}
     ${secciones||'<div style="text-align:center;color:var(--muted2);padding:2rem">Sin personal activo con guardia asignada. Asigna guardias en el módulo Personal / RR.HH.</div>'}
     <!-- Modal export Excel -->
     <div id="rosterExportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
