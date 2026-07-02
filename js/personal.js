@@ -804,7 +804,9 @@ function rRoster(){
         else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
         else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
         else{bg='rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
-        return`<td onclick="_rosterOvrPicker(${p.id},'${d}',event)" title="${esOvr?'⚠️ Día sobreescrito (click para editar)':'Click para cambiar este día'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${bg};color:${tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${esOvr?'outline:2px solid #f59e0b;outline-offset:-2px;':''}">${lbl}${esOvr?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
+        const mKey=`${p.id}|${d}`;
+        const isSel=_rosterMultiSel.has(mKey);
+        return`<td onclick="${_rosterMultiMode?`_rosterMultiToggleCell('${mKey}',this)`:`_rosterOvrPicker(${p.id},'${d}',event)`}" title="${esOvr?'⚠️ Día sobreescrito':'Click para cambiar'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${isSel?'rgba(168,85,247,.45)':bg};color:${isSel?'#fff':tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${esOvr&&!isSel?'outline:2px solid #f59e0b;outline-offset:-2px;':''};${isSel?'outline:2px solid #a855f7;outline-offset:-2px;':''}">${lbl}${esOvr&&!isSel?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       return`<tr>
@@ -942,8 +944,19 @@ function rRoster(){
         <button onclick="_rosterNavegar(35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas adelante">»</button>
         <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
         <button onclick="_rosterOpenExport()" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:.3rem .7rem;color:#10b981;cursor:pointer;font-size:.72rem;font-weight:700">📥 Excel</button>
+        <button onclick="_rosterToggleMulti()" style="background:${_rosterMultiMode?'rgba(168,85,247,.2)':'rgba(168,85,247,.08)'};border:1px solid ${_rosterMultiMode?'#a855f7':'rgba(168,85,247,.3)'};border-radius:6px;padding:.3rem .7rem;color:${_rosterMultiMode?'#a855f7':'#c084fc'};cursor:pointer;font-size:.72rem;font-weight:700">${_rosterMultiMode?'✕ Cancelar':'☰ Multi-selección'}</button>
       </div>
     </div>
+    ${_rosterMultiMode?`<div style="position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:.5rem;padding:.45rem .8rem;margin-bottom:.6rem;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);border-radius:8px;flex-wrap:wrap">
+      <span style="font-size:.72rem;font-weight:700;color:#a855f7">☰ Multi-selección activa</span>
+      <span id="rosterMultiCount" style="font-size:.68rem;color:var(--muted2)">${_rosterMultiSel.size} celda${_rosterMultiSel.size!==1?'s':''} seleccionada${_rosterMultiSel.size!==1?'s':''}</span>
+      <div style="display:flex;gap:.35rem;margin-left:auto">
+        <button onclick="_rosterMultiApply('TD')" style="background:rgba(16,185,129,.2);color:#10b981;border:1px solid #10b98150;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">☀️ TD</button>
+        <button onclick="_rosterMultiApply('TN')" style="background:rgba(99,102,241,.2);color:#818cf8;border:1px solid #818cf850;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">🌙 TN</button>
+        <button onclick="_rosterMultiApply('DL')" style="background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid #94a3b840;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">🔵 DL</button>
+        <button onclick="_rosterMultiApply('RESET')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">↺ Restaurar ciclo</button>
+      </div>
+    </div>`:''}
     ${kpiHoy}
     ${leyenda}
     ${barraResumen}
@@ -1128,6 +1141,38 @@ function _rosterGuardarCfg(){
   toast(`✓ Guardia ${_rosterCfgGrd} configurada · ${turno==='NOCHE'?'Turno Noche':'Turno Día'} · inicio ${_rosterFmt(fecha)}`);
   _rosterCloseCfg();
   rRoster();
+}
+
+// ── MULTI-SELECCIÓN DEL ROSTER ───────────────────────────────────────────────
+let _rosterMultiMode=false, _rosterMultiSel=new Set();
+function _rosterToggleMulti(){
+  _rosterMultiMode=!_rosterMultiMode;
+  _rosterMultiSel.clear();
+  rRoster();
+}
+function _rosterMultiToggleCell(key,el){
+  if(_rosterMultiSel.has(key)){_rosterMultiSel.delete(key);el.style.background='';el.style.outline='';}
+  else{_rosterMultiSel.add(key);el.style.background='rgba(168,85,247,.45)';el.style.color='#fff';el.style.outline='2px solid #a855f7';el.style.outlineOffset='-2px';}
+  const cnt=document.getElementById('rosterMultiCount');
+  if(cnt)cnt.textContent=`${_rosterMultiSel.size} celda${_rosterMultiSel.size!==1?'s':''} seleccionada${_rosterMultiSel.size!==1?'s':''}`;
+}
+function _rosterMultiApply(tipo){
+  if(!_rosterMultiSel.size)return;
+  _rosterMultiSel.forEach(key=>{
+    const [pid,fecha]=key.split('|');
+    const personalId=+pid;
+    let rec=DB.rosterOvr.find(o=>+o.personalId===personalId&&o.fecha===fecha);
+    if(tipo==='RESET'){
+      if(rec){DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);supaDelete('rosterOvr',rec.id);}
+    }else{
+      if(rec){rec.tipo=tipo;}
+      else{rec={id:nid('rovr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
+      syncSheet('saveRosterOvr',rec);
+    }
+  });
+  _rosterMultiSel.clear();
+  rRoster();
+  toast(`✓ ${_rosterMultiSel.size||'Varios'} días actualizados`);
 }
 
 // ── OVERRIDE DE DÍAS DEL ROSTER ──────────────────────────────────────────────
