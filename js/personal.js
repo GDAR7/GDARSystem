@@ -817,10 +817,14 @@ function rRoster(){
     const sinPersonas=personas.length===0
       ?`<tr><td colspan="${35+2}" style="text-align:center;font-size:.65rem;color:var(--muted2);padding:.6rem">Sin personal asignado a Guardia ${grd}</td></tr>`:'';
 
-    const _tipoHoy=cfg&&personas.length?_rosterTipo(hoy,cfg):null;
-    const _cTD=_tipoHoy==='TD'?personas.length:0;
-    const _cTN=_tipoHoy==='TN'?personas.length:0;
-    const _cDL=_tipoHoy==='D'?personas.length:0;
+    const _tipoHoyBase=cfg?_rosterTipo(hoy,cfg):null;
+    let _cTD=0,_cTN=0,_cDL=0;
+    personas.forEach(p=>{
+      const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===hoy);
+      const t=ovr?ovr.tipo:_tipoHoyBase;
+      if(t==='TD')_cTD++;else if(t==='TN')_cTN++;else if(t==='D'||t==='DL')_cDL++;
+    });
+    const _tipoHoy=_tipoHoyBase;
     const _badge=(n,lbl,bg,col)=>n>0?`<span style="font-size:.65rem;font-weight:700;background:${bg};color:${col};padding:2px 9px;border-radius:4px">${n} ${lbl}</span>`:'';
     const resumenHoy=_tipoHoy?`<div style="display:flex;align-items:center;gap:.35rem;margin-left:.4rem"><span style="font-size:.58rem;color:var(--muted2);font-weight:600">HOY:</span>${_badge(_cTD,'TD','rgba(16,185,129,.22)','#10b981')}${_badge(_cTN,'TN','rgba(99,102,241,.22)','#818cf8')}${_badge(_cDL,'DL','rgba(100,116,139,.22)','#94a3b8')}</div>`:'';
     return`<div style="margin-bottom:1.2rem">
@@ -849,10 +853,11 @@ function rRoster(){
   personasFiltradas.filter(p=>p.guardia).forEach(p=>{
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
-    const t=_rosterTipo(hoy,cfg);
+    const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===hoy);
+    const t=ovr?ovr.tipo:_rosterTipo(hoy,cfg);
     if(t==='TD')_kpiTD++;
     else if(t==='TN')_kpiTN++;
-    else if(t==='D')_kpiDL++;
+    else if(t==='D'||t==='DL')_kpiDL++;
   });
   const kpiHoy=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
     <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #10b981;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
@@ -882,8 +887,12 @@ function rRoster(){
     let n=0;
     _ROSTER_GUARDIAS.forEach(g=>{
       const cfg=_rosterGetCfg(g);if(!cfg)return;
-      const t=_rosterTipo(d,cfg);
-      if(t==='TD'||t==='TN') n+=personasFiltradas.filter(p=>p.guardia===g).length;
+      const tipoBase=_rosterTipo(d,cfg);
+      personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
+        const ovr=DB.rosterOvr.find(o=>o.personalId===p.id&&o.fecha===d);
+        const t=ovr?ovr.tipo:tipoBase;
+        if(t==='TD'||t==='TN')n++;
+      });
     });
     return n;
   });
