@@ -1164,35 +1164,48 @@ function _rosterOpenCargoFilter(ev){
   const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
   const cargos=[...new Set(personalActivo.map(p=>(p.cargo||'Sin cargo').toUpperCase()))].sort();
   const div=document.createElement('div');
-  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.4rem;box-shadow:0 8px 32px rgba(0,0,0,.5);width:260px;max-height:360px;overflow-y:auto';
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.4rem .35rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:270px;max-height:360px;overflow-y:auto;font-family:inherit';
   const allChecked=_rosterFiltroCargos.size===0;
   const countByCargo={};
   personalActivo.forEach(p=>{const k=(p.cargo||'Sin cargo').toUpperCase();countByCargo[k]=(countByCargo[k]||0)+1;});
-  div.innerHTML=
-    '<div style="padding:.35rem .5rem .3rem;border-bottom:1px solid var(--border);margin-bottom:.25rem">'+
-      '<label style="display:grid;grid-template-columns:16px 1fr;align-items:center;gap:.45rem;cursor:pointer;user-select:none">'+
-        '<input type="checkbox" '+(allChecked?'checked':'')+' onchange="_rosterCargoToggleAll(this.checked)" style="accent-color:#a855f7;width:14px;height:14px;cursor:pointer">'+
-        '<span style="font-size:.72rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em">Todos los cargos</span>'+
-      '</label>'+
-    '</div>'+
-    cargos.map(c=>{
-      const sel=_rosterFiltroCargos.has(c);
-      const cnt=countByCargo[c]||0;
-      const csafe=c.replace(/'/g,"\\'");
-      return '<label style="display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:.45rem;cursor:pointer;padding:.28rem .5rem;border-radius:6px;user-select:none;'+(sel?'background:rgba(168,85,247,.14)':'')+'" '+
-        'onmouseover="if(!this.style.background.includes(\'168\'))this.style.background=\'rgba(255,255,255,.05)\'" '+
-        'onmouseout="if(!this.style.background.includes(\'168\'))this.style.background=\'\'">'+
-        '<input type="checkbox" '+(sel?'checked':'')+' onchange="_rosterCargoToggle(\''+csafe+'\',this.checked)" style="accent-color:#a855f7;width:14px;height:14px;cursor:pointer">'+
-        '<span style="font-size:.72rem;font-weight:'+(sel?'700':'400')+';color:'+(sel?'#a855f7':'var(--text)')+'">'+c+'</span>'+
-        '<span style="font-size:.62rem;color:var(--muted2);background:rgba(255,255,255,.07);border-radius:10px;padding:1px 6px;min-width:20px;text-align:center">'+cnt+'</span>'+
-      '</label>';
-    }).join('');
+
+  function _mkRow(id,label,cnt,checked,isAll){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;flex-direction:row;align-items:center;padding:.3rem .45rem;border-radius:6px;cursor:pointer;gap:0';
+    if(!isAll)row.style.borderBottom='none';
+    const cb=document.createElement('input');
+    cb.type='checkbox';cb.checked=checked;
+    cb.style.cssText='flex:0 0 15px;width:15px;height:15px;margin:0;padding:0;cursor:pointer;accent-color:#a855f7;vertical-align:middle';
+    const lbl=document.createElement('span');
+    lbl.textContent=label;
+    lbl.style.cssText='flex:1;margin-left:9px;font-size:.72rem;font-weight:'+(checked&&!isAll?'700':'500')+';color:'+(checked&&!isAll?'#a855f7':'var(--text)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3';
+    row.appendChild(cb);row.appendChild(lbl);
+    if(cnt!==null){
+      const badge=document.createElement('span');
+      badge.textContent=cnt;
+      badge.style.cssText='flex:0 0 auto;margin-left:6px;font-size:.62rem;color:var(--muted2);background:rgba(255,255,255,.08);border-radius:9px;padding:1px 7px;min-width:22px;text-align:center;line-height:1.4';
+      row.appendChild(badge);
+    }
+    if(checked&&!isAll)row.style.background='rgba(168,85,247,.13)';
+    row.onmouseenter=function(){if(!row.style.background.includes('168'))row.style.background='rgba(255,255,255,.05)';};
+    row.onmouseleave=function(){if(!row.style.background.includes('168'))row.style.background='';};
+    if(isAll){cb.onchange=function(){_rosterCargoToggleAll(cb.checked);};row.onclick=function(e){if(e.target!==cb)cb.click();};}
+    else{cb.onchange=function(){_rosterCargoToggle(label,cb.checked);};row.onclick=function(e){if(e.target!==cb)cb.click();};}
+    return row;
+  }
+
+  const header=document.createElement('div');
+  header.style.cssText='padding:.15rem .1rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.2rem';
+  header.appendChild(_mkRow('all','Todos los cargos',null,allChecked,true));
+  div.appendChild(header);
+  cargos.forEach(c=>{div.appendChild(_mkRow(c,c,countByCargo[c]||0,_rosterFiltroCargos.has(c),false));});
+
   document.body.appendChild(div);
   _rosterCargoDropEl=div;
   const btn=document.getElementById('rosterCargoBtn');
   const r=btn?btn.getBoundingClientRect():{top:100,left:100,bottom:130};
   let top=r.bottom+4,left=r.left;
-  if(left+265>window.innerWidth)left=window.innerWidth-270;
+  if(left+275>window.innerWidth)left=window.innerWidth-280;
   if(top+370>window.innerHeight)top=r.top-375;
   div.style.top=top+'px';div.style.left=left+'px';
   setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)&&e.target.id!=='rosterCargoBtn'){div.remove();_rosterCargoDropEl=null;document.removeEventListener('click',h);}},{capture:true,once:false}),50);
