@@ -957,6 +957,7 @@ function rRoster(){
         <button onclick="_rosterNavegar(7)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem">▶</button>
         <button onclick="_rosterNavegar(35)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);cursor:pointer;font-size:.8rem" title="5 semanas adelante">»</button>
         <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
+        <button onclick="_rosterPrintPDF()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:6px;padding:.3rem .7rem;color:#ef4444;cursor:pointer;font-size:.72rem;font-weight:700">🖨️ PDF</button>
         <button onclick="_rosterOpenExport()" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:.3rem .7rem;color:#10b981;cursor:pointer;font-size:.72rem;font-weight:700">📥 Excel</button>
         <button onclick="_rosterToggleMulti()" style="background:${_rosterMultiMode?'rgba(168,85,247,.2)':'rgba(168,85,247,.08)'};border:1px solid ${_rosterMultiMode?'#a855f7':'rgba(168,85,247,.3)'};border-radius:6px;padding:.3rem .7rem;color:${_rosterMultiMode?'#a855f7':'#c084fc'};cursor:pointer;font-size:.72rem;font-weight:700">${_rosterMultiMode?'✕ Cancelar':'☰ Multi-selección'}</button>
       </div>
@@ -1038,6 +1039,78 @@ function rRoster(){
 function _rosterNavegar(dias){
   _rosterInicioVista=_rosterAddDays(_rosterInicioVista||_rosterLunes(),dias);
   rRoster();
+}
+
+function _rosterPrintPDF(){
+  const hoy=today();
+  const desde=_rosterInicioVista||_rosterLunes();
+  const dias35=Array.from({length:35},(_,i)=>_rosterAddDays(desde,i));
+  const filtroGrd=document.getElementById('rosterFiltroGrd')?.value||'';
+  const personalActivo=(DB.personal||[]).filter(p=>p.est==='Activo');
+  const personasFiltradas=personalActivo.filter(p=>{
+    if(filtroGrd&&p.guardia!==filtroGrd)return false;
+    if(_rosterFiltroCargos.size&&!_rosterFiltroCargos.has((p.cargo||'Sin cargo').toUpperCase()))return false;
+    return true;
+  });
+  const meses=new Set(dias35.map(d=>d.slice(0,7)));
+  const mesLabel=[...meses].map(m=>{const[y,mo]=m.split('-');return new Date(y,+mo-1,1).toLocaleString('es-PE',{month:'long'}).replace(/^\w/,c=>c.toUpperCase())+' '+y;}).join(' / ');
+  const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const tdHdrs=dias35.map(d=>{
+    const dow=new Date(d+'T12:00:00').getDay();
+    const es=d===hoy,esDom=dow===0;
+    return`<th style="text-align:center;width:19px;min-width:19px;padding:1px 0;font-size:5.5px;${es?'background:#fef3c7;color:#92400e;font-weight:900':esDom?'background:#fee2e2;color:#991b1b':'background:#1e3a5f;color:#fff'}">${+d.slice(8)}<br><span style="font-size:4.5px">${DN[dow]}</span></th>`;
+  }).join('');
+  let seccionesHTML='';
+  _ROSTER_GUARDIAS.forEach(grd=>{
+    if(filtroGrd&&filtroGrd!==grd)return;
+    const cfg=_rosterGetCfg(grd);
+    const personas=personasFiltradas.filter(p=>p.guardia===grd);
+    if(!personas.length)return;
+    const turnoLabel=cfg?(cfg.turno==='NOCHE'?'Turno Noche':cfg.turno==='MIXTO'?'Mixto 7D+7N':'Turno Día'):'Sin config.';
+    const cicloLabel=cfg?`Inicio ciclo: ${cfg.fechaInicio}`:'';
+    const hBg=grd==='A'?'#0c4a6e':grd==='B'?'#3b0764':'#064e3b';
+    const rows=personas.map((p,idx)=>{
+      const cells=dias35.map(d=>{
+        const tipoBase=cfg?_rosterTipo(d,cfg):null;
+        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const tipo=ovr?ovr.tipo:tipoBase;
+        let bg='',tx='#94a3b8',lbl='·';
+        if(tipo==='TD'){bg='#d1fae5';tx='#065f46';lbl='TD';}
+        else if(tipo==='TN'){bg='#e0e7ff';tx='#3730a3';lbl='TN';}
+        else if(tipo==='DL'){bg='#f1f5f9';tx='#64748b';lbl='DL';}
+        const esHoy=d===hoy;
+        return`<td style="text-align:center;padding:0;height:16px;font-size:5.5px;font-weight:700;${bg?`background:${bg};color:${tx};`:'color:#cbd5e1;'}border:1px solid #e2e8f0;${esHoy?'outline:2px solid #f59e0b;outline-offset:-2px;':''}">${lbl}${ovr?'*':''}</td>`;
+      }).join('');
+      const rowBg=idx%2===0?'#ffffff':'#f8fafc';
+      return`<tr style="background:${rowBg}"><td style="font-size:6.5px;font-weight:700;padding:1px 4px;border:1px solid #e2e8f0;white-space:nowrap">${idx+1}. ${p.ape||''}, ${(p.nom||'').split(' ')[0]}</td><td style="font-size:5.8px;padding:1px 3px;border:1px solid #e2e8f0;color:#64748b;white-space:nowrap">${(p.cargo||'—').slice(0,22)}</td>${cells}</tr>`;
+    }).join('');
+    seccionesHTML+=`<div style="margin-bottom:10px">
+      <div style="background:${hBg};color:#fff;padding:4px 8px;border-radius:4px 4px 0 0;font-size:8px;font-weight:700;display:flex;justify-content:space-between">
+        <span>GUARDIA ${grd} · ${personas.length} personas</span>
+        <span style="font-weight:400;font-size:7px">${turnoLabel} · ${cicloLabel}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#e2e8f0"><th style="text-align:left;font-size:6.5px;padding:2px 4px;border:1px solid #cbd5e1;min-width:120px">Nombre</th><th style="text-align:left;font-size:6.5px;padding:2px 3px;border:1px solid #cbd5e1;min-width:80px">Cargo</th>${tdHdrs}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  });
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Roster de Guardias</title>
+<style>@page{size:A3 landscape;margin:.6cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:8px;color:#111;margin:0}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1e3a5f;padding-bottom:6px;margin-bottom:8px}
+.hdr img{height:40px;object-fit:contain}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+<div class="hdr">
+  <img src="${_logoUrl}" alt="Ecosermo">
+  <div style="text-align:center"><div style="font-size:14px;font-weight:900;color:#1e3a5f">ROSTER DE GUARDIAS</div><div style="font-size:8px;color:#64748b">Cronograma de Rotación de Personal</div></div>
+  <div style="text-align:right;font-size:7px;color:#64748b"><div style="font-weight:700;color:#1e3a5f;font-size:9px">${mesLabel}</div><div>Generado: ${new Date().toLocaleString('es-PE')}</div><div style="font-size:6px;margin-top:2px;background:#fef9c3;color:#854d0e;padding:1px 4px;border-radius:3px">* = día sobreescrito manualmente</div></div>
+</div>
+${seccionesHTML}
+</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes',true);return;}
+  win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),600);
 }
 
 function _rosterOpenExport(){
