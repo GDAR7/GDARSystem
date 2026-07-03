@@ -959,8 +959,8 @@ function rRoster(){
     let n=0;
     _ROSTER_GUARDIAS.forEach(g=>{
       const cfg=_rosterGetCfg(g);if(!cfg)return;
-      const tipoBase=_rosterTipo(d,cfg);
       personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
+        const tipoBase=_rosterTipoPersona(d,cfg,p.id);
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const t=ovr?ovr.tipo:tipoBase;
         if(t==='TD'||t==='TN')n++;
@@ -1235,7 +1235,7 @@ function _rosterExportXLSX(desde,hasta){
     personas.forEach((p,i)=>{
       const bg=i%2===0?'F8FAFC':'FFFFFF';
       const dayCells=dias.map(d=>{
-        const tipoBase=_rosterTipo(d,cfg);
+        const tipoBase=_rosterTipoPersona(d,cfg,p.id);
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const t=ovr?ovr.tipo:tipoBase;
         const lbl=!t?'':t==='TD'?'TD':t==='TN'?'TN':'DL';
