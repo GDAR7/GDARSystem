@@ -153,6 +153,8 @@ function rDailyReport(){
   // Equipos del día (Línea Amarilla + Línea Blanca filtrados por proyecto del equipo)
   const eqsLA=(DB.equipos||[]).filter(e=>(e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca')&&(!proy||!e.proyecto||e.proyecto===proy));
   let partesLA=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsLA.some(e=>e.id===p.eqId));
+  // Helper: horas efectivas con factor de uso del equipo
+  const _efFU=p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const fu=(eq&&eq.factorUso>0)?eq.factorUso:1;return(+p.ef||0)*fu;};
 
   if(_el('tbDREquipos')){
     _el('tbDREquipos').innerHTML=!partesLA.length
@@ -191,7 +193,7 @@ function rDailyReport(){
 
   // Chart 1: Horas por turno
   const byTurno={};
-  partesLA.forEach(p=>{const t=p.turno||'DIA';if(!byTurno[t])byTurno[t]=0;byTurno[t]+=(+p.ef||0);});
+  partesLA.forEach(p=>{const t=p.turno||'DIA';if(!byTurno[t])byTurno[t]=0;byTurno[t]+=_efFU(p);});
   const totHs=Object.values(byTurno).reduce((s,v)=>s+v,0);
   if(_el('drChartTurnoBody')){
     if(!Object.keys(byTurno).length){_el('drChartTurnoBody').innerHTML='<div style="color:var(--muted2);font-size:.7rem">Sin datos</div>';}
@@ -211,12 +213,12 @@ function rDailyReport(){
 
   // Chart 2: Horas por código del día
   const byCod={};
-  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byCod[k])byCod[k]=0;byCod[k]+=(+p.ef||0);});
+  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byCod[k])byCod[k]=0;byCod[k]+=_efFU(p);});
   _barH('drChartCodigoBody',Object.entries(byCod).map(([l,v])=>({l,v})),'#06b6d4');
 
   // Chart 3: Promedio horas por tipo de equipo
   const byTipo={},byTipoCnt={};
-  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.tipo||'?':'?';if(!byTipo[k]){byTipo[k]=0;byTipoCnt[k]=0;}byTipo[k]+=(+p.ef||0);byTipoCnt[k]++;});
+  partesLA.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.tipo||'?':'?';if(!byTipo[k]){byTipo[k]=0;byTipoCnt[k]=0;}byTipo[k]+=_efFU(p);byTipoCnt[k]++;});
   _barH('drChartTipoBody',Object.entries(byTipo).map(([l,v])=>({l,v:byTipoCnt[l]>0?parseFloat((v/byTipoCnt[l]).toFixed(2)):0})),'#f59e0b');
 
   // Chart 4: Horas acumuladas (inicio → corte)
@@ -228,7 +230,7 @@ function rDailyReport(){
     return p.fecha<=(corte||fecha);
   });
   const byAcum={};
-  partesAcum.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byAcum[k])byAcum[k]=0;byAcum[k]+=(+p.ef||0);});
+  partesAcum.forEach(p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const k=eq?eq.codigo:'?';if(!byAcum[k])byAcum[k]=0;byAcum[k]+=_efFU(p);});
   _barH('drChartAcumBody',Object.entries(byAcum).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([l,v])=>({l,v:parseFloat(v.toFixed(2))})),'#8b5cf6');
 
   // Vehículos Menores

@@ -888,10 +888,11 @@ function rLinea(tipo){
     if(fDesde)partesF=partesF.filter(p=>p.fecha>=fDesde);
     if(fHasta)partesF=partesF.filter(p=>p.fecha<=fHasta);
     // KPIs
-    const _totEf=partesF.reduce((s,p)=>s+(+p.ef||0),0);
+    const _efFuLA=p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const fu=(eq&&eq.factorUso>0)?eq.factorUso:1;return(+p.ef||0)*fu;};
+    const _totEf=partesF.reduce((s,p)=>s+_efFuLA(p),0);
     const _totIm=partesF.reduce((s,p)=>s+(+p.im||0),0);
     const _byTipo={};
-    partesF.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.nombre.split(' ')[0]:'Otros';if(!_byTipo[k])_byTipo[k]=0;_byTipo[k]+=(+p.ef||0);});
+    partesF.forEach(p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const k=eq?eq.sub||eq.nombre.split(' ')[0]:'Otros';if(!_byTipo[k])_byTipo[k]=0;_byTipo[k]+=_efFuLA(p);});
     const kpiEl=document.getElementById('laKpis');
     if(kpiEl)kpiEl.innerHTML=[
       {l:'Total Registros',v:partesF.length,c:'var(--ceq)',ic:'📋'},

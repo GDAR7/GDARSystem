@@ -55,6 +55,7 @@ function rMaster(){
     <td class="mono">${e.anio||'—'}</td>
     <td class="mono">${e.placa||'—'}</td>
     <td class="tr mono">${fmtN(e.hr)} h</td>
+    <td class="tr mono" style="color:${e.factorUso>0&&e.factorUso<1?'#f59e0b':e.factorUso===1?'#10b981':'var(--muted2)'};font-weight:600">${e.factorUso!=null?Math.round(e.factorUso*100)+'%':'—'}</td>
     <td>${bge(e.est)}</td>
     <td><span class="mono" style="font-size:.72rem;color:#a78bfa">${e.proyecto||'—'}</span></td>
     <td style="display:flex;gap:.3rem">
@@ -308,6 +309,7 @@ function gEquipo(){
     celular:document.getElementById('eqCel').value,
     correo:document.getElementById('eqCor').value,
     horasMinimas:+document.getElementById('eqHmin').value||null,
+    factorUso:+document.getElementById('eqFu').value||null,
     tarifa:+document.getElementById('eqTar').value||null,
     inicioContrato:document.getElementById('eqIco').value||null,
     terminoContrato:document.getElementById('eqTco').value||null,
@@ -358,7 +360,7 @@ function verEquipo(id){
     ${sec('Contrato / Proveedor')}
     ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
     ${row('Celular',e.celular)}${row('Correo',e.correo)}
-    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
+    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}${row('Factor de Uso',e.factorUso!=null?Math.round(e.factorUso*100)+'%  (×'+e.factorUso+')':null)}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
     ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
     ${sec('Costos Mantenimiento')}
     ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
@@ -483,6 +485,7 @@ function editEquipo(id){
   document.getElementById('eqCel').value=e.celular||'';
   document.getElementById('eqCor').value=e.correo||'';
   document.getElementById('eqHmin').value=e.horasMinimas||'';
+  document.getElementById('eqFu').value=e.factorUso!=null?e.factorUso:'';
   document.getElementById('eqTar').value=e.tarifa||'';
   document.getElementById('eqIco').value=e.inicioContrato||'';
   document.getElementById('eqTco').value=e.terminoContrato||'';
@@ -682,4 +685,3 @@ td{border:1px solid #e2e8f0;padding:3px 5px;vertical-align:middle}tr:nth-child(e
   win.document.write(htmlFinal);win.document.close();
   setTimeout(()=>win.print(),700);
 }
-
