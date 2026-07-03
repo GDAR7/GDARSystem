@@ -1,5 +1,6 @@
 // ══ AVANCE MT ══
-let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMaterial='', _amtFiltroTramos='todos';
+let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMatFiltro=new Set(), _amtFiltroTramos='todos';
+let _amtMatDropEl=null;
 let _amtCapM3=+localStorage.getItem('_amtCapM3')||12;
 function _amtSetCap(v){_amtCapM3=Math.max(1,+v||12);localStorage.setItem('_amtCapM3',_amtCapM3);_amtRender();}
 
@@ -49,10 +50,11 @@ function _amtFiltroBar(){
     <input type="date" value="${_amtFechaH||''}" onchange="_amtFechaH=this.value;_amtRender()" style="${inpS}">
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Material</span>
-    <select onchange="_amtMaterial=this.value;_amtRender()" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);min-width:140px;max-width:260px">
-      <option value="">Todos</option>
-      ${mats.map(function(m){return '<option value="'+m+'"'+(_amtMaterial===m?' selected':'')+'>'+m+'</option>';}).join('')}
-    </select>
+    <button id="amtMatBtn" onclick="_amtOpenMatFilter(event)" style="font-size:.72rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${_amtMatFiltro.size?'#06b6d4':'var(--border)'};background:var(--panel2);color:${_amtMatFiltro.size?'#06b6d4':'var(--text)'};cursor:pointer;min-width:140px;text-align:left;display:flex;align-items:center;gap:.4rem;flex-shrink:0">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_amtMatFiltro.size===0?'Todos':_amtMatFiltro.size===1?[..._amtMatFiltro][0]:_amtMatFiltro.size+' materiales'}</span>
+      <span style="font-size:.6rem;color:var(--muted2)">▾</span>
+      ${_amtMatFiltro.size?'<span onclick="event.stopPropagation();_amtMatFiltro.clear();_amtRender()" style="font-size:.65rem;color:#ef4444" title="Limpiar">✕</span>':''}
+    </button>
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Tramos</span>
     <div style="display:flex;gap:.2rem;flex-shrink:0">
@@ -77,7 +79,7 @@ function _amtRenderTramos(body){
   partes.forEach(function(p){
     (p.viajes||[]).forEach(function(v){
       if(!v.tramoId) return;
-      if(_amtMaterial && v.material!==_amtMaterial) return;
+      if(_amtMatFiltro.size && !_amtMatFiltro.has(v.material)) return;
       if(!byTramo[v.tramoId]) byTramo[v.tramoId]={viajes:0,m3:0,parteIds:new Set(),lastFecha:''};
       byTramo[v.tramoId].viajes+=(parseFloat(v.cant)||0);
       byTramo[v.tramoId].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
@@ -183,7 +185,7 @@ function _amtRenderAreas(body){
   partes.forEach(function(p){
     (p.viajes||[]).forEach(function(v){
       if(!v.destino) return;
-      if(_amtMaterial && v.material!==_amtMaterial) return;
+      if(_amtMatFiltro.size && !_amtMatFiltro.has(v.material)) return;
       const dest=v.destino;
       if(!byDest[dest]) byDest[dest]={viajes:0,m3:0,parteIds:new Set(),lastFecha:'',materiales:{},tramos:{}};
       const _cant=parseFloat(v.cant)||0;
@@ -302,6 +304,52 @@ function _amtRenderAreas(body){
     </table>
     </div>
   </div>`;
+}
+
+// ── Filtro multi-material ─────────────────────────────────────────────────────
+function _amtOpenMatFilter(ev){
+  if(_amtMatDropEl){_amtMatDropEl.remove();_amtMatDropEl=null;return;}
+  const mats=_amtMateriales();
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.4rem .35rem;box-shadow:0 8px 32px rgba(0,0,0,.55);min-width:220px;max-height:320px;overflow-y:auto;font-family:inherit';
+  function mkRow(label,checked,isAll){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;flex-direction:row;align-items:center;padding:.28rem .45rem;border-radius:6px;cursor:pointer;gap:0';
+    const cb=document.createElement('input');
+    cb.type='checkbox';cb.checked=checked;
+    cb.style.cssText='flex:0 0 15px;width:15px;height:15px;margin:0;padding:0;cursor:pointer;accent-color:#06b6d4';
+    const lbl=document.createElement('span');
+    lbl.textContent=label;
+    lbl.style.cssText='flex:1;margin-left:9px;font-size:.72rem;font-weight:'+(checked&&!isAll?'700':'500')+';color:'+(checked&&!isAll?'#06b6d4':'var(--text)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    row.appendChild(cb);row.appendChild(lbl);
+    if(checked&&!isAll)row.style.background='rgba(6,182,212,.12)';
+    row.onmouseenter=function(){if(!row.style.background.includes('182'))row.style.background='rgba(255,255,255,.05)';};
+    row.onmouseleave=function(){if(!row.style.background.includes('182'))row.style.background='';};
+    if(isAll){
+      cb.onchange=function(){_amtMatFiltro.clear();_amtRender();};
+      row.onclick=function(e){if(e.target!==cb)cb.click();};
+    }else{
+      cb.onchange=function(){if(this.checked)_amtMatFiltro.add(label);else _amtMatFiltro.delete(label);_amtRender();};
+      row.onclick=function(e){if(e.target!==cb)cb.click();};
+    }
+    return row;
+  }
+  const header=document.createElement('div');
+  header.style.cssText='padding:.1rem .1rem .3rem;border-bottom:1px solid var(--border);margin-bottom:.2rem';
+  header.appendChild(mkRow('Todos los materiales',_amtMatFiltro.size===0,true));
+  div.appendChild(header);
+  mats.forEach(function(m){div.appendChild(mkRow(m,_amtMatFiltro.has(m),false));});
+  document.body.appendChild(div);
+  _amtMatDropEl=div;
+  const btn=document.getElementById('amtMatBtn');
+  const r=btn?btn.getBoundingClientRect():{top:100,left:100,bottom:130};
+  let top=r.bottom+4,left=r.left;
+  if(left+230>window.innerWidth)left=window.innerWidth-235;
+  if(top+330>window.innerHeight)top=r.top-335;
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){
+    if(!div.contains(e.target)&&e.target.id!=='amtMatBtn'&&!e.target.closest('#amtMatBtn')){div.remove();_amtMatDropEl=null;document.removeEventListener('click',h);}
+  },{capture:true,once:false}),50);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
