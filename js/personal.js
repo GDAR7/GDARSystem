@@ -1178,7 +1178,9 @@ function _rosterExportXLSX(desde,hasta){
     personas.forEach((p,i)=>{
       const bg=i%2===0?'F8FAFC':'FFFFFF';
       const dayCells=dias.map(d=>{
-        const t=_rosterTipo(d,cfg);
+        const tipoBase=_rosterTipo(d,cfg);
+        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const t=ovr?ovr.tipo:tipoBase;
         const lbl=!t?'':t==='TD'?'TD':t==='TN'?'TN':'DL';
         const col=!t?'CBD5E1':t==='TD'?'059669':t==='TN'?'4338CA':'6B7280';
         const cb=!t?bg:t==='TD'?'D1FAE5':t==='TN'?'EDE9FE':'F1F5F9';
