@@ -746,6 +746,59 @@ function _rosterFmt(iso){
 function _rosterDia(iso){return new Date(iso+'T12:00:00').getDay();}
 const _DN=['DO','LU','MA','MI','JU','VI','SA'];
 
+function _rosterTipoPersona(fecha,cfg,personalId){
+  const pCfg=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
+  if(pCfg&&pCfg.turno){
+    return _rosterTipo(fecha,{...cfg,turno:pCfg.turno});
+  }
+  return _rosterTipo(fecha,cfg);
+}
+
+function _rosterPersonaTurnoPicker(personalId,ev){
+  ev.stopPropagation();
+  const existing=document.getElementById('_pRosterPicker');if(existing)existing.remove();
+  const p=(DB.personal||[]).find(x=>x.id===personalId);
+  const pCfg=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
+  const cur=pCfg?.turno||null;
+  const div=document.createElement('div');
+  div.id='_pRosterPicker';
+  div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.65rem .7rem;box-shadow:0 8px 32px rgba(0,0,0,.65);min-width:210px;font-family:inherit';
+  const nm=p?(p.ape||'')+', '+((p.nom||'').split(' ')[0]):'—';
+  const opts=[
+    {v:'DIA',  ic:'☀️', lb:'Solo Día (TD)', co:'#f59e0b'},
+    {v:'NOCHE',ic:'🌙', lb:'Solo Noche (TN)',co:'#818cf8'},
+    {v:'MIXTO',ic:'☀️🌙',lb:'Mixto 7D+7N',  co:'#10b981'}
+  ];
+  div.innerHTML=`<div style="font-size:.68rem;font-weight:700;color:var(--text);margin-bottom:.1rem">${nm}</div>
+    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.55rem">Turno individual (sobreescribe guardia)</div>
+    <div style="display:flex;flex-direction:column;gap:.28rem">
+      ${opts.map(o=>`<button onclick="_rosterSetPersonaTurno(${personalId},'${o.v}')" style="display:flex;align-items:center;gap:.5rem;background:${cur===o.v?'rgba(168,85,247,.2)':'rgba(255,255,255,.04)'};border:1px solid ${cur===o.v?'#a855f7':'var(--border)'};border-radius:6px;padding:.3rem .6rem;color:${cur===o.v?'#a855f7':o.co};cursor:pointer;font-size:.7rem;font-weight:${cur===o.v?'700':'500'};text-align:left"><span style="font-size:.8rem">${o.ic}</span>${o.lb}${cur===o.v?' ✓':''}</button>`).join('')}
+      <button onclick="_rosterSetPersonaTurno(${personalId},null)" style="display:flex;align-items:center;gap:.5rem;background:${!cur?'rgba(168,85,247,.1)':'rgba(255,255,255,.03)'};border:1px solid ${!cur?'#a855f7':'var(--border)'};border-radius:6px;padding:.3rem .6rem;color:${!cur?'#a855f7':'var(--muted2)'};cursor:pointer;font-size:.7rem;font-weight:${!cur?'700':'400'};text-align:left"><span>↩</span>Heredar turno de guardia${!cur?' ✓':''}</button>
+    </div>`;
+  document.body.appendChild(div);
+  const r=ev.target.getBoundingClientRect();
+  let top=r.bottom+4,left=r.left;
+  if(left+220>window.innerWidth)left=window.innerWidth-225;
+  if(top+220>window.innerHeight)top=r.top-225;
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();document.removeEventListener('click',h);}},{capture:true,once:false}),50);
+}
+
+function _rosterSetPersonaTurno(personalId,turno){
+  document.getElementById('_pRosterPicker')?.remove();
+  const existing=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
+  if(!turno){
+    if(existing){DB.personalRosterCfg=DB.personalRosterCfg.filter(c=>c.id!==existing.id);supaDelete('personalRosterCfg',existing.id);}
+  }else if(existing){
+    existing.turno=turno;syncSheet('savePersonalRosterCfg',existing);
+  }else{
+    const rec={id:nid('personalRosterCfg'),personalId,turno};
+    DB.personalRosterCfg.push(rec);syncSheet('savePersonalRosterCfg',rec);
+  }
+  rRoster();
+  toast('✓ Turno personal actualizado');
+}
+
 function _rosterTipo(fecha,cfg){
   if(!cfg||!cfg.fechaInicio)return null;
   const ini=new Date(cfg.fechaInicio+'T12:00:00');
@@ -805,8 +858,9 @@ function rRoster(){
       :`<span style="font-size:.6rem;color:#ef4444">⚠️ Sin configurar</span>`;
 
     const rows=personas.map(p=>{
+      const pCfgPersona=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+p.id);
       const cells=dias35.map(d=>{
-        const tipoBase=_rosterTipo(d,cfg);
+        const tipoBase=_rosterTipoPersona(d,cfg,p.id);
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const tipo=ovr?ovr.tipo:tipoBase;
         const esOvr=!!ovr;
@@ -822,8 +876,11 @@ function rRoster(){
         return`<td onclick="${_rosterMultiMode?`_rosterMultiToggleCell('${mKey}',this)`:`_rosterOvrPicker(${p.id},'${d}',event)`}" title="${esOvr?'⚠️ Día sobreescrito':'Click para cambiar'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${isSel?'rgba(168,85,247,.45)':bg};color:${isSel?'#fff':tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${esOvr&&!isSel?'outline:2px solid #f59e0b;outline-offset:-2px;':''};${isSel?'outline:2px solid #a855f7;outline-offset:-2px;':''}">${lbl}${esOvr&&!isSel?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
+      const _pTurno=pCfgPersona?.turno;
+      const _pTurnoIc=_pTurno==='DIA'?'☀️':_pTurno==='NOCHE'?'🌙':_pTurno==='MIXTO'?'⇄':null;
+      const turnoBadge=`<span onclick="_rosterPersonaTurnoPicker(${p.id},event)" title="${_pTurno?'Turno personal: '+_pTurno:'Click para asignar turno individual'}" style="cursor:pointer;margin-left:2px;font-size:.45rem;padding:1px 4px;border-radius:3px;font-weight:700;${_pTurno?'background:rgba(168,85,247,.2);color:#a855f7;border:1px solid rgba(168,85,247,.4)':'background:rgba(255,255,255,.05);color:var(--muted2);border:1px solid rgba(255,255,255,.1)'}">${_pTurnoIc||'⚙'}</span>`;
       return`<tr>
-        <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${p.ape||''}, ${(p.nom||'').split(' ')[0]} ${grdBadge}</td>
+        <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${p.ape||''}, ${(p.nom||'').split(' ')[0]} ${grdBadge}${turnoBadge}</td>
         <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:125px;max-width:125px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
         ${cells}
       </tr>`;
