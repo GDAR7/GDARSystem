@@ -153,8 +153,8 @@ function rDailyReport(){
   // Equipos del día (Línea Amarilla + Línea Blanca filtrados por proyecto del equipo)
   const eqsLA=(DB.equipos||[]).filter(e=>(e.tipo==='Línea Amarilla'||e.tipo==='Línea Blanca')&&(!proy||!e.proyecto||e.proyecto===proy));
   let partesLA=(DB.partes||[]).filter(p=>p.fecha===fecha&&eqsLA.some(e=>e.id===p.eqId));
-  // Helper: horas efectivas con factor de uso del equipo
-  const _efFU=p=>{const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);const fu=(eq&&eq.factorUso>0)?eq.factorUso:1;return(+p.ef||0)*fu;};
+  // Helper: horas efectivas del parte
+  const _efFU=p=>(+p.ef||0);
 
   if(_el('tbDREquipos')){
     _el('tbDREquipos').innerHTML=!partesLA.length

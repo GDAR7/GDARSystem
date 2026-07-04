@@ -581,7 +581,7 @@
         <th id="eqSortCodBtn" onclick="setEqSort('cod')" style="cursor:pointer;white-space:nowrap;user-select:none">Código <span style="font-size:.7rem;opacity:.6">↕</span></th>
         <th>Equipo</th>
         <th id="eqSortTipoBtn" onclick="setEqSort('tipo')" style="cursor:pointer;white-space:nowrap;user-select:none">Tipo <span style="font-size:.7rem;opacity:.6">↕</span></th>
-        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th class="tr" title="Factor de Uso">F.Uso</th><th>Estado</th><th>Proyecto</th><th></th>
+        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th></th>
       </tr></thead>
       <tbody id="tbMaster"></tbody>
     </table></div></div>
@@ -1189,6 +1189,7 @@
     </div>
   </div>
   <div class="kpi-row" id="reqKpis" style="margin-top:.8rem"></div>
+  <div id="reqUtil" style="margin-top:.8rem"></div>
   <div class="card" style="margin-top:.8rem">
     <div class="card-head"><span class="card-title">Partes Diarios – Valorización</span></div>
     <div class="card-body" style="padding:0">
@@ -2046,7 +2047,6 @@
       <div class="fg"><label>Celular</label><input id="eqCel"></div>
       <div class="fg"><label>Correo</label><input id="eqCor" type="email"></div>
       <div class="fg"><label>Horas Mínimas</label><input id="eqHmin" type="number" placeholder="0"></div>
-      <div class="fg"><label>Factor de Uso (0–1)</label><input id="eqFu" type="number" min="0" max="1" step="0.01" placeholder="1.00" title="Ej: 0.85 = 85% de utilización efectiva"></div>
       <div class="fg"><label>Tarifa S/.</label><input id="eqTar" type="number" placeholder="0"></div>
       <div class="fg"><label>Inicio Contrato</label><input id="eqIco" type="date"></div>
       <div class="fg"><label>Término Contrato</label><input id="eqTco" type="date"></div>

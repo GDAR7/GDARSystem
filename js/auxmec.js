@@ -888,7 +888,7 @@ function rLinea(tipo){
     if(fDesde)partesF=partesF.filter(p=>p.fecha>=fDesde);
     if(fHasta)partesF=partesF.filter(p=>p.fecha<=fHasta);
     // KPIs
-    const _efFuLA=p=>{const eq=DB.equipos.find(e=>e.id===p.eqId);const fu=(eq&&eq.factorUso>0)?eq.factorUso:1;return(+p.ef||0)*fu;};
+    const _efFuLA=p=>(+p.ef||0);
     const _totEf=partesF.reduce((s,p)=>s+_efFuLA(p),0);
     const _totIm=partesF.reduce((s,p)=>s+(+p.im||0),0);
     const _byTipo={};
@@ -1420,14 +1420,71 @@ function rReporteEquipos(){
   const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
   const diasHmin=partes.filter(p=>hMinDia>0?(+p.ef||0)>=hMinDia:false).length;
   const stanby=hMinMes>0?Math.max(0,parseFloat((hMinMes-totEf).toFixed(2))):0;
+
+  // ── UTILIZACIÓN DE EQUIPO: hs efectivas ÷ hs disponibles (días del período × jornada) ──
+  const jornada=hMinDia>0?hMinDia:10;
+  let diasPer=0;
+  if(partes.length){
+    const d1=fDesde||partes[0].fecha,d2=fHasta||partes[partes.length-1].fecha;
+    diasPer=Math.max(1,Math.round((new Date(d2+'T12:00')-new Date(d1+'T12:00'))/864e5)+1);
+  }
+  const hsDisp=diasPer*jornada;
+  const utilByEq={};
+  partes.forEach(p=>{
+    if(!utilByEq[p.eqId])utilByEq[p.eqId]={ef:0,im:0,dias:new Set()};
+    utilByEq[p.eqId].ef+=(+p.ef||0);utilByEq[p.eqId].im+=(+p.im||0);utilByEq[p.eqId].dias.add(p.fecha);
+  });
+  const utilRows=Object.entries(utilByEq).map(([id,d])=>{
+    const eq=DB.equipos.find(e=>e.id==id);
+    return{eq,ef:d.ef,im:d.im,dias:d.dias.size,util:hsDisp>0?d.ef/hsDisp*100:0};
+  }).sort((a,b)=>b.util-a.util);
+  const utilGlob=utilRows.length&&hsDisp>0?totEf/(utilRows.length*hsDisp)*100:0;
+  const _uCol=u=>u>=70?'#10b981':u>=40?'#f59e0b':'#ef4444';
+
   const kpiEl=document.getElementById('reqKpis');
   if(kpiEl)kpiEl.innerHTML=[
     {l:'Total Partes',v:partes.length,c:'var(--ceq)',ic:'📋'},
     {l:'Hs Efectivas',v:parseFloat(totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
     {l:'Hs Inoperativas',v:parseFloat(totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
+    {l:'Utilización',v:partes.length?utilGlob.toFixed(0)+'%':'—',c:partes.length?_uCol(utilGlob):'var(--muted2)',ic:'📈'},
     {l:'Días Hmin Cumpl.',v:diasHmin,c:'#f59e0b',ic:'✅'},
     {l:'Hs Stanby a Pagar',v:stanby+'h',c:'#8b5cf6',ic:'⏸️'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.ic} ${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
+
+  // Tabla de utilización por equipo
+  const utilEl=document.getElementById('reqUtil');
+  if(utilEl){
+    utilEl.innerHTML=!utilRows.length?'':`<div class="card">
+      <div class="card-head"><span class="card-title">📈 Utilización de Equipos</span>
+        <span style="font-size:.63rem;color:var(--muted2)">Hs efectivas ÷ Hs disponibles · ${diasPer} día${diasPer===1?'':'s'} × ${jornada}h jornada = ${fmtN(hsDisp)}h por equipo</span>
+      </div>
+      <div class="card-body" style="padding:0"><div class="tbl-wrap"><table style="font-size:.72rem">
+        <thead><tr style="font-size:.62rem;text-transform:uppercase;letter-spacing:.06em">
+          <th>Código</th><th>Equipo</th><th>Tipo</th><th class="tr">Días c/Parte</th><th class="tr">Hs Efectivas</th><th class="tr">Hs Inop.</th><th style="min-width:190px">Utilización</th>
+        </tr></thead>
+        <tbody>
+        ${utilRows.map(r=>{
+          const c=_uCol(r.util);
+          const pct=Math.min(100,Math.round(r.util));
+          return`<tr>
+            <td class="mono" style="color:var(--ceq);font-weight:700">${r.eq?r.eq.codigo:'—'}</td>
+            <td>${r.eq?(r.eq.nombre||'').split(' ').slice(0,4).join(' '):'—'}</td>
+            <td><span class="badge b-cyan" style="font-size:.6rem">${r.eq?(r.eq.sub||r.eq.tipo||'—'):'—'}</span></td>
+            <td class="tr mono">${r.dias}</td>
+            <td class="tr mono" style="color:#10b981;font-weight:700">${parseFloat(r.ef.toFixed(2))}h</td>
+            <td class="tr mono" style="color:${r.im>0?'#ef4444':'var(--muted2)'}">${r.im>0?parseFloat(r.im.toFixed(2))+'h':'—'}</td>
+            <td><div style="display:flex;align-items:center;gap:.5rem">
+              <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${c};border-radius:4px"></div>
+              </div>
+              <span class="mono" style="color:${c};font-weight:800;min-width:48px;text-align:right">${r.util.toFixed(1)}%</span>
+            </div></td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div></div>
+    </div>`;
+  }
 
   // Tabla
   const tb=document.getElementById('tbReporteEquipos');
