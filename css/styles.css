@@ -280,3 +280,17 @@ select option{background:var(--panel2);}
 /* Ícono calendario de inputs tipo date — fondo oscuro */
 input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.7;cursor:pointer;}
 input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+
+/* ══ SEGUIMIENTO GENERAL (tablero tipo Trello) ══ */
+.seg-board{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;align-items:start;}
+.seg-col{background:var(--panel);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;min-height:280px;transition:outline .12s;}
+.seg-col.drag-over{outline:2px dashed #10b98190;outline-offset:-4px;background:#10b98108;}
+.seg-col-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem .8rem;border-bottom:2px solid var(--cc,#3b82f6);font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:800;letter-spacing:.05em;color:var(--cc,#3b82f6);text-transform:uppercase;}
+.seg-col-count{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:1px 9px;font-size:.72rem;color:var(--muted2);}
+.seg-col-body{padding:.55rem;flex:1;display:flex;flex-direction:column;gap:.5rem;}
+.seg-card{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--sc,#3b82f6);border-radius:8px;padding:.55rem .7rem;cursor:grab;transition:transform .12s,box-shadow .12s;}
+.seg-card:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.35);border-color:#ffffff25;border-left-color:var(--sc,#3b82f6);}
+.seg-card:active{cursor:grabbing;}
+.seg-cbtn{background:none;border:1px solid var(--border);border-radius:5px;color:#10b981;font-size:.68rem;width:22px;height:22px;line-height:1;cursor:pointer;padding:0;}
+.seg-cbtn:hover{background:var(--panel);}
+@media(max-width:900px){.seg-board{grid-template-columns:1fr;}}
