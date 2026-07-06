@@ -44,6 +44,83 @@ function setEqSort(s){
   });
   rMaster();
 }
+function _masterPrintPDF(){
+  const equipos=[...DB.equipos].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo));
+  if(!equipos.length){toast('Sin equipos para imprimir',true);return;}
+  const base=window.location.href.split('index.html')[0];
+  const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const fecha=new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
+  const estCol=s=>s==='OPERATIVO'?'#16a34a':s==='INOPERATIVO'?'#dc2626':s==='EN MANTENIMIENTO'?'#d97706':'#475569';
+
+  // Agrupar por tipo
+  const tipos=[...new Set(equipos.map(e=>e.tipo||'Sin Tipo'))];
+  const grupos=tipos.map(t=>({tipo:t,items:equipos.filter(e=>(e.tipo||'Sin Tipo')===t)}));
+
+  const filas=grupos.map(g=>{
+    const header=`<tr><td colspan="11" style="background:#1e3a5f;color:#06b6d4;font-weight:800;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:5px 8px">${g.tipo} &nbsp;(${g.items.length})</td></tr>`;
+    const rows=g.items.map((e,i)=>`<tr style="background:${i%2===0?'#fff':'#f8fafc'}">
+      <td style="color:#0369a1;font-weight:700;font-family:monospace;font-size:9px">${e.codigo}</td>
+      <td style="font-weight:600;font-size:9.5px">${e.marca||'—'} ${e.modelo||''}</td>
+      <td style="font-size:9px;color:#64748b">${e.sub||'—'}</td>
+      <td style="text-align:center;font-size:9px;font-family:monospace">${e.anio||'—'}</td>
+      <td style="text-align:center;font-size:9px;font-family:monospace">${e.placa||'—'}</td>
+      <td style="text-align:right;font-family:monospace;font-size:9px">${fmtN(e.hr)} h</td>
+      <td style="text-align:right;font-family:monospace;font-size:9px">${e.km>0?fmtN(e.km)+' km':'—'}</td>
+      <td style="text-align:center;font-size:8.5px;font-weight:700;color:${estCol(e.est)}">${e.est||'—'}</td>
+      <td style="font-size:9px;color:#7c3aed">${e.proyecto||'—'}</td>
+      <td style="text-align:center;font-size:9px">${e.factorUso!=null?Math.round(e.factorUso*100)+'%':'—'}</td>
+      <td style="font-size:8.5px;color:#475569;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.proveedor||''}">${e.proveedor||'—'}</td>
+    </tr>`).join('');
+    return header+rows;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Máster de Equipos – ${fecha}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:10px;color:#1e293b;padding:14px 18px;}
+    .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0ea5e9;padding-bottom:8px;margin-bottom:12px;}
+    .logo{height:36px;object-fit:contain;}
+    .titulo{font-size:16px;font-weight:900;color:#0f172a;letter-spacing:-.02em;}
+    .subtitulo{font-size:9px;color:#64748b;margin-top:2px;}
+    .fecha-box{text-align:right;font-size:9px;color:#64748b;}
+    table{width:100%;border-collapse:collapse;}
+    th{background:#0f172a;color:#e2e8f0;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:5px 6px;text-align:left;position:sticky;top:0;}
+    th.tr{text-align:right;}
+    th.tc{text-align:center;}
+    td{padding:4px 6px;border-bottom:1px solid #e2e8f0;vertical-align:middle;}
+    .footer{margin-top:10px;font-size:8px;color:#94a3b8;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:5px;}
+    @media print{@page{size:A3 landscape;margin:10mm;}}
+  </style></head><body>
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="${logo}" class="logo" onerror="this.style.display='none'">
+      <div>
+        <div class="titulo">Máster de Equipos</div>
+        <div class="subtitulo">GDAR – ECOSERMO · Registro completo de flota · Total: ${equipos.length} equipos</div>
+      </div>
+    </div>
+    <div class="fecha-box"><div style="font-size:11px;font-weight:700;color:#0f172a">${fecha}</div><div>Emitido por: ${typeof CU!=='undefined'?CU.nombre:'—'}</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Código</th><th>Marca / Modelo</th><th>Subtipo</th>
+      <th class="tc">Año</th><th class="tc">Placa</th>
+      <th class="tr">Horómetro</th><th class="tr">Kilometraje</th>
+      <th class="tc">Estado</th><th>Proyecto</th><th class="tc">F.Uso</th><th>Proveedor</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="footer">
+    <span>GDAR – ECOSERMO ERP · Máster de Equipos</span>
+    <span>Generado el ${fecha}</span>
+  </div>
+  <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`;
+
+  const win=window.open('','_blank');
+  if(win){win.document.write(html);win.document.close();}
+}
+
 function rMaster(){
   const sorted=[...DB.equipos].sort((a,b)=>_eqSort==='tipo'
     ?(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo)
