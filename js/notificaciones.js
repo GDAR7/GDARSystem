@@ -172,13 +172,12 @@ async function _notifSend(asunto,cuerpo){
     toast('⚠ EmailJS no cargado. Verifica conexión a internet.',true);return false;
   }
   try{
-    emailjs.init(cfg.publicKey);
     await emailjs.send(cfg.serviceId,cfg.templateId,{
       to_email:cfg.email,
       cc_email:cfg.emailCC||'',
       subject:asunto,
       message:cuerpo
-    });
+    },{publicKey:cfg.publicKey});
     _notifAddLog({ok:true,asunto});
     _notifRenderLog();
     return true;
