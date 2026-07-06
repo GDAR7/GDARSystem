@@ -121,6 +121,12 @@ function _masterPrintPDF(){
   if(win){win.document.write(html);win.document.close();}
 }
 
+function _eqPuedeEliminar(id){
+  try{
+    const d=JSON.parse(localStorage.getItem('ecosermo_eq_ts')||'{}');
+    return d[id]&&(Date.now()-d[id])<172800000; // 48h en ms
+  }catch(e){return false;}
+}
 function rMaster(){
   const sorted=[...DB.equipos].sort((a,b)=>_eqSort==='tipo'
     ?(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo)
@@ -137,7 +143,7 @@ function rMaster(){
     <td style="display:flex;gap:.3rem">
       <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verEquipo(${e.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
       <button class="btn btn-out btn-sm" title="Editar" onclick="editEquipo(${e.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
-      <button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})">🗑</button>
+      ${_eqPuedeEliminar(e.id)?`<button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})" title="Eliminar (disponible 48h desde la creación)">🗑</button>`:''}
     </td>
   </tr>`).join('');
 }
@@ -405,6 +411,8 @@ function gEquipo(){
   }else{
     DB.equipos.push(eq);
     syncSheet('saveEquipo',eq);
+    // Guardar timestamp de creación para ventana de 48h del botón eliminar
+    try{const d=JSON.parse(localStorage.getItem('ecosermo_eq_ts')||'{}');d[eq.id]=Date.now();localStorage.setItem('ecosermo_eq_ts',JSON.stringify(d));}catch(e){}
     closeM('mEquipo');rMaster();toast('Equipo agregado');
   }
 }
