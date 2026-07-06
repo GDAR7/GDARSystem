@@ -1416,7 +1416,7 @@ function rReporteEquipos(){
   _reqCache=partes;
 
   // KPIs
-  const totEf=partes.reduce((s,p)=>s+(+p.ef||0),0);
+  const totEf=partes.reduce((s,p)=>s+Math.max(0,+p.ef||0),0);
   const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
   const diasHmin=partes.filter(p=>hMinDia>0?(+p.ef||0)>=hMinDia:false).length;
   const stanby=hMinMes>0?Math.max(0,parseFloat((hMinMes-totEf).toFixed(2))):0;
@@ -1432,7 +1432,7 @@ function rReporteEquipos(){
   const utilByEq={};
   partes.forEach(p=>{
     if(!utilByEq[p.eqId])utilByEq[p.eqId]={ef:0,im:0,dias:new Set()};
-    utilByEq[p.eqId].ef+=(+p.ef||0);utilByEq[p.eqId].im+=(+p.im||0);utilByEq[p.eqId].dias.add(p.fecha);
+    utilByEq[p.eqId].ef+=Math.max(0,+p.ef||0);utilByEq[p.eqId].im+=(+p.im||0);utilByEq[p.eqId].dias.add(p.fecha);
   });
   const utilRows=Object.entries(utilByEq).map(([id,d])=>{
     const eq=DB.equipos.find(e=>e.id==id);
