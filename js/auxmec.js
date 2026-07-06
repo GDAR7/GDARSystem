@@ -854,6 +854,7 @@ async function gReporte(){
   if(pg) renderPage(pg); else renderPage(AP);
 
   toast('✓ Parte #'+parteId+' '+(_wasEdit?'actualizado':'guardado'));
+  if(typeof _notifTrigger==='function') _notifTrigger('parte_guardado',{parteId,eqId,fecha:parte.fecha,ef:(parte.hrFin-parte.hrIni).toFixed(2)});
 }
 function rLinea(tipo){
   const _isLum=e=>(e.sub||'').toLowerCase().includes('luminaria');

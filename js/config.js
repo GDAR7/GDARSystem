@@ -26,13 +26,15 @@ const AREAS={
                       ]
             }]},
   otros:{label:'Otros',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
-    modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'costos',label:'Costos',icon:'💰'}]}
+    modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'costos',label:'Costos',icon:'💰'}]},
+  configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
+    modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
 
 // ══ USERS ══
 const USERS=[
   {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(AREAS)},
-  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:Object.keys(AREAS)},
+  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros']},
   {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['administracion']},
   {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['administracion']},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
