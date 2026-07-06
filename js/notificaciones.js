@@ -1,6 +1,81 @@
 // ══ MÓDULO NOTIFICACIONES ══
 const _NOTIF_CFG_KEY = 'ecosermo_notif_cfg';
 const _NOTIF_LOG_KEY = 'ecosermo_notif_log';
+const _NOTIF_DIA_KEY = 'ecosermo_dia_';
+
+function _notifEstadoHoy(){
+  const hoy=new Date().toISOString().slice(0,10);
+  try{return{equipos:false,asistencia:false,...JSON.parse(localStorage.getItem(_NOTIF_DIA_KEY+hoy)||'{}')};}
+  catch(e){return{equipos:false,asistencia:false};}
+}
+function _notifGuardarEstadoHoy(est){
+  localStorage.setItem(_NOTIF_DIA_KEY+new Date().toISOString().slice(0,10),JSON.stringify(est));
+}
+
+function _notifMarcarCompleto(tipo){
+  const est=_notifEstadoHoy();
+  est[tipo]=!est[tipo];
+  _notifGuardarEstadoHoy(est);
+  _notifActualizarBotones();
+  const labels={equipos:'Reporte de Equipos',asistencia:'Asistencia'};
+  if(est.equipos&&est.asistencia){
+    toast('✓ Ambos completados — enviando reporte por correo...');
+    _notifEnviarDiarioCompleto();
+  } else if(est[tipo]){
+    const falta=Object.entries(est).filter(([k,v])=>!v).map(([k])=>labels[k]).join(' y ');
+    toast(`✓ ${labels[tipo]} marcado — falta: ${falta}`);
+  } else {
+    toast(`${labels[tipo]} desmarcado`);
+  }
+}
+
+function _notifActualizarBotones(){
+  const est=_notifEstadoHoy();
+  const btnEq=document.getElementById('btnRptCompleto');
+  const btnAsi=document.getElementById('btnAsiCompleta');
+  if(btnEq){
+    btnEq.textContent=est.equipos?'✅ Reporte completado':'📋 Reporte completado';
+    btnEq.style.cssText=`background:${est.equipos?'rgba(16,185,129,.2)':'rgba(99,102,241,.12)'};border:1px solid ${est.equipos?'rgba(16,185,129,.5)':'rgba(99,102,241,.4)'};color:${est.equipos?'#10b981':'#a5b4fc'};border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer;margin-right:.3rem`;
+  }
+  if(btnAsi){
+    btnAsi.textContent=est.asistencia?'✅ Asistencia completada':'📋 Asistencia completada del día';
+    btnAsi.style.cssText=`background:${est.asistencia?'rgba(16,185,129,.2)':'rgba(99,102,241,.12)'};border:1px solid ${est.asistencia?'rgba(16,185,129,.5)':'rgba(99,102,241,.4)'};color:${est.asistencia?'#10b981':'#a5b4fc'};border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer`;
+  }
+}
+
+async function _notifEnviarDiarioCompleto(){
+  const hoy=new Date().toISOString().slice(0,10);
+  const fechaFmt=new Date(hoy+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const partes=(DB.partes||[]).filter(p=>p.fecha===hoy);
+  const equipos=DB.equipos||[];
+  const _fu=p=>{const eq=equipos.find(e=>e.id===p.eqId);const fu=(eq&&eq.factorUso>0)?eq.factorUso:1;return(+p.ef||0)*fu;};
+  const totalEf=partes.reduce((s,p)=>s+_fu(p),0).toFixed(1);
+  const totalEq=[...new Set(partes.map(p=>p.eqId))].length;
+  const asist=(DB.asistencia||[]).filter(a=>a.fecha===hoy);
+  const presentes=asist.filter(a=>['TD','TN','DLT'].includes(a.tareo)).length;
+  const detEq=partes.length?'\nDetalle equipos:\n'+partes.map(p=>{const eq=equipos.find(e=>e.id===p.eqId);return`  • ${eq?.cod||'—'} ${eq?.marca||''}: ${(+p.ef||0).toFixed(1)}h (${eq?.tipo||'—'})`;}).join('\n'):'  Sin partes registrados.';
+  const asunto=`✅ Reporte Diario Completado — ${fechaFmt}`;
+  const cuerpo=`REPORTE DIARIO COMPLETADO — ECOSERMO ERP
+Fecha: ${fechaFmt}
+Reportado por: ${CU?.nombre||'—'}
+
+━━━ CONTROL DE EQUIPOS ━━━
+Partes registrados: ${partes.length}
+Equipos activos: ${totalEq}
+Horas efectivas totales: ${totalEf} h
+${detEq}
+
+━━━ ASISTENCIA ━━━
+Personal registrado: ${asist.length}
+Con tareo activo (TD/TN): ${presentes}
+
+--
+Sistema GDAR-ECOSERMO
+Generado automáticamente al completar el reporte diario.`;
+  const ok=await _notifSend(asunto,cuerpo);
+  if(ok)toast('📧 Reporte diario enviado correctamente');
+  else toast('✗ Error al enviar el reporte',true);
+}
 
 function _notifGetCfg(){
   try{return JSON.parse(localStorage.getItem(_NOTIF_CFG_KEY)||'{}');}catch(e){return{};}

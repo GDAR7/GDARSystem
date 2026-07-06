@@ -330,6 +330,7 @@ async function rAsistencia(){
       <td>${estadoBadge}</td>
     </tr>`;
   }).join('');
+  if(typeof _notifActualizarBotones==='function')_notifActualizarBotones();
 }
 
 function calcHoras(e,s){

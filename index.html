@@ -152,6 +152,7 @@
           <option value="A5">A5 – Anexo 5</option>
           <option value="R">R – Retirado</option>
         </select>
+        <button id="btnAsiCompleta" onclick="_notifMarcarCompleto('asistencia')" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer">📋 Asistencia completada del día</button>
         <button class="btn btn-a" style="--ba:#10b981" onclick="openScanner()">📷 Escanear QR</button>
         <button class="btn btn-out" onclick="exportTareajePDF()">🖨 Exportar PDF</button>
       </div>
@@ -1151,6 +1152,7 @@
   <div class="card">
     <div class="card-head">
       <span class="card-title">Filtros</span>
+      <button id="btnRptCompleto" onclick="_notifMarcarCompleto('equipos')" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer;margin-right:.3rem">📋 Reporte completado</button>
       <button class="btn btn-out" onclick="exportReporteEquiposXLSX()" style="color:#10b981;border-color:#10b98160;font-size:.78rem">📥 Exportar Excel</button>
     </div>
     <div style="padding:.5rem 1rem 1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end">
