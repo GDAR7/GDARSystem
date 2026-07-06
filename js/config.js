@@ -42,7 +42,7 @@ const USERS=[
   {codigo:'ECOALM',dni:'11112222',nombre:'Logistica Central',cargo:'Ecosermo',areas:['almacenLogistica'],modules:['requerimientos','facturasPago']},
   {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['administracion']},
   {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
-  {codigo:'ECOOPE',dni:'11223344',nombre:'Luis Flores Cóndor',cargo:'Residente de Obra',areas:['operaciones']},
+  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['operaciones','mantenimiento','controlEquipos','administracion'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje']}},
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
   {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
