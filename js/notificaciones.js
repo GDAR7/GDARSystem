@@ -19,7 +19,7 @@ function _notifAddLog(entry){
 function rNotificaciones(){
   const cfg=_notifGetCfg();
   const activo=cfg.activo!==false;
-  const email=cfg.email||(CU?.codigo==='EIBEL25'?'rodriguezeibel7@gmail.com':'');
+  const email=cfg.email||(CU?.codigo==='EIBEL25'?'gdar.ahra.25@gmail.com':'');
   const emailCC=cfg.emailCC||'';
   const serviceId=cfg.serviceId||'';
   const templateId=cfg.templateId||'';
