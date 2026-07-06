@@ -505,42 +505,47 @@ async function procesarQR(texto){
     return;
   }
 
-  // ── Calcular tipo de tareo automático ──
-  const _h=new Date().getHours();
-  const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
-  const fecha=document.getElementById('asiDate')?.value||today();
-  await loadAsistenciaFecha(fecha);
-  const [fY,fM]=fecha.split('-').map(Number);
-  const mesPrefix=`${fY}-${String(fM).padStart(2,'0')}`;
-  const prevDias=(DB.tareaje||[]).filter(r=>
-    r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
-    ['TD','TN','DLT','A5'].includes(r.tipo)
-  );
-  const esA5=prevDias.length===0;
-  const autoTipo=esA5?'A5':_turnoTipo;
+  try{
+    // ── Calcular tipo de tareo automático ──
+    const _h=new Date().getHours();
+    const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
+    const fecha=document.getElementById('asiDate')?.value||today();
+    await loadAsistenciaFecha(fecha);
+    const prevDias=(DB.tareaje||[]).filter(r=>
+      r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
+      ['TD','TN','DLT','A5'].includes(r.tipo)
+    );
+    const esA5=prevDias.length===0;
+    const autoTipo=esA5?'A5':_turnoTipo;
 
-  // ── Auto-guardar tareaje ──
-  const ahora=new Date().toTimeString().slice(0,5);
-  const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
-  if(existente){existente.tipo=autoTipo;syncSheet('saveTareaje',existente);}
-  else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);syncSheet('saveTareaje',rec);}
+    // ── Auto-guardar tareaje ──
+    const ahora=new Date().toTimeString().slice(0,5);
+    const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+    if(existente){existente.tipo=autoTipo;syncSheet('saveTareaje',existente);}
+    else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);syncSheet('saveTareaje',rec);}
 
-  // ── Auto-guardar asistencia (solo si no tiene entrada aún) ──
-  const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
-  if(!asiExist){
-    const newRec={personalId:p.id,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente'};
-    const{data}=await supa.from('asistencia').insert(toSnake(newRec)).select().single();
-    if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
+    // ── Auto-guardar asistencia (solo si no tiene entrada aún) ──
+    const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
+    if(!asiExist){
+      const newRec={personalId:p.id,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente'};
+      const{data,error}=await supa.from('asistencia').insert(toSnake(newRec)).select().single();
+      if(error)console.warn('[Asistencia insert]',error.message);
+      if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
+    }
+
+    // ── Feedback y reinicio ──
+    const nombreCorto=(p.ape||'').split(' ')[0]+', '+(p.nom||'').split(' ')[0];
+    _hablar('Registrado');
+    setScannerStatus(`✓ ${nombreCorto} — ${autoTipo}${existente?' (actualizado)':''} · ${ahora}`,'ok');
+    if(AP==='tareaje')rTareaje();
+    if(AP==='asistencia')rAsistencia();
+    document.getElementById('scanWorkerPanel').style.display='none';
+    setTimeout(reiniciarEscaner,2000);
+  }catch(e){
+    console.error('[procesarQR]',e);
+    setScannerStatus('⚠ Error al registrar — reintentando...','err');
+    setTimeout(reiniciarEscaner,2500);
   }
-
-  // ── Feedback y reinicio ──
-  const nombreCorto=(p.ape||'').split(' ')[0]+', '+(p.nom||'').split(' ')[0];
-  _hablar('Registrado');
-  setScannerStatus(`✓ ${nombreCorto} — ${autoTipo}${existente?' (actualizado)':''} · ${ahora}`,'ok');
-  if(AP==='tareaje')rTareaje();
-  if(AP==='asistencia')rAsistencia();
-  document.getElementById('scanWorkerPanel').style.display='none';
-  setTimeout(reiniciarEscaner,2000);
 }
 function _swSelTipo(k){
   _scanTipoSel=k;
