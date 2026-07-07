@@ -1,3 +1,12 @@
+// ══ VENTA (placeholder) ══
+function rVenta(){
+  document.getElementById('page-venta').innerHTML=`
+  <div style="padding:1rem 1.2rem">
+    <h2 style="font-size:1.4rem;font-weight:900;color:var(--text);margin:0 0 .4rem">Venta</h2>
+    <div style="font-size:.8rem;color:var(--muted2)">Módulo en construcción</div>
+  </div>`;
+}
+
 // ══ COST CONTROL ══
 let _ccOffset=0, _ccTarifaModo='seca', _ccTabActiva='equipos';
 
