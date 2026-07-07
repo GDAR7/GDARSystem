@@ -26,7 +26,7 @@ const AREAS={
                       ]
             }]},
   otros:{label:'Otros',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
-    modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'costos',label:'Costos',icon:'💰'}]},
+    modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'costos',label:'Costos',icon:'💰'},{key:'costControl',label:'Cost Control',icon:'📈'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
     modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
