@@ -88,7 +88,30 @@ let _combMode='despacho';
 function _combSetFormMode(mode){
   const ing=mode==='ingreso';
   ['cbProvRow','cbNumResRow','cbNumAtnRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'':'none';});
-  ['cbRefPedRow','cbEqRow','cbOpRow','cbPrcRow','cbTcRow','cbFmtRow','cbPlacaRow','cbDespRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'none':'';});
+  ['cbRefPedRow','cbEqRow','cbOpRow','cbPrcRow','cbTcRow','cbFmtRow','cbNotRow','cbDespRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'none':'';});
+}
+function _cbOpSearch(q){
+  const drop=document.getElementById('cbOpDrop');if(!drop)return;
+  const txt=(q||'').toLowerCase().trim();
+  const lista=(DB.personal||[])
+    .filter(p=>(p.est||'').toLowerCase()==='activo'||(p.est||'')==='')
+    .filter(p=>{if(!txt)return true;const n=((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')).toLowerCase();return n.includes(txt);})
+    .sort((a,b)=>(a.ape||'').localeCompare(b.ape||''));
+  if(!lista.length){drop.style.display='none';return;}
+  drop.innerHTML=lista.map(p=>{
+    const nombre=`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'');
+    return`<div onclick="_cbOpSelect('${nombre.replace(/'/g,"\\'")}');event.stopPropagation()"
+      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <span style="font-weight:700">${nombre}</span>
+      <span style="font-size:.7rem;color:var(--muted2);margin-left:.5rem">${p.cargo||''}</span>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
+}
+function _cbOpSelect(nombre){
+  const inp=document.getElementById('cbOp');if(inp)inp.value=nombre;
+  const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
 }
 function _combPopulateRefPed(selVal){
   const sel=document.getElementById('cbRefPed');if(!sel)return;
@@ -97,6 +120,11 @@ function _combPopulateRefPed(selVal){
     +ingresos.map(r=>`<option value="${r.numAtendido}">${r.numAtendido} · ${r.fecha} (${r.gal} gal)</option>`).join('');
   if(selVal)sel.value=selVal;
 }
+// Cerrar dropdown operador al clic fuera
+document.addEventListener('click',e=>{
+  const drop=document.getElementById('cbOpDrop');
+  if(drop&&!document.getElementById('cbOpRow')?.contains(e.target))drop.style.display='none';
+});
 function openCombModal(mode){
   _combMode=mode; _combEditId=null;
   const ing=mode==='ingreso';
@@ -116,8 +144,10 @@ function openCombModal(mode){
     _combPopulateRefPed('');
     const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value='';
     document.getElementById('cbPrc').value='6.30';
-    document.getElementById('cbPlaca').value='';
+    document.getElementById('cbOp').value='';
+    document.getElementById('cbNot').value='';
     document.getElementById('cbDesp').value='';
+    const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
   }
   openM('mComb');
 }
@@ -140,10 +170,10 @@ function gComb(){
     numAtendido:ing?document.getElementById('cbNumAtn').value.trim():'',
     refPedido:ing?'':document.getElementById('cbRefPed').value,
     eqId:ing?null:eqId,
-    op:ing?'':document.getElementById('cbOp').value,
+    op:ing?'':document.getElementById('cbOp').value.trim(),
     precio:ing?0:+document.getElementById('cbPrc').value||6.30,
     tipoCosto:ing?'':document.getElementById('cbTc').value,
-    placaSerie:ing?'':document.getElementById('cbPlaca').value.trim(),
+    notas:ing?'':document.getElementById('cbNot').value.trim(),
     despachador:ing?'':document.getElementById('cbDesp').value.trim()
   };
   if(_combEditId!==null){
@@ -178,12 +208,12 @@ function editComb(id){
   }else{
     _combPopulateRefPed(r.refPedido||'');
     const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value=r.eqId||'';
-    const opSel=document.getElementById('cbOp');
-    if(opSel){opSel.value=r.op||'';if(!opSel.value&&r.op){const o=document.createElement('option');o.value=r.op;o.textContent=r.op;opSel.appendChild(o);opSel.value=r.op;}}
+    document.getElementById('cbOp').value=r.op||'';
     document.getElementById('cbPrc').value=r.precio||6.30;
     document.getElementById('cbTc').value=r.tipoCosto||'Costo Directo';
-    document.getElementById('cbPlaca').value=r.placaSerie||'';
+    document.getElementById('cbNot').value=r.notas||r.placaSerie||'';
     document.getElementById('cbDesp').value=r.despachador||'';
+    const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
   }
   openM('mComb');
 }
@@ -245,9 +275,9 @@ function verComb(id){
 </div>
 <div class="section-title">Datos Adicionales</div>
 <div class="grid">
-  <div class="field"><label>Placa / Serie</label><span class="mono">${mu(r.placaSerie)}</span></div>
-  <div class="field"><label>Despachador</label><span>${mu(r.despachador)}</span></div>
   <div class="field"><label>N° Formato</label><span class="mono">${mu(r.numFormato)}</span></div>
+  <div class="field"><label>Despachador</label><span>${mu(r.despachador)}</span></div>
+  <div class="field" style="grid-column:1/-1"><label>Notas / Observaciones</label><span>${mu(r.notas||r.placaSerie)}</span></div>
 </div>
 <div class="footer">
   <div class="firma">Firma Operador / Conductor</div>

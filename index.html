@@ -1785,6 +1785,7 @@
   <div class="mb"><div class="fg-grid">
     <!-- Campos comunes -->
     <div class="fg"><label>Fecha</label><input id="cbF" type="date"></div>
+    <div class="fg" id="cbFmtRow"><label>N° Formato</label><input id="cbFmt" placeholder="Ej: 8914"></div>
     <div class="fg"><label>Tipo Combustible</label><select id="cbTi"><option>Petróleo D2</option><option>Gasolina 90</option><option>Gasolina 95</option><option>Gasolina 97</option><option>GNV</option></select></div>
     <div class="fg"><label>Galones</label><input id="cbGal" type="number" step="0.5" placeholder="0"></div>
     <div class="fg"><label>Horómetro / Km</label><input id="cbHr" type="number" placeholder="0"></div>
@@ -1800,11 +1801,14 @@
       <select id="cbRefPed"><option value="">— Sin vinculación —</option></select>
     </div>
     <div class="fg" id="cbEqRow"><label>Equipo</label><select id="cbEq"></select></div>
-    <div class="fg" id="cbOpRow"><label>Operador / Conductor</label><select id="cbOp"></select></div>
+    <div class="fg" id="cbOpRow" style="position:relative">
+      <label>Operador / Conductor</label>
+      <input id="cbOp" autocomplete="off" placeholder="Buscar por nombre o cargo..." oninput="_cbOpSearch(this.value)" onfocus="_cbOpSearch(this.value)" style="width:100%;box-sizing:border-box">
+      <div id="cbOpDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px #00000060;z-index:9999;margin-top:2px"></div>
+    </div>
     <div class="fg" id="cbPrcRow"><label>Precio S//gal</label><input id="cbPrc" type="number" step="0.01" value="6.30"></div>
     <div class="fg" id="cbTcRow"><label>Tipo de Costo</label><select id="cbTc"><option>Costo Directo</option><option>Costo Indirecto</option><option>Reembolsable</option><option>Costo de Terceros</option></select></div>
-    <div class="fg" id="cbFmtRow"><label>N° Formato</label><input id="cbFmt" placeholder="Ej: F-001"></div>
-    <div class="fg" id="cbPlacaRow"><label>Placa / Serie</label><input id="cbPlaca" placeholder="Ej: ABC-123"></div>
+    <div class="fg" id="cbNotRow" style="grid-column:1/-1"><label>Notas / Observaciones <span style="color:var(--muted2);font-size:.65rem">(opcional)</span></label><input id="cbNot" placeholder="Observaciones adicionales del despacho..."></div>
     <div class="fg" id="cbDespRow"><label>Despachador</label><input id="cbDesp" placeholder="Nombre del despachador"></div>
   </div></div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mComb')">Cancelar</button><button class="btn btn-a" style="--ba:var(--alm)" onclick="gComb()">Registrar</button></div>
