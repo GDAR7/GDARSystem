@@ -268,20 +268,27 @@ function rCostControl(){
     const t=r.tarifa;
     const dias=r.diasPresentes.size;
     const factor=per.dias>0?dias/per.dias:0;
-    // Unidad: desde tarifa coincidente, sino desde campo del equipo, sino 'HM'
-    const un=t?.un||r.eq.tarifaUn||'HM';
-    let venta=0, costoProveedor=0;
-    if(un==='HM'){
-      venta=r.horasEf*(t?.[KEY]||0);
-      costoProveedor=r.horasEf*(+r.eq.tarifa||0);
-    } else if(un==='DIA'){
-      venta=dias*(t?.[KEY]||0);
-      costoProveedor=dias*(+r.eq.tarifa||0);
-    } else { // MES
-      venta=factor*(t?.[KEY]||0);
-      costoProveedor=factor*(+r.eq.tarifa||0);
+    // Unidad VENTA: viene de la tarifa coincidente (cómo se cobra al cliente)
+    const unVenta=t?.un||r.eq.tarifaUn||'HM';
+    // Unidad COSTO PROV.: viene del Master del equipo (cómo cobra el proveedor) — puede ser distinta
+    const unCosto=r.eq.tarifaUn||unVenta;
+
+    // Calcular VENTA según unidad de tarifa
+    let venta=0;
+    if(t){
+      if(unVenta==='HM')       venta=r.horasEf*(t[KEY]||0);
+      else if(unVenta==='DIA') venta=dias*(t[KEY]||0);
+      else                     venta=factor*(t[KEY]||0); // MES
     }
-    return{...r,costo:venta,costoProveedor,tarifaObj:t,un};
+
+    // Calcular COSTO PROVEEDOR según unidad del Master (independiente de la venta)
+    let costoProveedor=0;
+    const tRate=+r.eq.tarifa||0;
+    if(unCosto==='HM')       costoProveedor=r.horasEf*tRate;
+    else if(unCosto==='DIA') costoProveedor=dias*tRate;       // ej: 17 días × S/200
+    else                     costoProveedor=factor*tRate;      // MES: incidencia × tarifa
+
+    return{...r,costo:venta,costoProveedor,tarifaObj:t,un:unVenta,unCosto};
   });
   const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
   const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
@@ -407,11 +414,19 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       const tarifaCell=t?_ccFmt(t[KEY])+`<br><span style="font-size:.62rem;color:var(--muted2)">/${unLabel}</span>`
         :'<span style="color:#f59e0b;font-size:.72rem">Sin tarifa</span>';
 
-      // Columna Costo Proveedor
+      // Columna Costo Proveedor (usa su propia unidad del Master)
+      const unCosto=r.unCosto||r.un||'HM';
       const sinCostoEq=!r.eq.tarifa;
-      const costoPCell=sinCostoEq
-        ?`<span style="color:var(--muted2);font-size:.7rem">Sin tarifa en<br>Master</span>`
-        :_ccFmt(r.costoProveedor);
+      let costoPCell;
+      if(sinCostoEq){
+        costoPCell=`<span style="color:var(--muted2);font-size:.7rem">Sin tarifa en<br>Master</span>`;
+      } else if(unCosto!==r.un){
+        // Unidades distintas → mostrar fórmula explicativa
+        const baseFmt=unCosto==='HM'?r.horasEf.toFixed(1)+'h':unCosto==='DIA'?dias+'d':((factor*100).toFixed(0)+'%');
+        costoPCell=`${_ccFmt(r.costoProveedor)}<br><span style="font-size:.61rem;color:rgba(245,158,11,.6)">${baseFmt} × S/${(+r.eq.tarifa||0).toFixed(0)}</span>`;
+      } else {
+        costoPCell=_ccFmt(r.costoProveedor);
+      }
 
       // Margen
       const margen=r.costo-r.costoProveedor;
