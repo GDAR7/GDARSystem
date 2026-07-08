@@ -167,6 +167,7 @@ function openCombModal(mode){
   document.getElementById('cbF').value=today();
   document.getElementById('cbGal').value='';
   document.getElementById('cbHr').value='';
+  document.getElementById('cbKm').value='';
   document.getElementById('cbFmt').value='';
   document.getElementById('cbEst').value='Ingresado';
   if(ing){
@@ -196,6 +197,7 @@ function gComb(){
     tipo:document.getElementById('cbTi').value,
     gal,
     hr:+document.getElementById('cbHr').value||0,
+    km:+document.getElementById('cbKm').value||0,
     numFormato:document.getElementById('cbFmt').value.trim(),
     estado:document.getElementById('cbEst').value,
     proveedor:ing?document.getElementById('cbProv').value.trim():'',
@@ -232,6 +234,7 @@ function editComb(id){
   document.getElementById('cbTi').value=r.tipo||'Petróleo D2';
   document.getElementById('cbGal').value=r.gal||0;
   document.getElementById('cbHr').value=r.hr||0;
+  document.getElementById('cbKm').value=r.km||0;
   document.getElementById('cbFmt').value=r.numFormato||'';
   document.getElementById('cbEst').value=r.estado||'Ingresado';
   if(ing){
@@ -299,7 +302,8 @@ function verComb(id){
   <div class="field"><label>Operador / Conductor</label><span>${mu(r.op)}</span></div>
   <div class="field"><label>Tipo de Combustible</label><span>${mu(r.tipo)}</span></div>
   <div class="field"><label>Galones</label><span class="mono">${r.gal} gal</span></div>
-  <div class="field"><label>Horómetro / Km</label><span class="mono">${r.hr||'—'}</span></div>
+  <div class="field"><label>Horómetro</label><span class="mono">${r.hr||'—'} h</span></div>
+  <div class="field"><label>Kilometraje</label><span class="mono">${r.km||'—'} km</span></div>
 </div>
 <div class="grid">
   <div class="field"><label>Precio S/ / gal</label><span class="mono">S/ ${r.precio||'—'}</span></div>
