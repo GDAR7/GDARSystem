@@ -9,10 +9,9 @@ function rVenta(){
 
 // ══ TARIFAS DE EQUIPOS ══
 let _tarifaEditId=null;
-const _TF_IS='width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.45rem .65rem;color:var(--text);font-size:.82rem;box-sizing:border-box';
 
 function rTarifas(){
-  const tarifas=[...DB.tarifasEq].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||(a.descripcion||'').localeCompare(b.descripcion||''));
+  const tarifas=[...DB.tarifasEq].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||(a.desc||'').localeCompare(b.desc||''));
   const grupos={};
   tarifas.forEach(t=>{const k=t.tipo||'Otros';if(!grupos[k])grupos[k]=[];grupos[k].push(t);});
 
@@ -34,7 +33,7 @@ function rTarifas(){
         <td style="${TD}">
           <span style="background:${tc}18;color:${tc};border:1px solid ${tc}40;border-radius:4px;padding:2px 8px;font-size:.65rem;font-weight:700">${t.unidad||'HM'}</span>
         </td>
-        <td style="${TD};font-weight:600">${t.descripcion||'—'}</td>
+        <td style="${TD};font-weight:600">${t.desc||'—'}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:#06b6d4;font-weight:700">${_ccFmt(t.tarifaSeca||0)}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:#8b5cf6;font-weight:700">${_ccFmt(t.tarifaFull||0)}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:#f59e0b;font-weight:700">${_ccFmt(t.tarifaCosto||0)}</td>
@@ -91,58 +90,6 @@ function rTarifas(){
         <tbody>${body}</tbody>
       </table>
     </div>
-  </div>
-
-  <!-- Modal Nueva/Editar Tarifa -->
-  <div id="mTarifa" class="modal" onclick="if(event.target===this)closeM('mTarifa')">
-    <div class="mcont" style="max-width:520px">
-      <div class="mhdr">
-        <span class="mttl" id="mTarifaTtl">Nueva Tarifa</span>
-        <button class="mclose" onclick="closeM('mTarifa')">✕</button>
-      </div>
-      <div style="padding:1rem 1.1rem;display:grid;grid-template-columns:1fr 1fr;gap:.7rem">
-        <div style="grid-column:1/-1">
-          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">TIPO DE EQUIPO</div>
-          <select id="tfTipo" style="${_TF_IS}">
-            <option>Línea Amarilla</option><option>Línea Blanca</option>
-            <option>Vehículo Menor</option><option>Equipos Menores</option><option>Otros</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1">
-          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">DESCRIPCIÓN DEL EQUIPO</div>
-          <input id="tfDesc" placeholder="Ej: Excavadora Normal 336" style="${_TF_IS}">
-        </div>
-        <div>
-          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">UNIDAD</div>
-          <select id="tfUn" style="${_TF_IS}">
-            <option value="HM">HM — Hora Máquina</option>
-            <option value="MES">MES — Mensual</option>
-          </select>
-        </div>
-        <div></div>
-        <div>
-          <div style="font-size:.7rem;color:#06b6d4;font-weight:700;margin-bottom:.25rem">TARIFA VENTA SECA S/</div>
-          <input id="tfSeca" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#06b6d4">
-        </div>
-        <div>
-          <div style="font-size:.7rem;color:#8b5cf6;font-weight:700;margin-bottom:.25rem">TARIFA VENTA FULL S/</div>
-          <input id="tfFull" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#8b5cf6">
-        </div>
-        <div style="grid-column:1/-1">
-          <div style="font-size:.7rem;color:#f59e0b;font-weight:700;margin-bottom:.25rem">TARIFA COSTO PROVEEDOR S/</div>
-          <input id="tfCosto" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#f59e0b">
-        </div>
-        <div style="grid-column:1/-1">
-          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">PALABRAS CLAVE (separadas por coma)</div>
-          <input id="tfKw" placeholder="excavadora, excavador, cat 336" style="${_TF_IS}">
-          <div style="font-size:.65rem;color:var(--muted2);margin-top:.3rem">Términos del nombre o subtipo del equipo para asignación automática en Cost Control.</div>
-        </div>
-      </div>
-      <div style="padding:0 1.1rem 1rem;display:flex;justify-content:flex-end;gap:.5rem">
-        <button onclick="closeM('mTarifa')" class="btn btn-out">Cancelar</button>
-        <button onclick="gTarifa()" style="background:#059669;color:#fff;border:none;border-radius:7px;padding:.4rem 1.1rem;font-weight:700;cursor:pointer;font-size:.85rem">Guardar</button>
-      </div>
-    </div>
   </div>`;
 }
 
@@ -160,7 +107,7 @@ function openTarifaEdit(id){
   _tarifaEditId=id;
   document.getElementById('mTarifaTtl').textContent='Editar Tarifa';
   document.getElementById('tfTipo').value=t.tipo||'Línea Amarilla';
-  document.getElementById('tfDesc').value=t.descripcion||'';
+  document.getElementById('tfDesc').value=t.desc||'';
   document.getElementById('tfUn').value=t.unidad||'HM';
   document.getElementById('tfSeca').value=t.tarifaSeca||'';
   document.getElementById('tfFull').value=t.tarifaFull||'';
@@ -170,11 +117,11 @@ function openTarifaEdit(id){
 }
 
 function gTarifa(){
-  const desc=(document.getElementById('tfDesc').value||'').trim();
-  if(!desc){toast('Ingrese una descripción',true);return;}
+  const descVal=(document.getElementById('tfDesc').value||'').trim();
+  if(!descVal){toast('Ingrese una descripción',true);return;}
   const rec={
     tipo:document.getElementById('tfTipo').value,
-    descripcion:desc,
+    desc:descVal,
     unidad:document.getElementById('tfUn').value,
     tarifaSeca:+document.getElementById('tfSeca').value||0,
     tarifaFull:+document.getElementById('tfFull').value||0,
@@ -203,7 +150,7 @@ function delTarifa(id){
 async function cargarTarifasIniciales(){
   if(!confirm(`¿Cargar las ${_CC_TARIFA_EQ.length} tarifas contractuales como punto de partida?\nPodrás editarlas después.`))return;
   for(const t of _CC_TARIFA_EQ){
-    const rec={id:nid('teq'),tipo:t.tipo||'Otros',descripcion:t.lab,unidad:t.un,
+    const rec={id:nid('teq'),tipo:t.tipo||'Otros',desc:t.lab,unidad:t.un,
       tarifaSeca:t.seca,tarifaFull:t.full,tarifaCosto:0,palabrasClave:t.kw.join(', ')};
     DB.tarifasEq.push(rec);
     syncSheet('saveTarifaEq',rec);
@@ -285,7 +232,7 @@ function _ccMatchEq(eq){
       const kws=(t.palabrasClave||'').split(',').map(k=>k.trim().toLowerCase()).filter(Boolean);
       if(kws.length&&kws.some(k=>txt.includes(k))){
         // Normalizar campos DB al mismo shape que hardcoded
-        return{lab:t.descripcion,seca:+t.tarifaSeca||0,full:+t.tarifaFull||0,costo:+t.tarifaCosto||0,un:t.unidad||'HM'};
+        return{lab:t.desc,seca:+t.tarifaSeca||0,full:+t.tarifaFull||0,costo:+t.tarifaCosto||0,un:t.unidad||'HM'};
       }
     }
     return null;
