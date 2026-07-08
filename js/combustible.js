@@ -90,28 +90,61 @@ function _combSetFormMode(mode){
   ['cbProvRow','cbNumResRow','cbNumAtnRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'':'none';});
   ['cbRefPedRow','cbEqRow','cbOpRow','cbPrcRow','cbTcRow','cbFmtRow','cbNotRow','cbDespRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'none':'';});
 }
+const _CATS_OP=['Operador LA','Operador LB','Conductor VM'];
+const _CATS_COMB=['Operador Combustible','Ayudante Combustible','Despachador Combustible'];
+
 function _cbOpSearch(q){
   const drop=document.getElementById('cbOpDrop');if(!drop)return;
   const txt=(q||'').toLowerCase().trim();
   const lista=(DB.personal||[])
-    .filter(p=>(p.est||'').toLowerCase()==='activo'||(p.est||'')==='')
-    .filter(p=>{if(!txt)return true;const n=((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')).toLowerCase();return n.includes(txt);})
-    .sort((a,b)=>(a.ape||'').localeCompare(b.ape||''));
-  if(!lista.length){drop.style.display='none';return;}
-  drop.innerHTML=lista.map(p=>{
-    const nombre=`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'');
-    return`<div onclick="_cbOpSelect('${nombre.replace(/'/g,"\\'")}');event.stopPropagation()"
-      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border)"
-      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-      <span style="font-weight:700">${nombre}</span>
-      <span style="font-size:.7rem;color:var(--muted2);margin-left:.5rem">${p.cargo||''}</span>
-    </div>`;
-  }).join('');
-  drop.style.display='block';
+    .filter(p=>((p.est||'').toLowerCase()==='activo'||(p.est||'')==='')&&_CATS_OP.includes(p.cat))
+    .filter(p=>{if(!txt)return true;return((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')).toLowerCase().includes(txt);})
+    .sort((a,b)=>(a.cat||'').localeCompare(b.cat||'')||(a.ape||'').localeCompare(b.ape||''));
+  _renderPersonaDrop(drop,lista,'_cbOpSelect');
 }
 function _cbOpSelect(nombre){
   const inp=document.getElementById('cbOp');if(inp)inp.value=nombre;
   const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
+}
+
+function _cbDespSearch(q){
+  const drop=document.getElementById('cbDespDrop');if(!drop)return;
+  const txt=(q||'').toLowerCase().trim();
+  const lista=(DB.personal||[])
+    .filter(p=>{
+      const activo=(p.est||'').toLowerCase()==='activo'||(p.est||'')==='';
+      if(!activo)return false;
+      // Primero buscar por cat específica; si no, por cargo con keyword combustible
+      if(_CATS_COMB.includes(p.cat))return true;
+      return(p.cargo||'').toLowerCase().includes('combustible')||(p.cargo||'').toLowerCase().includes('despachador');
+    })
+    .filter(p=>{if(!txt)return true;return((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')).toLowerCase().includes(txt);})
+    .sort((a,b)=>(a.ape||'').localeCompare(b.ape||''));
+  _renderPersonaDrop(drop,lista,'_cbDespSelect');
+}
+function _cbDespSelect(nombre){
+  const inp=document.getElementById('cbDesp');if(inp)inp.value=nombre;
+  const drop=document.getElementById('cbDespDrop');if(drop)drop.style.display='none';
+}
+
+function _renderPersonaDrop(drop,lista,fnSelect){
+  if(!lista.length){drop.style.display='none';return;}
+  drop.innerHTML=lista.map(p=>{
+    const nombre=`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'');
+    const catColor={'Operador LA':'#f59e0b','Operador LB':'#3b82f6','Conductor VM':'#8b5cf6',
+      'Operador Combustible':'#f97316','Ayudante Combustible':'#f97316','Despachador Combustible':'#f97316'};
+    const cc=catColor[p.cat]||'var(--muted2)';
+    return`<div onclick="${fnSelect}('${nombre.replace(/'/g,"\\'")}');event.stopPropagation()"
+      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <div>
+        <span style="font-weight:700">${nombre}</span>
+        <span style="font-size:.7rem;color:var(--muted2);margin-left:.5rem">${p.cargo||''}</span>
+      </div>
+      <span style="font-size:.63rem;font-weight:700;color:${cc};flex-shrink:0;margin-left:.5rem">${p.cat||''}</span>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
 }
 function _combPopulateRefPed(selVal){
   const sel=document.getElementById('cbRefPed');if(!sel)return;
@@ -120,10 +153,10 @@ function _combPopulateRefPed(selVal){
     +ingresos.map(r=>`<option value="${r.numAtendido}">${r.numAtendido} · ${r.fecha} (${r.gal} gal)</option>`).join('');
   if(selVal)sel.value=selVal;
 }
-// Cerrar dropdown operador al clic fuera
+// Cerrar dropdowns al clic fuera
 document.addEventListener('click',e=>{
-  const drop=document.getElementById('cbOpDrop');
-  if(drop&&!document.getElementById('cbOpRow')?.contains(e.target))drop.style.display='none';
+  if(!document.getElementById('cbOpRow')?.contains(e.target)){const d=document.getElementById('cbOpDrop');if(d)d.style.display='none';}
+  if(!document.getElementById('cbDespRow')?.contains(e.target)){const d=document.getElementById('cbDespDrop');if(d)d.style.display='none';}
 });
 function openCombModal(mode){
   _combMode=mode; _combEditId=null;
@@ -147,7 +180,7 @@ function openCombModal(mode){
     document.getElementById('cbOp').value='';
     document.getElementById('cbNot').value='';
     document.getElementById('cbDesp').value='';
-    const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
+    ['cbOpDrop','cbDespDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
   }
   openM('mComb');
 }
@@ -213,7 +246,7 @@ function editComb(id){
     document.getElementById('cbTc').value=r.tipoCosto||'Costo Directo';
     document.getElementById('cbNot').value=r.notas||r.placaSerie||'';
     document.getElementById('cbDesp').value=r.despachador||'';
-    const drop=document.getElementById('cbOpDrop');if(drop)drop.style.display='none';
+    ['cbOpDrop','cbDespDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
   }
   openM('mComb');
 }
