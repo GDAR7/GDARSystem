@@ -146,6 +146,8 @@ function rMaster(){
       ${_eqPuedeEliminar(e.id)?`<button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})" title="Eliminar (disponible 48h desde la creación)">🗑</button>`:''}
     </td>
   </tr>`).join('');
+  const srch=document.getElementById('masterSearch');
+  if(srch&&srch.value)flt(srch,'tbMaster');
 }
 // ══ GESTIÓN DE SUBTIPOS ══
 function openGestSubtipos(){_renderGestSubtipos();openM('mGestSubtipos');}
