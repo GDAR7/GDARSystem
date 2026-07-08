@@ -28,7 +28,7 @@ const AREAS={
   otros:{label:'Otros',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
     modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'}]},
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'}]},
+    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
     modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
