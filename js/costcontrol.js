@@ -26,9 +26,9 @@ function rTarifas(){
   let body='';
   Object.entries(grupos).forEach(([tipo,items])=>{
     const tc=TIPO_C[tipo]||'#06b6d4';
-    body+=`<tr><td colspan="8" style="${TH};background:rgba(5,150,105,.06);color:#059669;font-size:.7rem">${tipo} &nbsp;·&nbsp; ${items.length} tarifa(s)</td></tr>`;
+    body+=`<tr><td colspan="6" style="${TH};background:rgba(5,150,105,.06);color:#059669;font-size:.7rem">${tipo} &nbsp;·&nbsp; ${items.length} tarifa(s)</td></tr>`;
     items.forEach(t=>{
-      const margen=t.tarifaSeca>0&&t.tarifaCosto>0?((t.tarifaSeca-t.tarifaCosto)/t.tarifaSeca*100):null;
+      const margen=null; // margen ya no aplica aquí; costo proveedor viene del Master
       body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
         <td style="${TD}">
           <span style="background:${tc}18;color:${tc};border:1px solid ${tc}40;border-radius:4px;padding:2px 8px;font-size:.65rem;font-weight:700">${t.unidad||'HM'}</span>
@@ -36,8 +36,6 @@ function rTarifas(){
         <td style="${TD};font-weight:600">${t.desc||'—'}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:#06b6d4;font-weight:700">${_ccFmt(t.tarifaSeca||0)}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:#8b5cf6;font-weight:700">${_ccFmt(t.tarifaFull||0)}</td>
-        <td style="${TD};text-align:right;font-family:monospace;color:#f59e0b;font-weight:700">${_ccFmt(t.tarifaCosto||0)}</td>
-        <td style="${TD};text-align:center;font-size:.75rem;font-weight:700;color:${margen!==null?(margen>=20?'#10b981':'#f59e0b'):'var(--muted2)'}">${margen!==null?margen.toFixed(1)+'%':'—'}</td>
         <td style="${TD};font-size:.68rem;color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.palabrasClave||''}">${t.palabrasClave||'—'}</td>
         <td style="${TD};white-space:nowrap">
           <button class="btn btn-out btn-sm" onclick="openTarifaEdit(${t.id})" title="Editar" style="color:#f59e0b;border-color:#f59e0b50;margin-right:.25rem">✏️</button>
@@ -47,7 +45,7 @@ function rTarifas(){
     });
   });
 
-  if(!body) body=`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">
+  if(!body) body=`<tr><td colspan="6" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">
     Sin tarifas registradas. &nbsp;
     <button onclick="cargarTarifasIniciales()" style="background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.4);color:#059669;border-radius:7px;padding:.3rem .8rem;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Cargar tarifas contractuales</button>
   </td></tr>`;
@@ -58,7 +56,7 @@ function rTarifas(){
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem">
       <div>
         <h2 style="font-size:1.35rem;font-weight:900;color:var(--text);margin:0;letter-spacing:-.02em">🏷️ Tarifas de Equipos</h2>
-        <div style="font-size:.74rem;color:var(--muted2);margin-top:.2rem">${tarifas.length} tarifa(s) configurada(s) · Tarifa Venta (Seca / Full) y Tarifa Costo Proveedor</div>
+        <div style="font-size:.74rem;color:var(--muted2);margin-top:.2rem">${tarifas.length} tarifa(s) · Tarifa Venta (Seca / Full) · Costo Proveedor se toma del Master de Equipos</div>
       </div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
         ${!tarifas.length?`<button onclick="cargarTarifasIniciales()" style="background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.4);color:#059669;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Cargar iniciales</button>`:''}
@@ -70,8 +68,7 @@ function rTarifas(){
     <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;font-size:.72rem;color:var(--muted2)">
       <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#06b6d4;border-radius:2px"></span>Tarifa Venta Seca</span>
       <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#8b5cf6;border-radius:2px"></span>Tarifa Venta Full</span>
-      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#f59e0b;border-radius:2px"></span>Tarifa Costo Proveedor</span>
-      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#10b981;border-radius:2px"></span>% Margen (Seca−Costo)</span>
+      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#a78bfa;border-radius:2px"></span>Costo Proveedor → viene del campo "Tarifa S/." en el Master de Equipos</span>
     </div>
 
     <!-- Tabla -->
@@ -82,8 +79,6 @@ function rTarifas(){
           <th style="${TH}">Descripción</th>
           <th style="${TH};text-align:right">Venta Seca</th>
           <th style="${TH};text-align:right">Venta Full</th>
-          <th style="${TH};text-align:right">Costo Proveedor</th>
-          <th style="${TH};text-align:center">Margen</th>
           <th style="${TH}">Palabras Clave</th>
           <th style="${TH};text-align:center">Acc.</th>
         </tr></thead>
@@ -96,7 +91,7 @@ function rTarifas(){
 function openTarifaNew(){
   _tarifaEditId=null;
   document.getElementById('mTarifaTtl').textContent='Nueva Tarifa';
-  ['tfDesc','tfSeca','tfFull','tfCosto','tfKw'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['tfDesc','tfSeca','tfFull','tfKw'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const t=document.getElementById('tfTipo');if(t)t.value='Línea Amarilla';
   const u=document.getElementById('tfUn');if(u)u.value='HM';
   openM('mTarifa');
@@ -111,7 +106,6 @@ function openTarifaEdit(id){
   document.getElementById('tfUn').value=t.unidad||'HM';
   document.getElementById('tfSeca').value=t.tarifaSeca||'';
   document.getElementById('tfFull').value=t.tarifaFull||'';
-  document.getElementById('tfCosto').value=t.tarifaCosto||'';
   document.getElementById('tfKw').value=t.palabrasClave||'';
   openM('mTarifa');
 }
@@ -125,7 +119,6 @@ function gTarifa(){
     unidad:document.getElementById('tfUn').value,
     tarifaSeca:+document.getElementById('tfSeca').value||0,
     tarifaFull:+document.getElementById('tfFull').value||0,
-    tarifaCosto:+document.getElementById('tfCosto').value||0,
     palabrasClave:(document.getElementById('tfKw').value||'').trim()
   };
   if(_tarifaEditId!==null){
@@ -273,10 +266,22 @@ function rCostControl(){
   });
   const eqRows=Object.values(eqMap).map(r=>{
     const t=r.tarifa;
-    const costo=t?(t.un==='HM'?r.horasEf*(t[KEY]):(t[KEY])):0;
-    return{...r,costo,tarifaObj:t};
+    const dias=r.diasPresentes.size;
+    const factor=per.dias>0?dias/per.dias:0;
+    let venta=0, costoProveedor=0;
+    if(t){
+      if(t.un==='HM'){
+        venta=r.horasEf*(t[KEY]||0);
+        costoProveedor=r.horasEf*(+r.eq.tarifa||0);
+      } else {
+        venta=factor*(t[KEY]||0);
+        costoProveedor=factor*(+r.eq.tarifa||0);
+      }
+    }
+    return{...r,costo:venta,costoProveedor,tarifaObj:t};
   });
-  const totalEq=eqRows.reduce((s,r)=>s+r.costo,0);
+  const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
+  const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
 
   // — Costos de personal —
   const hhMap={};
@@ -289,11 +294,11 @@ function rCostControl(){
     hhMap[per2.id].dias++;
   });
   const hhRows=Object.values(hhMap).map(r=>{
-    const costoDia=r.tarifa.mes/30;
+    const costoDia=r.tarifa.mes/per.dias;
     return{...r,costoDia,costo:costoDia*r.dias};
   });
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
-  const totalGen=totalEq+totalHH;
+  const totalGen=totalVentaEq+totalHH;
 
   const _tabBtn=(k,label)=>{
     const act=_ccTabActiva===k;
@@ -326,10 +331,10 @@ function rCostControl(){
     <!-- KPIs -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.65rem;margin-bottom:1.2rem">
       ${[
-        {l:'Costo Equipos',       v:_ccFmt(totalEq),      c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
-        {l:'Costo Personal (HH)', v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) registradas`, ico:'👷'},
-        {l:'Costo Total',         v:_ccFmt(totalGen),      c:'#f59e0b', s:`Período ${per.label}`, ico:'💰'},
-        {l:'Partes en Período',   v:partes.length,         c:'#10b981', s:`${per.dias} días de corte`, ico:'📋'},
+        {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
+        {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:'desde Tarifa del Master', ico:'💸'},
+        {l:'Costo Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
+        {l:'Margen Bruto Eq.',    v:_ccFmt(totalVentaEq-totalCostoEq), c:'#10b981', s:`Venta − Costo Prov.`, ico:'📈'},
       ].map(k=>`
       <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;border-left:3px solid ${k.c}">
         <div style="font-size:.68rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">${k.ico} ${k.l}</div>
@@ -346,9 +351,9 @@ function rCostControl(){
     </div>
 
     <!-- Paneles -->
-    <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccPanelEquipos(eqRows,KEY)}</div>
+    <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccPanelEquipos(eqRows,KEY,per.dias)}</div>
     <div id="ccPanel-personal" style="display:${_ccTabActiva==='personal'?'':'none'}">${_ccPanelPersonal(hhRows,per.dias)}</div>
-    <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalEq,totalHH,totalGen,KEY)}</div>
+    <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY)}</div>
   </div>`;
 }
 
@@ -365,55 +370,87 @@ function _ccTab(t){
 }
 
 // ── Panel Equipos ──
-function _ccPanelEquipos(rows,KEY){
+function _ccPanelEquipos(rows,KEY,diasPeriodo){
   if(!rows.length) return`<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.88rem">Sin partes registrados en este período</div>`;
 
   const TH=`background:var(--panel2);color:var(--muted2);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.5rem .7rem;white-space:nowrap`;
   const TD=`padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.81rem;vertical-align:middle`;
 
-  // Agrupar por tipo de equipo
   const grupos={};
   rows.forEach(r=>{const k=r.eq.tipo||'Otros';if(!grupos[k])grupos[k]=[];grupos[k].push(r);});
 
   let body='';
   Object.entries(grupos).forEach(([tipo,items])=>{
-    const sub=items.reduce((s,r)=>s+r.costo,0);
-    body+=`<tr><td colspan="7" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
+    const subVenta=items.reduce((s,r)=>s+r.costo,0);
+    const subCosto=items.reduce((s,r)=>s+r.costoProveedor,0);
+    body+=`<tr><td colspan="9" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
     items.forEach(r=>{
       const t=r.tarifaObj;
       const sinTarifa=!t;
-      const val=t?_ccFmt(t[KEY])+`<br><span style="font-size:.63rem;color:var(--muted2)">/${t.un==='HM'?'hora':'mes'}</span>`:'<span style="color:#f59e0b;font-size:.72rem">Sin tarifa asignada</span>';
-      const med=t?.un==='HM'?r.horasEf.toFixed(1)+' h':r.diasPresentes.size+' días';
+      const dias=r.diasPresentes.size;
+      const factor=diasPeriodo>0?dias/diasPeriodo:0;
+
+      // Columna Incidencia
+      const incCell=t?.un==='HM'
+        ?`<span style="font-family:monospace;font-weight:700">${r.horasEf.toFixed(1)} h</span>`
+        :`<span style="font-family:monospace;font-weight:700">${dias}<span style="color:var(--muted2);font-weight:400">/${diasPeriodo}</span></span>
+          <br><span style="font-size:.7rem;font-weight:700;color:${factor>=1?'#10b981':'#f59e0b'}">${(factor*100).toFixed(0)}%</span>`;
+
+      // Columna Tarifa
+      const tarifaCell=t?_ccFmt(t[KEY])+`<br><span style="font-size:.62rem;color:var(--muted2)">/${t.un==='HM'?'hora':'mes'}</span>`
+        :'<span style="color:#f59e0b;font-size:.72rem">Sin tarifa</span>';
+
+      // Columna Costo Proveedor
+      const sinCostoEq=!r.eq.tarifa;
+      const costoPCell=sinCostoEq
+        ?`<span style="color:var(--muted2);font-size:.7rem">Sin tarifa en<br>Master</span>`
+        :_ccFmt(r.costoProveedor);
+
+      // Margen
+      const margen=r.costo-r.costoProveedor;
+      const margenPct=r.costo>0?(margen/r.costo*100).toFixed(0):null;
+      const margenColor=margen>0?'#10b981':margen<0?'#ef4444':'var(--muted2)';
+
       body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
         <td style="${TD}"><span style="font-family:monospace;font-size:.74rem;font-weight:700;color:#06b6d4">${r.eq.codigo}</span></td>
         <td style="${TD}"><div style="font-weight:600">${r.eq.marca||''} ${r.eq.modelo||''}</div><div style="font-size:.68rem;color:var(--muted2)">${r.eq.sub||''}</div></td>
         <td style="${TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${t?.un||'?'}</span></td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700">${med}</td>
-        <td style="${TD};text-align:right;font-family:monospace">${val}</td>
+        <td style="${TD};text-align:center">${incCell}</td>
+        <td style="${TD};text-align:right;font-family:monospace">${tarifaCell}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${sinTarifa?'#f59e0b':r.costo>0?'#06b6d4':'var(--muted2)'}">${sinTarifa?'—':_ccFmt(r.costo)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#f59e0b">${costoPCell}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${margenColor}">${margenPct!==null?margenPct+'%':'—'}</td>
         <td style="${TD};font-size:.72rem;color:#a78bfa">${r.eq.proyecto||'—'}</td>
       </tr>`;
     });
     body+=`<tr style="background:rgba(6,182,212,.04)">
       <td colspan="5" style="${TD};text-align:right;font-size:.76rem;font-weight:700;color:var(--muted2)">Subtotal ${tipo}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">${_ccFmt(sub)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">${_ccFmt(subVenta)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b">${_ccFmt(subCosto)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${_ccFmt(subVenta-subCosto)}</td>
       <td style="${TD}"></td>
     </tr>`;
   });
 
-  const totalEq=rows.reduce((s,r)=>s+r.costo,0);
+  const totVenta=rows.reduce((s,r)=>s+r.costo,0);
+  const totCosto=rows.reduce((s,r)=>s+r.costoProveedor,0);
   body+=`<tr style="background:rgba(6,182,212,.08)">
     <td colspan="5" style="${TD};font-weight:900;color:var(--text);font-size:.84rem;text-align:right">TOTAL EQUIPOS</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:1rem;color:#06b6d4">${_ccFmt(totalEq)}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#06b6d4">${_ccFmt(totVenta)}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f59e0b">${_ccFmt(totCosto)}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#10b981">${_ccFmt(totVenta-totCosto)}</td>
     <td style="${TD}"></td>
   </tr>`;
 
   return`<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
-    <table style="width:100%;border-collapse:collapse;min-width:680px">
+    <table style="width:100%;border-collapse:collapse;min-width:900px">
       <thead><tr>
         <th style="${TH}">Código</th><th style="${TH}">Equipo</th><th style="${TH};text-align:center">Un.</th>
-        <th style="${TH};text-align:right">Horas / Días</th><th style="${TH};text-align:right">Tarifa</th>
-        <th style="${TH};text-align:right">Costo</th><th style="${TH}">Proyecto</th>
+        <th style="${TH};text-align:center">Incidencia</th><th style="${TH};text-align:right">Tarifa</th>
+        <th style="${TH};text-align:right">Venta</th>
+        <th style="${TH};text-align:right">Costo Prov.</th>
+        <th style="${TH};text-align:right">Margen</th>
+        <th style="${TH}">Proyecto</th>
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
@@ -460,7 +497,8 @@ function _ccPanelPersonal(rows, diasPeriodo){
 }
 
 // ── Panel Resumen ──
-function _ccPanelResumen(eqRows,hhRows,totalEq,totalHH,totalGen,KEY){
+function _ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY){
+  const totalEq=totalVentaEq;
   const BAR=(v,max,c)=>{
     const p=max>0?Math.min(100,(v/max)*100):0;
     return`<div style="height:5px;background:var(--border);border-radius:3px;margin-top:5px"><div style="width:${p.toFixed(1)}%;height:100%;background:${c};border-radius:3px"></div></div>`;
@@ -514,11 +552,16 @@ function _ccPanelResumen(eqRows,hhRows,totalEq,totalHH,totalGen,KEY){
     <div style="grid-column:1/-1;${P2};background:linear-gradient(120deg,rgba(245,158,11,.08),rgba(6,182,212,.06));border-color:rgba(245,158,11,.35)">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem">
         <div>
-          <div style="font-size:.75rem;color:var(--muted2);font-weight:700;letter-spacing:.08em;text-transform:uppercase">Costo Total del Período</div>
-          <div style="font-size:2.1rem;font-weight:900;color:#f59e0b;font-family:monospace;letter-spacing:-.02em;line-height:1.1">${_ccFmt(totalGen)}</div>
+          <div style="font-size:.75rem;color:var(--muted2);font-weight:700;letter-spacing:.08em;text-transform:uppercase">Venta Total del Período</div>
+          <div style="font-size:2.1rem;font-weight:900;color:#06b6d4;font-family:monospace;letter-spacing:-.02em;line-height:1.1">${_ccFmt(totalGen)}</div>
           <div style="font-size:.72rem;color:var(--muted2);margin-top:.25rem">
-            Equipos <span style="color:#06b6d4">${_ccFmt(totalEq)} ${PCT(totalEq,totalGen)}</span> &nbsp;·&nbsp;
-            Personal <span style="color:#8b5cf6">${_ccFmt(totalHH)} ${PCT(totalHH,totalGen)}</span>
+            Eq. Venta <span style="color:#06b6d4">${_ccFmt(totalVentaEq)}</span> &nbsp;·&nbsp;
+            Eq. Costo Prov. <span style="color:#f59e0b">${_ccFmt(totalCostoEq)}</span> &nbsp;·&nbsp;
+            HH <span style="color:#8b5cf6">${_ccFmt(totalHH)}</span>
+          </div>
+          <div style="font-size:.76rem;font-weight:700;color:#10b981;margin-top:.3rem">
+            Margen Eq.: ${_ccFmt(totalVentaEq-totalCostoEq)}
+            ${totalVentaEq>0?' ('+((totalVentaEq-totalCostoEq)/totalVentaEq*100).toFixed(1)+'%)':''}
           </div>
         </div>
         <div style="text-align:right">
