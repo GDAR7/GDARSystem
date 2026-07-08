@@ -91,7 +91,7 @@ function _combSetFormMode(mode){
   ['cbRefPedRow','cbEqRow','cbOpRow','cbPrcRow','cbTcRow','cbFmtRow','cbNotRow','cbDespRow'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=ing?'none':'';});
 }
 const _CATS_OP=['Operador LA','Operador LB','Conductor VM'];
-const _CATS_COMB=['Operador Combustible','Ayudante Combustible','Despachador Combustible'];
+const _CATS_COMB=['Operador Combustible','Ayudante Combustible','Despachador Combustible','Ayudante de Cisterna'];
 
 function _cbOpSearch(q){
   const drop=document.getElementById('cbOpDrop');if(!drop)return;
@@ -132,7 +132,7 @@ function _renderPersonaDrop(drop,lista,fnSelect){
   drop.innerHTML=lista.map(p=>{
     const nombre=`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'');
     const catColor={'Operador LA':'#f59e0b','Operador LB':'#3b82f6','Conductor VM':'#8b5cf6',
-      'Operador Combustible':'#f97316','Ayudante Combustible':'#f97316','Despachador Combustible':'#f97316'};
+      'Operador Combustible':'#f97316','Ayudante Combustible':'#f97316','Despachador Combustible':'#f97316','Ayudante de Cisterna':'#f97316'};
     const cc=catColor[p.cat]||'var(--muted2)';
     return`<div onclick="${fnSelect}('${nombre.replace(/'/g,"\\'")}');event.stopPropagation()"
       style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
