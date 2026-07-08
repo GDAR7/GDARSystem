@@ -88,12 +88,51 @@ function rTarifas(){
   </div>`;
 }
 
+// ── Autocomplete descripción tarifa desde Master ──
+document.addEventListener('click',e=>{
+  const drop=document.getElementById('tfDescDrop');
+  if(drop&&!document.getElementById('tfDesc')?.closest('[style*="position:relative"]')?.contains(e.target))
+    drop.style.display='none';
+});
+function _tfDescSearch(q){
+  const drop=document.getElementById('tfDescDrop');if(!drop)return;
+  const txt=(q||'').toLowerCase().trim();
+  // Agrupamos por subtipo para no mostrar duplicados (un subtipo puede tener varios equipos)
+  const vistos=new Set();
+  const lista=(DB.equipos||[]).filter(e=>{
+    const key=(e.sub||e.nombre||'').trim().toLowerCase();
+    if(vistos.has(key))return false;
+    if(txt&&!((e.sub||'')+(e.nombre||'')+(e.tipo||'')).toLowerCase().includes(txt))return false;
+    vistos.add(key);return true;
+  }).sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||(a.sub||'').localeCompare(b.sub||''));
+  if(!lista.length){drop.style.display='none';return;}
+  drop.innerHTML=lista.map(e=>{
+    const desc=(e.sub||e.nombre||'').trim();
+    const un=e.tarifaUn||'HM';
+    return`<div onclick="_tfDescSelect('${desc.replace(/'/g,"\\'")}','${(e.tipo||'').replace(/'/g,"\\'")}','${un}');event.stopPropagation()"
+      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <span style="font-weight:700">${desc}</span>
+      <span style="font-size:.68rem;color:var(--muted2);margin-left:.5rem">${e.tipo||''}</span>
+      <span style="float:right;font-size:.65rem;background:rgba(6,182,212,.15);color:#06b6d4;border-radius:3px;padding:1px 6px">${un}</span>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
+}
+function _tfDescSelect(desc,tipo,un){
+  const inp=document.getElementById('tfDesc');if(inp)inp.value=desc;
+  const t=document.getElementById('tfTipo');if(t&&tipo)t.value=tipo;
+  const u=document.getElementById('tfUn');if(u&&un)u.value=un;
+  const drop=document.getElementById('tfDescDrop');if(drop)drop.style.display='none';
+}
+
 function openTarifaNew(){
   _tarifaEditId=null;
   document.getElementById('mTarifaTtl').textContent='Nueva Tarifa';
   ['tfDesc','tfSeca','tfFull','tfKw'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const t=document.getElementById('tfTipo');if(t)t.value='Línea Amarilla';
   const u=document.getElementById('tfUn');if(u)u.value='HM';
+  const drop=document.getElementById('tfDescDrop');if(drop)drop.style.display='none';
   openM('mTarifa');
 }
 
@@ -107,6 +146,7 @@ function openTarifaEdit(id){
   document.getElementById('tfSeca').value=t.tarifaSeca||'';
   document.getElementById('tfFull').value=t.tarifaFull||'';
   document.getElementById('tfKw').value=t.palabrasClave||'';
+  const drop=document.getElementById('tfDescDrop');if(drop)drop.style.display='none';
   openM('mTarifa');
 }
 
