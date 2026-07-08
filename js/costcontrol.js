@@ -268,17 +268,20 @@ function rCostControl(){
     const t=r.tarifa;
     const dias=r.diasPresentes.size;
     const factor=per.dias>0?dias/per.dias:0;
+    // Unidad: desde tarifa coincidente, sino desde campo del equipo, sino 'HM'
+    const un=t?.un||r.eq.tarifaUn||'HM';
     let venta=0, costoProveedor=0;
-    if(t){
-      if(t.un==='HM'){
-        venta=r.horasEf*(t[KEY]||0);
-        costoProveedor=r.horasEf*(+r.eq.tarifa||0);
-      } else {
-        venta=factor*(t[KEY]||0);
-        costoProveedor=factor*(+r.eq.tarifa||0);
-      }
+    if(un==='HM'){
+      venta=r.horasEf*(t?.[KEY]||0);
+      costoProveedor=r.horasEf*(+r.eq.tarifa||0);
+    } else if(un==='DIA'){
+      venta=dias*(t?.[KEY]||0);
+      costoProveedor=dias*(+r.eq.tarifa||0);
+    } else { // MES
+      venta=factor*(t?.[KEY]||0);
+      costoProveedor=factor*(+r.eq.tarifa||0);
     }
-    return{...r,costo:venta,costoProveedor,tarifaObj:t};
+    return{...r,costo:venta,costoProveedor,tarifaObj:t,un};
   });
   const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
   const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
@@ -391,13 +394,17 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       const factor=diasPeriodo>0?dias/diasPeriodo:0;
 
       // Columna Incidencia
-      const incCell=t?.un==='HM'
+      const un=r.un||'HM';
+      const incCell=un==='HM'
         ?`<span style="font-family:monospace;font-weight:700">${r.horasEf.toFixed(1)} h</span>`
+        :un==='DIA'
+        ?`<span style="font-family:monospace;font-weight:700">${dias} días</span>`
         :`<span style="font-family:monospace;font-weight:700">${dias}<span style="color:var(--muted2);font-weight:400">/${diasPeriodo}</span></span>
           <br><span style="font-size:.7rem;font-weight:700;color:${factor>=1?'#10b981':'#f59e0b'}">${(factor*100).toFixed(0)}%</span>`;
 
       // Columna Tarifa
-      const tarifaCell=t?_ccFmt(t[KEY])+`<br><span style="font-size:.62rem;color:var(--muted2)">/${t.un==='HM'?'hora':'mes'}</span>`
+      const unLabel=un==='HM'?'hora':un==='DIA'?'día':'mes';
+      const tarifaCell=t?_ccFmt(t[KEY])+`<br><span style="font-size:.62rem;color:var(--muted2)">/${unLabel}</span>`
         :'<span style="color:#f59e0b;font-size:.72rem">Sin tarifa</span>';
 
       // Columna Costo Proveedor
@@ -414,7 +421,7 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
         <td style="${TD}"><span style="font-family:monospace;font-size:.74rem;font-weight:700;color:#06b6d4">${r.eq.codigo}</span></td>
         <td style="${TD}"><div style="font-weight:600">${r.eq.marca||''} ${r.eq.modelo||''}</div><div style="font-size:.68rem;color:var(--muted2)">${r.eq.sub||''}</div></td>
-        <td style="${TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${t?.un||'?'}</span></td>
+        <td style="${TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${un}</span></td>
         <td style="${TD};text-align:center">${incCell}</td>
         <td style="${TD};text-align:right;font-family:monospace">${tarifaCell}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${sinTarifa?'#f59e0b':r.costo>0?'#06b6d4':'var(--muted2)'}">${sinTarifa?'—':_ccFmt(r.costo)}</td>

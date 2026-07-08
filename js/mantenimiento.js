@@ -241,7 +241,7 @@ function openEquipo(){
   _eqTab=0;eqGoTab(0);
   ['eqCod','eqMa','eqMo','eqAn','eqPl',
    'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls','eqSoat','eqPtr','eqRtec','eqGps',
-   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTar','eqIco','eqTco',
+   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
   document.getElementById('eqKm').value=0;
@@ -391,6 +391,7 @@ function gEquipo(){
     celular:document.getElementById('eqCel').value,
     correo:document.getElementById('eqCor').value,
     horasMinimas:+document.getElementById('eqHmin').value||null,
+    tarifaUn:document.getElementById('eqTarUn').value||'HM',
     tarifa:+document.getElementById('eqTar').value||null,
     inicioContrato:document.getElementById('eqIco').value||null,
     terminoContrato:document.getElementById('eqTco').value||null,
@@ -443,7 +444,7 @@ function verEquipo(id){
     ${sec('Contrato / Proveedor')}
     ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
     ${row('Celular',e.celular)}${row('Correo',e.correo)}
-    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
+    ${row('H. Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}${row('Unid. Tarifa',e.tarifaUn||'HM')}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa)+' / '+(e.tarifaUn||'HM'):null)}
     ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
     ${sec('Costos Mantenimiento')}
     ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
@@ -512,7 +513,7 @@ function printEquipoFicha(){
   ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
   ${row('Celular',e.celular)}${row('Correo',e.correo)}
   ${row('Horas Mínimas',e.horasMinimas!=null?fmtN(e.horasMinimas)+' h':null)}
-  ${row('Tarifa S/.',e.tarifa?fmt(e.tarifa):null)}
+  ${row('Unidad Tarifa',e.tarifaUn||'HM')}${row('Tarifa S/.',e.tarifa?fmt(e.tarifa)+' / '+(e.tarifaUn||'HM'):null)}
   ${row('Inicio Contrato',e.inicioContrato)}${row('Término Contrato',e.terminoContrato)}
   ${sec('Costos de Mantenimiento')}
   ${row("CC GET'S",e.ccGets?fmt(e.ccGets):null)}${row('CC Engrase',e.ccEngrase?fmt(e.ccEngrase):null)}
@@ -568,6 +569,7 @@ function editEquipo(id){
   document.getElementById('eqCel').value=e.celular||'';
   document.getElementById('eqCor').value=e.correo||'';
   document.getElementById('eqHmin').value=e.horasMinimas||'';
+  document.getElementById('eqTarUn').value=e.tarifaUn||'HM';
   document.getElementById('eqTar').value=e.tarifa||'';
   document.getElementById('eqIco').value=e.inicioContrato||'';
   document.getElementById('eqTco').value=e.terminoContrato||'';
