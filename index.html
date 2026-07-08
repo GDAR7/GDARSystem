@@ -1468,73 +1468,71 @@
 <div class="page" id="page-notificaciones"></div>
 <div class="page" id="page-costControl"></div>
 <div class="page" id="page-tarifas"></div>
-<div class="page" id="page-venta">
+<div class="page" id="page-venta"></div>
+
+<div class="page" id="page-valorizaciones">
   <div class="ph"><div class="ph-title" style="color:#059669">Valorizaciones / EDP</div><div class="ph-sub">Registro de valorizaciones y expedientes de pago</div></div>
-  <div class="kpi-row" id="ventaKpis"></div>
+  <div class="kpi-row" id="valorizKpis"></div>
   <div class="card">
     <div class="card-head"><span class="card-title">Registro de Valorizaciones</span>
       <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input id="ventaSearch" class="search-input" placeholder="Buscar..." oninput="flt(this,'tbVenta')"></div>
-        <button class="btn btn-a" style="--ba:#059669" onclick="openVentaNew()">＋ Nueva Valorización</button>
+        <div class="search-wrap"><span>🔍</span><input id="valorizSearch" class="search-input" placeholder="Buscar..." oninput="flt(this,'tbValorizaciones')"></div>
+        <button class="btn btn-a" style="--ba:#059669" onclick="openValorizNew()">＋ Nueva Valorización</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>EDP N°</th><th>Proyecto</th><th>Código</th><th>Mes Valoriz.</th><th class="tr">Monto S/.</th><th>Valoriz.</th><th>HES</th><th>Factura</th><th>Obs.</th><th></th></tr></thead>
-      <tbody id="tbVenta"></tbody>
+      <thead><tr><th>Fecha</th><th>EDP N°</th><th>Proyecto</th><th>Código</th><th>Mes</th><th class="tr">Monto S/.</th><th>Valoriz.</th><th>HES</th><th>Factura</th><th>Obs.</th><th></th></tr></thead>
+      <tbody id="tbValorizaciones"></tbody>
     </table></div></div>
   </div>
 </div>
-
-<div class="mo" id="mVenta"><div class="modal" style="max-width:560px">
-  <div class="modal-head"><span class="mttl">Nueva Valorización</span><button class="cls" onclick="closeM('mVenta')">✕</button></div>
-  <div class="modal-body">
-    <div class="fg-row">
-      <div class="fg"><label>Fecha</label><input id="vtFecha" type="date"></div>
-      <div class="fg"><label>EDP N°</label><input id="vtEdp" placeholder="Ej: EDP-001"></div>
-    </div>
-    <div class="fg"><label>Nombre de Proyecto</label><input id="vtNombre" placeholder="Nombre completo del proyecto"></div>
-    <div class="fg-row">
-      <div class="fg"><label>Código de Proyecto</label><input id="vtCod" placeholder="Ej: EPY-004-26"></div>
-      <div class="fg"><label>Mes de Valorización</label><input id="vtMes" placeholder="Ej: Junio 2026"></div>
-    </div>
-    <div class="fg"><label>Monto Total S/.</label><input id="vtMonto" type="number" step="0.01" placeholder="0.00"></div>
-    <div class="fg"><label>Observaciones</label><textarea id="vtObs" rows="2" placeholder="Observaciones adicionales..." style="resize:vertical"></textarea></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-top:.2rem">
-      <div class="fg" style="margin:0">
-        <label style="font-size:.72rem;color:#10b981">📄 Valorización (PDF)</label>
-        <input id="vtPdf" type="file" accept=".pdf,.PDF" style="color:var(--text);font-size:.72rem">
-        <div id="vtPdfPreview" style="font-size:.68rem;color:var(--muted2);margin-top:.2rem"></div>
-        <div id="vtPdfActual" style="display:none;margin-top:.25rem">
-          <a id="vtPdfLink" href="#" target="_blank" style="font-size:.68rem;color:#3b82f6;text-decoration:none">📎 <span id="vtPdfNombre"></span></a>
-        </div>
-      </div>
-      <div class="fg" style="margin:0">
-        <label style="font-size:.72rem;color:#f59e0b">📄 HES (PDF)</label>
-        <input id="vtHes" type="file" accept=".pdf,.PDF" style="color:var(--text);font-size:.72rem">
-        <div id="vtHesPreview" style="font-size:.68rem;color:var(--muted2);margin-top:.2rem"></div>
-        <div id="vtHesActual" style="display:none;margin-top:.25rem">
-          <a id="vtHesLink" href="#" target="_blank" style="font-size:.68rem;color:#f59e0b;text-decoration:none">📎 <span id="vtHesNombre"></span></a>
-        </div>
-      </div>
-      <div class="fg" style="margin:0">
-        <label style="font-size:.72rem;color:#a78bfa">📄 Factura (PDF)</label>
-        <input id="vtFact" type="file" accept=".pdf,.PDF" style="color:var(--text);font-size:.72rem">
-        <div id="vtFactPreview" style="font-size:.68rem;color:var(--muted2);margin-top:.2rem"></div>
-        <div id="vtFactActual" style="display:none;margin-top:.25rem">
-          <a id="vtFactLink" href="#" target="_blank" style="font-size:.68rem;color:#a78bfa;text-decoration:none">📎 <span id="vtFactNombre"></span></a>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal-foot"><button class="btn btn-a" style="--ba:#059669" onclick="gVenta()">💾 Guardar</button><button class="btn btn-out" onclick="closeM('mVenta')">Cancelar</button></div>
-</div></div>
-
 
 </main>
 </div>
 </div><!-- /appShell -->
 
 <!-- ══ MODALES ══ -->
+
+<div class="mo" id="mVenta"><div class="modal" style="max-width:540px">
+  <div class="modal-head"><span class="mttl">Nueva Valorización</span><button class="cls" onclick="closeM('mVenta')">✕</button></div>
+  <div class="modal-body">
+    <div class="fg-row">
+      <div class="fg"><label>Fecha</label><input id="vtFecha" type="date"></div>
+      <div class="fg"><label>EDP N°</label><input id="vtEdp" placeholder="Ej: EDP-001"></div>
+    </div>
+    <div class="fg"><label>Proyecto</label><select id="vtProy" style="width:100%"><option value="">— Seleccionar proyecto —</option></select></div>
+    <div class="fg-row">
+      <div class="fg"><label>Mes de Valorización</label><input id="vtMes" placeholder="Ej: Junio 2026"></div>
+      <div class="fg"><label>Monto Total S/.</label><input id="vtMonto" type="number" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="fg"><label>Observaciones</label><textarea id="vtObs" rows="2" placeholder="Observaciones adicionales..." style="resize:vertical"></textarea></div>
+    <div class="fg">
+      <label style="color:#10b981">📄 Valorización (PDF)</label>
+      <input id="vtPdf" type="file" accept=".pdf,.PDF" style="color:var(--text)">
+      <div id="vtPdfPreview" style="font-size:.72rem;color:var(--muted2);margin-top:.25rem"></div>
+      <div id="vtPdfActual" style="display:none;margin-top:.3rem">
+        <a id="vtPdfLink" href="#" target="_blank" style="font-size:.72rem;color:#10b981;text-decoration:none">📎 <span id="vtPdfNombre"></span></a>
+      </div>
+    </div>
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.55rem .8rem;font-size:.72rem;color:var(--muted2);margin-top:.2rem">
+      💡 La <strong style="color:#f59e0b">HES</strong> y la <strong style="color:#a78bfa">Factura</strong> se suben desde la tabla directamente sin editar el formulario.
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-a" style="--ba:#059669" onclick="gVenta()">💾 Guardar</button><button class="btn btn-out" onclick="closeM('mVenta')">Cancelar</button></div>
+</div></div>
+
+<div class="mo" id="mVentaUpload"><div class="modal" style="max-width:400px">
+  <div class="modal-head"><span id="mVentaUploadTtl">Subir HES</span><button class="cls" onclick="closeM('mVentaUpload')">✕</button></div>
+  <div class="modal-body">
+    <div id="mVentaUploadInfo" style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.45rem .8rem;font-size:.75rem;color:var(--muted2);margin-bottom:.6rem"></div>
+    <div class="fg">
+      <label id="mVentaUploadLbl">Archivo PDF</label>
+      <input id="vtUploadFile" type="file" accept=".pdf,.PDF" style="color:var(--text)">
+      <div id="vtUploadPreview" style="font-size:.72rem;color:var(--muted2);margin-top:.25rem"></div>
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-a" id="mVentaUploadBtn" style="--ba:#f59e0b" onclick="gVentaUpload()">📤 Subir</button><button class="btn btn-out" onclick="closeM('mVentaUpload')">Cancelar</button></div>
+</div></div>
 
 <!-- Modal: Escáner Fotocheck -->
 <div class="mo" id="mScanner"><div class="modal" style="max-width:420px">
