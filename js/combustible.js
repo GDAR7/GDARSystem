@@ -116,7 +116,7 @@ function _cbDespSearch(q){
       if(!activo)return false;
       // Primero buscar por cat específica; si no, por cargo con keyword combustible
       if(_CATS_COMB.includes(p.cat))return true;
-      return(p.cargo||'').toLowerCase().includes('combustible')||(p.cargo||'').toLowerCase().includes('despachador');
+      return(p.cargo||'').toLowerCase().includes('combustible')||(p.cargo||'').toLowerCase().includes('despachador')||(p.cargo||'').toLowerCase().includes('cisterna');
     })
     .filter(p=>{if(!txt)return true;return((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')).toLowerCase().includes(txt);})
     .sort((a,b)=>(a.ape||'').localeCompare(b.ape||''));
