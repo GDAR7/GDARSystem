@@ -7,27 +7,231 @@ function rVenta(){
   </div>`;
 }
 
+// ══ TARIFAS DE EQUIPOS ══
+let _tarifaEditId=null;
+const _TF_IS='width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.45rem .65rem;color:var(--text);font-size:.82rem;box-sizing:border-box';
+
+function rTarifas(){
+  const tarifas=[...DB.tarifasEq].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||(a.descripcion||'').localeCompare(b.descripcion||''));
+  const grupos={};
+  tarifas.forEach(t=>{const k=t.tipo||'Otros';if(!grupos[k])grupos[k]=[];grupos[k].push(t);});
+
+  const TH=`background:var(--panel2);color:var(--muted2);font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.45rem .65rem;white-space:nowrap`;
+  const TD=`padding:.45rem .65rem;border-bottom:1px solid var(--border);font-size:.8rem;vertical-align:middle`;
+
+  const TIPO_C={
+    'Línea Amarilla':'#f59e0b','Línea Blanca':'#64748b',
+    'Vehículo Menor':'#8b5cf6','Equipos Menores':'#10b981','Otros':'#a78bfa'
+  };
+
+  let body='';
+  Object.entries(grupos).forEach(([tipo,items])=>{
+    const tc=TIPO_C[tipo]||'#06b6d4';
+    body+=`<tr><td colspan="8" style="${TH};background:rgba(5,150,105,.06);color:#059669;font-size:.7rem">${tipo} &nbsp;·&nbsp; ${items.length} tarifa(s)</td></tr>`;
+    items.forEach(t=>{
+      const margen=t.tarifaSeca>0&&t.tarifaCosto>0?((t.tarifaSeca-t.tarifaCosto)/t.tarifaSeca*100):null;
+      body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+        <td style="${TD}">
+          <span style="background:${tc}18;color:${tc};border:1px solid ${tc}40;border-radius:4px;padding:2px 8px;font-size:.65rem;font-weight:700">${t.unidad||'HM'}</span>
+        </td>
+        <td style="${TD};font-weight:600">${t.descripcion||'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;color:#06b6d4;font-weight:700">${_ccFmt(t.tarifaSeca||0)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;color:#8b5cf6;font-weight:700">${_ccFmt(t.tarifaFull||0)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;color:#f59e0b;font-weight:700">${_ccFmt(t.tarifaCosto||0)}</td>
+        <td style="${TD};text-align:center;font-size:.75rem;font-weight:700;color:${margen!==null?(margen>=20?'#10b981':'#f59e0b'):'var(--muted2)'}">${margen!==null?margen.toFixed(1)+'%':'—'}</td>
+        <td style="${TD};font-size:.68rem;color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.palabrasClave||''}">${t.palabrasClave||'—'}</td>
+        <td style="${TD};white-space:nowrap">
+          <button class="btn btn-out btn-sm" onclick="openTarifaEdit(${t.id})" title="Editar" style="color:#f59e0b;border-color:#f59e0b50;margin-right:.25rem">✏️</button>
+          <button class="btn btn-del btn-sm" onclick="delTarifa(${t.id})" title="Eliminar">🗑</button>
+        </td>
+      </tr>`;
+    });
+  });
+
+  if(!body) body=`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">
+    Sin tarifas registradas. &nbsp;
+    <button onclick="cargarTarifasIniciales()" style="background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.4);color:#059669;border-radius:7px;padding:.3rem .8rem;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Cargar tarifas contractuales</button>
+  </td></tr>`;
+
+  document.getElementById('page-tarifas').innerHTML=`
+  <div style="padding:1rem 1.2rem">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem">
+      <div>
+        <h2 style="font-size:1.35rem;font-weight:900;color:var(--text);margin:0;letter-spacing:-.02em">🏷️ Tarifas de Equipos</h2>
+        <div style="font-size:.74rem;color:var(--muted2);margin-top:.2rem">${tarifas.length} tarifa(s) configurada(s) · Tarifa Venta (Seca / Full) y Tarifa Costo Proveedor</div>
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        ${!tarifas.length?`<button onclick="cargarTarifasIniciales()" style="background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.4);color:#059669;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Cargar iniciales</button>`:''}
+        <button onclick="openTarifaNew()" style="background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.5);color:#059669;border-radius:7px;padding:.35rem .9rem;font-size:.8rem;font-weight:700;cursor:pointer">+ Nueva Tarifa</button>
+      </div>
+    </div>
+
+    <!-- Leyenda -->
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;font-size:.72rem;color:var(--muted2)">
+      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#06b6d4;border-radius:2px"></span>Tarifa Venta Seca</span>
+      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#8b5cf6;border-radius:2px"></span>Tarifa Venta Full</span>
+      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#f59e0b;border-radius:2px"></span>Tarifa Costo Proveedor</span>
+      <span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#10b981;border-radius:2px"></span>% Margen (Seca−Costo)</span>
+    </div>
+
+    <!-- Tabla -->
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
+      <table style="width:100%;border-collapse:collapse;min-width:750px">
+        <thead><tr>
+          <th style="${TH};text-align:center">Un.</th>
+          <th style="${TH}">Descripción</th>
+          <th style="${TH};text-align:right">Venta Seca</th>
+          <th style="${TH};text-align:right">Venta Full</th>
+          <th style="${TH};text-align:right">Costo Proveedor</th>
+          <th style="${TH};text-align:center">Margen</th>
+          <th style="${TH}">Palabras Clave</th>
+          <th style="${TH};text-align:center">Acc.</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Nueva/Editar Tarifa -->
+  <div id="mTarifa" class="modal" onclick="if(event.target===this)closeM('mTarifa')">
+    <div class="mcont" style="max-width:520px">
+      <div class="mhdr">
+        <span class="mttl" id="mTarifaTtl">Nueva Tarifa</span>
+        <button class="mclose" onclick="closeM('mTarifa')">✕</button>
+      </div>
+      <div style="padding:1rem 1.1rem;display:grid;grid-template-columns:1fr 1fr;gap:.7rem">
+        <div style="grid-column:1/-1">
+          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">TIPO DE EQUIPO</div>
+          <select id="tfTipo" style="${_TF_IS}">
+            <option>Línea Amarilla</option><option>Línea Blanca</option>
+            <option>Vehículo Menor</option><option>Equipos Menores</option><option>Otros</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">DESCRIPCIÓN DEL EQUIPO</div>
+          <input id="tfDesc" placeholder="Ej: Excavadora Normal 336" style="${_TF_IS}">
+        </div>
+        <div>
+          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">UNIDAD</div>
+          <select id="tfUn" style="${_TF_IS}">
+            <option value="HM">HM — Hora Máquina</option>
+            <option value="MES">MES — Mensual</option>
+          </select>
+        </div>
+        <div></div>
+        <div>
+          <div style="font-size:.7rem;color:#06b6d4;font-weight:700;margin-bottom:.25rem">TARIFA VENTA SECA S/</div>
+          <input id="tfSeca" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#06b6d4">
+        </div>
+        <div>
+          <div style="font-size:.7rem;color:#8b5cf6;font-weight:700;margin-bottom:.25rem">TARIFA VENTA FULL S/</div>
+          <input id="tfFull" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#8b5cf6">
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:.7rem;color:#f59e0b;font-weight:700;margin-bottom:.25rem">TARIFA COSTO PROVEEDOR S/</div>
+          <input id="tfCosto" type="number" step="0.01" min="0" placeholder="0.00" style="${_TF_IS};color:#f59e0b">
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:.7rem;color:var(--muted2);font-weight:700;margin-bottom:.25rem">PALABRAS CLAVE (separadas por coma)</div>
+          <input id="tfKw" placeholder="excavadora, excavador, cat 336" style="${_TF_IS}">
+          <div style="font-size:.65rem;color:var(--muted2);margin-top:.3rem">Términos del nombre o subtipo del equipo para asignación automática en Cost Control.</div>
+        </div>
+      </div>
+      <div style="padding:0 1.1rem 1rem;display:flex;justify-content:flex-end;gap:.5rem">
+        <button onclick="closeM('mTarifa')" class="btn btn-out">Cancelar</button>
+        <button onclick="gTarifa()" style="background:#059669;color:#fff;border:none;border-radius:7px;padding:.4rem 1.1rem;font-weight:700;cursor:pointer;font-size:.85rem">Guardar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openTarifaNew(){
+  _tarifaEditId=null;
+  document.getElementById('mTarifaTtl').textContent='Nueva Tarifa';
+  ['tfDesc','tfSeca','tfFull','tfCosto','tfKw'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const t=document.getElementById('tfTipo');if(t)t.value='Línea Amarilla';
+  const u=document.getElementById('tfUn');if(u)u.value='HM';
+  openM('mTarifa');
+}
+
+function openTarifaEdit(id){
+  const t=DB.tarifasEq.find(x=>x.id===id);if(!t)return;
+  _tarifaEditId=id;
+  document.getElementById('mTarifaTtl').textContent='Editar Tarifa';
+  document.getElementById('tfTipo').value=t.tipo||'Línea Amarilla';
+  document.getElementById('tfDesc').value=t.descripcion||'';
+  document.getElementById('tfUn').value=t.unidad||'HM';
+  document.getElementById('tfSeca').value=t.tarifaSeca||'';
+  document.getElementById('tfFull').value=t.tarifaFull||'';
+  document.getElementById('tfCosto').value=t.tarifaCosto||'';
+  document.getElementById('tfKw').value=t.palabrasClave||'';
+  openM('mTarifa');
+}
+
+function gTarifa(){
+  const desc=(document.getElementById('tfDesc').value||'').trim();
+  if(!desc){toast('Ingrese una descripción',true);return;}
+  const rec={
+    tipo:document.getElementById('tfTipo').value,
+    descripcion:desc,
+    unidad:document.getElementById('tfUn').value,
+    tarifaSeca:+document.getElementById('tfSeca').value||0,
+    tarifaFull:+document.getElementById('tfFull').value||0,
+    tarifaCosto:+document.getElementById('tfCosto').value||0,
+    palabrasClave:(document.getElementById('tfKw').value||'').trim()
+  };
+  if(_tarifaEditId!==null){
+    const idx=DB.tarifasEq.findIndex(x=>x.id===_tarifaEditId);
+    if(idx>-1){Object.assign(DB.tarifasEq[idx],rec);syncSheet('saveTarifaEq',DB.tarifasEq[idx]);}
+    _tarifaEditId=null;
+  }else{
+    rec.id=nid('teq');
+    DB.tarifasEq.push(rec);
+    syncSheet('saveTarifaEq',rec);
+  }
+  closeM('mTarifa');rTarifas();toast('Tarifa guardada');
+}
+
+function delTarifa(id){
+  if(!confirm('¿Eliminar esta tarifa?'))return;
+  DB.tarifasEq=DB.tarifasEq.filter(x=>x.id!==id);
+  supaDelete('tarifasEq',id);
+  rTarifas();toast('Tarifa eliminada');
+}
+
+async function cargarTarifasIniciales(){
+  if(!confirm(`¿Cargar las ${_CC_TARIFA_EQ.length} tarifas contractuales como punto de partida?\nPodrás editarlas después.`))return;
+  for(const t of _CC_TARIFA_EQ){
+    const rec={id:nid('teq'),tipo:t.tipo||'Otros',descripcion:t.lab,unidad:t.un,
+      tarifaSeca:t.seca,tarifaFull:t.full,tarifaCosto:0,palabrasClave:t.kw.join(', ')};
+    DB.tarifasEq.push(rec);
+    syncSheet('saveTarifaEq',rec);
+  }
+  rTarifas();toast('Tarifas iniciales cargadas — ingresa las tarifas costo de proveedor');
+}
+
 // ══ COST CONTROL ══
 let _ccOffset=0, _ccTarifaModo='seca', _ccTabActiva='equipos';
 
-// ── Tarifas de equipos (de tabla contractual) ──
+// ── Tarifas de equipos (valores contractuales — fallback si la tabla DB está vacía) ──
 const _CC_TARIFA_EQ=[
-  {kw:['martillo'],                                    lab:'Excavadora Martillo Hidráulico', seca:383.32,   full:457.32,   un:'HM'},
-  {kw:['excavadora','excavador'],                      lab:'Excavadora Normal',               seca:253.45,   full:383.32,   un:'HM'},
-  {kw:['cargador frontal','cargador'],                 lab:'Cargador Frontal',                seca:258.40,   full:318.25,   un:'HM'},
-  {kw:['tractor oruga','tractor'],                     lab:'Tractor Oruga',                   seca:237.50,   full:363.47,   un:'HM'},
-  {kw:['retroexcavadora'],                             lab:'Retroexcavadora',                 seca:105.45,   full:155.96,   un:'HM'},
-  {kw:['motoniveladora'],                              lab:'Motoniveladora',                  seca:222.00,   full:299.92,   un:'HM'},
-  {kw:['rodillo'],                                     lab:'Rodillo de 19 TN',               seca:171.00,   full:227.32,   un:'HM'},
-  {kw:['volquete'],                                    lab:'Camión Volquete 15 M3',           seca:107.30,   full:153.48,   un:'HM'},
-  {kw:['cisterna de agua','cisterna agua'],            lab:'Cisterna de Agua 5000 GLN',       seca:23145.50, full:28773.20, un:'MES'},
-  {kw:['cisterna de combustible 2000','combustible 2000','comb 2000'],
-                                                        lab:'Cisterna Combustible 2000 GLN', seca:17860.00, full:21467.50, un:'MES'},
-  {kw:['cisterna de combustible','cisterna combustible','cisterna comb','cisterna d2l'],
-                                                        lab:'Cisterna Combustible 1000 GLN', seca:12464.40, full:14773.20, un:'MES'},
-  {kw:['utilitario','camion utilitario'],              lab:'Camión Utilitario Mecánico',      seca:20550.60, full:24773.20, un:'MES'},
-  {kw:['coaster','couster'],                           lab:'Couster 25 Pasajeros',            seca:16428.00, full:18022.20, un:'MES'},
-  {kw:['camioneta','pickup','pick-up'],                lab:'Camioneta 4 Pasajeros',           seca:8769.00,  full:9934.50,  un:'MES'},
+  {tipo:'Línea Amarilla', kw:['martillo'],                                   lab:'Excavadora Martillo Hidráulico', seca:383.32,   full:457.32,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['excavadora','excavador'],                     lab:'Excavadora Normal',               seca:253.45,   full:383.32,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['cargador frontal','cargador'],                lab:'Cargador Frontal',                seca:258.40,   full:318.25,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['tractor oruga','tractor'],                    lab:'Tractor Oruga',                   seca:237.50,   full:363.47,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['retroexcavadora'],                            lab:'Retroexcavadora',                 seca:105.45,   full:155.96,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['motoniveladora'],                             lab:'Motoniveladora',                  seca:222.00,   full:299.92,   un:'HM'},
+  {tipo:'Línea Amarilla', kw:['rodillo'],                                    lab:'Rodillo de 19 TN',               seca:171.00,   full:227.32,   un:'HM'},
+  {tipo:'Línea Blanca',   kw:['volquete'],                                   lab:'Camión Volquete 15 M3',           seca:107.30,   full:153.48,   un:'HM'},
+  {tipo:'Línea Blanca',   kw:['cisterna de agua','cisterna agua'],           lab:'Cisterna de Agua 5000 GLN',       seca:23145.50, full:28773.20, un:'MES'},
+  {tipo:'Línea Blanca',   kw:['cisterna de combustible 2000','combustible 2000','comb 2000'],
+                                                                              lab:'Cisterna Combustible 2000 GLN',  seca:17860.00, full:21467.50, un:'MES'},
+  {tipo:'Línea Blanca',   kw:['cisterna de combustible','cisterna combustible','cisterna comb','cisterna d2l'],
+                                                                              lab:'Cisterna Combustible 1000 GLN',  seca:12464.40, full:14773.20, un:'MES'},
+  {tipo:'Línea Blanca',   kw:['utilitario','camion utilitario'],             lab:'Camión Utilitario Mecánico',      seca:20550.60, full:24773.20, un:'MES'},
+  {tipo:'Vehículo Menor', kw:['coaster','couster'],                          lab:'Couster 25 Pasajeros',            seca:16428.00, full:18022.20, un:'MES'},
+  {tipo:'Vehículo Menor', kw:['camioneta','pickup','pick-up'],               lab:'Camioneta 4 Pasajeros',           seca:8769.00,  full:9934.50,  un:'MES'},
 ];
 
 // ── Tarifas de personal por cargo (costo mensual) ──
@@ -72,9 +276,20 @@ function _ccPeriodo(){
   return {desde:fmtD(ini), hasta:fmtD(fin), label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`, dias:diasTot};
 }
 
-// ── Coincidencia tarifa equipo ──
+// ── Coincidencia tarifa equipo (usa DB si tiene datos, sino fallback hardcoded) ──
 function _ccMatchEq(eq){
   const txt=((eq.sub||'')+' '+(eq.nombre||'')+' '+(eq.marca||'')+' '+(eq.modelo||'')).toLowerCase();
+  const dbTarifas=DB.tarifasEq||[];
+  if(dbTarifas.length){
+    for(const t of dbTarifas){
+      const kws=(t.palabrasClave||'').split(',').map(k=>k.trim().toLowerCase()).filter(Boolean);
+      if(kws.length&&kws.some(k=>txt.includes(k))){
+        // Normalizar campos DB al mismo shape que hardcoded
+        return{lab:t.descripcion,seca:+t.tarifaSeca||0,full:+t.tarifaFull||0,costo:+t.tarifaCosto||0,un:t.unidad||'HM'};
+      }
+    }
+    return null;
+  }
   for(const t of _CC_TARIFA_EQ){
     if(t.kw.some(k=>txt.includes(k.toLowerCase()))) return t;
   }
