@@ -3,16 +3,24 @@ const _VENTA_BUCKET='Ventas_EDP_pdf';
 let _ventaEditId=null;
 let _vtUploadId=null;
 let _vtUploadField=null;
+let _valorizSort={col:'fecha',dir:-1};
 
 function _vtPdfLink(url,color){
   if(!url)return'<span style="color:var(--muted);font-size:.7rem">—</span>';
   return`<a href="${url}" target="_blank" class="btn btn-sm btn-out" style="font-size:.63rem;padding:2px 8px;color:${color};border-color:${color}60">📄 Ver</a>`;
 }
 function _vtUploadBtn(ventaId,field,color,label){
-  return`<button onclick="openValorizUpload(${ventaId},'${field}')" class="btn btn-sm btn-out" style="font-size:.63rem;padding:2px 8px;color:${color};border-color:${color}40;opacity:.7">📤 ${label}</button>`;
+  return`<button onclick="openValorizUpload(${ventaId},'${field}')" class="btn btn-sm btn-out" style="font-size:.63rem;padding:2px 8px;color:${color};border-color:${color}40;opacity:.75">📤 ${label}</button>`;
+}
+
+function _vtSortBy(col){
+  if(_valorizSort.col===col)_valorizSort.dir*=-1;
+  else{_valorizSort.col=col;_valorizSort.dir=col==='montoTotal'?-1:-1;}
+  rValorizaciones();
 }
 
 function rValorizaciones(){
+  const canEdit=CU&&(CU.areas||[]).includes('costControl');
   const rows=DB.ventas||[];
   const totalMonto=rows.reduce((a,v)=>a+(+v.montoTotal||0),0);
   const kpis=[
@@ -24,9 +32,33 @@ function rValorizaciones(){
   const kpiEl=document.getElementById('valorizKpis');
   if(kpiEl)kpiEl.innerHTML=kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
 
-  const sorted=[...rows].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const {col,dir}=_valorizSort;
+  const sorted=[...rows].sort((a,b)=>{
+    let va=a[col]||'', vb=b[col]||'';
+    if(col==='montoTotal'){va=+a.montoTotal||0;vb=+b.montoTotal||0;return(va-vb)*dir;}
+    return va.toString().localeCompare(vb.toString())*dir;
+  });
+
+  const thStyle=`cursor:pointer;user-select:none;white-space:nowrap`;
+  const arrow=c=>_valorizSort.col===c?(_valorizSort.dir===1?' ▲':' ▼'):'';
+
   const tb=document.getElementById('tbValorizaciones');
   if(!tb)return;
+
+  // Actualizar headers con flechas de orden
+  const thead=tb.closest('table')?.querySelector('thead tr');
+  if(thead){
+    thead.innerHTML=`
+      <th style="${thStyle}" onclick="_vtSortBy('fecha')">Fecha${arrow('fecha')}</th>
+      <th>EDP N°</th>
+      <th>Proyecto</th>
+      <th>Código</th>
+      <th style="${thStyle}" onclick="_vtSortBy('valorizacionMes')">Mes${arrow('valorizacionMes')}</th>
+      <th class="tr" style="${thStyle}" onclick="_vtSortBy('montoTotal')">Monto S/.${arrow('montoTotal')}</th>
+      <th>Valoriz.</th><th>HES</th><th>Factura</th><th>Obs.</th>
+      ${canEdit?'<th></th>':''}`;
+  }
+
   tb.innerHTML=sorted.map(v=>`<tr>
     <td class="mono">${v.fecha||'—'}</td>
     <td><span class="badge b-green" style="font-size:.63rem">${v.edpNum||'—'}</span></td>
@@ -38,10 +70,10 @@ function rValorizaciones(){
     <td style="text-align:center">${v.hesUrl?_vtPdfLink(v.hesUrl,'#f59e0b'):_vtUploadBtn(v.id,'hes','#f59e0b','HES')}</td>
     <td style="text-align:center">${v.facturaUrl?_vtPdfLink(v.facturaUrl,'#a78bfa'):_vtUploadBtn(v.id,'factura','#a78bfa','Fact.')}</td>
     <td style="font-size:.71rem;color:var(--muted2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.observaciones||''}">${v.observaciones||'—'}</td>
-    <td style="display:flex;gap:.3rem">
+    ${canEdit?`<td style="display:flex;gap:.3rem">
       <button class="btn btn-out btn-sm" onclick="openValorizEdit(${v.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
       <button class="btn btn-del btn-sm" onclick="del('ventas',${v.id})" title="Eliminar">🗑</button>
-    </td>
+    </td>`:''}
   </tr>`).join('');
 
   const srch=document.getElementById('valorizSearch');
@@ -141,11 +173,12 @@ function openValorizUpload(ventaId,field){
   _vtUploadField=field;
   const cfg={hes:{label:'HES',color:'#f59e0b'},factura:{label:'Factura',color:'#a78bfa'}};
   const c=cfg[field]||{label:field,color:'#059669'};
-  document.getElementById('mVentaUploadTtl').textContent='📤 Subir '+c.label;
-  document.getElementById('mVentaUploadTtl').style.color=c.color;
-  document.getElementById('mVentaUploadBtn').style.setProperty('--ba',c.color);
-  document.getElementById('mVentaUploadInfo').innerHTML=
-    `<strong>${v.edpNum||'—'}</strong> · ${v.nombre||'—'} · <span style="color:var(--muted2)">${v.valorizacionMes||''}</span>`;
+  const ttl=document.getElementById('mVentaUploadTtl');
+  if(ttl){ttl.textContent='📤 Subir '+c.label;ttl.style.color=c.color;}
+  const btn=document.getElementById('mVentaUploadBtn');
+  if(btn)btn.style.setProperty('--ba',c.color);
+  const info=document.getElementById('mVentaUploadInfo');
+  if(info)info.innerHTML=`<strong>${v.edpNum||'—'}</strong> · ${v.nombre||'—'} · <span style="color:var(--muted2)">${v.valorizacionMes||''}</span>`;
   document.getElementById('vtUploadFile').value='';
   document.getElementById('vtUploadPreview').textContent='';
   openM('mVentaUpload');
