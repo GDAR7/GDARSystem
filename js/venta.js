@@ -68,9 +68,20 @@ function _vtParseHes(text){
     ||t.match(/(\d{2}\.\d{2}\.\d{4})\s*[-–]\s*(\d{2}\.\d{2}\.\d{4})/);
   if(mPer)result.hesPeriodo=mPer[1].replace(/\./g,'/')+' – '+mPer[2].replace(/\./g,'/');
 
-  // Texto de cabecera — se detiene antes de RUC, Teléfono u otros campos de la columna derecha
-  const mCab=t.match(/Texto\s+de\s+cabecera\s+(.+?)(?=\n|RUC\b|Tel[eé]fono|Orden\s+de\s+|Proveedor|Cond\.|$)/i);
-  if(mCab)result.hesTextoCabecera=mCab[1].trim();
+  // Texto de cabecera — captura toda la línea y elimina campos SAP que PDF.js concatena al final
+  const mCab=t.match(/Texto\s+de\s+cabecera\s+(.+)/i);
+  if(mCab){
+    let cab=mCab[1]
+      .replace(/\s+RUC\b.*/i,'')
+      .replace(/\s+Tel[eé]fono.*/i,'')
+      .replace(/\s+Orden\s+de\s+.*/i,'')
+      .replace(/\s+Moneda\s+.*/i,'')
+      .replace(/\s+Proveedor\s+.*/i,'')
+      .replace(/\s+Cond\.\s+.*/i,'')
+      .replace(/\s+N[°o]\s+pos.*/i,'')
+      .replace(/\s+\d{8,}.*/,'');   // corta si queda un número largo (RUC, etc.)
+    result.hesTextoCabecera=cab.trim();
+  }
 
   // Moneda
   const mMon=t.match(/Moneda\s+([A-Z]{3})\b/i);
