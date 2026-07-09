@@ -340,8 +340,15 @@ function calcHoras(e,s){
 
 async function loadAsistenciaFecha(fecha){
   try{
-    const{data,error}=await supa.from('asistencia').select('*').eq('fecha',fecha);
-    if(!error&&data)DB.asistencia=data.map(toCamel);
+    const[asiRes,tarRes]=await Promise.all([
+      supa.from('asistencia').select('*').eq('fecha',fecha),
+      supa.from('tareaje').select('*').eq('fecha',fecha)
+    ]);
+    if(!asiRes.error&&asiRes.data)DB.asistencia=asiRes.data.map(toCamel);
+    if(!tarRes.error&&tarRes.data){
+      DB.tareaje=DB.tareaje.filter(r=>r.fecha!==fecha);
+      DB.tareaje.push(...tarRes.data.map(toCamel));
+    }
   }catch(e){console.warn('[Asistencia]',e);}
 }
 
@@ -521,8 +528,8 @@ async function procesarQR(texto){
     // ── Auto-guardar tareaje ──
     const ahora=new Date().toTimeString().slice(0,5);
     const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
-    if(existente){existente.tipo=autoTipo;syncSheet('saveTareaje',existente);}
-    else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);syncSheet('saveTareaje',rec);}
+    if(existente){existente.tipo=autoTipo;await supaUpsert('tareaje',existente);}
+    else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);await supaUpsert('tareaje',rec);}
 
     // ── Auto-guardar asistencia (solo si no tiene entrada aún) ──
     const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
@@ -654,14 +661,26 @@ async function gManualAsi(){
   const obs=document.getElementById('manAsiObs').value;
   if(!entrada){toast('Ingrese hora de entrada',true);return;}
   const p=DB.personal.find(x=>x.id===_manualAsiPersonalId);
-  const existing=DB.asistencia.find(a=>a.personalId===_manualAsiPersonalId&&a.fecha===_manualAsiFecha);
+  const fecha=_manualAsiFecha;
+  const existing=DB.asistencia.find(a=>a.personalId===_manualAsiPersonalId&&a.fecha===fecha);
   if(existing){
     Object.assign(existing,{horaEntrada:entrada,horaSalida:salida,obs,registradoPor:CU.nombre});
     await supa.from('asistencia').update(toSnake(existing)).eq('id',existing.id);
   }else{
-    const rec={personalId:_manualAsiPersonalId,fecha:_manualAsiFecha,horaEntrada:entrada,horaSalida:salida,guardia:p?.guardia||'',estado:'Presente',obs,registradoPor:CU.nombre};
+    const rec={personalId:_manualAsiPersonalId,fecha,horaEntrada:entrada,horaSalida:salida,guardia:p?.guardia||'',estado:'Presente',obs,registradoPor:CU.nombre};
     const{data}=await supa.from('asistencia').insert(toSnake(rec)).select().single();
     if(data){rec.id=data.id;DB.asistencia.push(rec);}
+  }
+  // Crear tariaje automático si no existe aún
+  const existeTar=DB.tareaje.find(r=>r.personalId===_manualAsiPersonalId&&r.fecha===fecha);
+  if(!existeTar){
+    const _h=parseInt((entrada||'08:00').split(':')[0])||8;
+    const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
+    const prevDias=(DB.tareaje||[]).filter(r=>r.personalId===_manualAsiPersonalId&&r.fecha<fecha&&['TD','TN','DLT','A5'].includes(r.tipo));
+    const tipo=prevDias.length===0?'A5':_turnoTipo;
+    const tarRec={id:nid('tar'),personalId:_manualAsiPersonalId,fecha,tipo,proy:p?.proy||''};
+    DB.tareaje.push(tarRec);
+    syncSheet('saveTareaje',tarRec);
   }
   closeM('mManualAsi');rAsistencia();toast('Asistencia guardada');
 }
