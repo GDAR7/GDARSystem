@@ -923,7 +923,7 @@ function _pizRenderReal(c){
       ${sinPos.map(p=>{
         const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);if(!eq)return'';
         const col=_pizCondColor(p.condicion);
-        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:3px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.65rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${p.fecha}')">
+        return`<div style="padding:.3rem .4rem;margin-bottom:.25rem;border-left:4px solid ${col};background:rgba(255,255,255,.02);border-radius:0 5px 5px 0;font-size:.65rem;cursor:pointer" onclick="_pizPopup(${p.eqId},'${p.fecha}')">
           ${_pizEqIcon(eq.sub)} <strong>${_pizEqCode(eq.codigo)}</strong><br>
           <span style="color:${col};font-size:.62rem">${p.condicion||'—'}</span>
           <span style="color:var(--muted2);font-size:.6rem;display:block">${p.frenteT||'Sin frente'}</span>

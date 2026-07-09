@@ -229,7 +229,7 @@ function _notifRenderLog(){
   if(!log.length){el.innerHTML='<div style="font-size:.72rem;color:var(--muted2);padding:.3rem 0">Sin envíos registrados aún.</div>';return;}
   el.innerHTML=log.map(e=>{
     const hora=new Date(e.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    return`<div style="display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;background:var(--panel2);border-radius:6px;border-left:3px solid ${e.ok?'#10b981':'#ef4444'}">
+    return`<div style="display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;background:var(--panel2);border-radius:6px;border-left:4px solid ${e.ok?'#10b981':'#ef4444'}">
       <span style="font-size:.75rem">${e.ok?'✓':'✗'}</span>
       <div style="flex:1;font-size:.72rem;color:var(--text)">${e.asunto||'Envío'}</div>
       <div style="font-size:.62rem;color:var(--muted2)">${hora}</div>

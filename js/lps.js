@@ -447,7 +447,7 @@ function _lpsRenderWBS(c){
       const floatDays=cpm.float[w.id];
       const isCritical=floatDays===0;
       const isNearCrit=floatDays!==null&&floatDays>0&&floatDays<=3;
-      const rowBorder=isCritical?'border-left:3px solid #ef4444':isNearCrit?'border-left:3px solid #f59e0b':'border-left:3px solid transparent';
+      const rowBorder=isCritical?'border-left:4px solid #ef4444':isNearCrit?'border-left:4px solid #f59e0b':'border-left:4px solid transparent';
       const floatTd=floatDays===null?'<td style="text-align:center;color:var(--muted2);font-size:.7rem">—</td>'
         :isCritical?`<td style="text-align:center"><span title="Ruta Crítica" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440;border-radius:4px;padding:1px 5px;font-size:.68rem;font-weight:700">0d 🔴</span></td>`
         :`<td style="text-align:center;font-size:.72rem;color:${floatDays<=3?'#f59e0b':'#10b981'}">${floatDays}d</td>`;

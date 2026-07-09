@@ -906,7 +906,7 @@ function rRoster(){
     const _badge=(n,lbl,bg,col)=>n>0?`<span style="font-size:.65rem;font-weight:700;background:${bg};color:${col};padding:2px 9px;border-radius:4px">${n} ${lbl}</span>`:'';
     const resumenHoy=_tipoHoy?`<div style="display:flex;align-items:center;gap:.35rem;margin-left:.4rem"><span style="font-size:.58rem;color:var(--muted2);font-weight:600">HOY:</span>${_badge(_cTD,'TD','rgba(16,185,129,.22)','#10b981')}${_badge(_cTN,'TN','rgba(99,102,241,.22)','#818cf8')}${_badge(_cDL,'DL','rgba(100,116,139,.22)','#94a3b8')}</div>`:'';
     return`<div style="margin-bottom:1.2rem">
-      <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;border-radius:0 6px 6px 0;margin-bottom:.4rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-left:4px solid #f59e0b;border-radius:0 6px 6px 0;margin-bottom:.4rem;flex-wrap:wrap">
         <span style="font-size:.75rem;font-weight:800;color:#f59e0b">GUARDIA ${grd}</span>
         <span style="font-size:.62rem;color:var(--muted2)">· ${personas.length} persona${personas.length!==1?'s':''}</span>
         ${cfgLabel}
@@ -977,7 +977,7 @@ function rRoster(){
   const barraResumen=`<div style="overflow-x:auto;margin-bottom:.5rem">
     <table style="border-collapse:collapse;table-layout:fixed;font-size:.65rem">
       <tbody><tr>
-        <td style="width:175px;min-width:175px;padding:.3rem .5rem;font-size:.6rem;font-weight:700;color:#10b981;white-space:nowrap;background:rgba(16,185,129,.07);border-left:3px solid #10b981;border-radius:0 4px 4px 0">TD + TN · TOTAL</td>
+        <td style="width:175px;min-width:175px;padding:.3rem .5rem;font-size:.6rem;font-weight:700;color:#10b981;white-space:nowrap;background:rgba(16,185,129,.07);border-left:4px solid #10b981;border-radius:0 4px 4px 0">TD + TN · TOTAL</td>
         <td style="width:125px;min-width:125px;background:rgba(16,185,129,.07)"></td>
         ${dias35.map((d,i)=>{const n=_sumaDia[i];const esHoy=d===hoy;const dow=_rosterDia(d);const esDom=dow===0;return`<td style="text-align:center;width:30px;min-width:30px;padding:2px 0;font-size:.68rem;font-weight:800;color:${n>0?'#10b981':'var(--muted2)'};background:${esHoy?'rgba(245,158,11,.15)':n>0?'rgba(16,185,129,.07)':'transparent'};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};${esDom?'color:#f87171':''}border-bottom:1px solid var(--border)">${n>0?n:'·'}</td>`;}).join('')}
       </tr></tbody>

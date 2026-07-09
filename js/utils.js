@@ -131,7 +131,7 @@ async function cargarUsuariosOnline(){
     const ahora=new Date();
     const rows=data.map(s=>{
       const hora=new Date(s.login_at).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
-      return`<div style="display:flex;align-items:center;gap:.6rem;padding:.42rem .6rem;background:var(--panel2);border-radius:6px;margin-bottom:.3rem;border-left:3px solid #10b981">
+      return`<div style="display:flex;align-items:center;gap:.6rem;padding:.42rem .6rem;background:var(--panel2);border-radius:6px;margin-bottom:.3rem;border-left:4px solid #10b981">
         <span style="font-size:.85rem">🟢</span>
         <div style="flex:1"><div style="font-size:.78rem;font-weight:600">${s.usuario}</div><div style="font-size:.63rem;color:var(--muted2)">${s.cargo}</div></div>
         <div style="font-size:.65rem;color:#10b981;text-align:right">desde las ${hora}</div>
