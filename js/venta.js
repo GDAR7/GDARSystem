@@ -63,10 +63,30 @@ function _vtParseHes(text){
     result.hesMonto=parseFloat(numStr)||0;
   }
 
-  // Período — dd.mm.yyyy - dd.mm.yyyy
-  const mPer=t.match(/(?:Per[ií]odo|Periodo|Período)[:\s]+(\d{2}[\/\.]\d{2}[\/\.]\d{4})\s*[-–a]\s*(\d{2}[\/\.]\d{2}[\/\.]\d{4})/i)
+  // Período — "26.03.2026 - 20.04.2026" en columna "Periodo de prestación"
+  const mPer=t.match(/(?:Per[ií]odo\s+de\s+prestaci[oó]n|Per[ií]odo|Periodo|Período)[:\s]+(\d{2}[\/\.]\d{2}[\/\.]\d{4})\s*[-–]\s*(\d{2}[\/\.]\d{2}[\/\.]\d{4})/i)
     ||t.match(/(\d{2}\.\d{2}\.\d{4})\s*[-–]\s*(\d{2}\.\d{2}\.\d{4})/);
   if(mPer)result.hesPeriodo=mPer[1].replace(/\./g,'/')+' – '+mPer[2].replace(/\./g,'/');
+
+  // Texto de cabecera
+  const mCab=t.match(/Texto\s+de\s+cabecera\s+(.+?)(?=\n|Orden\s+de\s+|Proveedor|$)/i);
+  if(mCab)result.hesTextoCabecera=mCab[1].trim();
+
+  // Moneda
+  const mMon=t.match(/Moneda\s+([A-Z]{3})\b/i);
+  if(mMon)result.hesMoneda=mMon[1].toUpperCase();
+
+  // Cant. Pedida — primer número grande en la fila de datos (columna Cant. Pedida)
+  const mCant=t.match(/Cant(?:idad)?\.?\s+Pedida[\s\S]{0,200}?\b(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{3}))\b/i)
+    ||t.match(/GLB\s+([\d,\.]+)\s+[\d,\.]+/i);
+  if(mCant){
+    const raw=mCant[1].replace(/\s/g,'');
+    const numStr=raw.includes(',')&&/,\d{3}$/.test(raw)
+      ?raw.replace(/,/g,'')
+      :/,\d{1,2}$/.test(raw)?raw.replace(/\./g,'').replace(',','.')
+      :raw.replace(/,/g,'');
+    result.hesCantPedida=parseFloat(numStr)||0;
+  }
 
   return result;
 }
@@ -82,8 +102,11 @@ function _vtShowHesPanel(data){
     {l:'N° HES',v:data.hesNum||'—',c:'#f59e0b'},
     {l:'Fecha',v:data.hesFecha||'—'},
     {l:'Orden de Compra',v:data.hesOc||'—'},
+    {l:'Moneda',v:data.hesMoneda||'—'},
     {l:'Monto Aceptado',v:data.hesMonto?fmt(data.hesMonto):'—',c:'#10b981'},
+    {l:'Cant. Pedida',v:data.hesCantPedida?fmt(data.hesCantPedida):'—'},
     {l:'Período',v:data.hesPeriodo||'—',span:2},
+    {l:'Texto de Cabecera',v:data.hesTextoCabecera||'—',span:2,c:'#a78bfa'},
   ];
   fields.innerHTML=rows.map(r=>`
     <div${r.span?` style="grid-column:span ${r.span}"`:''}>
@@ -252,6 +275,7 @@ async function gVenta(){
     hesUrl:existing.hesUrl||'',hesNombre:existing.hesNombre||'',hesPath:existing.hesPath||'',
     hesNum:existing.hesNum||'',hesFecha:existing.hesFecha||'',hesOc:existing.hesOc||'',
     hesMonto:existing.hesMonto||0,hesPeriodo:existing.hesPeriodo||'',
+    hesTextoCabecera:existing.hesTextoCabecera||'',hesMoneda:existing.hesMoneda||'',hesCantPedida:existing.hesCantPedida||0,
     facturaUrl:existing.facturaUrl||'',facturaNombre:existing.facturaNombre||'',facturaPath:existing.facturaPath||'',
   };
 
@@ -305,6 +329,9 @@ async function gVentaUpload(){
     if(_vtHesData.hesOc)v.hesOc=_vtHesData.hesOc;
     if(_vtHesData.hesMonto)v.hesMonto=_vtHesData.hesMonto;
     if(_vtHesData.hesPeriodo)v.hesPeriodo=_vtHesData.hesPeriodo;
+    if(_vtHesData.hesTextoCabecera)v.hesTextoCabecera=_vtHesData.hesTextoCabecera;
+    if(_vtHesData.hesMoneda)v.hesMoneda=_vtHesData.hesMoneda;
+    if(_vtHesData.hesCantPedida)v.hesCantPedida=_vtHesData.hesCantPedida;
   }else{
     v.facturaUrl=publicUrl;v.facturaNombre=file.name;v.facturaPath=path;
   }
@@ -359,3 +386,127 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   });
 });
+
+// ══ MÓDULO HES ══
+let _hesChart=null;
+
+function rHes(){
+  const pg=document.getElementById('page-hes');if(!pg)return;
+  const allVentas=DB.ventas||[];
+  const rows=allVentas.filter(v=>v.hesUrl);
+
+  const totalMonto=rows.reduce((a,v)=>a+(+v.hesMonto||0),0);
+  const avg=rows.length?totalMonto/rows.length:0;
+
+  const kpis=[
+    {l:'HES Registradas',v:rows.length,c:'#f59e0b'},
+    {l:'Monto Total S/.',v:fmt(totalMonto),c:'#10b981'},
+    {l:'Promedio por HES',v:fmt(avg),c:'#06b6d4'},
+    {l:'Valorizaciones sin HES',v:allVentas.filter(v=>!v.hesUrl).length,c:'#f87171'},
+  ];
+
+  // Agrupar por mes según hesFecha (dd/mm/yyyy)
+  const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const byMonth={};
+  rows.forEach(v=>{
+    if(!v.hesFecha)return;
+    const p=v.hesFecha.split(/[\/\.\-]/);
+    if(p.length<3)return;
+    const mm=+p[1]-1,yyyy=p[2];
+    const key=`${yyyy}-${String(mm+1).padStart(2,'0')}`;
+    if(!byMonth[key])byMonth[key]={label:`${MES[mm]} ${yyyy}`,monto:0};
+    byMonth[key].monto+=(+v.hesMonto||0);
+  });
+  const keys=Object.keys(byMonth).sort();
+  const chartLabels=keys.map(k=>byMonth[k].label);
+  const chartData=keys.map(k=>byMonth[k].monto);
+
+  const noData=rows.length===0;
+  pg.innerHTML=`
+    <div class="ph">
+      <div class="ph-title" style="color:#f59e0b">📑 HES · Hojas de Entrada de Servicios</div>
+      <div class="ph-sub">Resumen de montos aceptados por SAP</div>
+    </div>
+    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('')}</div>
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-head"><span class="card-title">📊 Monto Aceptado por Mes</span></div>
+      <div class="card-body" style="padding:1rem 1.2rem">
+        ${noData
+          ?'<div style="text-align:center;padding:2rem;color:var(--muted2);font-size:.82rem">Sin HES registradas aún</div>'
+          :'<canvas id="hesChartCanvas" style="max-height:260px"></canvas>'}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Detalle de HES</span>
+        <div class="card-head-right">
+          <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbHes')"></div>
+        </div>
+      </div>
+      <div class="card-body"><div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>N° HES</th><th>Proyecto</th><th>Fecha HES</th>
+          <th>Ord. Compra</th><th>Moneda</th>
+          <th class="tr">Cant. Pedida</th><th class="tr">Monto Aceptado</th>
+          <th>Período</th><th>Texto Cabecera</th><th>PDF</th>
+        </tr></thead>
+        <tbody id="tbHes">${rows.map(v=>`<tr>
+          <td><span style="background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b50;border-radius:4px;padding:1px 7px;font-size:.65rem;font-family:monospace;font-weight:700">${v.hesNum||'—'}</span></td>
+          <td><strong style="font-size:.82rem">${v.nombre||'—'}</strong><br><span style="font-size:.65rem;color:#a78bfa;font-family:monospace">${v.codigo||''}</span></td>
+          <td class="mono" style="font-size:.76rem">${v.hesFecha||'—'}</td>
+          <td class="mono" style="font-size:.76rem">${v.hesOc||'—'}</td>
+          <td style="text-align:center;font-size:.75rem;font-weight:700;color:#06b6d4">${v.hesMoneda||'—'}</td>
+          <td class="tr mono" style="font-size:.76rem">${v.hesCantPedida?fmt(v.hesCantPedida):'—'}</td>
+          <td class="tr mono" style="color:#10b981;font-weight:700">${v.hesMonto?fmt(v.hesMonto):'—'}</td>
+          <td style="font-size:.68rem;color:var(--muted2);white-space:nowrap">${v.hesPeriodo||'—'}</td>
+          <td style="font-size:.71rem;color:#a78bfa;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.hesTextoCabecera||''}">${v.hesTextoCabecera||'—'}</td>
+          <td>${_vtPdfLink(v.hesUrl,'#f59e0b')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div></div>
+    </div>`;
+
+  if(!noData&&typeof Chart!=='undefined'){
+    if(_hesChart){_hesChart.destroy();_hesChart=null;}
+    const isDark=document.documentElement.getAttribute('data-theme')==='dark'
+      ||(!document.documentElement.getAttribute('data-theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+    const gridColor=isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
+    const tickColor=isDark?'#94a3b8':'#64748b';
+    const ctx=document.getElementById('hesChartCanvas');
+    if(ctx){
+      _hesChart=new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:chartLabels,
+          datasets:[{
+            label:'Monto HES S/.',
+            data:chartData,
+            backgroundColor:'rgba(245,158,11,.25)',
+            borderColor:'#f59e0b',
+            borderWidth:2,
+            borderRadius:7,
+            borderSkipped:false,
+          }]
+        },
+        options:{
+          responsive:true,
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:c=>' S/. '+fmt(c.raw)}}
+          },
+          scales:{
+            y:{
+              ticks:{color:tickColor,callback:v=>'S/.'+fmt(v)},
+              grid:{color:gridColor},
+              border:{display:false}
+            },
+            x:{
+              ticks:{color:tickColor},
+              grid:{display:false},
+              border:{display:false}
+            }
+          }
+        }
+      });
+    }
+  }
+}

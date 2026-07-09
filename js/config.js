@@ -25,8 +25,8 @@ const AREAS={
                 {key:'tramos',         label:'Tramos',              icon:'🗺️'}
                       ]
             }]},
-  otros:{label:'Otros',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
-    modules:[{key:'facturacion',label:'Facturación',icon:'🧾'},{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'}]},
+  otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
+    modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
     modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
