@@ -17,7 +17,7 @@ function bge(e){
   const m={'Activo':'b-green','Operativo':'b-green','Pagada':'b-green','Conforme':'b-green','Resuelto':'b-green','Completado':'b-green','Levantado':'b-green','Cerrado':'b-green','Entregado':'b-green','Finalizado':'b-green',
     'En Mantenimiento':'b-yellow','De Permiso':'b-yellow','Enviada':'b-yellow','En Proceso':'b-yellow','En Curso':'b-yellow','Investigando':'b-yellow','Activo':'b-green','Reportado':'b-yellow','Programado':'b-blue','En Lavado':'b-yellow',
     'Pendiente':'b-yellow','Disponible':'b-cyan','Derivado':'b-blue','Recibido':'b-blue',
-    'Parado':'b-red','Inactivo':'b-red','Observada':'b-red','No Conforme':'b-red','Grave':'b-red','Crítico':'b-red','Retrasado':'b-red','Observado':'b-yellow','Leve':'b-yellow','Moderado':'b-yellow','Vencido':'b-red','Inoperativo':'b-red','Postergado':'b-red',
+    'Parado':'b-red','Inactivo':'b-red','Observada':'b-red','No Conforme':'b-red','Grave':'b-red','Crítico':'b-red','Retrasado':'b-red','Observado':'b-yellow','Leve':'b-yellow','Moderado':'b-yellow','Vencido':'b-red','Inoperativo':'b-red','Postergado':'b-red','Desmovilizado':'b-purple',
     'Normal':'b-cyan','Urgente':'b-yellow','Muy Urgente':'b-red',
     'Atendido':'b-green','Atendido Parcial':'b-yellow','Anulado':'b-red',
     'Verificado':'b-cyan','Recibido':'b-blue','Pagado':'b-green','Factura':'b-orange','Boleta de Venta':'b-purple','Nota de Débito':'b-yellow','Nota de Crédito':'b-teal',

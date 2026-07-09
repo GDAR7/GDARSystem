@@ -1120,12 +1120,14 @@ function rFlotaEquipos(){
   const operativos=eqs.filter(e=>e.est==='Operativo'||e.est==='operativo').length;
   const inMant=eqs.filter(e=>e.est==='En Mantenimiento'||e.est==='Mantenimiento').length;
   const inop=eqs.filter(e=>e.est==='Inoperativo'||e.est==='inoperativo').length;
+  const desmovilizados=eqs.filter(e=>e.est==='Desmovilizado').length;
   const kpiEl=document.getElementById('flotaKpis');
   if(kpiEl)kpiEl.innerHTML=[
     {l:'Total Equipos',v:total,c:'var(--ceq)'},
     {l:'Operativos',v:operativos,c:'#10b981'},
     {l:'En Mantenimiento',v:inMant,c:'#f59e0b'},
-    {l:'Inoperativos',v:inop,c:'#ef4444'}
+    {l:'Inoperativos',v:inop,c:'#ef4444'},
+    {l:'Desmovilizados',v:desmovilizados,c:'#8b5cf6'},
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
   // Días para próximo mantenimiento
   const hoy=new Date();hoy.setHours(0,0,0,0);
