@@ -249,7 +249,7 @@ function openEquipo(){
   document.getElementById('eqKm').value=0;
   document.getElementById('eqTi').value='Línea Amarilla';
   document.getElementById('eqEst').value='Operativo';
-  const sts=document.getElementById('eqSts');if(sts)sts.value='';
+  const sts=document.getElementById('eqSts');if(sts)sts.value='Operativo';
   _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
   if(ps)ps.innerHTML='<option value="">— Sin proyecto —</option>'+DB.proyectos.map(p=>`<option value="${p.codigo}">${p.codigo}${p.nombre?' – '+p.nombre:''}</option>`).join('');
@@ -374,7 +374,7 @@ function gEquipo(){
     placa:document.getElementById('eqPl').value,
     hr:+document.getElementById('eqHr').value||0,
     km:+document.getElementById('eqKm').value||0,
-    est:document.getElementById('eqEst').value,
+    est:document.getElementById('eqSts').value||document.getElementById('eqEst').value,
     numSerie:document.getElementById('eqNs').value,
     potenciaHp:+document.getElementById('eqPhp').value||null,
     capacidadM3:+document.getElementById('eqCm3').value||null,
@@ -549,7 +549,9 @@ function editEquipo(id){
   document.getElementById('eqPl').value=e.placa||'';
   document.getElementById('eqHr').value=e.hr||0;
   document.getElementById('eqKm').value=e.km||0;
-  document.getElementById('eqEst').value=e.est||'Operativo';
+  const _estVal=e.status||e.est||'Operativo';
+  document.getElementById('eqEst').value=_estVal;
+  document.getElementById('eqSts').value=_estVal;
   document.getElementById('eqProy').value=e.proyecto||'';
   // Tab 1
   document.getElementById('eqNs').value=e.numSerie||'';
