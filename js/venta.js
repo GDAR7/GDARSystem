@@ -149,6 +149,7 @@ function rValorizaciones(){
     {l:'Total Valorizaciones',v:rows.length,c:'#059669'},
     {l:'Monto Total S/.',v:fmt(totalMonto),c:'#10b981'},
     {l:'Con HES',v:rows.filter(v=>v.hesUrl).length,c:'#f59e0b'},
+    {l:'Pendiente de HES',v:rows.filter(v=>!v.hesUrl).length,c:'#ef4444'},
     {l:'Con Factura',v:rows.filter(v=>v.facturaUrl).length,c:'#a78bfa'},
   ];
   const kpiEl=document.getElementById('valorizKpis');
