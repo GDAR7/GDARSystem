@@ -382,11 +382,11 @@ function rCostControl(){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.65rem;margin-bottom:1.2rem">
       ${[
         {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
+        {l:'Venta Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
         {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:'desde Tarifa del Master', ico:'💸'},
-        {l:'Costo Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
         {l:'Margen Bruto Eq.',    v:_ccFmt(totalVentaEq-totalCostoEq), c:'#10b981', s:`Venta − Costo Prov.`, ico:'📈'},
       ].map(k=>`
-      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;border-left:3px solid ${k.c}">
+      <div style="background:var(--panel2);border:2px solid ${k.c}55;border-radius:10px;padding:.85rem 1rem;border-left:4px solid ${k.c}">
         <div style="font-size:.68rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">${k.ico} ${k.l}</div>
         <div style="font-size:1.18rem;font-weight:900;color:${k.c};margin:.25rem 0;font-family:monospace;letter-spacing:-.01em">${k.v}</div>
         <div style="font-size:.66rem;color:var(--muted2)">${k.s}</div>

@@ -181,8 +181,8 @@ main{flex:1;padding:1.6rem;overflow-y:auto;background:var(--bg);}
 
 /* ── KPI ── */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.9rem;margin-bottom:1.2rem;}
-.kpi{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:.9rem 1.1rem;position:relative;overflow:hidden;}
-.kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--kc,#f59e0b);}
+.kpi{background:var(--panel);border:2px solid var(--kc,#f59e0b);border-left:4px solid var(--kc,#f59e0b);border-radius:9px;padding:.9rem 1.1rem;position:relative;overflow:hidden;}
+.kpi::before{display:none;}
 .kpi-lbl{font-size:.62rem;letter-spacing:.12em;color:var(--muted2);text-transform:uppercase;margin-bottom:.35rem;}
 .kpi-val{font-family:'Barlow Condensed',sans-serif;font-size:1.85rem;font-weight:800;color:var(--kc,#f59e0b);line-height:1;}
 .kpi-sub{font-size:.65rem;color:var(--muted);margin-top:.2rem;}
