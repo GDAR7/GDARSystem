@@ -11,6 +11,7 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -1521,7 +1522,7 @@
   <div class="modal-foot"><button class="btn btn-a" style="--ba:#059669" onclick="gVenta()">💾 Guardar</button><button class="btn btn-out" onclick="closeM('mVenta')">Cancelar</button></div>
 </div></div>
 
-<div class="mo" id="mVentaUpload"><div class="modal" style="max-width:400px">
+<div class="mo" id="mVentaUpload"><div class="modal" style="max-width:500px">
   <div class="modal-head"><span id="mVentaUploadTtl">Subir HES</span><button class="cls" onclick="closeM('mVentaUpload')">✕</button></div>
   <div class="modal-body">
     <div id="mVentaUploadInfo" style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.45rem .8rem;font-size:.75rem;color:var(--muted2);margin-bottom:.6rem"></div>
@@ -1529,6 +1530,12 @@
       <label id="mVentaUploadLbl">Archivo PDF</label>
       <input id="vtUploadFile" type="file" accept=".pdf,.PDF" style="color:var(--text)">
       <div id="vtUploadPreview" style="font-size:.72rem;color:var(--muted2);margin-top:.25rem"></div>
+    </div>
+    <div id="vtHesPanel" style="display:none;margin-top:.7rem;background:var(--panel2);border:1px solid #f59e0b40;border-radius:8px;padding:.7rem .9rem">
+      <div style="font-size:.7rem;font-weight:700;color:#f59e0b;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">
+        <span id="vtHesSpinner" style="display:none">⏳</span> 📋 Datos extraídos del PDF
+      </div>
+      <div id="vtHesFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .8rem;font-size:.74rem"></div>
     </div>
   </div>
   <div class="modal-foot"><button class="btn btn-a" id="mVentaUploadBtn" style="--ba:#f59e0b" onclick="gVentaUpload()">📤 Subir</button><button class="btn btn-out" onclick="closeM('mVentaUpload')">Cancelar</button></div>

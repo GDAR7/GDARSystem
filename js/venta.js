@@ -4,6 +4,94 @@ let _ventaEditId=null;
 let _vtUploadId=null;
 let _vtUploadField=null;
 let _valorizSort={col:'fecha',dir:-1};
+let _vtHesData={};
+
+// ── PDF.js config ──
+if(typeof pdfjsLib!=='undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ── Extrae todo el texto de un PDF (PDF.js) ──
+async function _vtExtractPdfText(file){
+  if(typeof pdfjsLib==='undefined')return null;
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let full='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    full+=tc.items.map(it=>it.str).join(' ')+'\n';
+  }
+  return full;
+}
+
+// ── Parsea el texto extraído de una HES SAP ──
+function _vtParseHes(text){
+  const t=text||'';
+  const result={};
+
+  // N° HES — número largo que aparece en el encabezado (SAP genera ~10 dígitos)
+  const mHes=t.match(/Hoja\s+de\s+entrada\s+de\s+servicios\s+(\d{6,12})/i)
+    ||t.match(/N[°º\.]?\s*HES[:\s]+(\d{6,12})/i)
+    ||t.match(/Número\s+de\s+documento[:\s]+(\d{6,12})/i)
+    // fallback: primer número largo tras "entrada de servicios"
+    ||t.match(/entrada\s+de\s+servicios[\s\S]{0,60}?(\d{9,12})/i);
+  if(mHes)result.hesNum=mHes[1];
+
+  // Fecha — formato dd/mm/yyyy o dd.mm.yyyy
+  const mFecha=t.match(/Fecha\s*[:\s]+(\d{2}[\/\.]\d{2}[\/\.]\d{4})/i)
+    ||t.match(/(\d{2}[\/\.]\d{2}[\/\.]\d{4})/);
+  if(mFecha)result.hesFecha=mFecha[1].replace(/\./g,'/');
+
+  // Orden de Compra
+  const mOC=t.match(/Orden\s+de\s+(?:Compra|compra|servicio)[:\s]+(\d{6,12})/i)
+    ||t.match(/O\.C[.\s]+(\d{6,12})/i)
+    ||t.match(/Pedido[:\s]+(\d{6,12})/i);
+  if(mOC)result.hesOc=mOC[1];
+
+  // Total Valor Aceptado (puede tener puntos o comas como separador)
+  const mMonto=t.match(/Total\s+Valor\s+Aceptado[:\s]+([\d\.,]+)/i)
+    ||t.match(/Valor\s+Aceptado[:\s]+([\d\.,]+)/i)
+    ||t.match(/Importe[:\s]+([\d\.,]+)/i);
+  if(mMonto){
+    const raw=mMonto[1].replace(/\s/g,'');
+    // SAP usa punto como separador de miles y coma decimal (o viceversa según locale)
+    // Detectamos: si termina en ,XX → coma es decimal
+    const numStr=raw.includes(',')&&/,\d{1,2}$/.test(raw)
+      ?raw.replace(/\./g,'').replace(',','.')
+      :raw.replace(/,/g,'');
+    result.hesMonto=parseFloat(numStr)||0;
+  }
+
+  // Período — dd.mm.yyyy - dd.mm.yyyy
+  const mPer=t.match(/(?:Per[ií]odo|Periodo|Período)[:\s]+(\d{2}[\/\.]\d{2}[\/\.]\d{4})\s*[-–a]\s*(\d{2}[\/\.]\d{2}[\/\.]\d{4})/i)
+    ||t.match(/(\d{2}\.\d{2}\.\d{4})\s*[-–]\s*(\d{2}\.\d{2}\.\d{4})/);
+  if(mPer)result.hesPeriodo=mPer[1].replace(/\./g,'/')+' – '+mPer[2].replace(/\./g,'/');
+
+  return result;
+}
+
+// ── Muestra el panel de datos extraídos en el modal ──
+function _vtShowHesPanel(data){
+  const panel=document.getElementById('vtHesPanel');
+  const fields=document.getElementById('vtHesFields');
+  const spin=document.getElementById('vtHesSpinner');
+  if(!panel||!fields)return;
+  if(spin)spin.style.display='none';
+  const rows=[
+    {l:'N° HES',v:data.hesNum||'—',c:'#f59e0b'},
+    {l:'Fecha',v:data.hesFecha||'—'},
+    {l:'Orden de Compra',v:data.hesOc||'—'},
+    {l:'Monto Aceptado',v:data.hesMonto?fmt(data.hesMonto):'—',c:'#10b981'},
+    {l:'Período',v:data.hesPeriodo||'—',span:2},
+  ];
+  fields.innerHTML=rows.map(r=>`
+    <div${r.span?` style="grid-column:span ${r.span}"`:''}>
+      <div style="font-size:.63rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em">${r.l}</div>
+      <div style="font-weight:700;color:${r.c||'var(--text)'};">${r.v}</div>
+    </div>`).join('');
+  panel.style.display='block';
+}
 
 function _vtPdfLink(url,color){
   if(!url)return'<span style="color:var(--muted);font-size:.7rem">—</span>';
@@ -15,7 +103,7 @@ function _vtUploadBtn(ventaId,field,color,label){
 
 function _vtSortBy(col){
   if(_valorizSort.col===col)_valorizSort.dir*=-1;
-  else{_valorizSort.col=col;_valorizSort.dir=col==='montoTotal'?-1:-1;}
+  else{_valorizSort.col=col;_valorizSort.dir=-1;}
   rValorizaciones();
 }
 
@@ -45,7 +133,6 @@ function rValorizaciones(){
   const tb=document.getElementById('tbValorizaciones');
   if(!tb)return;
 
-  // Actualizar headers con flechas de orden
   const thead=tb.closest('table')?.querySelector('thead tr');
   if(thead){
     thead.innerHTML=`
@@ -59,22 +146,30 @@ function rValorizaciones(){
       ${canEdit?'<th></th>':''}`;
   }
 
-  tb.innerHTML=sorted.map(v=>`<tr>
-    <td class="mono">${v.fecha||'—'}</td>
-    <td><span class="badge b-green" style="font-size:.63rem">${v.edpNum||'—'}</span></td>
-    <td><strong style="font-size:.82rem">${v.nombre||'—'}</strong></td>
-    <td class="mono" style="color:#a78bfa;font-size:.75rem">${v.codigo||'—'}</td>
-    <td style="font-size:.76rem">${v.valorizacionMes||'—'}</td>
-    <td class="tr mono" style="color:#10b981">${fmt(v.montoTotal||0)}</td>
-    <td style="text-align:center">${_vtPdfLink(v.pdfUrl,'#10b981')}</td>
-    <td style="text-align:center">${v.hesUrl?_vtPdfLink(v.hesUrl,'#f59e0b'):_vtUploadBtn(v.id,'hes','#f59e0b','HES')}</td>
-    <td style="text-align:center">${v.facturaUrl?_vtPdfLink(v.facturaUrl,'#a78bfa'):_vtUploadBtn(v.id,'factura','#a78bfa','Fact.')}</td>
-    <td style="font-size:.71rem;color:var(--muted2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.observaciones||''}">${v.observaciones||'—'}</td>
-    ${canEdit?`<td style="display:flex;gap:.3rem">
-      <button class="btn btn-out btn-sm" onclick="openValorizEdit(${v.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
-      <button class="btn btn-del btn-sm" onclick="del('ventas',${v.id})" title="Eliminar">🗑</button>
-    </td>`:''}
-  </tr>`).join('');
+  tb.innerHTML=sorted.map(v=>{
+    const hesCell=v.hesUrl
+      ?`<div style="display:flex;flex-direction:column;gap:2px;align-items:center">
+          ${_vtPdfLink(v.hesUrl,'#f59e0b')}
+          ${v.hesNum?`<span style="font-size:.6rem;color:#f59e0b;font-family:monospace">${v.hesNum}</span>`:''}
+        </div>`
+      :_vtUploadBtn(v.id,'hes','#f59e0b','HES');
+    return`<tr>
+      <td class="mono">${v.fecha||'—'}</td>
+      <td><span class="badge b-green" style="font-size:.63rem">${v.edpNum||'—'}</span></td>
+      <td><strong style="font-size:.82rem">${v.nombre||'—'}</strong></td>
+      <td class="mono" style="color:#a78bfa;font-size:.75rem">${v.codigo||'—'}</td>
+      <td style="font-size:.76rem">${v.valorizacionMes||'—'}</td>
+      <td class="tr mono" style="color:#10b981">${fmt(v.montoTotal||0)}</td>
+      <td style="text-align:center">${_vtPdfLink(v.pdfUrl,'#10b981')}</td>
+      <td style="text-align:center">${hesCell}</td>
+      <td style="text-align:center">${v.facturaUrl?_vtPdfLink(v.facturaUrl,'#a78bfa'):_vtUploadBtn(v.id,'factura','#a78bfa','Fact.')}</td>
+      <td style="font-size:.71rem;color:var(--muted2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.observaciones||''}">${v.observaciones||'—'}</td>
+      ${canEdit?`<td style="display:flex;gap:.3rem">
+        <button class="btn btn-out btn-sm" onclick="openValorizEdit(${v.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
+        <button class="btn btn-del btn-sm" onclick="del('ventas',${v.id})" title="Eliminar">🗑</button>
+      </td>`:''}
+    </tr>`;
+  }).join('');
 
   const srch=document.getElementById('valorizSearch');
   if(srch&&srch.value)flt(srch,'tbValorizaciones');
@@ -155,6 +250,8 @@ async function gVenta(){
     fecha:document.getElementById('vtFecha').value||today(),
     pdfUrl,pdfNombre,pdfPath,
     hesUrl:existing.hesUrl||'',hesNombre:existing.hesNombre||'',hesPath:existing.hesPath||'',
+    hesNum:existing.hesNum||'',hesFecha:existing.hesFecha||'',hesOc:existing.hesOc||'',
+    hesMonto:existing.hesMonto||0,hesPeriodo:existing.hesPeriodo||'',
     facturaUrl:existing.facturaUrl||'',facturaNombre:existing.facturaNombre||'',facturaPath:existing.facturaPath||'',
   };
 
@@ -171,6 +268,7 @@ function openValorizUpload(ventaId,field){
   const v=DB.ventas.find(x=>x.id===ventaId);if(!v)return;
   _vtUploadId=ventaId;
   _vtUploadField=field;
+  _vtHesData={};
   const cfg={hes:{label:'HES',color:'#f59e0b'},factura:{label:'Factura',color:'#a78bfa'}};
   const c=cfg[field]||{label:field,color:'#059669'};
   const ttl=document.getElementById('mVentaUploadTtl');
@@ -181,6 +279,8 @@ function openValorizUpload(ventaId,field){
   if(info)info.innerHTML=`<strong>${v.edpNum||'—'}</strong> · ${v.nombre||'—'} · <span style="color:var(--muted2)">${v.valorizacionMes||''}</span>`;
   document.getElementById('vtUploadFile').value='';
   document.getElementById('vtUploadPreview').textContent='';
+  const panel=document.getElementById('vtHesPanel');
+  if(panel)panel.style.display='none';
   openM('mVentaUpload');
 }
 
@@ -197,8 +297,17 @@ async function gVentaUpload(){
   if(error){toast('Error: '+error.message,true);return;}
   if(existingPath&&existingPath!==path)supa.storage.from(_VENTA_BUCKET).remove([existingPath]);
   const{data:{publicUrl}}=supa.storage.from(_VENTA_BUCKET).getPublicUrl(path);
-  if(folder==='hes'){v.hesUrl=publicUrl;v.hesNombre=file.name;v.hesPath=path;}
-  else{v.facturaUrl=publicUrl;v.facturaNombre=file.name;v.facturaPath=path;}
+  if(folder==='hes'){
+    v.hesUrl=publicUrl;v.hesNombre=file.name;v.hesPath=path;
+    // Guardar datos extraídos del PDF HES
+    if(_vtHesData.hesNum)v.hesNum=_vtHesData.hesNum;
+    if(_vtHesData.hesFecha)v.hesFecha=_vtHesData.hesFecha;
+    if(_vtHesData.hesOc)v.hesOc=_vtHesData.hesOc;
+    if(_vtHesData.hesMonto)v.hesMonto=_vtHesData.hesMonto;
+    if(_vtHesData.hesPeriodo)v.hesPeriodo=_vtHesData.hesPeriodo;
+  }else{
+    v.facturaUrl=publicUrl;v.facturaNombre=file.name;v.facturaPath=path;
+  }
   syncSheet('saveVenta',v);
   closeM('mVentaUpload');
   rValorizaciones();
@@ -206,14 +315,47 @@ async function gVentaUpload(){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
+  // Preview del PDF de valorización principal
   const pdfInput=document.getElementById('vtPdf');
   if(pdfInput)pdfInput.addEventListener('change',function(){
     const p=document.getElementById('vtPdfPreview');
     if(p)p.textContent=this.files[0]?'📎 '+this.files[0].name+' ('+Math.round(this.files[0].size/1024)+' KB)':'';
   });
+
+  // Preview + extracción automática para HES
   const upInput=document.getElementById('vtUploadFile');
-  if(upInput)upInput.addEventListener('change',function(){
+  if(upInput)upInput.addEventListener('change',async function(){
     const p=document.getElementById('vtUploadPreview');
-    if(p)p.textContent=this.files[0]?'📎 '+this.files[0].name+' ('+Math.round(this.files[0].size/1024)+' KB)':'';
+    const file=this.files[0];
+    if(p)p.textContent=file?'📎 '+file.name+' ('+Math.round(file.size/1024)+' KB)':'';
+
+    // Extraer datos solo cuando sea HES
+    if(file&&_vtUploadField==='hes'){
+      _vtHesData={};
+      const panel=document.getElementById('vtHesPanel');
+      const spin=document.getElementById('vtHesSpinner');
+      if(panel){panel.style.display='block';}
+      if(spin)spin.style.display='inline';
+      const fields=document.getElementById('vtHesFields');
+      if(fields)fields.innerHTML='<div style="color:var(--muted2);font-size:.72rem;grid-column:span 2">Leyendo PDF...</div>';
+      try{
+        const text=await _vtExtractPdfText(file);
+        if(text){
+          _vtHesData=_vtParseHes(text);
+          _vtShowHesPanel(_vtHesData);
+        }else{
+          if(fields)fields.innerHTML='<div style="color:#f87171;font-size:.72rem;grid-column:span 2">No se pudo leer el PDF (PDF.js no disponible)</div>';
+          if(spin)spin.style.display='none';
+        }
+      }catch(e){
+        if(fields)fields.innerHTML='<div style="color:#f87171;font-size:.72rem;grid-column:span 2">Error al leer PDF: '+e.message+'</div>';
+        if(spin)spin.style.display='none';
+      }
+    }else{
+      // Si no es HES, ocultar panel
+      const panel=document.getElementById('vtHesPanel');
+      if(panel)panel.style.display='none';
+      _vtHesData={};
+    }
   });
 });
