@@ -68,8 +68,8 @@ function _vtParseHes(text){
     ||t.match(/(\d{2}\.\d{2}\.\d{4})\s*[-–]\s*(\d{2}\.\d{2}\.\d{4})/);
   if(mPer)result.hesPeriodo=mPer[1].replace(/\./g,'/')+' – '+mPer[2].replace(/\./g,'/');
 
-  // Texto de cabecera
-  const mCab=t.match(/Texto\s+de\s+cabecera\s+(.+?)(?=\n|Orden\s+de\s+|Proveedor|$)/i);
+  // Texto de cabecera — se detiene antes de RUC, Teléfono u otros campos de la columna derecha
+  const mCab=t.match(/Texto\s+de\s+cabecera\s+(.+?)(?=\n|RUC\b|Tel[eé]fono|Orden\s+de\s+|Proveedor|Cond\.|$)/i);
   if(mCab)result.hesTextoCabecera=mCab[1].trim();
 
   // Moneda
