@@ -315,7 +315,7 @@ function _segRenderAnalisis(body){
 }
 
 function _segKpi(label,val,color){
-  return `<div style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:.6rem .8rem">
+  return `<div style="background:var(--panel);border:2px solid ${color}55;border-left:4px solid ${color};border-radius:8px;padding:.6rem .8rem">
     <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted2);margin-bottom:.25rem">${label}</div>
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:800;color:${color};line-height:1">${val}</div>
   </div>`;
