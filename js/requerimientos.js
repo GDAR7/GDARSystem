@@ -1177,9 +1177,27 @@ function gReembolsables(){
 }
 
 // ── Render del tab Reembolsables / Gastos ──
+let _reembFiltProv='', _reembFiltFact='';
+function _reembSetFilt(tipo,val){
+  if(tipo==='prov'){_reembFiltProv=val;_reembFiltFact='';}
+  else _reembFiltFact=val;
+  rReembolsables();
+}
 function rReembolsables(){
   const pg=document.getElementById('fpTab-reemb');if(!pg)return;
-  const rows=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  const all=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  // Opciones de filtros (facturas dependen del proveedor elegido)
+  const provs=[...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
+  const factsBase=_reembFiltProv?all.filter(r=>r.proveedor===_reembFiltProv):all;
+  const facts=[...new Set(factsBase.map(r=>`${r.serie||''} - ${r.correlativo||''}`.trim()).filter(f=>f!=='-'))].sort();
+  if(_reembFiltProv&&!provs.includes(_reembFiltProv))_reembFiltProv='';
+  if(_reembFiltFact&&!facts.includes(_reembFiltFact))_reembFiltFact='';
+  // Aplicar filtros → KPIs y tabla dinámicos
+  const rows=all.filter(r=>{
+    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
+    if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
+    return true;
+  });
   const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
   const _n2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
   const _n3=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:3,maximumFractionDigits:3});
@@ -1240,8 +1258,21 @@ function rReembolsables(){
   pg.innerHTML=`
     <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${k.v.toString().length>9?'1.2rem':'1.85rem'}">${k.v}</div></div>`).join('')}</div>
     <div class="card">
-      <div class="card-head">
+      <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
         <span class="card-title">🧾 Reembolsables / Gastos extraídos de facturas</span>
+        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Proveedor</span>
+          <select onchange="_reembSetFilt('prov',this.value)" style="background:var(--panel2);border:1px solid ${_reembFiltProv?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:220px;cursor:pointer;outline:none">
+            <option value="">— Todos —</option>
+            ${provs.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_reembFiltProv?'selected':''}>${p}</option>`).join('')}
+          </select>
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Factura</span>
+          <select onchange="_reembSetFilt('fact',this.value)" style="background:var(--panel2);border:1px solid ${_reembFiltFact?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:170px;cursor:pointer;outline:none;font-family:monospace">
+            <option value="">— Todas —</option>
+            ${facts.map(f=>`<option value="${f}" ${f===_reembFiltFact?'selected':''}>${f}</option>`).join('')}
+          </select>
+          ${(_reembFiltProv||_reembFiltFact)?`<button onclick="_reembFiltProv='';_reembFiltFact='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
+        </div>
         <div class="card-head-right">
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbReemb')"></div>
         </div>
