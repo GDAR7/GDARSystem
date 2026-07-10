@@ -990,11 +990,18 @@ function _feParseHeader(lines,f){
   // RUC del emisor: primer RUC que no sea el de ECOSERMO (cliente)
   const rucs=(txt.match(/\b(?:10|20)\d{9}\b/g)||[]).filter(r=>r!=='20571533180');
   if(rucs.length)out.ruc=rucs[0];
-  const lTot=lines.filter(l=>/importe\s+total|total\s+a\s+pagar/i.test(l)).pop()
+  const lTot=lines.filter(l=>/importe\s+total|total\s+a\s+pagar|total\s+venta/i.test(l)).pop()
     ||lines.filter(l=>/^total\b|total\s*:/i.test(l)).pop();
   if(lTot){
     const ns=lTot.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
     if(ns)out.total=parseFloat(ns[ns.length-1].replace(/,/g,''));
+  }
+  // Monto de IGV (para detectar si los precios de los ítems ya lo incluyen)
+  out.igv=0;
+  const lIgv=lines.filter(l=>/I\.?G\.?V/i.test(l)&&/\d+\.\d{2}/.test(l)&&!/%\s*$/.test(l.trim())).pop();
+  if(lIgv){
+    const ns=lIgv.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
+    if(ns)out.igv=parseFloat(ns[ns.length-1].replace(/,/g,''));
   }
   return out;
 }
@@ -1038,9 +1045,19 @@ function _feParseItems(lines){
         mid=mid.slice(1);
       }
     }
-    const desc=mid.join(' ').replace(/^[\-:|·]+|[\-:|·]+$/g,'').trim();
+    let desc=mid.join(' ').replace(/^[\-:|·]+|[\-:|·]+$/g,'').trim();
     if(!desc||desc.length<3)return;
     if(/^\d[\d\s\/\-\.,:]*$/.test(desc))return; // solo números/fechas → no es un ítem
+    if(/\d{2}\/\d{2}\/\d{4}/.test(desc))return; // contiene fecha → fila de cuotas/vencimientos, no ítem
+    // Quitar código de proveedor al inicio de la descripción
+    // (ej: FERABR81695, NX1200NK, P5-3, códigos de barra 7506240653929)
+    const dtk=desc.split(' ');
+    if(dtk.length>1){
+      const c0=dtk[0];
+      const esCodigo=(/^[A-Z0-9][A-Z0-9\-\.]{3,}$/i.test(c0)&&/\d/.test(c0)&&/[A-Z]/i.test(c0))||/^\d{7,}$/.test(c0);
+      if(esCodigo)desc=dtk.slice(1).join(' ').trim();
+    }
+    if(!desc||desc.length<3)return;
     // 1er número final = Valor Unitario sin IGV
     const vunit=nums[0];
     if(!(vunit>0))return;
@@ -1071,6 +1088,15 @@ async function extraerFactura(id){
     const lines=await _feLoadPdfLines(url);
     const head=_feParseHeader(lines,f);
     const items=_feParseItems(lines);
+    // Detectar si los precios extraídos ya incluyen IGV (ej: formato MEZA, donde P.U. es con IGV):
+    // si la suma de ítems coincide con el IMPORTE TOTAL (inc. IGV) y la factura tiene IGV > 0 → convertir a sin IGV
+    let _convertidoIgv=false;
+    const _sumItems=items.reduce((a,i)=>a+i.importe,0);
+    const _totalRef=head.total||+f.total||0;
+    if(items.length&&_totalRef>0&&(head.igv||0)>0&&Math.abs(_sumItems-_totalRef)<=Math.max(_totalRef*0.01,0.1)){
+      items.forEach(i=>{i.punit=+(i.punit/1.18).toFixed(4);i.importe=+(i.importe/1.18).toFixed(2);});
+      _convertidoIgv=true;
+    }
     // Proyecto desde el requerimiento vinculado
     const req=DB.requerimientos.find(r=>r.id===f.reqId);
     // Serie y correlativo desde el N° extraído (ej: E002-2554)
@@ -1098,6 +1124,7 @@ async function extraerFactura(id){
     document.getElementById('feStatus').style.display='none';
     document.getElementById('feBody').style.display='';
     _feRecalc();
+    if(_convertidoIgv)toast('El PDF traía precios CON IGV — se convirtieron a sin IGV (÷1.18)');
     if(!items.length)toast('No se detectaron ítems automáticamente — puede ser un PDF escaneado. Agrégalos manualmente.',true);
   }catch(e){
     console.error('[extraerFactura]',e);
