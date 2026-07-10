@@ -436,11 +436,16 @@ ${S}body>${S}html>`);
 
 // ══ DASHBOARD COMBUSTIBLE (períodos 21→20) ══
 let _combTabActiva='kardex', _combDashOffset=0, _combChart=null;
-// Filtros interactivos del dashboard (estilo Power BI)
-let _combDashTipo=null, _combDashEqId=null;
+// Filtros interactivos del dashboard (estilo Power BI): Tipo → Subtipo → Código
+let _combDashTipo=null, _combDashSub=null, _combDashEqId=null;
 function _combDashSelTipo(t){
-  if(_combDashTipo===t){_combDashTipo=null;_combDashEqId=null;}
-  else{_combDashTipo=t;_combDashEqId=null;}
+  if(_combDashTipo===t){_combDashTipo=null;_combDashSub=null;_combDashEqId=null;}
+  else{_combDashTipo=t;_combDashSub=null;_combDashEqId=null;}
+  rCombDash();
+}
+function _combDashSelSub(s){
+  if(_combDashSub===s){_combDashSub=null;_combDashEqId=null;}
+  else{_combDashSub=s;_combDashEqId=null;}
   rCombDash();
 }
 function _combDashSelEq(id){
@@ -488,26 +493,34 @@ function rCombDash(){
   const despAll=(DB.combustible||[]).filter(c=>c.tipoMov!=='Ingreso'&&c.fecha>=per.desde&&c.fecha<=per.hasta);
   const eqById=id=>(DB.equipos||[]).find(e=>e.id===id);
 
-  // — Chips por tipo de equipo —
+  // — Chips por tipo de equipo → subtipo → equipo —
   const tiposMap={};
   despAll.forEach(c=>{
     const eq=eqById(c.eqId);
     const t=eq?(eq.tipo||'Otros'):'Otros';
-    if(!tiposMap[t])tiposMap[t]={gal:0,eqs:{}};
+    const s=eq?(eq.sub||'Otros'):'Otros';
+    if(!tiposMap[t])tiposMap[t]={gal:0,subs:{}};
     tiposMap[t].gal+=(+c.gal||0);
+    if(!tiposMap[t].subs[s])tiposMap[t].subs[s]={gal:0,eqs:{}};
+    tiposMap[t].subs[s].gal+=(+c.gal||0);
     if(eq){
-      if(!tiposMap[t].eqs[eq.id])tiposMap[t].eqs[eq.id]={eq,gal:0};
-      tiposMap[t].eqs[eq.id].gal+=(+c.gal||0);
+      if(!tiposMap[t].subs[s].eqs[eq.id])tiposMap[t].subs[s].eqs[eq.id]={eq,gal:0};
+      tiposMap[t].subs[s].eqs[eq.id].gal+=(+c.gal||0);
     }
   });
   // Si la selección ya no existe en este período, limpiarla
-  if(_combDashTipo&&!tiposMap[_combDashTipo]){_combDashTipo=null;_combDashEqId=null;}
-  if(_combDashEqId&&_combDashTipo&&!tiposMap[_combDashTipo].eqs[_combDashEqId])_combDashEqId=null;
+  if(_combDashTipo&&!tiposMap[_combDashTipo]){_combDashTipo=null;_combDashSub=null;_combDashEqId=null;}
+  if(_combDashSub&&(!_combDashTipo||!tiposMap[_combDashTipo].subs[_combDashSub])){_combDashSub=null;_combDashEqId=null;}
+  if(_combDashEqId&&_combDashSub&&!tiposMap[_combDashTipo].subs[_combDashSub].eqs[_combDashEqId])_combDashEqId=null;
 
-  // — Aplicar filtros activos —
+  // — Aplicar filtros activos (cascada: equipo > subtipo > tipo) —
   const desp=despAll.filter(c=>{
     if(_combDashEqId)return c.eqId===_combDashEqId;
-    if(_combDashTipo){const eq=eqById(c.eqId);return(eq?(eq.tipo||'Otros'):'Otros')===_combDashTipo;}
+    const eq=eqById(c.eqId);
+    const t=eq?(eq.tipo||'Otros'):'Otros';
+    const s=eq?(eq.sub||'Otros'):'Otros';
+    if(_combDashSub)return t===_combDashTipo&&s===_combDashSub;
+    if(_combDashTipo)return t===_combDashTipo;
     return true;
   });
   const totGal=desp.reduce((a,c)=>a+(+c.gal||0),0);
@@ -588,14 +601,30 @@ function rCombDash(){
       ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#f97316':'var(--muted2)'}">${d.gal.toFixed(0)} gal</span>${act?' ✕':''}
     </button>`;
   }).join('');
-  const chipTodos=`<button onclick="_combDashTipo=null;_combDashEqId=null;rCombDash()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_combDashTipo?'#06b6d4':'var(--border)'};background:${!_combDashTipo?'rgba(6,182,212,.15)':'var(--panel2)'};color:${!_combDashTipo?'#06b6d4':'var(--muted2)'}">Todos</button>`;
+  const chipTodos=`<button onclick="_combDashTipo=null;_combDashSub=null;_combDashEqId=null;rCombDash()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_combDashTipo?'#06b6d4':'var(--border)'};background:${!_combDashTipo?'rgba(6,182,212,.15)':'var(--panel2)'};color:${!_combDashTipo?'#06b6d4':'var(--muted2)'}">Todos</button>`;
 
-  // — Chips de códigos de equipo (aparecen al seleccionar un tipo) —
-  let chipEquipos='';
+  // — Chips de subtipos (aparecen al seleccionar un tipo) —
+  let chipSubs='';
   if(_combDashTipo&&tiposMap[_combDashTipo]){
-    const eqsT=Object.values(tiposMap[_combDashTipo].eqs).sort((a,b)=>b.gal-a.gal);
+    const subsT=Object.entries(tiposMap[_combDashTipo].subs).sort((a,b)=>b[1].gal-a[1].gal);
+    chipSubs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(139,92,246,.05);border:1px dashed rgba(139,92,246,.4);border-radius:9px">
+      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ Subtipo:</span>
+      ${subsT.map(([s,d])=>{
+        const act=_combDashSub===s;
+        const sEsc=s.replace(/'/g,"\\'");
+        return`<button onclick="_combDashSelSub('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
+          ${s.toUpperCase()} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${d.gal.toFixed(0)} gal</span>${act?' ✕':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // — Chips de códigos de equipo (aparecen al seleccionar un subtipo) —
+  let chipEquipos='';
+  if(_combDashTipo&&_combDashSub&&tiposMap[_combDashTipo]&&tiposMap[_combDashTipo].subs[_combDashSub]){
+    const eqsT=Object.values(tiposMap[_combDashTipo].subs[_combDashSub].eqs).sort((a,b)=>b.gal-a.gal);
     chipEquipos=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(249,115,22,.05);border:1px dashed rgba(249,115,22,.35);border-radius:9px">
-      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_combDashTipo}:</span>
+      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_combDashSub}:</span>
       ${eqsT.map(({eq,gal})=>{
         const act=_combDashEqId===eq.id;
         return`<button onclick="_combDashSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'#f97316':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
@@ -607,7 +636,9 @@ function rCombDash(){
 
   // Título dinámico según selección
   const selEq=_combDashEqId?eqById(_combDashEqId):null;
-  const tituloSel=selEq?`${selEq.codigo} — ${selEq.nombre||''}`:_combDashTipo?_combDashTipo:'todos los equipos';
+  const tituloSel=selEq?`${selEq.codigo} — ${selEq.nombre||''}`
+    :_combDashSub?`${_combDashTipo} · ${_combDashSub}`
+    :_combDashTipo?_combDashTipo:'todos los equipos';
 
   pg.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
@@ -624,6 +655,7 @@ function rCombDash(){
         <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>
         ${chipTodos}${chipTipos}
       </div>
+      ${chipSubs}
       ${chipEquipos}
     </div>
     <div class="card" style="margin-bottom:1rem">
