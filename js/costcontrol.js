@@ -193,6 +193,14 @@ async function cargarTarifasIniciales(){
 
 // ══ COST CONTROL ══
 let _ccOffset=0, _ccTarifaModo='seca', _ccTabActiva='equipos';
+// Precio S/ por galón para valorizar combustible en Cost Control (independiente del costo de almacén)
+let _ccPrecioComb=+(localStorage.getItem('ccPrecioComb')||0)||null;
+function _ccSetPrecioComb(v){
+  const n=+v||0;
+  _ccPrecioComb=n>0?n:null;
+  if(n>0)localStorage.setItem('ccPrecioComb',n);else localStorage.removeItem('ccPrecioComb');
+  rCostControl();
+}
 
 // ── Tarifas de equipos (valores contractuales — fallback si la tabla DB está vacía) ──
 const _CC_TARIFA_EQ=[
@@ -309,6 +317,17 @@ function rCostControl(){
   // Partes del período
   const partes=(DB.partes||[]).filter(p=>p.fecha>=per.desde&&p.fecha<=per.hasta);
 
+  // — Combustible del período (despachos de almacén por equipo) —
+  const despComb=(DB.combustible||[]).filter(c=>c.tipoMov!=='Ingreso'&&c.eqId&&c.fecha>=per.desde&&c.fecha<=per.hasta);
+  const galMap={};let _galPerTot=0,_costoAlmTot=0;
+  despComb.forEach(c=>{
+    const g=+c.gal||0;
+    galMap[c.eqId]=(galMap[c.eqId]||0)+g;
+    _galPerTot+=g;_costoAlmTot+=g*(+c.precio||0);
+  });
+  const precioAlm=_galPerTot>0?_costoAlmTot/_galPerTot:0;       // precio promedio de almacén (referencia)
+  const precioComb=_ccPrecioComb||precioAlm||6.30;               // precio configurable para Cost Control
+
   // — Costos de equipos —
   const eqMap={};
   partes.forEach(p=>{
@@ -341,10 +360,19 @@ function rCostControl(){
     else if(unCosto==='DIA') costoProveedor=dias*tRate;       // ej: 17 días × S/200
     else                     costoProveedor=factor*tRate;      // MES: incidencia × tarifa
 
-    return{...r,costo:venta,costoProveedor,tarifaObj:t,un:unVenta,unCosto};
+    // Combustible del período (galones despachados × precio configurado)
+    const galones=galMap[r.eq.id]||0;
+    const costoComb=galones*precioComb;
+    // Margen: Full → Venta − (Costo Prov. + Combustible) · Seca → Venta − Costo Prov.
+    const margen=venta-costoProveedor-(KEY==='full'?costoComb:0);
+
+    return{...r,costo:venta,costoProveedor,galones,costoComb,margen,tarifaObj:t,un:unVenta,unCosto};
   });
   const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
   const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
+  const totalGalEq=eqRows.reduce((s,r)=>s+r.galones,0);
+  const totalCombEq=eqRows.reduce((s,r)=>s+r.costoComb,0);
+  const totalMargenEq=eqRows.reduce((s,r)=>s+r.margen,0);
 
   // — Costos de personal —
   const hhMap={};
@@ -388,6 +416,12 @@ function rCostControl(){
           <button onclick="_ccSetModo('seca')" style="padding:.3rem .85rem;border-radius:6px;border:none;cursor:pointer;font-size:.75rem;font-weight:700;background:${modo==='seca'?'#3b82f6':'transparent'};color:${modo==='seca'?'#fff':'var(--muted2)'}">Máq. Seca</button>
           <button onclick="_ccSetModo('full')" style="padding:.3rem .85rem;border-radius:6px;border:none;cursor:pointer;font-size:.75rem;font-weight:700;background:${modo==='full'?'#8b5cf6':'transparent'};color:${modo==='full'?'#fff':'var(--muted2)'}">Tarifa Full</button>
         </div>
+        <!-- Precio combustible configurable -->
+        <div title="Precio S/ por galón usado para valorizar el combustible despachado (editable, independiente del costo de almacén)" style="display:flex;align-items:center;gap:.3rem;background:var(--panel2);border:1px solid rgba(249,115,22,.4);border-radius:8px;padding:.28rem .6rem">
+          <span style="font-size:.74rem;font-weight:700;color:#f97316">⛽ S/</span>
+          <input id="ccPrecioComb" type="number" step="0.01" min="0" value="${precioComb.toFixed(2)}" onchange="_ccSetPrecioComb(this.value)" style="width:62px;background:transparent;border:none;border-bottom:1px dashed rgba(249,115,22,.5);color:var(--text);font-family:monospace;font-weight:700;font-size:.82rem;outline:none;text-align:right">
+          <span style="font-size:.64rem;color:var(--muted2)">/gal${precioAlm>0?` · Alm: S/ ${precioAlm.toFixed(2)}`:''}</span>
+        </div>
       </div>
     </div>
 
@@ -397,7 +431,8 @@ function rCostControl(){
         {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
         {l:'Venta Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
         {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:'desde Tarifa del Master', ico:'💸'},
-        {l:'Margen Bruto Eq.',    v:_ccFmt(totalVentaEq-totalCostoEq), c:'#10b981', s:`Venta − Costo Prov.`, ico:'📈'},
+        {l:'Combustible Eq.',     v:_ccFmt(totalCombEq),  c:'#f97316', s:`${totalGalEq.toFixed(1)} gal × S/ ${precioComb.toFixed(2)}`, ico:'⛽'},
+        {l:'Margen Bruto Eq.',    v:_ccFmt(totalMargenEq), c:'#10b981', s:modo==='full'?'Venta − (C.Prov. + Comb.)':'Venta − Costo Prov.', ico:'📈'},
       ].map(k=>`
       <div style="background:var(--panel2);border:2px solid ${k.c}55;border-radius:10px;padding:.85rem 1rem;border-left:4px solid ${k.c}">
         <div style="font-size:.68rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">${k.ico} ${k.l}</div>
@@ -416,7 +451,7 @@ function rCostControl(){
     <!-- Paneles -->
     <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccPanelEquipos(eqRows,KEY,per.dias)}</div>
     <div id="ccPanel-personal" style="display:${_ccTabActiva==='personal'?'':'none'}">${_ccPanelPersonal(hhRows,per.dias)}</div>
-    <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY)}</div>
+    <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY,totalCombEq,totalMargenEq)}</div>
   </div>`;
 }
 
@@ -446,7 +481,10 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
   Object.entries(grupos).forEach(([tipo,items])=>{
     const subVenta=items.reduce((s,r)=>s+r.costo,0);
     const subCosto=items.reduce((s,r)=>s+r.costoProveedor,0);
-    body+=`<tr><td colspan="9" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
+    const subGal=items.reduce((s,r)=>s+(r.galones||0),0);
+    const subComb=items.reduce((s,r)=>s+(r.costoComb||0),0);
+    const subMargen=items.reduce((s,r)=>s+(r.margen||0),0);
+    body+=`<tr><td colspan="11" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
     items.forEach(r=>{
       const t=r.tarifaObj;
       const sinTarifa=!t;
@@ -481,8 +519,17 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
         costoPCell=_ccFmt(r.costoProveedor);
       }
 
-      // Margen
-      const margen=r.costo-r.costoProveedor;
+      // Combustible (galones despachados en el período × precio configurado)
+      const galones=r.galones||0;
+      const combCell=galones>0
+        ?`<span style="font-family:monospace;font-weight:700;color:#f97316">${galones.toFixed(1)}</span><span style="font-size:.62rem;color:var(--muted2)"> gal</span>`
+        :'<span style="color:var(--muted2)">—</span>';
+      const costoCombCell=galones>0
+        ?_ccFmt(r.costoComb)
+        :'<span style="color:var(--muted2)">—</span>';
+
+      // Margen (Full: Venta − C.Prov − Comb · Seca: Venta − C.Prov)
+      const margen=r.margen||0;
       const margenPct=r.costo>0?(margen/r.costo*100).toFixed(0):null;
       const margenColor=margen>0?'#10b981':margen<0?'#ef4444':'var(--muted2)';
 
@@ -493,6 +540,8 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
         <td style="${TD};text-align:center">${incCell}</td>
         <td style="${TD};text-align:right;font-family:monospace">${tarifaCell}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${sinTarifa?'#f59e0b':r.costo>0?'#06b6d4':'var(--muted2)'}">${sinTarifa?'—':_ccFmt(r.costo)}</td>
+        <td style="${TD};text-align:right">${combCell}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#f97316">${costoCombCell}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#f59e0b">${costoPCell}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${margenColor}">${margenPct!==null?margenPct+'%':'—'}</td>
         <td style="${TD};font-size:.72rem;color:#a78bfa">${r.eq.proyecto||'—'}</td>
@@ -501,28 +550,37 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
     body+=`<tr style="background:rgba(6,182,212,.04)">
       <td colspan="5" style="${TD};text-align:right;font-size:.76rem;font-weight:700;color:var(--muted2)">Subtotal ${tipo}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">${_ccFmt(subVenta)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${subGal>0?subGal.toFixed(1)+' gal':''}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${_ccFmt(subComb)}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b">${_ccFmt(subCosto)}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${_ccFmt(subVenta-subCosto)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${_ccFmt(subMargen)}</td>
       <td style="${TD}"></td>
     </tr>`;
   });
 
   const totVenta=rows.reduce((s,r)=>s+r.costo,0);
   const totCosto=rows.reduce((s,r)=>s+r.costoProveedor,0);
+  const totGal=rows.reduce((s,r)=>s+(r.galones||0),0);
+  const totComb=rows.reduce((s,r)=>s+(r.costoComb||0),0);
+  const totMargen=rows.reduce((s,r)=>s+(r.margen||0),0);
   body+=`<tr style="background:rgba(6,182,212,.08)">
     <td colspan="5" style="${TD};font-weight:900;color:var(--text);font-size:.84rem;text-align:right">TOTAL EQUIPOS</td>
     <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#06b6d4">${_ccFmt(totVenta)}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${totGal>0?totGal.toFixed(1)+' gal':''}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f97316">${_ccFmt(totComb)}</td>
     <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f59e0b">${_ccFmt(totCosto)}</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#10b981">${_ccFmt(totVenta-totCosto)}</td>
+    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#10b981">${_ccFmt(totMargen)}</td>
     <td style="${TD}"></td>
   </tr>`;
 
   return`<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
-    <table style="width:100%;border-collapse:collapse;min-width:900px">
+    <table style="width:100%;border-collapse:collapse;min-width:1050px">
       <thead><tr>
         <th style="${TH}">Código</th><th style="${TH}">Equipo</th><th style="${TH};text-align:center">Un.</th>
         <th style="${TH};text-align:center">Incidencia</th><th style="${TH};text-align:right">Tarifa</th>
         <th style="${TH};text-align:right">Venta</th>
+        <th style="${TH};text-align:right">Combustible</th>
+        <th style="${TH};text-align:right">Costo Comb.</th>
         <th style="${TH};text-align:right">Costo Prov.</th>
         <th style="${TH};text-align:right">Margen</th>
         <th style="${TH}">Proyecto</th>
@@ -572,7 +630,7 @@ function _ccPanelPersonal(rows, diasPeriodo){
 }
 
 // ── Panel Resumen ──
-function _ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY){
+function _ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY,totalCombEq,totalMargenEq){
   const totalEq=totalVentaEq;
   const BAR=(v,max,c)=>{
     const p=max>0?Math.min(100,(v/max)*100):0;
@@ -632,17 +690,19 @@ function _ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGe
           <div style="font-size:.72rem;color:var(--muted2);margin-top:.25rem">
             Eq. Venta <span style="color:#06b6d4">${_ccFmt(totalVentaEq)}</span> &nbsp;·&nbsp;
             Eq. Costo Prov. <span style="color:#f59e0b">${_ccFmt(totalCostoEq)}</span> &nbsp;·&nbsp;
+            Combustible <span style="color:#f97316">${_ccFmt(totalCombEq||0)}</span> &nbsp;·&nbsp;
             HH <span style="color:#8b5cf6">${_ccFmt(totalHH)}</span>
           </div>
           <div style="font-size:.76rem;font-weight:700;color:#10b981;margin-top:.3rem">
-            Margen Eq.: ${_ccFmt(totalVentaEq-totalCostoEq)}
-            ${totalVentaEq>0?' ('+((totalVentaEq-totalCostoEq)/totalVentaEq*100).toFixed(1)+'%)':''}
+            Margen Eq.: ${_ccFmt(totalMargenEq||0)}
+            ${totalVentaEq>0?' ('+((totalMargenEq||0)/totalVentaEq*100).toFixed(1)+'%)':''}
+            <span style="color:var(--muted2);font-weight:400;font-size:.68rem">${KEY==='full'?'= Venta − (C.Prov. + Comb.)':'= Venta − Costo Prov.'}</span>
           </div>
         </div>
         <div style="text-align:right">
           <div style="font-size:.8rem;color:var(--muted2)">${eqRows.length} equipo(s) con partes</div>
           <div style="font-size:.8rem;color:var(--muted2)">${hhRows.length} persona(s) en período</div>
-          <div style="font-size:.74rem;font-weight:700;color:#f59e0b;margin-top:.3rem">Tarifa: ${_ccTarifaModo==='seca'?'Máquina Seca':'Full (con operador)'}</div>
+          <div style="font-size:.74rem;font-weight:700;color:#f59e0b;margin-top:.3rem">Tarifa: ${_ccTarifaModo==='seca'?'Máquina Seca':'Full (seca + combustible)'}</div>
         </div>
       </div>
     </div>
