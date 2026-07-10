@@ -712,7 +712,9 @@ function rFPago(){
       <td style="font-size:.73rem;color:var(--muted2)">${f.edp||'<span style="color:var(--muted)">—</span>'}</td>
       <td>${pdfLink}</td>
       <td style="display:flex;gap:.3rem">
-        ${_pdfHref?`<button class="btn btn-out btn-sm" title="Extraer ítems del PDF → Reembolsables/Gastos" onclick="extraerFactura(${f.id})" style="color:#10b981;border-color:#10b98150">🔍 Extraer</button>`:''}
+        ${_pdfHref?(_fpYaExtraida(f)
+          ?`<button class="btn btn-out btn-sm" title="Ya extraída a Reembolsables/Gastos — click para volver a extraer" onclick="extraerFactura(${f.id})" style="color:#10b981;border-color:#10b981;background:rgba(16,185,129,.15);font-weight:700">✓ Extraído</button>`
+          :`<button class="btn btn-out btn-sm" title="Extraer ítems del PDF → Reembolsables/Gastos" onclick="extraerFactura(${f.id})" style="color:#10b981;border-color:#10b98150">🔍 Extraer</button>`):''}
         <button class="btn btn-out btn-sm" title="Editar" onclick="editFPago(${f.id})" style="color:#f59e0b;border-color:#f59e0b40">✏️</button>
         ${f.est!=='Pagado'?`<button class="btn btn-del btn-sm" onclick="del('facturasPago',${f.id})">🗑</button>`:''}
       </td></tr>`;
@@ -900,6 +902,16 @@ function _fpTab(t){
 }
 
 let _feFacturaId=null;
+
+// ¿La factura ya tiene ítems extraídos en Reembolsables/Gastos?
+function _fpYaExtraida(f){
+  const rs=DB.reembolsables||[];
+  if(rs.some(r=>r.facturaId===f.id))return true;
+  // Respaldo: comparar N° de comprobante (E001-1262) contra serie-correlativo guardados
+  const numNorm=(f.num||'').toUpperCase().replace(/[\s]/g,'');
+  if(!numNorm)return false;
+  return rs.some(r=>`${(r.serie||'').toUpperCase()}-${r.correlativo||''}`===numNorm);
+}
 
 // ── Catálogo de códigos de reembolsable (tabla codigo_reemb; fallback local si está vacía) ──
 const _CODIGO_REEMB_DEF=[
@@ -1200,6 +1212,7 @@ function gReembolsables(){
   if(!n){toast('No hay ítems válidos para guardar',true);return;}
   closeM('mFactExtract');
   toast(`${n} ítem(s) guardado(s) en Reembolsables/Gastos`);
+  rFPago();
   _fpTab('reemb');
 }
 
