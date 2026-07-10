@@ -436,6 +436,17 @@ ${S}body>${S}html>`);
 
 // ══ DASHBOARD COMBUSTIBLE (períodos 21→20) ══
 let _combTabActiva='kardex', _combDashOffset=0, _combChart=null;
+// Filtros interactivos del dashboard (estilo Power BI)
+let _combDashTipo=null, _combDashEqId=null;
+function _combDashSelTipo(t){
+  if(_combDashTipo===t){_combDashTipo=null;_combDashEqId=null;}
+  else{_combDashTipo=t;_combDashEqId=null;}
+  rCombDash();
+}
+function _combDashSelEq(id){
+  _combDashEqId=_combDashEqId===id?null:id;
+  rCombDash();
+}
 
 function _combTab(t){
   _combTabActiva=t;
@@ -473,8 +484,32 @@ function rCombDash(){
   const per=_combPeriodo();
   const fmtS=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-  // Despachos del período
-  const desp=(DB.combustible||[]).filter(c=>c.tipoMov!=='Ingreso'&&c.fecha>=per.desde&&c.fecha<=per.hasta);
+  // Despachos del período (todos — base para los chips de filtro)
+  const despAll=(DB.combustible||[]).filter(c=>c.tipoMov!=='Ingreso'&&c.fecha>=per.desde&&c.fecha<=per.hasta);
+  const eqById=id=>(DB.equipos||[]).find(e=>e.id===id);
+
+  // — Chips por tipo de equipo —
+  const tiposMap={};
+  despAll.forEach(c=>{
+    const eq=eqById(c.eqId);
+    const t=eq?(eq.tipo||'Otros'):'Otros';
+    if(!tiposMap[t])tiposMap[t]={gal:0,eqs:{}};
+    tiposMap[t].gal+=(+c.gal||0);
+    if(eq){
+      if(!tiposMap[t].eqs[eq.id])tiposMap[t].eqs[eq.id]={eq,gal:0};
+      tiposMap[t].eqs[eq.id].gal+=(+c.gal||0);
+    }
+  });
+  // Si la selección ya no existe en este período, limpiarla
+  if(_combDashTipo&&!tiposMap[_combDashTipo]){_combDashTipo=null;_combDashEqId=null;}
+  if(_combDashEqId&&_combDashTipo&&!tiposMap[_combDashTipo].eqs[_combDashEqId])_combDashEqId=null;
+
+  // — Aplicar filtros activos —
+  const desp=despAll.filter(c=>{
+    if(_combDashEqId)return c.eqId===_combDashEqId;
+    if(_combDashTipo){const eq=eqById(c.eqId);return(eq?(eq.tipo||'Otros'):'Otros')===_combDashTipo;}
+    return true;
+  });
   const totGal=desp.reduce((a,c)=>a+(+c.gal||0),0);
   const totCosto=desp.reduce((a,c)=>a+(+c.gal||0)*(+c.precio||0),0);
   const diasConDesp=new Set(desp.map(c=>c.fecha)).size;
@@ -544,6 +579,36 @@ function rCombDash(){
     </tr>`;
   }).join('');
 
+  // — Chips de tipos de equipo (filtro interactivo) —
+  const tiposSorted=Object.entries(tiposMap).sort((a,b)=>b[1].gal-a[1].gal);
+  const chipTipos=tiposSorted.map(([t,d])=>{
+    const act=_combDashTipo===t;
+    const tEsc=t.replace(/'/g,"\\'");
+    return`<button onclick="_combDashSelTipo('${tEsc}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'rgba(249,115,22,.18)':'var(--panel2)'};color:${act?'#f97316':'var(--text)'};transition:all .15s">
+      ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#f97316':'var(--muted2)'}">${d.gal.toFixed(0)} gal</span>${act?' ✕':''}
+    </button>`;
+  }).join('');
+  const chipTodos=`<button onclick="_combDashTipo=null;_combDashEqId=null;rCombDash()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_combDashTipo?'#06b6d4':'var(--border)'};background:${!_combDashTipo?'rgba(6,182,212,.15)':'var(--panel2)'};color:${!_combDashTipo?'#06b6d4':'var(--muted2)'}">Todos</button>`;
+
+  // — Chips de códigos de equipo (aparecen al seleccionar un tipo) —
+  let chipEquipos='';
+  if(_combDashTipo&&tiposMap[_combDashTipo]){
+    const eqsT=Object.values(tiposMap[_combDashTipo].eqs).sort((a,b)=>b.gal-a.gal);
+    chipEquipos=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(249,115,22,.05);border:1px dashed rgba(249,115,22,.35);border-radius:9px">
+      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_combDashTipo}:</span>
+      ${eqsT.map(({eq,gal})=>{
+        const act=_combDashEqId===eq.id;
+        return`<button onclick="_combDashSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'#f97316':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
+          ${eq.codigo} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${gal.toFixed(0)}g</span>${act?' ✕':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Título dinámico según selección
+  const selEq=_combDashEqId?eqById(_combDashEqId):null;
+  const tituloSel=selEq?`${selEq.codigo} — ${selEq.nombre||''}`:_combDashTipo?_combDashTipo:'todos los equipos';
+
   pg.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
       <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
@@ -554,8 +619,15 @@ function rCombDash(){
       </div>
     </div>
     <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>
+        ${chipTodos}${chipTipos}
+      </div>
+      ${chipEquipos}
+    </div>
     <div class="card" style="margin-bottom:1rem">
-      <div class="card-head"><span class="card-title">⛽ Despacho diario de combustible (gal)</span></div>
+      <div class="card-head"><span class="card-title">⛽ Despacho diario — <span style="color:#f97316">${tituloSel}</span></span></div>
       <div class="card-body" style="height:260px;position:relative">
         ${desp.length?'<canvas id="combDashChart"></canvas>':'<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.85rem">Sin despachos en este período</div>'}
       </div>
