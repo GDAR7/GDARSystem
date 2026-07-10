@@ -958,41 +958,59 @@ function _feParseHeader(lines,f){
   return out;
 }
 
-// Extrae los ítems (cantidad, unidad, descripción, p.unit, importe)
-const _FE_UNITS=['UND','NIU','UN','U','ZZ','GLL','GAL','KG','KGM','M','MT','MTR','M2','M3','LT','LTR','L','PZA','PZ','PAR','JGO','CJA','BOL','SER','SERV','DIA','HRA','HR','GLB','MES','ROLLO','PLG','SACO','FCO','TUBO','PQT','DOC','CTO','MLL'];
+// Extrae los ítems (cantidad, unidad, descripción, valor unitario sin IGV, importe)
+// Modelos soportados:
+//  A) CODIGO CANT UNID DESC V.UNT(sin IGV) P.UNT(con IGV) DSCTO P.VENTA   (ej. Implementos Perú)
+//  B) CANT "UNIDAD" DESC VALOR.UNIT(sin IGV) ICBPER                        (ej. General Quality)
+//  C) CANT "UNIDAD" DESC VALOR.UNIT(sin IGV, hasta 10 decimales)           (ej. J&E)
+// Regla: el 1er número final = Valor Unit sin IGV; el último = P.VENTA solo si ≈ CANT × V.UNT.
+const _FE_UNITS=['UND','UNIDAD','UNIDADES','NIU','UN','U','ZZ','GLL','GAL','GLN','GALON','GALONES','KG','KGM','M','MT','MTR','M2','M3','LT','LTR','L','PZA','PZ','PAR','JGO','CJA','BOL','SER','SERV','SERVICIO','DIA','HRA','HR','GLB','MES','ROLLO','PLG','SACO','FCO','TUBO','PQT','DOC','CTO','MLL','CAJA','BOLSA','JUEGO','PIEZA'];
 function _feParseItems(lines){
   const items=[];
-  const skip=/(R\.?U\.?C|TOTAL|I\.?G\.?V|SUBTOTAL|SUB\s?TOTAL|GRAVADA|EXONERADA|INAFECTA|GRATUITA|DESCUENTO|SON\s?:|PERCEPCI|DETRACCI|FORMA\s+DE\s+PAGO|CUOTA|VENCIMIENTO|OBSERVACI|TIPO\s+DE\s+CAMBIO|N[°º]\s*DE|TEL[EÉ]F|E-?MAIL|DIRECCI|F\.?\s?EMISI)/i;
-  const numRe=/\d{1,3}(?:,\d{3})*\.\d{2,6}|\d+\.\d{2,6}/g;
+  const skip=/(R\.?U\.?C|TOTAL|I\.?G\.?V|SUBTOTAL|SUB\s?TOTAL|GRAVADA|EXONERADA|INAFECTA|GRATUITA|DESCUENTO|SON\s?:|PERCEPCI|DETRACCI|FORMA\s+DE\s+PAGO|CUOTA|VENCIMIENTO|OBSERVACI|TIPO\s+DE\s+CAMBIO|TEL[EÉ]F|E-?MAIL|DIRECCI|EMISI[OÓ]N|VALOR\s+VENTA|ANTICIPO|REDONDEO|OTROS\s+CARGOS|OTROS\s+TRIBUTOS|ICBPER\s*:|GUIA\s+DE\s+REMISI|WHATSAPP|CONTACT|MONEDA)/i;
+  const isNum=t=>/^\d{1,3}(?:,\d{3})*\.\d{1,10}$|^\d+\.\d{1,10}$/.test(t);
+  const toN=t=>parseFloat(t.replace(/,/g,''));
+  const qtyRe=/^\d{1,6}(?:\.\d{1,4})?$/;
   lines.forEach(line=>{
     if(skip.test(line))return;
-    if(line.length<8)return;
-    // ¿empieza con cantidad?
-    const m=line.match(/^(\d{1,6}(?:\.\d{1,4})?)\s+(.+)$/);
-    if(!m)return;
-    const cant=parseFloat(m[1]);
-    if(!(cant>0)||cant>100000)return;
-    let rest=m[2];
-    // unidad opcional (tras la cantidad)
-    let unidad='';
-    const tk0=(rest.split(' ')[0]||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    if(_FE_UNITS.includes(tk0)){unidad=tk0;rest=rest.split(' ').slice(1).join(' ');}
-    const nums=rest.match(numRe);
-    if(!nums||!nums.length)return;
-    const importe=parseFloat(nums[nums.length-1].replace(/,/g,''));
-    if(!(importe>0))return;
-    const punit=nums.length>=2?parseFloat(nums[nums.length-2].replace(/,/g,'')):+(importe/cant).toFixed(4);
-    // descripción = texto antes de los números finales (importe y p.unit, de derecha a izquierda)
-    let head=rest;
-    const impCut=head.lastIndexOf(nums[nums.length-1]);
-    if(impCut>0)head=head.slice(0,impCut);
-    if(nums.length>=2){
-      const puCut=head.lastIndexOf(nums[nums.length-2]);
-      if(puCut>2)head=head.slice(0,puCut);
+    const tk=line.split(/\s+/).filter(Boolean);
+    if(tk.length<3)return;
+    // Cantidad en las primeras 3 posiciones (puede haber un código de ítem antes)
+    let qi=-1;
+    for(let i=0;i<Math.min(3,tk.length);i++){
+      if(qtyRe.test(tk[i])){const q=parseFloat(tk[i]);if(q>0&&q<=100000){qi=i;break;}}
     }
-    let desc=head.replace(/[|·]+$/,'').trim();
+    if(qi<0)return;
+    const cant=parseFloat(tk[qi]);
+    // Números al final de la línea (V.UNT, P.UNT, DSCTO, P.VENTA, ICBPER...)
+    let end=tk.length;
+    const nums=[];
+    while(end-1>qi&&isNum(tk[end-1])){nums.unshift(toN(tk[end-1]));end--;}
+    if(!nums.length)return;
+    // Tokens intermedios: unidad opcional + descripción
+    let mid=tk.slice(qi+1,end);
+    let unidad='';
+    if(mid.length){
+      const u=mid[0].toUpperCase().replace(/[^A-ZÑ0-9]/g,'');
+      if(_FE_UNITS.includes(u)){
+        unidad=(u==='UNIDAD'||u==='UNIDADES')?'UND':(u==='GALON'||u==='GALONES'||u==='GLN')?'GAL':u;
+        mid=mid.slice(1);
+      }
+    }
+    const desc=mid.join(' ').replace(/^[\-:|·]+|[\-:|·]+$/g,'').trim();
     if(!desc||desc.length<3)return;
-    items.push({desc,cant,unidad,punit,importe});
+    if(/^\d[\d\s\/\-\.,:]*$/.test(desc))return; // solo números/fechas → no es un ítem
+    // 1er número final = Valor Unitario sin IGV
+    const vunit=nums[0];
+    if(!(vunit>0))return;
+    const esperado=cant*vunit;
+    let importe=esperado;
+    if(nums.length>=2){
+      const last=nums[nums.length-1];
+      // último número = P.VENTA solo si coincide con CANT × V.UNT (tolerancia por redondeo)
+      if(Math.abs(last-esperado)<=Math.max(esperado*0.02,0.05))importe=last;
+    }
+    items.push({desc,cant,unidad,punit:vunit,importe:+importe.toFixed(2)});
   });
   return items;
 }
