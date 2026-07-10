@@ -257,14 +257,27 @@ function _ccPeriodo(){
 }
 
 // ── Coincidencia tarifa equipo (usa DB si tiene datos, sino fallback hardcoded) ──
+// Normaliza texto: minúsculas, sin tildes, sin puntuación
+function _ccNorm(s){
+  return (s||'').toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g,"")
+    .replace(/[.,;:]/g,' ').replace(/\s+/g,' ').trim();
+}
 function _ccMatchEq(eq){
-  const txt=((eq.sub||'')+' '+(eq.nombre||'')+' '+(eq.marca||'')+' '+(eq.modelo||'')).toLowerCase();
+  const txt=_ccNorm((eq.sub||'')+' '+(eq.nombre||'')+' '+(eq.marca||'')+' '+(eq.modelo||''));
   const dbTarifas=DB.tarifasEq||[];
   if(dbTarifas.length){
+    // 1º pasada: por palabras clave (más específico)
     for(const t of dbTarifas){
-      const kws=(t.palabrasClave||'').split(',').map(k=>k.trim().toLowerCase()).filter(Boolean);
+      const kws=(t.palabrasClave||'').split(',').map(k=>_ccNorm(k)).filter(Boolean);
       if(kws.length&&kws.some(k=>txt.includes(k))){
-        // Normalizar campos DB al mismo shape que hardcoded
+        return{lab:t.desc,seca:+t.tarifaSeca||0,full:+t.tarifaFull||0,costo:+t.tarifaCosto||0,un:t.unidad||'HM'};
+      }
+    }
+    // 2º pasada: por descripción de la tarifa (fallback)
+    for(const t of dbTarifas){
+      const desc=_ccNorm(t.desc);
+      if(desc&&txt.includes(desc)){
         return{lab:t.desc,seca:+t.tarifaSeca||0,full:+t.tarifaFull||0,costo:+t.tarifaCosto||0,un:t.unidad||'HM'};
       }
     }
