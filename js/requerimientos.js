@@ -712,10 +712,12 @@ function rFPago(){
       <td style="font-size:.73rem;color:var(--muted2)">${f.edp||'<span style="color:var(--muted)">—</span>'}</td>
       <td>${pdfLink}</td>
       <td style="display:flex;gap:.3rem">
+        ${_pdfHref?`<button class="btn btn-out btn-sm" title="Extraer ítems del PDF → Reembolsables/Gastos" onclick="extraerFactura(${f.id})" style="color:#10b981;border-color:#10b98150">🔍 Extraer</button>`:''}
         <button class="btn btn-out btn-sm" title="Editar" onclick="editFPago(${f.id})" style="color:#f59e0b;border-color:#f59e0b40">✏️</button>
         ${f.est!=='Pagado'?`<button class="btn btn-del btn-sm" onclick="del('facturasPago',${f.id})">🗑</button>`:''}
       </td></tr>`;
   }).join('');
+  if(typeof _fpTabActiva!=='undefined'&&_fpTabActiva==='reemb')rReembolsables();
 }
 const todayDMY=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
 const toDMY=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
@@ -881,3 +883,324 @@ async function gFPago(){
   }
 }
 
+
+// ══ EXTRACCIÓN DE FACTURAS → REEMBOLSABLES / GASTOS ══
+let _fpTabActiva='comp';
+function _fpTab(t){
+  _fpTabActiva=t;
+  const c=document.getElementById('fpTab-comp');
+  const r=document.getElementById('fpTab-reemb');
+  if(c)c.style.display=t==='comp'?'':'none';
+  if(r)r.style.display=t==='reemb'?'':'none';
+  ['comp','reemb'].forEach(x=>{
+    const b=document.getElementById('fpTabBtn-'+x);
+    if(b){b.style.background=x===t?'var(--alm)':'transparent';b.style.color=x===t?'#fff':'var(--muted2)';}
+  });
+  if(t==='reemb')rReembolsables();
+}
+
+let _feFacturaId=null;
+
+// Lee el PDF y devuelve las líneas de texto agrupadas por fila visual (coordenada Y)
+async function _feLoadPdfLines(url){
+  let data;
+  if(url.startsWith('data:')){
+    const b64=url.split(',')[1];
+    const bin=atob(b64);
+    data=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)data[i]=bin.charCodeAt(i);
+  }else{
+    const resp=await fetch(url);
+    if(!resp.ok)throw new Error('No se pudo descargar el PDF ('+resp.status+')');
+    data=new Uint8Array(await resp.arrayBuffer());
+  }
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+  const lines=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    const rowsMap={};
+    tc.items.forEach(it=>{
+      if(!it.str||!it.str.trim())return;
+      const y=Math.round(it.transform[5]/4)*4; // agrupar por banda de ~4px
+      if(!rowsMap[y])rowsMap[y]=[];
+      rowsMap[y].push({x:it.transform[4],s:it.str});
+    });
+    Object.keys(rowsMap).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      const line=rowsMap[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim();
+      if(line)lines.push(line);
+    });
+  }
+  return lines;
+}
+
+// Extrae cabecera: N° factura, fecha, RUC emisor, total
+function _feParseHeader(lines,f){
+  const txt=lines.join('\n');
+  const out={num:f.num||'',fecha:'',ruc:'',total:+f.total||0};
+  const mNum=txt.match(/\b([EFB][A-Z0-9]{0,3}\d{0,3}-\d{1,8})\b/);
+  if(mNum)out.num=mNum[1];
+  const lEmis=lines.find(l=>/emisi/i.test(l)&&/\d{2}[\/\-]\d{2}[\/\-]\d{4}/.test(l));
+  if(lEmis)out.fecha=lEmis.match(/\d{2}[\/\-]\d{2}[\/\-]\d{4}/)[0].replace(/-/g,'/');
+  else{
+    const fechas=txt.match(/\b\d{2}\/\d{2}\/\d{4}\b/g);
+    if(fechas&&fechas.length)out.fecha=fechas[0];
+  }
+  // RUC del emisor: primer RUC que no sea el de ECOSERMO (cliente)
+  const rucs=(txt.match(/\b(?:10|20)\d{9}\b/g)||[]).filter(r=>r!=='20571533180');
+  if(rucs.length)out.ruc=rucs[0];
+  const lTot=lines.filter(l=>/importe\s+total|total\s+a\s+pagar/i.test(l)).pop()
+    ||lines.filter(l=>/^total\b|total\s*:/i.test(l)).pop();
+  if(lTot){
+    const ns=lTot.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
+    if(ns)out.total=parseFloat(ns[ns.length-1].replace(/,/g,''));
+  }
+  return out;
+}
+
+// Extrae los ítems (cantidad, unidad, descripción, p.unit, importe)
+const _FE_UNITS=['UND','NIU','UN','U','ZZ','GLL','GAL','KG','KGM','M','MT','MTR','M2','M3','LT','LTR','L','PZA','PZ','PAR','JGO','CJA','BOL','SER','SERV','DIA','HRA','HR','GLB','MES','ROLLO','PLG','SACO','FCO','TUBO','PQT','DOC','CTO','MLL'];
+function _feParseItems(lines){
+  const items=[];
+  const skip=/(R\.?U\.?C|TOTAL|I\.?G\.?V|SUBTOTAL|SUB\s?TOTAL|GRAVADA|EXONERADA|INAFECTA|GRATUITA|DESCUENTO|SON\s?:|PERCEPCI|DETRACCI|FORMA\s+DE\s+PAGO|CUOTA|VENCIMIENTO|OBSERVACI|TIPO\s+DE\s+CAMBIO|N[°º]\s*DE|TEL[EÉ]F|E-?MAIL|DIRECCI|F\.?\s?EMISI)/i;
+  const numRe=/\d{1,3}(?:,\d{3})*\.\d{2,6}|\d+\.\d{2,6}/g;
+  lines.forEach(line=>{
+    if(skip.test(line))return;
+    if(line.length<8)return;
+    // ¿empieza con cantidad?
+    const m=line.match(/^(\d{1,6}(?:\.\d{1,4})?)\s+(.+)$/);
+    if(!m)return;
+    const cant=parseFloat(m[1]);
+    if(!(cant>0)||cant>100000)return;
+    let rest=m[2];
+    // unidad opcional (tras la cantidad)
+    let unidad='';
+    const tk0=(rest.split(' ')[0]||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(_FE_UNITS.includes(tk0)){unidad=tk0;rest=rest.split(' ').slice(1).join(' ');}
+    const nums=rest.match(numRe);
+    if(!nums||!nums.length)return;
+    const importe=parseFloat(nums[nums.length-1].replace(/,/g,''));
+    if(!(importe>0))return;
+    const punit=nums.length>=2?parseFloat(nums[nums.length-2].replace(/,/g,'')):+(importe/cant).toFixed(4);
+    // descripción = texto antes de los números finales (importe y p.unit, de derecha a izquierda)
+    let head=rest;
+    const impCut=head.lastIndexOf(nums[nums.length-1]);
+    if(impCut>0)head=head.slice(0,impCut);
+    if(nums.length>=2){
+      const puCut=head.lastIndexOf(nums[nums.length-2]);
+      if(puCut>2)head=head.slice(0,puCut);
+    }
+    let desc=head.replace(/[|·]+$/,'').trim();
+    if(!desc||desc.length<3)return;
+    items.push({desc,cant,unidad,punit,importe});
+  });
+  return items;
+}
+
+// Abre el modal y ejecuta la extracción
+async function extraerFactura(id){
+  const f=DB.facturasPago.find(x=>x.id===id);if(!f)return;
+  const url=f.pdfUrl||f.pdfData||'';
+  if(!url){toast('Esta factura no tiene PDF',true);return;}
+  if(typeof pdfjsLib==='undefined'){toast('PDF.js no está cargado',true);return;}
+  _feFacturaId=id;
+  openM('mFactExtract');
+  document.getElementById('feStatus').style.display='';
+  document.getElementById('feStatus').textContent='⏳ Leyendo PDF...';
+  document.getElementById('feBody').style.display='none';
+  try{
+    const lines=await _feLoadPdfLines(url);
+    const head=_feParseHeader(lines,f);
+    const items=_feParseItems(lines);
+    // Proyecto desde el requerimiento vinculado
+    const req=DB.requerimientos.find(r=>r.id===f.reqId);
+    // Serie y correlativo desde el N° extraído (ej: E002-2554)
+    const numFull=(head.num||f.num||'').replace(/\s/g,'');
+    const mSC=numFull.match(/^([A-Z0-9]+)-(\d+)$/i);
+    document.getElementById('feSerie').value=mSC?mSC[1].toUpperCase():numFull;
+    document.getElementById('feCorrel').value=mSC?mSC[2]:'';
+    const tipoCpMap={'Factura':'FE','Boleta de Venta':'BV','Nota de Crédito':'NC','Nota de Débito':'ND','Recibo por Honorarios':'RH'};
+    document.getElementById('feTipoCp').value=tipoCpMap[f.tipo]||'FE';
+    document.getElementById('feFecha').value=head.fecha||toDMY(f.fecha)||'';
+    document.getElementById('feRuc').value=head.ruc||'';
+    document.getElementById('feTotal').value=head.total||f.total||0;
+    document.getElementById('feProv').value=f.prov||'';
+    document.getElementById('feCodigo').value='';
+    document.getElementById('feMoneda').value=/d[oó]lar|usd/i.test(f.moneda||'')?'DOLARES':'SOLES';
+    document.getElementById('feTc').value='';
+    document.getElementById('feEdp').value=f.edp||'';
+    document.getElementById('feObs').value='';
+    document.getElementById('feProy').value=req?(req.proyecto||''):'';
+    document.getElementById('feTipoCobro').value=f.tipoCobro||'';
+    const tb=document.getElementById('feItems');
+    tb.innerHTML='';
+    if(items.length)items.forEach(it=>_feAddRow(it));
+    else _feAddRow();
+    document.getElementById('feStatus').style.display='none';
+    document.getElementById('feBody').style.display='';
+    _feRecalc();
+    if(!items.length)toast('No se detectaron ítems automáticamente — puede ser un PDF escaneado. Agrégalos manualmente.',true);
+  }catch(e){
+    console.error('[extraerFactura]',e);
+    document.getElementById('feStatus').textContent='⚠ Error al leer el PDF: '+(e.message||e)+'. Si es un escaneo/imagen, no se puede extraer texto.';
+  }
+}
+
+const _FE_IN='width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.28rem .4rem;font-size:.75rem;outline:none';
+function _feAddRow(it){
+  it=it||{desc:'',cant:1,unidad:'',punit:0,importe:0,nombreCodif:''};
+  const tb=document.getElementById('feItems');if(!tb)return;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td style="padding:.25rem .4rem"><input class="fe-codif" value="${(it.nombreCodif||'').replace(/"/g,'&quot;')}" placeholder="EPPs, Insumos..." style="${_FE_IN}"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-desc" value="${(it.desc||'').replace(/"/g,'&quot;')}" style="${_FE_IN}"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-cant" type="number" step="0.01" value="${it.cant}" oninput="_feRowCalc(this)" style="${_FE_IN};text-align:right;font-family:monospace"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-und" value="${it.unidad||''}" style="${_FE_IN};text-align:center"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-punit" type="number" step="0.0001" value="${it.punit}" oninput="_feRowCalc(this)" style="${_FE_IN};text-align:right;font-family:monospace"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-imp" type="number" step="0.01" value="${it.importe}" oninput="_feRecalc()" style="${_FE_IN};text-align:right;font-family:monospace;color:#10b981;font-weight:700"></td>
+    <td style="padding:.25rem .2rem;text-align:center"><button onclick="this.closest('tr').remove();_feRecalc()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.85rem" title="Quitar fila">🗑</button></td>`;
+  tb.appendChild(tr);
+}
+function _feRowCalc(el){
+  const tr=el.closest('tr');
+  const cant=+tr.querySelector('.fe-cant').value||0;
+  const punit=+tr.querySelector('.fe-punit').value||0;
+  tr.querySelector('.fe-imp').value=(cant*punit).toFixed(2);
+  _feRecalc();
+}
+function _feRecalc(){
+  const sum=[...document.querySelectorAll('#feItems .fe-imp')].reduce((a,i)=>a+(+i.value||0),0);
+  const tot=+document.getElementById('feTotal').value||0;
+  const dif=tot-sum;
+  const el=document.getElementById('feResumen');
+  if(el)el.innerHTML=`Suma ítems: <strong style="color:#10b981;font-family:monospace">S/ ${sum.toLocaleString('es-PE',{minimumFractionDigits:2})}</strong>
+    ${tot>0?` · Total factura: <span class="mono">S/ ${tot.toLocaleString('es-PE',{minimumFractionDigits:2})}</span> · Dif: <span style="color:${Math.abs(dif)<0.5?'#10b981':'#f59e0b'};font-family:monospace">S/ ${dif.toFixed(2)}</span> <span style="color:var(--muted2);font-size:.68rem">(la dif. suele ser el IGV)</span>`:''}`;
+}
+
+// Guarda las filas como registros de Reembolsables/Gastos
+function gReembolsables(){
+  const trs=[...document.querySelectorAll('#feItems tr')];
+  const fecha=document.getElementById('feFecha').value.trim();
+  const fIso=fecha.includes('/')?toISO(fecha):fecha;
+  const serie=document.getElementById('feSerie').value.trim().toUpperCase();
+  const correlativo=document.getElementById('feCorrel').value.trim();
+  const tipoCp=document.getElementById('feTipoCp').value;
+  const ruc=document.getElementById('feRuc').value.trim();
+  const prov=document.getElementById('feProv').value.trim();
+  const codigo=document.getElementById('feCodigo').value.trim().toUpperCase();
+  const moneda=document.getElementById('feMoneda').value;
+  const tc=+document.getElementById('feTc').value||0;
+  const edp=document.getElementById('feEdp').value.trim();
+  const obs=document.getElementById('feObs').value.trim();
+  const proy=document.getElementById('feProy').value.trim();
+  const tipoCobro=document.getElementById('feTipoCobro').value;
+  let n=0;
+  trs.forEach(tr=>{
+    const desc=tr.querySelector('.fe-desc').value.trim();
+    const nombreCodif=tr.querySelector('.fe-codif').value.trim();
+    const cant=+tr.querySelector('.fe-cant').value||0;
+    const unidad=tr.querySelector('.fe-und').value.trim();
+    const punit=+tr.querySelector('.fe-punit').value||0;
+    const importe=+tr.querySelector('.fe-imp').value||0;
+    if(!desc||importe<=0)return;
+    n++;
+    const rec={id:nid('reemb'),facturaId:_feFacturaId,fecha:fIso,proyecto:proy,moneda,obs,
+      tipoCp,serie,correlativo,ruc,proveedor:prov,codigo,itemFac:String(n).padStart(2,'0'),
+      nombreCodif,desc,edp,cantidad:cant,unidad,precioUnit:punit,importe,tc,tipoCobro};
+    DB.reembolsables.push(rec);
+    syncSheet('saveReembolsable',rec);
+  });
+  if(!n){toast('No hay ítems válidos para guardar',true);return;}
+  closeM('mFactExtract');
+  toast(`${n} ítem(s) guardado(s) en Reembolsables/Gastos`);
+  _fpTab('reemb');
+}
+
+// ── Render del tab Reembolsables / Gastos ──
+function rReembolsables(){
+  const pg=document.getElementById('fpTab-reemb');if(!pg)return;
+  const rows=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
+  const _n2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const _n3=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:3,maximumFractionDigits:3});
+  const totSin=rows.reduce((a,r)=>a+(+r.importe||0),0);
+  const totCon=rows.reduce((a,r)=>a+(+r.importe||0)*1.18,0);
+  const nFact=new Set(rows.map(r=>(r.serie||'')+'-'+(r.correlativo||''))).size;
+  const nProv=new Set(rows.map(r=>r.ruc||r.proveedor)).size;
+  const kpis=[
+    {l:'Total S/ (sin IGV)',v:'S/ '+_n2(totSin),c:'#10b981'},
+    {l:'Total S/ (inc. IGV)',v:'S/ '+_n2(totCon),c:'#06b6d4'},
+    {l:'Ítems Registrados',v:rows.length,c:'#f97316'},
+    {l:'Facturas / Proveedores',v:nFact+' / '+nProv,c:'#8b5cf6'},
+  ];
+  const TDs='padding:.4rem .55rem;border-bottom:1px solid var(--border);font-size:.74rem;white-space:nowrap;vertical-align:middle';
+  const tbody=rows.map(r=>{
+    const punit=+r.precioUnit||0;
+    const subTotal=+r.importe||0;
+    const cUnitIgv=punit*1.18;
+    const igvUnit=punit*0.18;
+    const totSoles=subTotal*1.18;
+    const tc=+r.tc||0;
+    const factura=`${r.serie||''} - ${r.correlativo||''}`.trim();
+    const factFecha=`${_dmy(r.fecha)}(${factura})`;
+    const totDol=tc>0?_n2(totSoles/tc):'—';
+    const subDol=tc>0?_n2(subTotal/tc):'—';
+    return`<tr>
+      <td style="${TDs};font-family:monospace;color:var(--muted2)">${r.id}</td>
+      <td style="${TDs};color:#a78bfa">${r.proyecto||'—'}</td>
+      <td style="${TDs};font-size:.68rem">${r.moneda||'SOLES'}</td>
+      <td style="${TDs};font-family:monospace">${_dmy(r.fecha)}</td>
+      <td style="${TDs};max-width:130px;overflow:hidden;text-overflow:ellipsis" title="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
+      <td style="${TDs};text-align:center"><span class="badge b-orange" style="font-size:.62rem">${r.tipoCp||'FE'}</span></td>
+      <td style="${TDs};font-family:monospace;font-weight:700">${r.serie||'—'}</td>
+      <td style="${TDs};font-family:monospace">${r.correlativo||'—'}</td>
+      <td style="${TDs};font-family:monospace;font-size:.68rem;color:var(--muted2)">${factFecha}</td>
+      <td style="${TDs};font-family:monospace;font-weight:700;color:var(--alm)">${factura}</td>
+      <td style="${TDs};font-family:monospace">${r.ruc||'—'}</td>
+      <td style="${TDs}">${r.proveedor||'—'}</td>
+      <td style="${TDs};font-family:monospace;text-align:center">${r.codigo||'—'}</td>
+      <td style="${TDs};font-family:monospace;text-align:center">${r.itemFac||'—'}</td>
+      <td style="${TDs};max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(r.nombreCodif||'').replace(/"/g,'&quot;')}">${r.nombreCodif||'—'}</td>
+      <td style="${TDs};max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${(r.desc||'').replace(/"/g,'&quot;')}">${r.desc||''}</td>
+      <td style="${TDs};text-align:center">${r.edp||'—'}</td>
+      <td style="${TDs};text-align:right;font-family:monospace;font-weight:700">${(+r.cantidad||0).toLocaleString('es-PE')}</td>
+      <td style="${TDs};text-align:center;font-size:.68rem;color:var(--muted2)">${r.unidad||'—'}</td>
+      <td style="${TDs};text-align:right;font-family:monospace">S/ ${_n3(punit)}</td>
+      <td style="${TDs};text-align:right;font-family:monospace;font-weight:700;color:#10b981">S/ ${_n2(subTotal)}</td>
+      <td style="${TDs};text-align:right;font-family:monospace">S/ ${_n2(cUnitIgv)}</td>
+      <td style="${TDs};text-align:right;font-family:monospace;color:#f59e0b">S/ ${_n2(igvUnit)}</td>
+      <td style="${TDs};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">S/ ${_n2(totSoles)}</td>
+      <td style="${TDs};text-align:right;font-family:monospace">${totDol}</td>
+      <td style="${TDs};text-align:right;font-family:monospace;color:var(--muted2)">${tc>0?_n3(tc):'—'}</td>
+      <td style="${TDs};text-align:right;font-family:monospace">${subDol}</td>
+      <td style="${TDs}"><button class="btn btn-del btn-sm" onclick="del('reembolsables',${r.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
+  const THs='background:var(--panel2);color:var(--muted2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.45rem .55rem;white-space:nowrap;position:sticky;top:0;z-index:2';
+  pg.innerHTML=`
+    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${k.v.toString().length>9?'1.2rem':'1.85rem'}">${k.v}</div></div>`).join('')}</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">🧾 Reembolsables / Gastos extraídos de facturas</span>
+        <div class="card-head-right">
+          <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbReemb')"></div>
+        </div>
+      </div>
+      <div class="card-body"><div style="overflow-x:auto;max-height:65vh;overflow-y:auto;border-radius:8px"><table style="width:100%;border-collapse:collapse;min-width:2400px">
+        <thead><tr>
+          <th style="${THs}">ID</th><th style="${THs}">Proyecto</th><th style="${THs}">Moneda</th>
+          <th style="${THs}">Fecha de Fact.</th><th style="${THs}">Observaciones</th>
+          <th style="${THs}">Tipo CP</th><th style="${THs}">Serie</th><th style="${THs}">Correlativo</th>
+          <th style="${THs}">Factura y Fecha</th><th style="${THs}">Factura</th>
+          <th style="${THs}">RUC</th><th style="${THs}">Proveedor</th><th style="${THs}">Código</th>
+          <th style="${THs}">Ítem Fac</th><th style="${THs}">Nombre Codif.</th><th style="${THs}">Descripción</th>
+          <th style="${THs}">EDP</th><th style="${THs};text-align:right">Cantidad</th><th style="${THs}">Unidad</th>
+          <th style="${THs};text-align:right">P. Unit s/IGV</th><th style="${THs};text-align:right">SubTotal S/ sin IGV</th>
+          <th style="${THs};text-align:right">Costo Unit c/IGV</th><th style="${THs};text-align:right">IGV</th>
+          <th style="${THs};text-align:right">Total S/ (inc. IGV)</th><th style="${THs};text-align:right">Total $</th>
+          <th style="${THs};text-align:right">TC</th><th style="${THs};text-align:right">SubTotal $ (sin IGV)</th><th style="${THs}"></th>
+        </tr></thead>
+        <tbody id="tbReemb">${tbody||`<tr><td colspan="28" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin gastos registrados. Usa el botón <strong style="color:#10b981">🔍 Extraer</strong> en el tab Comprobantes.</td></tr>`}</tbody>
+      </table></div></div>
+    </div>`;
+}

@@ -486,6 +486,12 @@
 <!-- ALMACÉN – FACTURAS / BOLETAS DE PAGO -->
 <div class="page" id="page-facturasPago">
   <div class="ph"><div class="ph-title" style="color:var(--alm)">Facturas / Boletas de Pago</div><div class="ph-sub">Comprobantes de pago vinculados a requerimientos</div></div>
+  <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    <button id="fpTabBtn-comp" onclick="_fpTab('comp')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--alm);color:#fff">📄 Comprobantes</button>
+    <button id="fpTabBtn-reemb" onclick="_fpTab('reemb')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🧾 Reembolsables / Gastos</button>
+  </div>
+  <div id="fpTab-reemb" style="display:none"></div>
+  <div id="fpTab-comp">
   <div class="kpi-row" id="fpagoKpis"></div>
   <div class="card">
     <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
@@ -510,6 +516,7 @@
   <div class="card" id="cardTraz" style="display:none">
     <div class="card-head"><span class="card-title">🔗 Trazabilidad de Requerimiento</span><button class="btn btn-out btn-sm" onclick="document.getElementById('cardTraz').style.display='none'">✕ Cerrar</button></div>
     <div class="card-body" id="bodyTraz"></div>
+  </div>
   </div>
 </div>
 
@@ -1995,6 +2002,55 @@
     <div class="fg" style="grid-column:1/-1"><label>Observaciones</label><textarea id="fpObs" rows="2" placeholder="Observaciones sobre el comprobante..."></textarea></div>
   </div></div>
   <div class="mf"><button class="btn btn-out" onclick="_fpEditId=null;document.querySelector('#mFPago .mttl').textContent='🧾 Cargar Comprobante de Pago';closeM('mFPago')">Cancelar</button><button class="btn btn-a" style="--ba:var(--alm)" onclick="gFPago()">Guardar Comprobante</button></div>
+</div></div>
+
+<!-- Modal Extracción de Factura → Reembolsables -->
+<div class="mo" id="mFactExtract"><div class="modal" style="max-width:850px">
+  <div class="mh"><span class="mttl">🔍 Extracción de Factura → Reembolsables / Gastos</span><button class="mx" onclick="closeM('mFactExtract')">✕</button></div>
+  <div class="mb">
+    <div id="feStatus" style="display:none;text-align:center;padding:1.5rem;color:#f59e0b;font-size:.85rem">⏳ Leyendo PDF...</div>
+    <div id="feBody" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem .7rem;margin-bottom:.8rem">
+        <div class="fg"><label>Tipo de CP</label><select id="feTipoCp"><option value="FE">FE – Factura</option><option value="BV">BV – Boleta de Venta</option><option value="RH">RH – Recibo Honorarios</option><option value="NC">NC – Nota de Crédito</option><option value="ND">ND – Nota de Débito</option></select></div>
+        <div class="fg"><label>Serie</label><input id="feSerie" placeholder="E002" style="font-family:monospace"></div>
+        <div class="fg"><label>Correlativo</label><input id="feCorrel" placeholder="2554" style="font-family:monospace"></div>
+        <div class="fg"><label>Fecha de Fact.</label><input id="feFecha" placeholder="dd/mm/yyyy" style="font-family:monospace"></div>
+        <div class="fg"><label>RUC Proveedor</label><input id="feRuc" style="font-family:monospace"></div>
+        <div class="fg" style="grid-column:2/4"><label>Proveedor</label><input id="feProv"></div>
+        <div class="fg"><label>Código Prov.</label><input id="feCodigo" placeholder="R14" style="font-family:monospace"></div>
+        <div class="fg"><label>Moneda</label><select id="feMoneda"><option value="SOLES">SOLES</option><option value="DOLARES">DÓLARES</option></select></div>
+        <div class="fg"><label>TC (tipo cambio)</label><input id="feTc" type="number" step="0.001" placeholder="—" style="font-family:monospace"></div>
+        <div class="fg"><label>EDP</label><input id="feEdp" placeholder="3"></div>
+        <div class="fg"><label>Total S/ (inc. IGV)</label><input id="feTotal" type="number" step="0.01" style="font-family:monospace"></div>
+        <div class="fg"><label>Proyecto</label><input id="feProy" readonly style="opacity:.7"></div>
+        <div class="fg"><label>Tipo Cobro</label><select id="feTipoCobro"><option value="">— Sin clasificar —</option><option>Reembolsable</option><option>Costo Indirecto</option><option>Costo Directo</option><option>Otros</option></select></div>
+        <div class="fg" style="grid-column:3/-1"><label>Observaciones / Anotaciones</label><input id="feObs" placeholder="Opcional..."></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+        <span style="font-size:.75rem;font-weight:700;color:#f59e0b">📋 Ítems extraídos <span style="color:var(--muted2);font-weight:400">(precios sin IGV — revisa antes de guardar)</span></span>
+        <button class="btn btn-out btn-sm" onclick="_feAddRow()" style="color:#10b981;border-color:#10b98150">＋ Agregar fila</button>
+      </div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;max-height:320px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:780px">
+          <thead><tr style="position:sticky;top:0;background:var(--panel2);z-index:2">
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;width:150px;text-align:left">Nombre Codif.</th>
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;text-align:left">Descripción</th>
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;width:70px">Cant.</th>
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;width:60px">Und.</th>
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;width:90px">P. Unit s/IGV</th>
+            <th style="padding:.4rem .5rem;font-size:.66rem;color:var(--muted2);text-transform:uppercase;width:95px">SubTotal s/IGV</th>
+            <th style="width:36px"></th>
+          </tr></thead>
+          <tbody id="feItems"></tbody>
+        </table>
+      </div>
+      <div id="feResumen" style="text-align:right;margin-top:.5rem;font-size:.78rem;color:var(--muted2)"></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mFactExtract')">Cancelar</button>
+    <button class="btn btn-a" id="feBtnGuardar" style="--ba:#10b981" onclick="gReembolsables()">💾 Guardar en Reembolsables</button>
+  </div>
 </div></div>
 
 <!-- Modal Ver Detalle Requerimiento -->
