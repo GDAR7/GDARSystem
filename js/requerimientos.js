@@ -1208,6 +1208,7 @@ function rReembolsables(){
     return`<tr>
       <td style="${TDs};font-family:monospace;color:var(--muted2)">${r.id}</td>
       <td style="${TDs};color:#a78bfa">${r.proyecto||'—'}</td>
+      <td style="${TDs};text-align:center">${r.edp||'—'}</td>
       <td style="${TDs};font-size:.68rem">${r.moneda||'SOLES'}</td>
       <td style="${TDs};font-family:monospace">${_dmy(r.fecha)}</td>
       <td style="${TDs};max-width:130px;overflow:hidden;text-overflow:ellipsis" title="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
@@ -1219,10 +1220,9 @@ function rReembolsables(){
       <td style="${TDs};font-family:monospace">${r.ruc||'—'}</td>
       <td style="${TDs}">${r.proveedor||'—'}</td>
       <td style="${TDs};font-family:monospace;text-align:center">${r.codigo||'—'}</td>
-      <td style="${TDs};font-family:monospace;text-align:center">${r.itemFac||'—'}</td>
       <td style="${TDs};max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(r.nombreCodif||'').replace(/"/g,'&quot;')}">${r.nombreCodif||'—'}</td>
+      <td style="${TDs};font-family:monospace;text-align:center">${r.itemFac||'—'}</td>
       <td style="${TDs};max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${(r.desc||'').replace(/"/g,'&quot;')}">${r.desc||''}</td>
-      <td style="${TDs};text-align:center">${r.edp||'—'}</td>
       <td style="${TDs};text-align:right;font-family:monospace;font-weight:700">${(+r.cantidad||0).toLocaleString('es-PE')}</td>
       <td style="${TDs};text-align:center;font-size:.68rem;color:var(--muted2)">${r.unidad||'—'}</td>
       <td style="${TDs};text-align:right;font-family:monospace">S/ ${_n3(punit)}</td>
@@ -1248,13 +1248,13 @@ function rReembolsables(){
       </div>
       <div class="card-body"><div style="overflow-x:auto;max-height:65vh;overflow-y:auto;border-radius:8px"><table style="width:100%;border-collapse:collapse;min-width:2400px">
         <thead><tr>
-          <th style="${THs}">ID</th><th style="${THs}">Proyecto</th><th style="${THs}">Moneda</th>
+          <th style="${THs}">ID</th><th style="${THs}">Proyecto</th><th style="${THs}">EDP</th><th style="${THs}">Moneda</th>
           <th style="${THs}">Fecha de Fact.</th><th style="${THs}">Observaciones</th>
           <th style="${THs}">Tipo CP</th><th style="${THs}">Serie</th><th style="${THs}">Correlativo</th>
           <th style="${THs}">Factura y Fecha</th><th style="${THs}">Factura</th>
           <th style="${THs}">RUC</th><th style="${THs}">Proveedor</th><th style="${THs}">Cód. Reemb</th>
-          <th style="${THs}">Ítem Fac</th><th style="${THs}">Nombre Codif.</th><th style="${THs}">Descripción</th>
-          <th style="${THs}">EDP</th><th style="${THs};text-align:right">Cantidad</th><th style="${THs}">Unidad</th>
+          <th style="${THs}">Nombre Codif.</th><th style="${THs}">Ítem Fac</th><th style="${THs}">Descripción</th>
+          <th style="${THs};text-align:right">Cantidad</th><th style="${THs}">Unidad</th>
           <th style="${THs};text-align:right">P. Unit s/IGV</th><th style="${THs};text-align:right">SubTotal S/ sin IGV</th>
           <th style="${THs};text-align:right">Costo Unit c/IGV</th><th style="${THs};text-align:right">IGV</th>
           <th style="${THs};text-align:right">Total S/ (inc. IGV)</th><th style="${THs};text-align:right">Total $</th>
