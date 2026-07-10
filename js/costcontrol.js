@@ -474,7 +474,7 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       const margenColor=margen>0?'#10b981':margen<0?'#ef4444':'var(--muted2)';
 
       body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-        <td style="${TD}"><span style="font-family:monospace;font-size:.74rem;font-weight:700;color:#06b6d4">${r.eq.codigo}</span></td>
+        <td style="${TD}"><span ondblclick="editEquipo(${r.eq.id})" title="Doble click: editar en Master de Equipos" style="font-family:monospace;font-size:.74rem;font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${r.eq.codigo}</span></td>
         <td style="${TD}"><div style="font-weight:600">${r.eq.marca||''} ${r.eq.modelo||''}</div><div style="font-size:.68rem;color:var(--muted2)">${r.eq.sub||''}</div></td>
         <td style="${TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${un}</span></td>
         <td style="${TD};text-align:center">${incCell}</td>

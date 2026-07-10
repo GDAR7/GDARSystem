@@ -410,7 +410,9 @@ function gEquipo(){
     if(idx>-1){DB.equipos[idx]={...DB.equipos[idx],...eq,id:_eqEditId};syncSheet('saveEquipo',DB.equipos[idx]);}
     _eqEditId=null;
     document.querySelector('#mEquipo .mttl').textContent='Agregar Equipo';
-    closeM('mEquipo');rMaster();toast('Equipo actualizado');
+    closeM('mEquipo');rMaster();
+    if(AP==='costControl'&&typeof rCostControl==='function')rCostControl();
+    toast('Equipo actualizado');
   }else{
     DB.equipos.push(eq);
     syncSheet('saveEquipo',eq);
