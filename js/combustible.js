@@ -82,6 +82,7 @@ function rComb(){
       <td style="display:flex;gap:.3rem">${btns}</td>
     </tr>`;
   }).join('');
+  if(typeof _combTabActiva!=='undefined'&&_combTabActiva==='dash')rCombDash();
 }
 let _combEditId=null;
 let _combMode='despacho';
@@ -432,3 +433,167 @@ ${S}body>${S}html>`);
   win.document.close();
 }
 
+
+// ══ DASHBOARD COMBUSTIBLE (períodos 21→20) ══
+let _combTabActiva='kardex', _combDashOffset=0, _combChart=null;
+
+function _combTab(t){
+  _combTabActiva=t;
+  const k=document.getElementById('combTab-kardex');
+  const d=document.getElementById('combTab-dash');
+  if(k)k.style.display=t==='kardex'?'':'none';
+  if(d)d.style.display=t==='dash'?'':'none';
+  ['kardex','dash'].forEach(x=>{
+    const b=document.getElementById('combTabBtn-'+x);
+    if(b){b.style.background=x===t?'var(--alm)':'transparent';b.style.color=x===t?'#fff':'var(--muted2)';}
+  });
+  if(t==='dash')rCombDash();
+}
+
+// Período 21→20 propio del dashboard (offset independiente de Cost Control)
+function _combPeriodo(){
+  const hoy=new Date();
+  const d=hoy.getDate(), m=hoy.getMonth(), y=hoy.getFullYear();
+  let baseY=y, baseM=m;
+  if(d<21){baseM=m-1; if(baseM<0){baseM=11;baseY=y-1;}}
+  let iniM=baseM+_combDashOffset, iniY=baseY;
+  while(iniM>11){iniM-=12;iniY++;}
+  while(iniM<0){iniM+=12;iniY--;}
+  const ini=new Date(iniY,iniM,21);
+  const fin=new Date(iniY,iniM+1,20);
+  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const diasTot=Math.round((fin-ini)/86400000)+1;
+  return {desde:fmtD(ini), hasta:fmtD(fin), ini, fin, label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`, dias:diasTot};
+}
+function _combDashNav(dir){_combDashOffset+=dir;rCombDash();}
+
+function rCombDash(){
+  const pg=document.getElementById('combTab-dash');if(!pg)return;
+  const per=_combPeriodo();
+  const fmtS=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // Despachos del período
+  const desp=(DB.combustible||[]).filter(c=>c.tipoMov!=='Ingreso'&&c.fecha>=per.desde&&c.fecha<=per.hasta);
+  const totGal=desp.reduce((a,c)=>a+(+c.gal||0),0);
+  const totCosto=desp.reduce((a,c)=>a+(+c.gal||0)*(+c.precio||0),0);
+  const diasConDesp=new Set(desp.map(c=>c.fecha)).size;
+
+  // Agrupar por equipo
+  const eqMap={};
+  desp.forEach(c=>{
+    const key=c.eqId||0;
+    if(!eqMap[key])eqMap[key]={eqId:c.eqId,gal:0,costo:0,n:0,fechas:new Set(),ultima:''};
+    eqMap[key].gal+=(+c.gal||0);
+    eqMap[key].costo+=(+c.gal||0)*(+c.precio||0);
+    eqMap[key].n++;
+    eqMap[key].fechas.add(c.fecha);
+    if(c.fecha>eqMap[key].ultima)eqMap[key].ultima=c.fecha;
+  });
+
+  // Horas efectivas por equipo (partes del período) para ratio de consumo
+  const partesP=(DB.partes||[]).filter(p=>p.fecha>=per.desde&&p.fecha<=per.hasta);
+  const hrsMap={};
+  partesP.forEach(p=>{hrsMap[p.eqId]=(hrsMap[p.eqId]||0)+Math.max(0,+p.ef||0);});
+
+  const rows=Object.values(eqMap).map(r=>{
+    const eq=(DB.equipos||[]).find(e=>e.id===r.eqId);
+    const hrs=hrsMap[r.eqId]||0;
+    return{...r,eq,hrs,ratio:hrs>0?r.gal/hrs:null,galDia:r.fechas.size>0?r.gal/r.fechas.size:0};
+  }).sort((a,b)=>b.gal-a.gal);
+
+  // Serie diaria (todas las fechas del período 21→20)
+  const labels=[],serie=[];
+  const cur=new Date(per.ini.getTime());
+  const galPorFecha={};
+  desp.forEach(c=>{galPorFecha[c.fecha]=(galPorFecha[c.fecha]||0)+(+c.gal||0);});
+  while(cur<=per.fin){
+    const f=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
+    labels.push(`${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}`);
+    serie.push(+(galPorFecha[f]||0).toFixed(1));
+    cur.setDate(cur.getDate()+1);
+  }
+
+  const kpis=[
+    {l:'Despachado en Período',v:totGal.toFixed(1)+' gal',c:'#f97316'},
+    {l:'Costo Total (almacén)',v:fmtS(totCosto),c:'#ef4444'},
+    {l:'Equipos Abastecidos',v:rows.length,c:'#06b6d4'},
+    {l:'Promedio × Día c/desp.',v:diasConDesp>0?(totGal/diasConDesp).toFixed(1)+' gal':'—',c:'#10b981'},
+  ];
+
+  const TH=`background:var(--panel2);color:var(--muted2);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.5rem .7rem;white-space:nowrap`;
+  const TD=`padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.81rem;vertical-align:middle`;
+
+  const tbody=rows.map(r=>{
+    const cod=r.eq?r.eq.codigo:'(sin equipo)';
+    const nom=r.eq?`${r.eq.nombre||''}`:'—';
+    const sub=r.eq?(r.eq.sub||''):'';
+    const ratioCell=r.ratio!==null
+      ?`<span style="font-family:monospace;font-weight:700;color:${r.ratio>10?'#ef4444':r.ratio>5?'#f59e0b':'#10b981'}">${r.ratio.toFixed(2)}</span> <span style="font-size:.62rem;color:var(--muted2)">gal/h</span>`
+      :'<span style="color:var(--muted2);font-size:.7rem" title="Sin partes diarios en el período">s/horas</span>';
+    return`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <td style="${TD}"><span class="mono" style="font-size:.74rem;font-weight:700;color:#f97316">${cod}</span></td>
+      <td style="${TD}"><div style="font-weight:600">${nom}</div><div style="font-size:.68rem;color:var(--muted2)">${sub}</div></td>
+      <td style="${TD};text-align:center;font-family:monospace">${r.n}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${r.gal.toFixed(1)}</td>
+      <td style="${TD};text-align:right;font-family:monospace;color:#ef4444">${fmtS(r.costo)}</td>
+      <td style="${TD};text-align:right;font-family:monospace">${r.hrs>0?r.hrs.toFixed(1)+' h':'—'}</td>
+      <td style="${TD};text-align:right">${ratioCell}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-size:.76rem">${r.galDia.toFixed(1)} <span style="font-size:.62rem;color:var(--muted2)">gal/día</span></td>
+      <td style="${TD};text-align:center;font-family:monospace;font-size:.74rem;color:var(--muted2)">${r.ultima||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  pg.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
+      <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
+      <div style="display:flex;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button onclick="_combDashNav(-1)" style="background:none;border:none;border-right:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">‹</button>
+        <span style="font-weight:800;font-size:.88rem;color:var(--text);min-width:130px;text-align:center;padding:0 .5rem">${per.label}</span>
+        <button onclick="_combDashNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
+      </div>
+    </div>
+    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-head"><span class="card-title">⛽ Despacho diario de combustible (gal)</span></div>
+      <div class="card-body" style="height:260px;position:relative">
+        ${desp.length?'<canvas id="combDashChart"></canvas>':'<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.85rem">Sin despachos en este período</div>'}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Consumo por Equipo</span><span style="font-size:.7rem;color:var(--muted2)">Ratio = galones ÷ horas efectivas (partes diarios del período)</span></div>
+      <div class="card-body"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:850px">
+        <thead><tr>
+          <th style="${TH}">Código</th><th style="${TH}">Equipo</th>
+          <th style="${TH};text-align:center">Despachos</th>
+          <th style="${TH};text-align:right">Galones</th>
+          <th style="${TH};text-align:right">Costo S/</th>
+          <th style="${TH};text-align:right">Horas Ef.</th>
+          <th style="${TH};text-align:right">Ratio Consumo</th>
+          <th style="${TH};text-align:right">Prom. Diario</th>
+          <th style="${TH};text-align:center">Últ. Despacho</th>
+        </tr></thead>
+        <tbody>${tbody||`<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin despachos en este período</td></tr>`}</tbody>
+      </table></div></div>
+    </div>`;
+
+  // Gráfico de barras diario
+  if(desp.length&&typeof Chart!=='undefined'){
+    if(_combChart){_combChart.destroy();_combChart=null;}
+    const ctx=document.getElementById('combDashChart');
+    if(ctx){
+      _combChart=new Chart(ctx,{
+        type:'bar',
+        data:{labels,datasets:[{label:'Galones despachados',data:serie,backgroundColor:'rgba(249,115,22,.55)',borderColor:'#f97316',borderWidth:1,borderRadius:3}]},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+' gal'}}},
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:9},maxRotation:60,minRotation:45},grid:{display:false}},
+            y:{ticks:{color:'#8b93a7',font:{size:10},callback:v=>v+' gal'},grid:{color:'rgba(139,147,167,.12)'},beginAtZero:true}
+          }
+        }
+      });
+    }
+  }
+}

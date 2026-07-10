@@ -401,7 +401,13 @@
 
 <!-- ALMACÉN – COMBUSTIBLE -->
 <div class="page" id="page-combustible">
-  <div class="ph"><div class="ph-title" style="color:var(--alm)">Combustible – Kardex</div><div class="ph-sub">Control de entradas y salidas de combustible</div></div>
+  <div class="ph"><div class="ph-title" style="color:var(--alm)">Combustible</div><div class="ph-sub">Control de entradas, salidas y consumo de combustible</div></div>
+  <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    <button id="combTabBtn-kardex" onclick="_combTab('kardex')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--alm);color:#fff">📋 Kardex</button>
+    <button id="combTabBtn-dash" onclick="_combTab('dash')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">📊 Dashboard</button>
+  </div>
+  <div id="combTab-dash" style="display:none"></div>
+  <div id="combTab-kardex">
   <div class="kpi-row" id="combKpis"></div>
   <div class="card">
     <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
@@ -423,6 +429,7 @@
       <thead><tr><th>Fecha</th><th>Tipo Mov.</th><th>Referencia</th><th>N° Reserva / Ref.</th><th>Tipo Comb.</th><th class="tr">Entrada (gal)</th><th class="tr">Salida (gal)</th><th class="tr" style="color:#10b981">Saldo (gal)</th><th class="tr">Costo S/</th><th>N° Formato</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbComb"></tbody>
     </table></div></div>
+  </div>
   </div>
 </div>
 
