@@ -901,6 +901,47 @@ function _fpTab(t){
 
 let _feFacturaId=null;
 
+// ── Catálogo de códigos de reembolsable (tabla codigo_reemb; fallback local si está vacía) ──
+const _CODIGO_REEMB_DEF=[
+  {codigo:'R01',desc:'Examen médicos'},
+  {codigo:'R02',desc:'ISEM anexo 4'},
+  {codigo:'R03',desc:'Alimentación'},
+  {codigo:'R04',desc:'Lavandería'},
+  {codigo:'R05',desc:'Viaticos'},
+  {codigo:'R06',desc:'Hospedaje'},
+  {codigo:'R07',desc:'Equipos de proteccion personal (EPPs)'},
+  {codigo:'R08',desc:'Agregados'},
+  {codigo:'R09',desc:'Transporte de materiales y equipos'},
+  {codigo:'R10',desc:'Movilizacion en cama baja'},
+  {codigo:'R11',desc:'Dispositivos de seguridad'},
+  {codigo:'R12',desc:'Formatos operativos y consumibles'},
+  {codigo:'R13',desc:'Materiales'},
+  {codigo:'R14',desc:'Seguridad'},
+  {codigo:'R15',desc:'Parqueo de vehículos menores'},
+  {codigo:'R16',desc:'Mobiliario y mat. de escritorio'},
+  {codigo:'R17',desc:'Internet'},
+  {codigo:'R18',desc:'Equipos de operación'}
+];
+function _feCatalogo(){
+  return (DB.codigoReemb&&DB.codigoReemb.length)?DB.codigoReemb:_CODIGO_REEMB_DEF;
+}
+function _fePopulateDatalist(){
+  const dl=document.getElementById('dlCodigoReemb');if(!dl)return;
+  dl.innerHTML=_feCatalogo().map(c=>`<option value="${c.codigo}">${c.codigo} – ${c.desc}</option>`).join('');
+}
+// Al escribir el código (o parte de la descripción), autocompleta el Nombre Codif.
+function _feCodChange(el){
+  const tr=el.closest('tr');if(!tr)return;
+  const out=tr.querySelector('.fe-codif');if(!out)return;
+  const v=(el.value||'').trim().toUpperCase();
+  if(!v){out.value='';return;}
+  const cat=_feCatalogo();
+  let hit=cat.find(c=>(c.codigo||'').toUpperCase()===v);
+  if(!hit)hit=cat.find(c=>(c.desc||'').toUpperCase().includes(v));
+  if(hit){el.value=hit.codigo;out.value=hit.desc;}
+  else out.value='';
+}
+
 // Lee el PDF y devuelve las líneas de texto agrupadas por fila visual (coordenada Y)
 async function _feLoadPdfLines(url){
   let data;
@@ -1043,7 +1084,7 @@ async function extraerFactura(id){
     document.getElementById('feRuc').value=head.ruc||'';
     document.getElementById('feTotal').value=head.total||f.total||0;
     document.getElementById('feProv').value=f.prov||'';
-    document.getElementById('feCodigo').value='';
+    _fePopulateDatalist();
     document.getElementById('feMoneda').value=/d[oó]lar|usd/i.test(f.moneda||'')?'DOLARES':'SOLES';
     document.getElementById('feTc').value='';
     document.getElementById('feEdp').value=f.edp||'';
@@ -1066,11 +1107,12 @@ async function extraerFactura(id){
 
 const _FE_IN='width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.28rem .4rem;font-size:.75rem;outline:none';
 function _feAddRow(it){
-  it=it||{desc:'',cant:1,unidad:'',punit:0,importe:0,nombreCodif:''};
+  it=it||{desc:'',cant:1,unidad:'',punit:0,importe:0,codigo:'',nombreCodif:''};
   const tb=document.getElementById('feItems');if(!tb)return;
   const tr=document.createElement('tr');
   tr.innerHTML=`
-    <td style="padding:.25rem .4rem"><input class="fe-codif" value="${(it.nombreCodif||'').replace(/"/g,'&quot;')}" placeholder="EPPs, Insumos..." style="${_FE_IN}"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-cod" list="dlCodigoReemb" value="${(it.codigo||'').replace(/"/g,'&quot;')}" placeholder="R14..." oninput="_feCodChange(this)" style="${_FE_IN};font-family:monospace;font-weight:700"></td>
+    <td style="padding:.25rem .4rem"><input class="fe-codif" value="${(it.nombreCodif||'').replace(/"/g,'&quot;')}" readonly placeholder="(auto según código)" style="${_FE_IN};opacity:.75"></td>
     <td style="padding:.25rem .4rem"><input class="fe-desc" value="${(it.desc||'').replace(/"/g,'&quot;')}" style="${_FE_IN}"></td>
     <td style="padding:.25rem .4rem"><input class="fe-cant" type="number" step="0.01" value="${it.cant}" oninput="_feRowCalc(this)" style="${_FE_IN};text-align:right;font-family:monospace"></td>
     <td style="padding:.25rem .4rem"><input class="fe-und" value="${it.unidad||''}" style="${_FE_IN};text-align:center"></td>
@@ -1105,7 +1147,6 @@ function gReembolsables(){
   const tipoCp=document.getElementById('feTipoCp').value;
   const ruc=document.getElementById('feRuc').value.trim();
   const prov=document.getElementById('feProv').value.trim();
-  const codigo=document.getElementById('feCodigo').value.trim().toUpperCase();
   const moneda=document.getElementById('feMoneda').value;
   const tc=+document.getElementById('feTc').value||0;
   const edp=document.getElementById('feEdp').value.trim();
@@ -1115,6 +1156,7 @@ function gReembolsables(){
   let n=0;
   trs.forEach(tr=>{
     const desc=tr.querySelector('.fe-desc').value.trim();
+    const codigo=(tr.querySelector('.fe-cod').value||'').trim().toUpperCase();
     const nombreCodif=tr.querySelector('.fe-codif').value.trim();
     const cant=+tr.querySelector('.fe-cant').value||0;
     const unidad=tr.querySelector('.fe-und').value.trim();
@@ -1210,7 +1252,7 @@ function rReembolsables(){
           <th style="${THs}">Fecha de Fact.</th><th style="${THs}">Observaciones</th>
           <th style="${THs}">Tipo CP</th><th style="${THs}">Serie</th><th style="${THs}">Correlativo</th>
           <th style="${THs}">Factura y Fecha</th><th style="${THs}">Factura</th>
-          <th style="${THs}">RUC</th><th style="${THs}">Proveedor</th><th style="${THs}">Código</th>
+          <th style="${THs}">RUC</th><th style="${THs}">Proveedor</th><th style="${THs}">Cód. Reemb</th>
           <th style="${THs}">Ítem Fac</th><th style="${THs}">Nombre Codif.</th><th style="${THs}">Descripción</th>
           <th style="${THs}">EDP</th><th style="${THs};text-align:right">Cantidad</th><th style="${THs}">Unidad</th>
           <th style="${THs};text-align:right">P. Unit s/IGV</th><th style="${THs};text-align:right">SubTotal S/ sin IGV</th>
