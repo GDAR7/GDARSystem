@@ -2048,9 +2048,12 @@
       <div id="feResumen" style="text-align:right;margin-top:.5rem;font-size:.78rem;color:var(--muted2)"></div>
     </div>
   </div>
-  <div class="mf">
-    <button class="btn btn-out" onclick="closeM('mFactExtract')">Cancelar</button>
-    <button class="btn btn-a" id="feBtnGuardar" style="--ba:#10b981" onclick="gReembolsables()">💾 Guardar en Reembolsables</button>
+  <div class="mf" style="justify-content:space-between">
+    <a id="feVerPdf" href="#" target="_blank" rel="noopener" class="btn btn-out" style="color:var(--alm);border-color:var(--alm);text-decoration:none" title="Abrir el PDF de la factura en otra pestaña para comparar con lo extraído">📄 Ver PDF</a>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-out" onclick="closeM('mFactExtract')">Cancelar</button>
+      <button class="btn btn-a" id="feBtnGuardar" style="--ba:#10b981" onclick="gReembolsables()">💾 Guardar en Reembolsables</button>
+    </div>
   </div>
 </div></div>
 
@@ -2760,7 +2763,7 @@
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js"></script>
 <script src="js/combustible.js?v=2"></script>
-<script src="js/requerimientos.js?v=4"></script>
+<script src="js/requerimientos.js?v=5"></script>
 <script src="js/mantenimiento.js"></script>
 <script src="js/tareaje.js"></script>
 <script src="js/engrase.js"></script>

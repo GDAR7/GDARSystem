@@ -1093,6 +1093,7 @@ async function extraerFactura(id){
   if(typeof pdfjsLib==='undefined'){toast('PDF.js no está cargado',true);return;}
   _feFacturaId=id;
   openM('mFactExtract');
+  const _vp=document.getElementById('feVerPdf');if(_vp)_vp.href=url;
   document.getElementById('feStatus').style.display='';
   document.getElementById('feStatus').textContent='⏳ Leyendo PDF...';
   document.getElementById('feBody').style.display='none';
