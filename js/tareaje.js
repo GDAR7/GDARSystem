@@ -20,9 +20,11 @@ let _tarPgColsAvail=[];
 let _tarPickerCb=null;
 let _tarShowCargo=localStorage.getItem('_tarShowCargo')!=='0';
 let _tarShowProc=localStorage.getItem('_tarShowProc')!=='0';
+let _tarShowDni=localStorage.getItem('_tarShowDni')==='1';
 
 function _tarToggleCol(col){
   if(col==='cargo'){_tarShowCargo=!_tarShowCargo;localStorage.setItem('_tarShowCargo',_tarShowCargo?'1':'0');}
+  else if(col==='dni'){_tarShowDni=!_tarShowDni;localStorage.setItem('_tarShowDni',_tarShowDni?'1':'0');}
   else{_tarShowProc=!_tarShowProc;localStorage.setItem('_tarShowProc',_tarShowProc?'1':'0');}
   rTareaje();
 }
@@ -194,9 +196,10 @@ function rTareaje(){
     const totDLT=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_matchProy(r)).map(r=>r.fecha)).size;
     const _a5html=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
     const _dlthtml=totDLT>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
-    return`<tr style="border-bottom:1px solid var(--border)">
+    return`<tr style="border-bottom:1px solid var(--border)" data-search="${((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase()}">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
+      ${_tarShowDni?`<td style="padding:3px 5px;white-space:nowrap;font-size:.72rem;font-family:monospace;color:#22d3ee;min-width:80px">${p.dni||'—'}</td>`:''}
       ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
       ${_tarShowProc?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#a78bfa;min-width:90px">${p.proc||'—'}</td>`:''}
       ${cells}
@@ -204,9 +207,10 @@ function rTareaje(){
     </tr>`;
   }).join('');
   // Actualizar apariencia de botones toggle y modo solo lectura
-  const _btnC=document.getElementById('tarBtnCargo'),_btnP=document.getElementById('tarBtnProc');
+  const _btnC=document.getElementById('tarBtnCargo'),_btnP=document.getElementById('tarBtnProc'),_btnD=document.getElementById('tarBtnDni');
   if(_btnC){_btnC.style.opacity=_tarShowCargo?'1':'.45';_btnC.style.textDecoration=_tarShowCargo?'none':'line-through';}
   if(_btnP){_btnP.style.opacity=_tarShowProc?'1':'.45';_btnP.style.textDecoration=_tarShowProc?'none':'line-through';}
+  if(_btnD){_btnD.style.opacity=_tarShowDni?'1':'.45';_btnD.style.textDecoration=_tarShowDni?'none':'line-through';}
   const _mBtn=document.getElementById('tarMultBtn'),_hBtn=document.getElementById('tarHoverBtn');
   if(_mBtn)_mBtn.style.display=_tarRO?'none':'';
   if(_hBtn)_hBtn.style.display=_tarRO?'none':'';
@@ -217,12 +221,13 @@ function rTareaje(){
       <tr style="background:var(--panel2)">
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:30px">N°</th>
         <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
+        ${_tarShowDni?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#22d3ee">DNI</th>`:''}
         ${_tarShowCargo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px">Cargo</th>`:''}
         ${_tarShowProc?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:90px;color:#a78bfa">Procedencia</th>`:''}
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
-      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
 }
@@ -350,8 +355,8 @@ function fltTareaje(){
   const v=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
   const tbody=document.querySelector('#tbTareaje tbody');if(!tbody)return;
   Array.from(tbody.rows).forEach(r=>{
-    const txt=(r.cells[1]?.textContent||'')+(r.cells[2]?.textContent||'');
-    r.style.display=!v||txt.toLowerCase().includes(v)?'':'none';
+    const txt=r.dataset.search||((r.cells[1]?.textContent||'')+(r.cells[2]?.textContent||'')).toLowerCase();
+    r.style.display=!v||txt.includes(v)?'':'none';
   });
 }
 function exportTareaje(){

@@ -706,8 +706,9 @@
       <div class="card-head-right" style="gap:.5rem;flex-wrap:wrap;align-items:center">
         <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
         <select id="tareGuardia" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark"><option value="">— Todos los turnos —</option><option value="A">Guardia A</option><option value="B">Guardia B</option><option value="C">Guardia C</option></select>
-        <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre o cargo..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
+        <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
+        <button id="tarBtnDni" class="btn btn-out btn-sm" onclick="_tarToggleCol('dni')" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Mostrar/ocultar columna DNI">🪪 DNI</button>
         <button id="tarBtnCargo" class="btn btn-out btn-sm" onclick="_tarToggleCol('cargo')" style="font-size:.75rem;color:#94a3b8;border-color:#94a3b840" title="Mostrar/ocultar columna Cargo">👔 Cargo</button>
         <button id="tarBtnProc" class="btn btn-out btn-sm" onclick="_tarToggleCol('proc')" style="font-size:.75rem;color:#a78bfa;border-color:#a78bfa40" title="Mostrar/ocultar columna Procedencia">📍 Proced.</button>
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
@@ -2765,7 +2766,7 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=5"></script>
 <script src="js/mantenimiento.js"></script>
-<script src="js/tareaje.js"></script>
+<script src="js/tareaje.js?v=2"></script>
 <script src="js/engrase.js"></script>
 <script src="js/auxmec.js?v=5"></script>
 <script src="js/reporteD.js?v=1"></script>
