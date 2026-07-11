@@ -23,7 +23,8 @@ function _amtTabSwitch(n){
 function _amtRender(){
   const body=document.getElementById('amtBody');if(!body)return;
   if(_amtTab===1) _amtRenderTramos(body);
-  else if(_amtTab===3) _amtRenderSemanal(body);
+  else if(_amtTab===3) _amtRenderSemanal(body,'m3');
+  else if(_amtTab===4) _amtRenderSemanal(body,'viajes');
   else _amtRenderAreas(body);
 }
 
@@ -363,6 +364,7 @@ function _amtKpi(label, valueHtml, color){
 
 // ── TAB 3: VOLUMEN SEMANAL (cuadro tipo Excel: destinos × 7 días) ─────────────
 let _amtSemIni=null; // fecha del día 1 de la semana (puede ser cualquier día)
+let _amtSemModo='m3'; // 'm3' = tab Volumen Semanal · 'viajes' = tab Viajes Semanal (por turno ☀/🌙)
 
 function _amtSemDefault(){
   // Por defecto: lunes de la semana actual
@@ -379,7 +381,8 @@ function _amtSemNav(dias){
   _amtRender();
 }
 
-function _amtRenderSemanal(body){
+function _amtRenderSemanal(body,modo){
+  _amtSemModo=modo||'m3';
   if(!_amtSemIni)_amtSemIni=_amtSemDefault();
   const pad=n=>String(n).padStart(2,'0');
   const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
@@ -399,18 +402,21 @@ function _amtRenderSemanal(body){
   const fIni=fechas[0].iso, fFin=fechas[6].iso;
   const fmtRango=`${fechas[0].dm} → ${fechas[6].dm}`;
 
-  // Agrupar viajes: destino × fecha → m³
-  const grid={}; // grid[destino][iso]={m3,viajes}
+  // Agrupar viajes: destino × fecha → m³ + viajes por turno (☀ día / 🌙 noche)
+  const grid={}; // grid[destino][iso]={m3,viajes,vd,vn}
   (DB.partes||[]).forEach(function(p){
     if(!p.fecha||p.fecha<fIni||p.fecha>fFin)return;
+    const esNoche=/noche/i.test(p.turno||'');
     (p.viajes||[]).forEach(function(v){
       if(!v.destino)return;
       if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
       if(!grid[v.destino])grid[v.destino]={};
-      if(!grid[v.destino][p.fecha])grid[v.destino][p.fecha]={m3:0,viajes:0};
+      if(!grid[v.destino][p.fecha])grid[v.destino][p.fecha]={m3:0,viajes:0,vd:0,vn:0};
       const _cant=parseFloat(v.cant)||0;
-      grid[v.destino][p.fecha].m3+=_cant*_amtCapM3;
-      grid[v.destino][p.fecha].viajes+=_cant;
+      const c=grid[v.destino][p.fecha];
+      c.m3+=_cant*_amtCapM3;
+      c.viajes+=_cant;
+      if(esNoche)c.vn+=_cant;else c.vd+=_cant;
     });
   });
 
@@ -422,15 +428,20 @@ function _amtRenderSemanal(body){
   const colores=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#a78bfa'];
   const fmtM3=v=>v.toLocaleString('es-PE',{maximumFractionDigits:1});
 
-  // Totales por día y total general
-  const totDia={};let totalM3=0,totalViajes=0;
-  fechas.forEach(f=>{totDia[f.iso]={m3:0,viajes:0};});
+  // Totales por día y total general (con desglose de viajes por turno)
+  const totDia={};let totalM3=0,totalViajes=0,totalVd=0,totalVn=0;
+  fechas.forEach(f=>{totDia[f.iso]={m3:0,viajes:0,vd:0,vn:0};});
   destinos.forEach(dst=>{
     fechas.forEach(f=>{
       const c=grid[dst][f.iso];
-      if(c){totDia[f.iso].m3+=c.m3;totDia[f.iso].viajes+=c.viajes;totalM3+=c.m3;totalViajes+=c.viajes;}
+      if(c){
+        const t=totDia[f.iso];
+        t.m3+=c.m3;t.viajes+=c.viajes;t.vd+=c.vd;t.vn+=c.vn;
+        totalM3+=c.m3;totalViajes+=c.viajes;totalVd+=c.vd;totalVn+=c.vn;
+      }
     });
   });
+  const modoViajes=_amtSemModo==='viajes';
 
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
   const barSem=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
@@ -457,32 +468,54 @@ function _amtRenderSemanal(body){
 
   const filas=destinos.map(function(dst,i){
     const col=colores[i%colores.length];
-    let totFila=0,totV=0;
+    let totFila=0,totV=0,totVd=0,totVn=0;
     const celdas=fechas.map(function(f){
       const c=grid[dst][f.iso];
       const esHoy=f.iso===hoy;
-      if(!c||!c.m3)return`<td style="${TD};text-align:right;color:var(--muted);${esHoy?'background:rgba(245,158,11,.05);':''}">—</td>`;
-      totFila+=c.m3;totV+=c.viajes;
-      return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl);background:${esHoy?'rgba(245,158,11,.08)':'rgba(6,182,212,.05)'}" title="${c.viajes} viaje(s) · ${fmtM3(c.m3)} m³">${fmtM3(c.m3)}</td>`;
+      if(!c||!c.viajes)return`<td style="${TD};text-align:right;color:var(--muted);${esHoy?'background:rgba(245,158,11,.05);':''}">—</td>`;
+      totFila+=c.m3;totV+=c.viajes;totVd+=c.vd;totVn+=c.vn;
+      const bg=esHoy?'rgba(245,158,11,.08)':modoViajes?'rgba(59,130,246,.06)':'rgba(6,182,212,.05)';
+      const ttl=`${c.viajes} viaje(s) (☀ ${c.vd} · 🌙 ${c.vn}) · ${fmtM3(c.m3)} m³`;
+      if(modoViajes){
+        return`<td style="${TD};text-align:center;font-family:monospace;background:${bg};line-height:1.5" title="${ttl}">
+          ${c.vd?`<span style="color:#f59e0b;font-weight:700">☀ ${c.vd.toLocaleString()}</span>`:''}
+          ${c.vd&&c.vn?'<br>':''}
+          ${c.vn?`<span style="color:#60a5fa;font-weight:700">🌙 ${c.vn.toLocaleString()}</span>`:''}
+        </td>`;
+      }
+      return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl);background:${bg}" title="${ttl}">${fmtM3(c.m3)}</td>`;
     }).join('');
+    const totCell=modoViajes
+      ?`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6;background:rgba(59,130,246,.08)">${totV.toLocaleString()} v<div style="font-size:.58rem;font-weight:400"><span style="color:#f59e0b">☀ ${totVd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${totVn.toLocaleString()}</span></div></td>`
+      :`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b;background:rgba(245,158,11,.07)">${fmtM3(totFila)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">${totV.toLocaleString()} viajes</div></td>`;
     return`<tr>
       <td style="${TD};font-weight:700;color:${col};white-space:nowrap"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${col};margin-right:.4rem"></span>${dst}</td>
       ${celdas}
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b;background:rgba(245,158,11,.07)">${fmtM3(totFila)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">${totV.toLocaleString()} viajes</div></td>
+      ${totCell}
     </tr>`;
   }).join('');
 
   const footDias=fechas.map(function(f){
     const t=totDia[f.iso];
+    if(modoViajes){
+      if(!t.viajes)return`<td style="${TD};text-align:center;color:var(--muted)">—</td>`;
+      return`<td style="${TD};text-align:center;font-family:monospace;font-weight:900;color:#3b82f6;line-height:1.5">${t.viajes.toLocaleString()} v<div style="font-size:.56rem;font-weight:400"><span style="color:#f59e0b">☀ ${t.vd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${t.vn.toLocaleString()}</span></div></td>`;
+    }
     return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${t.m3?'var(--ctl)':'var(--muted)'}">${t.m3?fmtM3(t.m3):'—'}</td>`;
   }).join('');
 
+  const kpisSem=modoViajes
+    ?_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')
+      +_amtKpi('Viajes Turno Día ☀','<b style="font-size:1.3rem">'+totalVd.toLocaleString()+'</b>','#f59e0b')
+      +_amtKpi('Viajes Turno Noche 🌙','<b style="font-size:1.3rem">'+totalVn.toLocaleString()+'</b>','#3b82f6')
+      +_amtKpi('Promedio viajes/día','<b style="font-size:1.3rem">'+(totalViajes?(totalViajes/7).toFixed(1):'—')+'</b>','#8b5cf6')
+    :_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+fmtM3(totalM3)+'</b>','var(--ctl)')
+      +_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')
+      +_amtKpi('Destinos Activos','<b style="font-size:1.3rem">'+destinos.length+'</b>','#8b5cf6')
+      +_amtKpi('Promedio m³/día','<b style="font-size:1.3rem">'+(totalM3?fmtM3(totalM3/7):'—')+'</b>','#f59e0b');
   body.innerHTML=barSem+`
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
-    ${_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+fmtM3(totalM3)+'</b>','var(--ctl)')}
-    ${_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')}
-    ${_amtKpi('Destinos Activos','<b style="font-size:1.3rem">'+destinos.length+'</b>','#8b5cf6')}
-    ${_amtKpi('Promedio m³/día','<b style="font-size:1.3rem">'+(totalM3?fmtM3(totalM3/7):'—')+'</b>','#f59e0b')}
+    ${kpisSem}
   </div>
   <div class="card" style="padding:0">
     <div class="tbl-wrap">
@@ -502,13 +535,17 @@ function _amtRenderSemanal(body){
       </tbody>
       ${destinos.length?`<tfoot>
         <tr style="background:var(--panel2);border-top:2px solid var(--border)">
-          <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em">TOTAL DÍA (m³)</td>
+          <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em">TOTAL DÍA ${modoViajes?'(viajes)':'(m³)'}</td>
           ${footDias}
-          <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.85rem;color:#f59e0b;background:rgba(245,158,11,.1)">${fmtM3(totalM3)}</td>
+          ${modoViajes
+            ?`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.85rem;color:#3b82f6;background:rgba(59,130,246,.1)">${totalViajes.toLocaleString()} v<div style="font-size:.58rem;font-weight:400"><span style="color:#f59e0b">☀ ${totalVd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${totalVn.toLocaleString()}</span></div></td>`
+            :`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.85rem;color:#f59e0b;background:rgba(245,158,11,.1)">${fmtM3(totalM3)}</td>`}
         </tr>
       </tfoot>`:''}
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Valores en m³ = viajes × ${_amtCapM3} m³/viaje (configurable arriba) · La semana inicia en la fecha elegida y abarca 7 días · Columna resaltada = hoy</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">${modoViajes
+    ?'Viajes por turno: <span style="color:#f59e0b">☀ Turno Día</span> · <span style="color:#60a5fa">🌙 Turno Noche</span> (según el turno del parte diario)'
+    :'Valores en m³ = viajes × '+_amtCapM3+' m³/viaje (configurable arriba)'} · La semana inicia en la fecha elegida y abarca 7 días · Columna resaltada = hoy</div>`;
 }
