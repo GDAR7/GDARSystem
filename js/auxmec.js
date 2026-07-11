@@ -297,6 +297,16 @@ function filtrarEquipos(){
     let ops;
     const isAct=p=>(p.est||'').toLowerCase()==='activo';
     const _cg=p=>(p.cargo||'').toLowerCase();
+    // Coincidencia flexible subtipo↔cargo: "Tractor Oruga" ↔ "OP. TRACTOR", "Retroexcavadora" ↔ "OP. RETRO"
+    const _opMatchSub=(p,s)=>{
+      s=(s||'').toLowerCase();
+      if(!s)return true;
+      const cargo=_cg(p);
+      if(cargo.includes(s))return true;
+      const stok=s.split(/[^a-zñáéíóú0-9]+/).filter(w=>w.length>=4);
+      const ctok=cargo.split(/[^a-zñáéíóú0-9]+/).filter(w=>w.length>=4&&w!=='operador');
+      return stok.some(st=>ctok.some(ct=>st.startsWith(ct)||ct.startsWith(st)));
+    };
     if(linea==='Vehículo Menor'){
       const s=(sub||'').toLowerCase();
       if(s.includes('cisterna')||s.includes('d2l')){
@@ -304,12 +314,12 @@ function filtrarEquipos(){
         ops=DB.personal.filter(p=>isAct(p)&&_cg(p).includes('cisterna')&&(_cg(p).includes('comb')||_cg(p).includes('d2l')));
         if(!ops.length)ops=DB.personal.filter(p=>isAct(p)&&(_cg(p).includes('cisterna')||(p.cat||'')==='Operador Combustible'));
       }else{
-        ops=sub ? DB.personal.filter(p=>isAct(p)&&_cg(p).includes(s)) : [];
+        ops=sub ? DB.personal.filter(p=>isAct(p)&&_opMatchSub(p,sub)) : [];
       }
       if(!ops.length) ops=DB.personal.filter(p=>isAct(p));
     }else if(linea==='Línea Amarilla'||linea==='Línea Blanca'){
       const cat=_catFiltro[linea];
-      ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat&&(!sub||_cg(p).includes(sub.toLowerCase())));
+      ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat&&(!sub||_opMatchSub(p,sub)));
       if(!ops.length) ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat);
     }
     if(ops) opEl.innerHTML='<option value="">— Seleccionar —</option>'+ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
