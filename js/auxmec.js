@@ -296,12 +296,20 @@ function filtrarEquipos(){
   if(opEl){
     let ops;
     const isAct=p=>(p.est||'').toLowerCase()==='activo';
+    const _cg=p=>(p.cargo||'').toLowerCase();
     if(linea==='Vehículo Menor'){
-      ops=sub ? DB.personal.filter(p=>isAct(p)&&p.cargo.toLowerCase().includes(sub.toLowerCase())) : [];
+      const s=(sub||'').toLowerCase();
+      if(s.includes('cisterna')||s.includes('d2l')){
+        // Cisterna D2L → solo operadores de cisterna de combustible
+        ops=DB.personal.filter(p=>isAct(p)&&_cg(p).includes('cisterna')&&(_cg(p).includes('comb')||_cg(p).includes('d2l')));
+        if(!ops.length)ops=DB.personal.filter(p=>isAct(p)&&(_cg(p).includes('cisterna')||(p.cat||'')==='Operador Combustible'));
+      }else{
+        ops=sub ? DB.personal.filter(p=>isAct(p)&&_cg(p).includes(s)) : [];
+      }
       if(!ops.length) ops=DB.personal.filter(p=>isAct(p));
     }else if(linea==='Línea Amarilla'||linea==='Línea Blanca'){
       const cat=_catFiltro[linea];
-      ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat&&(!sub||p.cargo.toLowerCase().includes(sub.toLowerCase())));
+      ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat&&(!sub||_cg(p).includes(sub.toLowerCase())));
       if(!ops.length) ops=DB.personal.filter(p=>isAct(p)&&p.cat===cat);
     }
     if(ops) opEl.innerHTML='<option value="">— Seleccionar —</option>'+ops.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
