@@ -23,6 +23,7 @@ function _amtTabSwitch(n){
 function _amtRender(){
   const body=document.getElementById('amtBody');if(!body)return;
   if(_amtTab===1) _amtRenderTramos(body);
+  else if(_amtTab===3) _amtRenderSemanal(body);
   else _amtRenderAreas(body);
 }
 
@@ -358,4 +359,156 @@ function _amtKpi(label, valueHtml, color){
     <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#5a6376;margin-bottom:.25rem">${label}</div>
     <div style="color:#0f172a">${valueHtml}</div>
   </div>`;
+}
+
+// ── TAB 3: VOLUMEN SEMANAL (cuadro tipo Excel: destinos × 7 días) ─────────────
+let _amtSemIni=null; // fecha del día 1 de la semana (puede ser cualquier día)
+
+function _amtSemDefault(){
+  // Por defecto: lunes de la semana actual
+  const h=new Date(today()+'T12:00:00');
+  const dow=h.getDay(); // 0=Dom
+  const lunes=new Date(h);
+  lunes.setDate(h.getDate()-((dow+6)%7));
+  return lunes.toISOString().slice(0,10);
+}
+function _amtSemNav(dias){
+  const d=new Date((_amtSemIni||_amtSemDefault())+'T12:00:00');
+  d.setDate(d.getDate()+dias);
+  _amtSemIni=d.toISOString().slice(0,10);
+  _amtRender();
+}
+
+function _amtRenderSemanal(body){
+  if(!_amtSemIni)_amtSemIni=_amtSemDefault();
+  const pad=n=>String(n).padStart(2,'0');
+  const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const hoy=today();
+
+  // Las 7 fechas de la semana elegida
+  const fechas=[];
+  const d0=new Date(_amtSemIni+'T12:00:00');
+  for(let i=0;i<7;i++){
+    const d=new Date(d0);d.setDate(d0.getDate()+i);
+    fechas.push({
+      iso:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+      lbl:DN[d.getDay()],
+      dm:`${pad(d.getDate())}/${pad(d.getMonth()+1)}`
+    });
+  }
+  const fIni=fechas[0].iso, fFin=fechas[6].iso;
+  const fmtRango=`${fechas[0].dm} → ${fechas[6].dm}`;
+
+  // Agrupar viajes: destino × fecha → m³
+  const grid={}; // grid[destino][iso]={m3,viajes}
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||p.fecha<fIni||p.fecha>fFin)return;
+    (p.viajes||[]).forEach(function(v){
+      if(!v.destino)return;
+      if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
+      if(!grid[v.destino])grid[v.destino]={};
+      if(!grid[v.destino][p.fecha])grid[v.destino][p.fecha]={m3:0,viajes:0};
+      const _cant=parseFloat(v.cant)||0;
+      grid[v.destino][p.fecha].m3+=_cant*_amtCapM3;
+      grid[v.destino][p.fecha].viajes+=_cant;
+    });
+  });
+
+  const destinos=Object.keys(grid).sort(function(a,b){
+    const tA=Object.values(grid[a]).reduce((s,c)=>s+c.m3,0);
+    const tB=Object.values(grid[b]).reduce((s,c)=>s+c.m3,0);
+    return tB-tA;
+  });
+  const colores=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#a78bfa'];
+  const fmtM3=v=>v.toLocaleString('es-PE',{maximumFractionDigits:1});
+
+  // Totales por día y total general
+  const totDia={};let totalM3=0,totalViajes=0;
+  fechas.forEach(f=>{totDia[f.iso]={m3:0,viajes:0};});
+  destinos.forEach(dst=>{
+    fechas.forEach(f=>{
+      const c=grid[dst][f.iso];
+      if(c){totDia[f.iso].m3+=c.m3;totDia[f.iso].viajes+=c.viajes;totalM3+=c.m3;totalViajes+=c.viajes;}
+    });
+  });
+
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
+  const barSem=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Semana (7 días desde)</span>
+    <button onclick="_amtSemNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
+    <input type="date" value="${_amtSemIni}" onchange="_amtSemIni=this.value;_amtRender()" style="${inpS};width:135px">
+    <button onclick="_amtSemNav(7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana siguiente">›</button>
+    <span style="font-size:.72rem;color:var(--ctl);font-weight:700;font-family:monospace">${fmtRango}</span>
+    <button onclick="_amtSemIni=_amtSemDefault();_amtRender()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">Semana actual (Lun)</button>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Material</span>
+    <button id="amtMatBtn" onclick="_amtOpenMatFilter(event)" style="font-size:.72rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${_amtMatFiltro.size?'#06b6d4':'var(--border)'};background:var(--panel2);color:${_amtMatFiltro.size?'#06b6d4':'var(--text)'};cursor:pointer;min-width:140px;text-align:left;display:flex;align-items:center;gap:.4rem">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_amtMatFiltro.size===0?'Todos':_amtMatFiltro.size===1?[..._amtMatFiltro][0]:_amtMatFiltro.size+' materiales'}</span>
+      <span style="font-size:.6rem;color:var(--muted2)">▾</span>
+      ${_amtMatFiltro.size?'<span onclick="event.stopPropagation();_amtMatFiltro.clear();_amtRender()" style="font-size:.65rem;color:#ef4444" title="Limpiar">✕</span>':''}
+    </button>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Cap. m³/viaje</span>
+    <input type="number" min="1" step="0.5" value="${_amtCapM3}" onchange="_amtSetCap(this.value)" style="${inpS};width:58px" title="Capacidad de carga por viaje en m³">
+  </div>`;
+
+  const TH='padding:.45rem .5rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);white-space:nowrap';
+  const TD='padding:.4rem .55rem;border:1px solid var(--border);font-size:.74rem;vertical-align:middle';
+
+  const filas=destinos.map(function(dst,i){
+    const col=colores[i%colores.length];
+    let totFila=0,totV=0;
+    const celdas=fechas.map(function(f){
+      const c=grid[dst][f.iso];
+      const esHoy=f.iso===hoy;
+      if(!c||!c.m3)return`<td style="${TD};text-align:right;color:var(--muted);${esHoy?'background:rgba(245,158,11,.05);':''}">—</td>`;
+      totFila+=c.m3;totV+=c.viajes;
+      return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl);background:${esHoy?'rgba(245,158,11,.08)':'rgba(6,182,212,.05)'}" title="${c.viajes} viaje(s) · ${fmtM3(c.m3)} m³">${fmtM3(c.m3)}</td>`;
+    }).join('');
+    return`<tr>
+      <td style="${TD};font-weight:700;color:${col};white-space:nowrap"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${col};margin-right:.4rem"></span>${dst}</td>
+      ${celdas}
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b;background:rgba(245,158,11,.07)">${fmtM3(totFila)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">${totV.toLocaleString()} viajes</div></td>
+    </tr>`;
+  }).join('');
+
+  const footDias=fechas.map(function(f){
+    const t=totDia[f.iso];
+    return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${t.m3?'var(--ctl)':'var(--muted)'}">${t.m3?fmtM3(t.m3):'—'}</td>`;
+  }).join('');
+
+  body.innerHTML=barSem+`
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
+    ${_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+fmtM3(totalM3)+'</b>','var(--ctl)')}
+    ${_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')}
+    ${_amtKpi('Destinos Activos','<b style="font-size:1.3rem">'+destinos.length+'</b>','#8b5cf6')}
+    ${_amtKpi('Promedio m³/día','<b style="font-size:1.3rem">'+(totalM3?fmtM3(totalM3/7):'—')+'</b>','#f59e0b')}
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:left;min-width:170px">Frente / Destino</th>
+          ${fechas.map(f=>{
+            const esHoy=f.iso===hoy;
+            return`<th style="${TH};text-align:center;min-width:80px;${esHoy?'color:#f59e0b;background:rgba(245,158,11,.1)':''}">${f.lbl}<div style="font-size:.68rem;font-weight:400;font-family:monospace">${f.dm}</div></th>`;
+          }).join('')}
+          <th style="${TH};text-align:right;min-width:95px;color:#f59e0b;background:rgba(245,158,11,.08)">Total Semana</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filas||`<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes registrados en esta semana (${fmtRango})</td></tr>`}
+      </tbody>
+      ${destinos.length?`<tfoot>
+        <tr style="background:var(--panel2);border-top:2px solid var(--border)">
+          <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em">TOTAL DÍA (m³)</td>
+          ${footDias}
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.85rem;color:#f59e0b;background:rgba(245,158,11,.1)">${fmtM3(totalM3)}</td>
+        </tr>
+      </tfoot>`:''}
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Valores en m³ = viajes × ${_amtCapM3} m³/viaje (configurable arriba) · La semana inicia en la fecha elegida y abarca 7 días · Columna resaltada = hoy</div>`;
 }
