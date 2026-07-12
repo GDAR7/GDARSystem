@@ -1146,25 +1146,8 @@
 
 <!-- C.EQUIPOS – PANEL HORAS -->
 <div class="page" id="page-panelHoras">
-  <div class="ph"><div class="ph-title" style="color:var(--ceq)">Panel de Horas Máquina</div><div class="ph-sub">Horas efectivas acumuladas por tipo de equipo</div></div>
-  <div class="kpi-row" id="panelKpis"></div>
-  <div style="margin-bottom:1.2rem">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.14em;color:var(--muted2);text-transform:uppercase;margin-bottom:.8rem">Línea Amarilla</div>
-    <div class="ph-grid" id="panelLA"></div>
-  </div>
-  <div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.14em;color:var(--muted2);text-transform:uppercase;margin-bottom:.8rem">Volquetes / Línea Blanca</div>
-    <div class="ph-grid" id="panelLB"></div>
-  </div>
-  <div class="card" style="margin-top:1.2rem">
-    <div class="card-head"><span class="card-title">Detalle de Partes por Equipo</span>
-      <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbPanelDet')"></div>
-    </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Equipo</th><th>Tipo</th><th>Operador</th><th>Hs Ef.</th><th>Hs Imp.</th><th>Comb.</th><th>Actividad</th></tr></thead>
-      <tbody id="tbPanelDet"></tbody>
-    </table></div></div>
-  </div>
+  <div class="ph"><div class="ph-title" style="color:var(--ceq)">Panel de Horas Máquina</div><div class="ph-sub">Reporte semanal de horas efectivas por equipo y por día</div></div>
+  <div id="phBody"></div>
 </div>
 
 <!-- C.EQUIPOS – REPORTE DE EQUIPOS -->
@@ -2774,7 +2757,7 @@
 <script src="js/mantenimiento.js"></script>
 <script src="js/tareaje.js?v=2"></script>
 <script src="js/engrase.js"></script>
-<script src="js/auxmec.js?v=6"></script>
+<script src="js/auxmec.js?v=7"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js"></script>
 <script src="js/pizarra.js"></script>
