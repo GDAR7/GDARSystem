@@ -28,6 +28,7 @@ function _amtRender(){
   else if(_amtTab===5) _amtRenderSemEquipos(body);
   else if(_amtTab===6) _amtRenderSemOperadores(body);
   else if(_amtTab===7) _amtRenderSemMatriz(body);
+  else if(_amtTab===8) _amtRenderSemOrigen(body);
   else _amtRenderAreas(body);
 }
 
@@ -412,7 +413,7 @@ function _amtSemViajes(fIni,fFin){
     (p.viajes||[]).forEach(function(v){
       if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
       const cant=parseFloat(v.cant)||0;if(!cant)return;
-      out.push({fecha:p.fecha,noche,destino:v.destino||'',material:v.material||'',cant,m3:cant*_amtCapM3,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
+      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:cant*_amtCapM3,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
     });
   });
   return out;
@@ -968,4 +969,116 @@ function _amtRenderSemMatriz(body){
     </div>
   </div>
   <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Cada celda = m³ que el tramo (fila) aportó al destino (columna) en la semana · Fondo más intenso = mayor volumen · Valores = viajes × ${_amtCapM3} m³/viaje</div>`;
+}
+
+// ── TAB 8: ORIGEN → DESTINO (viajes que salen de cada frente, con material) ──
+function _amtRenderSemOrigen(body){
+  const info=_amtSemInfo();
+  const{fIni,fFin,rango}=info;
+  const TH=_AMT_TH,TD=_AMT_TD;
+  // Origen: campo del viaje; si falta, se toma el inicio del tramo
+  const tramoIni=id=>{const tr=(DB.tramos||[]).find(t=>t.id==id);return tr?(tr.inicio||tr.codigo||''):'';};
+  const vs=_amtSemViajes(fIni,fFin).map(v=>({...v,ori:v.origen||tramoIni(v.tramoId)||'(sin origen)'}));
+
+  // grupos[origen] = {m3,viajes,vd,vn, rutas:{destino||material:{destino,material,m3,viajes,vd,vn}}}
+  const grupos={};
+  vs.forEach(function(v){
+    if(!grupos[v.ori])grupos[v.ori]={m3:0,viajes:0,vd:0,vn:0,rutas:{}};
+    const g=grupos[v.ori];
+    g.m3+=v.m3;g.viajes+=v.cant;
+    if(v.noche)g.vn+=v.cant;else g.vd+=v.cant;
+    const dst=v.destino||'(sin destino)';
+    const mat=v.material||'(sin material)';
+    const k=dst+'||'+mat;
+    if(!g.rutas[k])g.rutas[k]={destino:dst,material:mat,m3:0,viajes:0,vd:0,vn:0};
+    const r=g.rutas[k];
+    r.m3+=v.m3;r.viajes+=v.cant;
+    if(v.noche)r.vn+=v.cant;else r.vd+=v.cant;
+  });
+
+  const origenes=Object.keys(grupos).sort((a,b)=>grupos[b].m3-grupos[a].m3);
+  const totalM3=origenes.reduce((s,o)=>s+grupos[o].m3,0);
+  const totalViajes=origenes.reduce((s,o)=>s+grupos[o].viajes,0);
+  const totalRutas=origenes.reduce((s,o)=>s+Object.keys(grupos[o].rutas).length,0);
+
+  const filas=origenes.map(function(ori,i){
+    const g=grupos[ori];
+    const col=_AMT_COLORES[i%_AMT_COLORES.length];
+    const pctG=totalM3?g.m3/totalM3*100:0;
+    const rutas=Object.values(g.rutas).sort((a,b)=>b.m3-a.m3);
+    const head=`<tr>
+      <td colspan="7" style="padding:.5rem .7rem;background:${col}14;border:1px solid var(--border);border-left:4px solid ${col}">
+        <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">
+          <span style="font-weight:900;color:${col};font-size:.82rem">📤 ${ori}</span>
+          <span style="font-size:.68rem;color:var(--muted2)">${rutas.length} ruta(s)</span>
+          <span style="margin-left:auto;font-family:monospace;font-size:.75rem"><b style="color:#3b82f6">${g.viajes.toLocaleString()} viajes</b> <span style="font-size:.64rem">(<span style="color:#f59e0b">☀ ${g.vd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${g.vn.toLocaleString()}</span>)</span> · <b style="color:var(--ctl)">${_amtFmt1(g.m3)} m³</b> · <span style="color:${col};font-weight:700">${pctG.toFixed(0)}% del total</span></span>
+        </div>
+      </td>
+    </tr>`;
+    const sub=rutas.map(function(r){
+      const pct=g.m3?r.m3/g.m3*100:0;
+      return`<tr>
+        <td style="${TD};padding-left:1.6rem;color:var(--muted2);font-size:.7rem;white-space:nowrap">↳</td>
+        <td style="${TD};font-weight:700;color:var(--text);white-space:nowrap">→ ${r.destino}</td>
+        <td style="${TD};font-size:.7rem;color:#a78bfa;white-space:nowrap">${r.material}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#3b82f6">${r.viajes.toLocaleString()}<span style="font-size:.6rem;color:var(--muted2)"> v</span></td>
+        <td style="${TD};text-align:center;font-family:monospace;font-size:.68rem"><span style="color:#f59e0b">☀ ${r.vd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${r.vn.toLocaleString()}</span></td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)">${_amtFmt1(r.m3)}</td>
+        <td style="${TD};min-width:130px">
+          <div style="display:flex;align-items:center;gap:.35rem">
+            <div style="flex:1;background:var(--border);border-radius:3px;height:6px;overflow:hidden"><div style="height:100%;width:${pct.toFixed(0)}%;background:${col};border-radius:3px"></div></div>
+            <span style="font-size:.62rem;color:${col};font-weight:700;min-width:32px;text-align:right">${pct.toFixed(0)}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+    return head+sub;
+  }).join('');
+
+  _amtSemExportData={
+    name:'origen_destino_'+fIni+'.xlsx',
+    aoa:[
+      ['ORIGEN → DESTINO — '+rango],
+      ['Origen','Destino','Material','Viajes','☀ Día','🌙 Noche','m³','% del origen'],
+      ...origenes.flatMap(ori=>{
+        const g=grupos[ori];
+        return Object.values(g.rutas).sort((a,b)=>b.m3-a.m3).map(r=>[
+          ori,r.destino,r.material,r.viajes,r.vd,r.vn,+r.m3.toFixed(1),g.m3?+(r.m3/g.m3*100).toFixed(0):0
+        ]);
+      }),
+      ['TOTAL','','',totalViajes,'','',+totalM3.toFixed(1),'']
+    ]
+  };
+
+  body.innerHTML=_amtSemBar({rango})+`
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
+    ${_amtKpi('Orígenes / Frentes','<b style="font-size:1.3rem">'+origenes.length+'</b>','#f97316')}
+    ${_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')}
+    ${_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+_amtFmt1(totalM3)+'</b>','var(--ctl)')}
+    ${_amtKpi('Rutas Origen→Destino','<b style="font-size:1.3rem">'+totalRutas+'</b>','#8b5cf6')}
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--panel2)">
+        <th style="${TH};min-width:28px"></th>
+        <th style="${TH};text-align:left;min-width:150px">Destino</th>
+        <th style="${TH};text-align:left;min-width:130px">Material</th>
+        <th style="${TH};text-align:right">Viajes</th>
+        <th style="${TH};text-align:center">☀ / 🌙</th>
+        <th style="${TH};text-align:right">m³</th>
+        <th style="${TH};text-align:left">% del origen</th>
+      </tr></thead>
+      <tbody>${filas||`<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes registrados en esta semana (${rango})</td></tr>`}</tbody>
+      ${origenes.length?`<tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
+        <td colspan="3" style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase;text-align:right">TOTAL GENERAL</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6">${totalViajes.toLocaleString()}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ctl)">${_amtFmt1(totalM3)}</td>
+        <td style="${TD}"></td>
+      </tr></tfoot>`:''}
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Agrupado por frente de origen del viaje (si el viaje no tiene origen, se toma el inicio del tramo) · Cada fila = ruta destino + material · % = participación dentro de su origen</div>`;
 }
