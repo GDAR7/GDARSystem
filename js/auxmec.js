@@ -280,6 +280,17 @@ function setToggle(grupo, val){
   }
 }
 
+// Al elegir operador, selecciona automáticamente su guardia según el registro de personal
+function _rpAutoGuardia(){
+  const val=document.getElementById('rpOperador')?.value||'';
+  if(!val)return;
+  const p=(DB.personal||[]).find(x=>`${x.ape}, ${x.nom}`===val);
+  if(p&&['A','B','C'].includes(p.guardia)){
+    setToggle('guardia',p.guardia);
+    toast(`Guardia ${p.guardia} — según registro de ${p.ape}`);
+  }
+}
+
 function filtrarEquipos(){
   const sub = document.getElementById('rpTipo').value;
   parteState.tipo = sub;
