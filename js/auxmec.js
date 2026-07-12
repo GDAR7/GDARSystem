@@ -1281,7 +1281,9 @@ function rPanelHoras(){
 
   const TH='padding:.45rem .5rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);white-space:nowrap';
   const TD='padding:.4rem .55rem;border:1px solid var(--border);font-size:.74rem;vertical-align:middle';
-  const heat=v=>{if(!v||!maxCelda)return'transparent';const a=0.07+0.38*Math.min(1,v/maxCelda);return`rgba(249,115,22,${a.toFixed(2)})`;};
+  // Heatmap: fondo plomo semioscuro con degradado azul según intensidad
+  const heatBase='rgba(148,163,184,.08)'; // plomo para celdas sin datos
+  const heat=v=>{if(!v||!maxCelda)return heatBase;const a=0.12+0.45*Math.min(1,v/maxCelda);return`rgba(59,130,246,${a.toFixed(2)})`;};
   const delta=(cur,prev)=>typeof _amtDelta==='function'?_amtDelta(cur,prev):'';
 
   // Barra superior
@@ -1317,7 +1319,7 @@ function rPanelHoras(){
       const celdas=fechas.map(function(f){
         const c=grid[r.id][f.iso];
         const esHoy=f.iso===hoy;
-        if(!c||(!c.ef&&!c.im))return`<td style="${TD};text-align:right;color:var(--muted);${esHoy?'background:rgba(245,158,11,.05);':''}">—</td>`;
+        if(!c||(!c.ef&&!c.im))return`<td style="${TD};text-align:right;color:var(--muted);background:${esHoy?'rgba(245,158,11,.05)':heatBase}">—</td>`;
         const ttl=`☀ ${fmtH(c.efD)}h · 🌙 ${fmtH(c.efN)}h${c.im?` · 🛑 Improd: ${fmtH(c.im)}h`:''}`;
         return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text);background:${esHoy?'rgba(245,158,11,.10)':heat(c.ef)}" title="${ttl}">${fmtH(c.ef)}${c.im?`<span style="color:#ef4444;font-size:.6rem"> +${fmtH(c.im)}i</span>`:''}</td>`;
       }).join('');
