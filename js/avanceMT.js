@@ -88,7 +88,8 @@ function _amtRenderTramos(body){
       if(_amtMatFiltro.size && !_amtMatFiltro.has(v.material)) return;
       if(!byTramo[v.tramoId]) byTramo[v.tramoId]={viajes:0,m3:0,parteIds:new Set(),lastFecha:''};
       byTramo[v.tramoId].viajes+=(parseFloat(v.cant)||0);
-      byTramo[v.tramoId].m3+=(parseFloat(v.cant)||0)*_amtCapM3;
+      // Sin material = traslado → no suma volumen
+      byTramo[v.tramoId].m3+=v.material?(parseFloat(v.cant)||0)*_amtCapM3:0;
       byTramo[v.tramoId].parteIds.add(p.id);
       if(p.fecha>byTramo[v.tramoId].lastFecha) byTramo[v.tramoId].lastFecha=p.fecha;
     });
@@ -196,14 +197,15 @@ function _amtRenderAreas(body){
       if(!byDest[dest]) byDest[dest]={viajes:0,m3:0,parteIds:new Set(),lastFecha:'',materiales:{},tramos:{}};
       const _cant=parseFloat(v.cant)||0;
       byDest[dest].viajes+=_cant;
-      byDest[dest].m3+=_cant*_amtCapM3;
+      // Sin material = traslado → cuenta el viaje pero no el volumen
+      byDest[dest].m3+=v.material?_cant*_amtCapM3:0;
       byDest[dest].parteIds.add(p.id);
       if(p.fecha>byDest[dest].lastFecha) byDest[dest].lastFecha=p.fecha;
       if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+(_cant*_amtCapM3);}
       if(v.tramoId){
         if(!byDest[dest].tramos[v.tramoId]) byDest[dest].tramos[v.tramoId]={viajes:0,m3:0};
         byDest[dest].tramos[v.tramoId].viajes+=_cant;
-        byDest[dest].tramos[v.tramoId].m3+=_cant*_amtCapM3;
+        byDest[dest].tramos[v.tramoId].m3+=v.material?_cant*_amtCapM3:0;
       }
     });
   });
@@ -413,7 +415,8 @@ function _amtSemViajes(fIni,fFin){
     (p.viajes||[]).forEach(function(v){
       if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
       const cant=parseFloat(v.cant)||0;if(!cant)return;
-      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:cant*_amtCapM3,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
+      // Sin material = traslado de un frente a otro → cuenta el viaje pero NO el volumen
+      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:v.material?cant*_amtCapM3:0,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
     });
   });
   return out;
@@ -1023,7 +1026,7 @@ function _amtRenderSemOrigen(body){
         <td style="${TD};font-size:.7rem;color:#a78bfa;white-space:nowrap">${r.material}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#3b82f6">${r.viajes.toLocaleString()}<span style="font-size:.6rem;color:var(--muted2)"> v</span></td>
         <td style="${TD};text-align:center;font-family:monospace;font-size:.68rem"><span style="color:#f59e0b">☀ ${r.vd.toLocaleString()}</span> · <span style="color:#60a5fa">🌙 ${r.vn.toLocaleString()}</span></td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)">${_amtFmt1(r.m3)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)" ${r.m3?'':'title="Traslado sin material — no suma volumen"'}>${r.m3?_amtFmt1(r.m3):'—'}</td>
         <td style="${TD};min-width:130px">
           <div style="display:flex;align-items:center;gap:.35rem">
             <div style="flex:1;background:var(--border);border-radius:3px;height:6px;overflow:hidden"><div style="height:100%;width:${pct.toFixed(0)}%;background:${col};border-radius:3px"></div></div>
