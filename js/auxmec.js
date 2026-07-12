@@ -1218,9 +1218,18 @@ function _phSemExport(){
   XLSX.writeFile(wb,_phExport.name);
 }
 
+let _phTab=1;
+function _phTabSwitch(t){_phTab=t;rPanelHoras();}
 function rPanelHoras(){
-  const el=document.getElementById('phBody');if(!el)return;
+  const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
+  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal']];
+  root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_phTab===n;return`<button onclick="_phTabSwitch(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="phTabBody"></div>`;
+  if(_phTab===2){_phRenderUtil();return;}
+  _phRenderHoras();
+}
+function _phRenderHoras(){
+  const el=document.getElementById('phTabBody');if(!el)return;
   const pad=n=>String(n).padStart(2,'0');
   const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   const hoy=today();
@@ -1330,7 +1339,7 @@ function rPanelHoras(){
           <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
         </td>
         ${celdas}
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq);background:rgba(249,115,22,.07)">${fmtH(r.ef)}h ${delta(r.ef,r.prev)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">☀ ${fmtH(r.efD)} · 🌙 ${fmtH(r.efN)}</div></td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq);background:rgba(249,115,22,.07)">${fmtH(r.ef)}h ${delta(r.ef,r.prev)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400"><span style="color:#fbbf24">☀</span> ${fmtH(r.efD)} · <span style="color:#94a3b8;filter:grayscale(1) brightness(1.15)">🌙</span> ${fmtH(r.efN)}</div></td>
         <td style="${TD};text-align:right;font-family:monospace;color:${r.im?'#ef4444':'var(--muted)'}">${r.im?fmtH(r.im)+'h':'—'}</td>
         <td style="${TD};text-align:center;font-family:monospace">${r.dias}</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${promCol}">${r.prom.toFixed(1)}</td>
@@ -1420,6 +1429,190 @@ function rPanelHoras(){
       });
     }
   }
+}
+
+// ── TAB 2: UTILIZACIÓN SEMANAL (H. Prog vs H. Efect · semana + acumulado al corte 21→20) ──
+function _phHsProgTurno(){return +(localStorage.getItem('gdar_ph_hsprog')||10);}
+function _phSetHsProg(){
+  const v=prompt('Horas programadas por parte/turno:',_phHsProgTurno());
+  if(v===null)return;
+  const n=+String(v).replace(',','.');
+  if(!(n>0)){toast('Valor inválido',true);return;}
+  localStorage.setItem('gdar_ph_hsprog',n);
+  rPanelHoras();
+}
+function _phRenderUtil(){
+  const el=document.getElementById('phTabBody');if(!el)return;
+  const pad=n=>String(n).padStart(2,'0');
+  const fmtH=v=>v.toLocaleString('es-PE',{maximumFractionDigits:1});
+  const HP=_phHsProgTurno();
+
+  // Semana seleccionada (comparte estado con el tab 1)
+  const d0=new Date(_phSemIni+'T12:00:00');
+  const fechas=[];
+  for(let i=0;i<7;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);fechas.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
+  const fIni=fechas[0],fFin=fechas[6];
+  const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7);
+  const rango=`${dmy(fIni)} – ${dmy(fFin)}`;
+  // Nº de semana ISO (según el jueves de la semana del fin)
+  const dISO=new Date(fFin+'T12:00:00');
+  const jue=new Date(dISO);jue.setDate(dISO.getDate()+(4-(dISO.getDay()||7)));
+  const nSem=Math.ceil((((jue-new Date(jue.getFullYear(),0,1))/864e5)+1)/7);
+  const semLbl=`${jue.getFullYear()}-S${pad(nSem)} (${rango})`;
+
+  // Corte 21→20 que contiene el fin de la semana
+  const dF=new Date(fFin+'T12:00:00');
+  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
+  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const cIni=isoD(cIniD),cFin=isoD(cFinD);
+  const corteLbl=`${dmy(cIni)}/${String(cIniD.getFullYear()).slice(2)} al ${dmy(cFin)}/${String(cFinD.getFullYear()).slice(2)}`;
+  const aFin=fFin<cFin?fFin:cFin; // acumulado: del 21 hasta el fin de la semana elegida
+
+  // Acumular partes por equipo
+  const acc={};
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||!p.eqId)return;
+    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+    if(_phTipoFiltro&&(!eq||eq.tipo!==_phTipoFiltro))return;
+    const enSem=p.fecha>=fIni&&p.fecha<=fFin;
+    const enAc=p.fecha>=cIni&&p.fecha<=aFin;
+    if(!enSem&&!enAc)return;
+    if(!acc[p.eqId])acc[p.eqId]={eq,tipo:eq?(eq.tipo||'Otros'):'Otros',semN:0,semEf:0,semDias:new Set(),acN:0,acEf:0};
+    const a=acc[p.eqId];
+    const ef=Math.max(0,+p.ef||0);
+    if(enSem){a.semN++;a.semEf+=ef;a.semDias.add(p.fecha);}
+    if(enAc){a.acN++;a.acEf+=ef;}
+  });
+
+  const rows=Object.entries(acc).map(([id,a])=>({id,...a,dias:a.semDias.size,semProg:a.semN*HP,acProg:a.acN*HP}))
+    .sort((x,y)=>y.semEf-x.semEf);
+  const grupos={};
+  rows.forEach(r=>{if(!grupos[r.tipo])grupos[r.tipo]=[];grupos[r.tipo].push(r);});
+  const tiposOrden=Object.keys(grupos).sort((a,b)=>grupos[b].reduce((s,r)=>s+r.semEf,0)-grupos[a].reduce((s,r)=>s+r.semEf,0));
+
+  const utilCol=u=>u>=80?'#10b981':u>=60?'#f59e0b':'#ef4444';
+  const utilCell=(ef,prog,TD)=>{
+    if(!prog)return`<td style="${TD};text-align:right;color:var(--muted)">—</td>`;
+    const u=ef/prog*100;
+    return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${utilCol(u)}">${u.toFixed(1)}%</td>`;
+  };
+
+  const TH='padding:.45rem .55rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);white-space:nowrap;border:1px solid var(--border)';
+  const TD='padding:.42rem .6rem;border:1px solid var(--border);font-size:.75rem;vertical-align:middle';
+
+  // Barra superior (semana comparte estado/nav con el tab 1)
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
+  const tiposEq=['','Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
+    <span style="font-size:.7rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${corteLbl}</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Semana</span>
+    <button onclick="_phNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
+    <input type="date" value="${_phSemIni}" onchange="_phSemIni=this.value;rPanelHoras()" style="${inpS};width:135px">
+    <button onclick="_phNav(7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana siguiente">›</button>
+    <span style="font-size:.72rem;color:var(--ceq);font-weight:700;font-family:monospace;white-space:nowrap">${semLbl}</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Línea</span>
+    <div style="display:flex;gap:.2rem;flex-wrap:wrap">
+      ${tiposEq.map(t=>{
+        const sel=_phTipoFiltro===t;
+        return`<button onclick="_phTipoFiltro='${t}';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'transparent'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${sel?'700':'400'}">${t||'Todas'}</button>`;
+      }).join('')}
+    </div>
+    <button onclick="_phSetHsProg()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Horas programadas por parte/turno">⚙ ${HP}h/turno</button>
+    <button onclick="_phSemExport()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+  </div>`;
+
+  // Filas agrupadas por línea
+  let body='';
+  tiposOrden.forEach(function(tipo){
+    const items=grupos[tipo];
+    body+=`<tr><td colspan="8" style="padding:.45rem .7rem;background:rgba(249,115,22,.07);border:1px solid var(--border);color:var(--ceq);font-size:.71rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em">▶ ${tipo} · ${items.length} equipo(s)</td></tr>`;
+    items.forEach(function(r){
+      body+=`<tr>
+        <td style="${TD};white-space:nowrap">
+          <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+          <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
+        </td>
+        <td style="${TD};text-align:center;font-family:monospace">${r.dias||'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;color:var(--muted2)">${r.semProg?fmtH(r.semProg):'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text)">${r.semN?fmtH(r.semEf):'—'}</td>
+        ${utilCell(r.semEf,r.semProg,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;color:var(--muted2);background:rgba(148,163,184,.05)">${r.acProg?fmtH(r.acProg):'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text);background:rgba(148,163,184,.05)">${r.acN?fmtH(r.acEf):'—'}</td>
+        ${utilCell(r.acEf,r.acProg,TD+';background:rgba(148,163,184,.05)')}
+      </tr>`;
+    });
+  });
+
+  // Totales
+  const tSemProg=rows.reduce((s,r)=>s+r.semProg,0),tSemEf=rows.reduce((s,r)=>s+r.semEf,0);
+  const tAcProg=rows.reduce((s,r)=>s+r.acProg,0),tAcEf=rows.reduce((s,r)=>s+r.acEf,0);
+  const uSem=tSemProg?tSemEf/tSemProg*100:0,uAc=tAcProg?tAcEf/tAcProg*100:0;
+
+  // Exportación
+  _phExport={
+    name:'utilizacion_equipos_'+fIni+'.xlsx',
+    aoa:[
+      ['UTILIZACIÓN DE EQUIPOS — Semana '+semLbl+' — Corte '+corteLbl+(_phTipoFiltro?' — '+_phTipoFiltro:'')],
+      ['Equipo','Línea','Días trab.','Sem H.Prog.','Sem H.Efect.','Sem Utiliz.%','Acum H.Prog.','Acum H.Efect.','Acum Utiliz.%'],
+      ...rows.map(r=>[
+        r.eq?r.eq.codigo:('#'+r.id),r.tipo,r.dias,
+        +r.semProg.toFixed(1),+r.semEf.toFixed(1),r.semProg?+(r.semEf/r.semProg*100).toFixed(1):'',
+        +r.acProg.toFixed(1),+r.acEf.toFixed(1),r.acProg?+(r.acEf/r.acProg*100).toFixed(1):''
+      ]),
+      ['TOTAL','','',+tSemProg.toFixed(1),+tSemEf.toFixed(1),+uSem.toFixed(1),+tAcProg.toFixed(1),+tAcEf.toFixed(1),+uAc.toFixed(1)]
+    ]
+  };
+
+  el.innerHTML=bar+`
+  <div class="kpi-row">
+    <div class="kpi" style="--kc:${utilCol(uSem)}"><div class="kpi-lbl">Utilización de la Semana</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uSem)}">${tSemProg?uSem.toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi" style="--kc:${utilCol(uAc)}"><div class="kpi-lbl">Utilización Acum. al Corte</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uAc)}">${tAcProg?uAc.toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemEf)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>
+    <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${rows.length}</div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:left;min-width:140px" rowspan="2">Tipo / Equipo</th>
+          <th style="${TH};text-align:center" rowspan="2" title="Días con parte diario en la semana">Días T</th>
+          <th style="${TH};text-align:center;background:rgba(59,130,246,.10);color:#60a5fa" colspan="3">Semana (${rango})</th>
+          <th style="${TH};text-align:center;background:rgba(148,163,184,.08)" colspan="3">Acum. al Corte</th>
+        </tr>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">H. Prog.</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">H. Efect.</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">Utiliz. %</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">H. Prog.</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">H. Efect.</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">Utiliz. %</th>
+        </tr>
+      </thead>
+      <tbody>${body||`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en esta semana (${rango}) ni en el corte (${corteLbl})</td></tr>`}</tbody>
+      ${rows.length?`<tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
+        <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL GENERAL</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--muted2)">${fmtH(tSemProg)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq)">${fmtH(tSemEf)}</td>
+        ${utilCell(tSemEf,tSemProg,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--muted2)">${fmtH(tAcProg)}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq)">${fmtH(tAcEf)}</td>
+        ${utilCell(tAcEf,tAcProg,TD)}
+      </tr></tfoot>`:''}
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+    <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
+    <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
+    <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
+    <span style="margin-left:auto">ⓘ H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
+  </div>`;
 }
 
 // ══ DASHBOARD EQUIPOS ══
