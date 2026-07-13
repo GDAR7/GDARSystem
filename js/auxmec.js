@@ -1223,10 +1223,11 @@ function _phTabSwitch(t){_phTab=t;rPanelHoras();}
 function rPanelHoras(){
   const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
-  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica']];
+  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores']];
   root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_phTab===n;return`<button onclick="_phTabSwitch(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="phTabBody"></div>`;
   if(_phTab===2){_phRenderUtil('util');return;}
   if(_phTab===3){_phRenderUtil('dm');return;}
+  if(_phTab===4){_phRenderMenores();return;}
   _phRenderHoras();
 }
 function _phRenderHoras(){
@@ -1471,12 +1472,16 @@ function _phRenderUtil(modo){
   const corteLbl=`${dmy(cIni)}/${String(cIniD.getFullYear()).slice(2)} al ${dmy(cFin)}/${String(cFinD.getFullYear()).slice(2)}`;
   const aFin=fFin<cFin?fFin:cFin; // acumulado: del 21 hasta el fin de la semana elegida
 
+  // Solo Línea Amarilla y Línea Blanca (menores tienen su propio tab por días)
+  const filLinea=(_phTipoFiltro==='Línea Amarilla'||_phTipoFiltro==='Línea Blanca')?_phTipoFiltro:'';
   // Acumular partes por equipo
   const acc={};
   (DB.partes||[]).forEach(function(p){
     if(!p.fecha||!p.eqId)return;
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
-    if(_phTipoFiltro&&(!eq||eq.tipo!==_phTipoFiltro))return;
+    const tipoEq=eq?(eq.tipo||'Otros'):'Otros';
+    if(tipoEq!=='Línea Amarilla'&&tipoEq!=='Línea Blanca')return;
+    if(filLinea&&tipoEq!==filLinea)return;
     const enSem=p.fecha>=fIni&&p.fecha<=fFin;
     const enAc=p.fecha>=cIni&&p.fecha<=aFin;
     if(!enSem&&!enAc)return;
@@ -1507,7 +1512,7 @@ function _phRenderUtil(modo){
 
   // Barra superior (semana comparte estado/nav con el tab 1)
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
-  const tiposEq=['','Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+  const tiposEq=['','Línea Amarilla','Línea Blanca'];
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
     <span style="font-size:.7rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${corteLbl}</span>
@@ -1521,7 +1526,7 @@ function _phRenderUtil(modo){
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Línea</span>
     <div style="display:flex;gap:.2rem;flex-wrap:wrap">
       ${tiposEq.map(t=>{
-        const sel=_phTipoFiltro===t;
+        const sel=filLinea===t;
         return`<button onclick="_phTipoFiltro='${t}';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'transparent'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${sel?'700':'400'}">${t||'Todas'}</button>`;
       }).join('')}
     </div>
@@ -1619,6 +1624,202 @@ function _phRenderUtil(modo){
     <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
     <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · H. Inoper. = hs de inoperatividad del parte diario':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
+  </div>`;
+}
+
+// ── TAB 4: DISPONIBILIDAD MENORES (Vehículos y Equipos Menores · por días del corte) ──
+// Disp. = (días operativos − días inoperativos) ÷ días del período (semana=7 · corte=30/31)
+function _phRenderMenores(){
+  const el=document.getElementById('phTabBody');if(!el)return;
+  const pad=n=>String(n).padStart(2,'0');
+
+  // Semana seleccionada (comparte estado con los demás tabs)
+  const d0=new Date(_phSemIni+'T12:00:00');
+  const fechas=[];
+  for(let i=0;i<7;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);fechas.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
+  const fIni=fechas[0],fFin=fechas[6];
+  const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7);
+  const rango=`${dmy(fIni)} – ${dmy(fFin)}`;
+  const dISO=new Date(fFin+'T12:00:00');
+  const jue=new Date(dISO);jue.setDate(dISO.getDate()+(4-(dISO.getDay()||7)));
+  const nSem=Math.ceil((((jue-new Date(jue.getFullYear(),0,1))/864e5)+1)/7);
+  const semLbl=`${jue.getFullYear()}-S${pad(nSem)} (${rango})`;
+
+  // Corte 21→20 que contiene el fin de la semana
+  const dF=new Date(fFin+'T12:00:00');
+  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
+  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const cIni=isoD(cIniD),cFin=isoD(cFinD);
+  const corteLbl=`${dmy(cIni)}/${String(cIniD.getFullYear()).slice(2)} al ${dmy(cFin)}/${String(cFinD.getFullYear()).slice(2)}`;
+  const diasCorte=Math.round((cFinD-cIniD)/864e5)+1; // 30 o 31 días
+
+  // Solo Vehículos Menores y Equipos Menores
+  const TIPOS_MEN=['Vehículo Menor','Equipos Menores'];
+  const filMen=TIPOS_MEN.includes(_phTipoFiltro)?_phTipoFiltro:'';
+
+  // Clasificar cada parte por su condición: inoperativo puro resta, el resto (trabajado/standby/mixto) es operativo
+  const esInop=p=>String(p.condicion||'').toUpperCase().startsWith('INOPERATIVO');
+
+  // acc[eqId] = {eq,tipo, sem:{fecha:{op,inop}}, cor:{fecha:{op,inop}}}
+  const acc={};
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||!p.eqId)return;
+    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+    const tipoEq=eq?(eq.tipo||''):'';
+    if(!TIPOS_MEN.includes(tipoEq))return;
+    if(filMen&&tipoEq!==filMen)return;
+    const enSem=p.fecha>=fIni&&p.fecha<=fFin;
+    const enCor=p.fecha>=cIni&&p.fecha<=cFin;
+    if(!enSem&&!enCor)return;
+    if(!acc[p.eqId])acc[p.eqId]={eq,tipo:tipoEq,sem:{},cor:{}};
+    const a=acc[p.eqId];
+    const marca=obj=>{
+      if(!obj[p.fecha])obj[p.fecha]={op:false,inop:false};
+      if(esInop(p))obj[p.fecha].inop=true;else obj[p.fecha].op=true;
+    };
+    if(enSem)marca(a.sem);
+    if(enCor)marca(a.cor);
+  });
+
+  // Un día cuenta como operativo si tuvo al menos un parte operativo; inoperativo solo si todos sus partes fueron inoperativos
+  const cuenta=obj=>{
+    let op=0,inop=0;
+    Object.values(obj).forEach(d=>{if(d.op)op++;else if(d.inop)inop++;});
+    return{op,inop};
+  };
+  const rows=Object.entries(acc).map(([id,a])=>{
+    const s=cuenta(a.sem),c=cuenta(a.cor);
+    return{id,eq:a.eq,tipo:a.tipo,semOp:s.op,semInop:s.inop,corOp:c.op,corInop:c.inop};
+  }).sort((x,y)=>y.corOp-x.corOp);
+
+  const grupos={};
+  rows.forEach(r=>{if(!grupos[r.tipo])grupos[r.tipo]=[];grupos[r.tipo].push(r);});
+  const tiposOrden=Object.keys(grupos).sort();
+
+  const utilCol=u=>u>=80?'#10b981':u>=60?'#f59e0b':'#ef4444';
+  const dispPct=(op,inop,dias)=>Math.max(0,(op-inop)/dias*100);
+  const dispCell=(op,inop,dias,TD)=>{
+    if(!op&&!inop)return`<td style="${TD};text-align:right;color:var(--muted)">—</td>`;
+    const u=dispPct(op,inop,dias);
+    return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${utilCol(u)}">${u.toFixed(1)}%</td>`;
+  };
+
+  const TH='padding:.45rem .55rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);white-space:nowrap;border:1px solid var(--border)';
+  const TD='padding:.42rem .6rem;border:1px solid var(--border);font-size:.75rem;vertical-align:middle';
+
+  // Barra superior
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
+  const tiposEq=['',...TIPOS_MEN];
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
+    <span style="font-size:.7rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${corteLbl} · ${diasCorte} días</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Semana</span>
+    <button onclick="_phNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
+    <input type="date" value="${_phSemIni}" onchange="_phSemIni=this.value;rPanelHoras()" style="${inpS};width:135px">
+    <button onclick="_phNav(7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana siguiente">›</button>
+    <span style="font-size:.72rem;color:var(--ceq);font-weight:700;font-family:monospace;white-space:nowrap">${semLbl}</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Tipo</span>
+    <div style="display:flex;gap:.2rem;flex-wrap:wrap">
+      ${tiposEq.map(t=>{
+        const sel=filMen===t;
+        return`<button onclick="_phTipoFiltro='${t}';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'transparent'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${sel?'700':'400'}">${t||'Todos'}</button>`;
+      }).join('')}
+    </div>
+    <button onclick="_phSemExport()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+  </div>`;
+
+  // Filas agrupadas por tipo
+  let body='';
+  tiposOrden.forEach(function(tipo){
+    const items=grupos[tipo];
+    body+=`<tr><td colspan="8" style="padding:.45rem .7rem;background:rgba(249,115,22,.07);border:1px solid var(--border);color:var(--ceq);font-size:.71rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em">▶ ${tipo} · ${items.length} equipo(s)</td></tr>`;
+    items.forEach(function(r){
+      body+=`<tr>
+        <td style="${TD};white-space:nowrap">
+          <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+          <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
+        </td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#10b981">${r.semOp||'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${r.semInop?'#ef4444':'var(--muted)'}">${r.semInop||'—'}</td>
+        ${dispCell(r.semOp,r.semInop,7,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#10b981;background:rgba(148,163,184,.05)">${r.corOp||'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${r.corInop?'#ef4444':'var(--muted)'};background:rgba(148,163,184,.05)">${r.corInop||'—'}</td>
+        <td style="${TD};text-align:center;font-family:monospace;color:var(--muted2);background:rgba(148,163,184,.05)">${diasCorte}</td>
+        ${dispCell(r.corOp,r.corInop,diasCorte,TD+';background:rgba(148,163,184,.05)')}
+      </tr>`;
+    });
+  });
+
+  // Totales
+  const tSemOp=rows.reduce((s,r)=>s+r.semOp,0),tSemInop=rows.reduce((s,r)=>s+r.semInop,0);
+  const tCorOp=rows.reduce((s,r)=>s+r.corOp,0),tCorInop=rows.reduce((s,r)=>s+r.corInop,0);
+  const n=rows.length;
+  const uSem=n?dispPct(tSemOp,tSemInop,n*7):0;
+  const uCor=n?dispPct(tCorOp,tCorInop,n*diasCorte):0;
+
+  // Exportación
+  _phExport={
+    name:'disponibilidad_menores_'+fIni+'.xlsx',
+    aoa:[
+      ['DISPONIBILIDAD VEHÍCULOS Y EQUIPOS MENORES — Semana '+semLbl+' — Corte '+corteLbl+' ('+diasCorte+' días)'+(filMen?' — '+filMen:'')],
+      ['Equipo','Tipo','Sem D.Oper.','Sem D.Inop.','Sem Disp.%','Corte D.Oper.','Corte D.Inop.','Días Corte','Corte Disp.%'],
+      ...rows.map(r=>[
+        r.eq?r.eq.codigo:('#'+r.id),r.tipo,
+        r.semOp,r.semInop,+dispPct(r.semOp,r.semInop,7).toFixed(1),
+        r.corOp,r.corInop,diasCorte,+dispPct(r.corOp,r.corInop,diasCorte).toFixed(1)
+      ]),
+      ['TOTAL','',tSemOp,tSemInop,+uSem.toFixed(1),tCorOp,tCorInop,'',+uCor.toFixed(1)]
+    ]
+  };
+
+  el.innerHTML=bar+`
+  <div class="kpi-row">
+    <div class="kpi" style="--kc:${utilCol(uSem)}"><div class="kpi-lbl">Disponibilidad de la Semana</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uSem)}">${n?uSem.toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi" style="--kc:${utilCol(uCor)}"><div class="kpi-lbl">Disponibilidad del Corte</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uCor)}">${n?uCor.toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Días Inoperativos (Corte)</div><div class="kpi-val" style="font-size:1.5rem">${tCorInop}</div></div>
+    <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${n}</div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:left;min-width:140px" rowspan="2">Tipo / Equipo</th>
+          <th style="${TH};text-align:center;background:rgba(59,130,246,.10);color:#60a5fa" colspan="3">Semana (${rango}) · 7 días</th>
+          <th style="${TH};text-align:center;background:rgba(148,163,184,.08)" colspan="4">Corte (${corteLbl})</th>
+        </tr>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)" title="Días con parte operativo (trabajado, standby o mixto)">D. Oper.</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)" title="Días con parte inoperativo (falla mecánica)">D. Inop.</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">Disp. %</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">D. Oper.</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">D. Inop.</th>
+          <th style="${TH};text-align:center;background:rgba(148,163,184,.05)">Días Corte</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">Disp. %</th>
+        </tr>
+      </thead>
+      <tbody>${body||`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes de Vehículos/Equipos Menores en esta semana (${rango}) ni en el corte (${corteLbl})</td></tr>`}</tbody>
+      ${n?`<tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
+        <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL GENERAL</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${tSemOp}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${tSemInop?'#ef4444':'var(--muted)'}">${tSemInop||'—'}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${utilCol(uSem)}">${uSem.toFixed(1)}%</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${tCorOp}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${tCorInop?'#ef4444':'var(--muted)'}">${tCorInop||'—'}</td>
+        <td style="${TD};text-align:center;font-family:monospace;color:var(--muted2)">${diasCorte}</td>
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${utilCol(uCor)}">${uCor.toFixed(1)}%</td>
+      </tr></tfoot>`:''}
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+    <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
+    <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
+    <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
+    <span style="margin-left:auto">ⓘ Disp. = (D. Oper. − D. Inop.) ÷ días del período (semana = 7 · corte = ${diasCorte}) · D. Oper. = días con parte operativo/standby · D. Inop. = días donde todos los partes fueron INOPERATIVO (falla mecánica) · Total = promedio sobre ${n} equipo(s)</span>
   </div>`;
 }
 
