@@ -1926,8 +1926,11 @@ function _phResumenDoc(){
   });
 
   // ── Gráficos del documento (se convierten a imagen PNG para que salgan en el PDF) ──
-  const SUBCOL_DOC={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
-  const subColDoc=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL_DOC)if(s.includes(k))return SUBCOL_DOC[k];return'#6b7280';};
+  // RETRO va antes que EXCAVADORA (RETROEXCAVADORA contiene "EXCAVADORA") · subtipos no mapeados reciben color propio de la paleta
+  const SUBCOL_DOC={'RETRO':'#f59e0b','EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
+  const _palDoc=['#ec4899','#eab308','#14b8a6','#f97316','#6366f1','#a3e635','#e11d48','#0284c7'];
+  const _asigDoc={};let _piDoc=0;
+  const subColDoc=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL_DOC)if(s.includes(k))return SUBCOL_DOC[k];if(!_asigDoc[s])_asigDoc[s]=_palDoc[_piDoc++%_palDoc.length];return _asigDoc[s];};
   const diasCorteN=Math.round((cFinD-cIniD)/864e5)+1;
   const metaSem=Math.round((typeof _rmMeta==='function'?_rmMeta():300)*7/diasCorteN);
   // Plugin: etiquetas de valor sobre cada barra
@@ -2339,8 +2342,11 @@ function _rmDoc(){
   const rows=(_rmSub?todos.filter(r=>r.sub===_rmSub):todos)
     .sort((a,b)=>a.sub===b.sub?String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')):a.sub.localeCompare(b.sub));
 
-  const SUBCOL={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
-  const subCol=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL)if(s.includes(k))return SUBCOL[k];return'#6b7280';};
+  // RETRO va antes que EXCAVADORA (RETROEXCAVADORA contiene "EXCAVADORA") · subtipos no mapeados reciben color propio de la paleta
+  const SUBCOL={'RETRO':'#f59e0b','EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
+  const _palRm=['#ec4899','#eab308','#14b8a6','#f97316','#6366f1','#a3e635','#e11d48','#0284c7'];
+  const _asigRm={};let _piRm=0;
+  const subCol=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL)if(s.includes(k))return SUBCOL[k];if(!_asigRm[s])_asigRm[s]=_palRm[_piRm++%_palRm.length];return _asigRm[s];};
 
   const AZ='#1e3a5f';
   const icoAvance=u=>u>=100?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
