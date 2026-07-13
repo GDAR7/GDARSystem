@@ -2187,7 +2187,7 @@ function _phResumenDoc(){
           </tr>`).join(''):`<tr><td colspan="5" style="${TD};text-align:center;color:#777">Sin viajes con material registrados en la semana</td></tr>`}
           ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="3">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
         </table>
-        <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · los viajes sin material (cambio de frente) no se consideran en este reporte · si el viaje no tiene origen, se toma el inicio del tramo</div>
+        <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva </div>
       </div>
       ${imgTrans?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgTrans}" style="width:100%;display:block"></div>`:''}
     </div>
