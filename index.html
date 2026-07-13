@@ -1773,7 +1773,11 @@
     <div class="fg"><label>Material</label><select id="asItem"></select></div>
     <div class="fg"><label>Cantidad</label><input id="asCant" type="number" placeholder="0"></div>
     <div class="fg"><label>Tipo de Costo</label><select id="asTc"><option>Costo Directo</option><option>Costo Indirecto</option><option>Reembolsable</option><option>Costo de Terceros</option></select></div>
-    <div class="fg" style="grid-column:1/-1"><label>Para Persona / Equipo</label><select id="asPers"></select></div>
+    <div class="fg" style="grid-column:1/-1;position:relative">
+      <label>Para Persona / Equipo</label>
+      <input id="asPers" autocomplete="off" placeholder="Buscar persona (nombre/DNI) o equipo (código)..." oninput="_almPESearch(this.value,'asPers','asPersDrop')" onfocus="_almPESearch(this.value,'asPers','asPersDrop')" onblur="setTimeout(()=>{const d=document.getElementById('asPersDrop');if(d)d.style.display='none'},180)">
+      <div id="asPersDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;z-index:999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.6)"></div>
+    </div>
     <div class="fg" style="grid-column:1/-1"><label>Destino / Observación</label><input id="asDest" placeholder="Área / equipo que recibe"></div>
     <div class="fg" style="grid-column:1/-1"><label>Observaciones</label><input id="asObs" placeholder="Notas adicionales..."></div>
     <div class="fg"><label>N° de Vale</label><input id="asVale" placeholder="Ej: VAL-001"></div>
@@ -1823,7 +1827,11 @@
       <div class="fg" style="grid-column:1/-1"><label>Nombre de Proyecto</label><select id="smProyecto" onchange="renderSMItems()"><option value="">— Sin Proyecto —</option></select></div>
       <div class="fg"><label>Fecha</label><input id="smF" type="date"></div>
       <div class="fg"><label>N° de Vale</label><input id="smVale" readonly style="font-family:'Roboto Mono',monospace;font-weight:700;opacity:.8;cursor:default;background:var(--panel2)"></div>
-      <div class="fg" style="grid-column:1/-1"><label>Para Persona / Equipo</label><select id="smPers"></select></div>
+      <div class="fg" style="grid-column:1/-1;position:relative">
+        <label>Para Persona / Equipo</label>
+        <input id="smPers" autocomplete="off" placeholder="Buscar persona (nombre/DNI) o equipo (código)..." oninput="_almPESearch(this.value,'smPers','smPersDrop')" onfocus="_almPESearch(this.value,'smPers','smPersDrop')" onblur="setTimeout(()=>{const d=document.getElementById('smPersDrop');if(d)d.style.display='none'},180)">
+        <div id="smPersDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;z-index:999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.6)"></div>
+      </div>
       <div class="fg"><label>Tipo de Costo</label><select id="smTc"><option>Costo Directo</option><option>Costo Indirecto</option><option>Reembolsable</option><option>Costo de Terceros</option></select></div>
       <div class="fg"><label>Destino / Área que recibe</label><select id="smDest"><option value="">— Seleccionar destino —</option><option>Operaciones</option><option>Seguridad</option><option>Mantenimiento</option><option>Administración</option><option>Control de Proyectos</option><option>Almacén y Logística</option><option>Bienestar Social</option><option>Otros</option></select></div>
       <div class="fg" style="grid-column:1/-1"><label>Observaciones</label><input id="smObs" placeholder="Notas adicionales..."></div>
@@ -2759,10 +2767,10 @@
 
 
 <script src="js/config.js?v=3"></script>
-<script src="js/utils.js?v=3"></script>
+<script src="js/utils.js?v=4"></script>
 <script src="js/personal.js?v=2"></script>
 <script src="js/planilla.js"></script>
-<script src="js/almacen.js"></script>
+<script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=6"></script>
 <script src="js/mantenimiento.js?v=2"></script>

@@ -10,6 +10,32 @@ function getStock(){
 let _almFiltTipo='',_almFiltProy='',_almFiltMat='',_almFiltFecha='',_almFiltText='',_almEditId=null,_almPage=0;
 const ALM_PAGE_SIZE=20;
 
+// ── Buscador Persona / Equipo para salidas (como en abastecimiento de combustible) ──
+function _almPESearch(q,inpId,dropId){
+  const drop=document.getElementById(dropId);if(!drop)return;
+  const txt=(q||'').toLowerCase().trim();
+  const pers=(DB.personal||[])
+    .filter(p=>(p.est||'').toLowerCase()==='activo'||(p.est||'')==='')
+    .map(p=>({label:`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'')+(p.dni?' – '+p.dni:''),sub:p.cargo||'',tag:'PERSONA',tc:'#10b981'}));
+  const eqs=(DB.equipos||[])
+    .map(e=>({label:`${e.codigo} – ${e.nombre}`,sub:e.tipo||'',tag:'EQUIPO',tc:'#06b6d4'}));
+  let lista=[...pers,...eqs];
+  if(txt)lista=lista.filter(x=>(x.label+' '+x.sub).toLowerCase().includes(txt));
+  lista=lista.slice(0,30);
+  if(!lista.length){drop.style.display='none';return;}
+  drop.innerHTML=lista.map(x=>`<div onmousedown="_almPESelect('${inpId}','${dropId}','${x.label.replace(/'/g,"\\'")}')"
+    style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
+    onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+    <div><span style="font-weight:700">${x.label}</span><span style="font-size:.68rem;color:var(--muted2);margin-left:.5rem">${x.sub}</span></div>
+    <span style="font-size:.6rem;font-weight:700;color:${x.tc};flex-shrink:0;margin-left:.5rem">${x.tag}</span>
+  </div>`).join('');
+  drop.style.display='block';
+}
+function _almPESelect(inpId,dropId,label){
+  const inp=document.getElementById(inpId);if(inp)inp.value=label;
+  const drop=document.getElementById(dropId);if(drop)drop.style.display='none';
+}
+
 async function _autoUpdateRqEstForRq(rq){
   if(!rq||rq.est==='Anulado')return;
   const rqNumT=String(rq.num).trim();

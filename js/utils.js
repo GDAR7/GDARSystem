@@ -53,7 +53,7 @@ function refreshSelects(){
    ['inTr',trabList],['ptR',trabList],['suS',trabList],['acRe',trabList],
    ['otEq',eqList],['otMec',mecList],['cbEq',eqList],['cbOp',trabList],
    ['coEq',eqListOpt],['rpEq',eqList],['rpOp',trabList],
-   ['aePers',trabList],['asPers',allPersEq],['smPers',allPersEq],['emPers',almList],
+   ['aePers',trabList],['emPers',almList],
    ['asItem',stockOpts],
    ['rqArea',areaOpts],
    ['fpReq',reqOpts]
