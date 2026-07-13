@@ -2292,6 +2292,7 @@ function _rmDatos(){
     const progBase=diasCorte*HP;
     return{id,eq:a.eq,tipo:a.tipo,sub:a.sub,dias:a.dias.size,ef:a.ef,im:a.im,prog,
       avance:META?a.ef/META*100:0,
+      util:prog?a.ef/prog*100:0,
       dm:prog?(prog-a.im)/prog*100:0,
       dmProj:Math.max(0,Math.min(100,(progBase-imProj)/progBase*100))};
   });
@@ -2314,6 +2315,7 @@ function _rmDoc(){
 
   const AZ='#1e3a5f';
   const icoAvance=u=>u>=100?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
+  const icoUtil=u=>u>=80?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
   const icoDM=u=>u>=90?['✓','#15803d']:u>=80?['❗','#b45309']:['✗','#b91c1c'];
 
   const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
@@ -2375,13 +2377,14 @@ function _rmDoc(){
     if(r.sub!==lastSub){
       lastSub=r.sub;
       const col=subCol(r.sub);
-      body+=`<tr><td colspan="7" style="${TD};background:#e8edf3;border-left:4px solid ${col};font-weight:800;color:${AZ};text-transform:uppercase;font-size:9.5px">${r.sub}</td></tr>`;
+      body+=`<tr><td colspan="8" style="${TD};background:#e8edf3;border-left:4px solid ${col};font-weight:800;color:${AZ};text-transform:uppercase;font-size:9.5px">${r.sub}</td></tr>`;
     }
     body+=`<tr>
       <td style="${TD};white-space:nowrap;padding-left:14px"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
       <td style="${TD};text-align:center">${r.dias}</td>
       <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
       ${celda(r.avance,icoAvance)}
+      ${celda(r.util,icoUtil)}
       <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
       ${celda(r.dm,icoDM)}
       ${celda(r.dmProj,icoDM)}
@@ -2393,10 +2396,10 @@ function _rmDoc(){
     name:'mensual_corte_'+cIni+'.xlsx',
     aoa:[
       ['REPORTE MENSUAL — HORAS PROGRAMADAS VS EJECUTADAS — '+dmy(cIni)+' al '+dmy(cFin)+' — Meta mín. '+META+'h'+(_rmSub?' — '+_rmSub:'')],
-      ['Subtipo','Equipo','Placa','Días T','Horas trabajadas','% Avance hrs mín-prog.','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
+      ['Subtipo','Equipo','Placa','Días T','Horas trabajadas','% Avance hrs mín-prog.','% Utilización','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
       ...rows.map(r=>[
         r.sub,r.eq?r.eq.codigo:('#'+r.id),r.eq?(r.eq.placa||''):'',
-        r.dias,+r.ef.toFixed(1),+r.avance.toFixed(2),+r.im.toFixed(1),+r.dm.toFixed(2),+r.dmProj.toFixed(2)
+        r.dias,+r.ef.toFixed(1),+r.avance.toFixed(2),+r.util.toFixed(2),+r.im.toFixed(1),+r.dm.toFixed(2),+r.dmProj.toFixed(2)
       ])
     ]
   };
@@ -2439,16 +2442,17 @@ function _rmDoc(){
         <th style="${TH}">Días T</th>
         <th style="${TH}">Horas Trabajadas</th>
         <th style="${TH}">% Avance hrs mín-prog.</th>
+        <th style="${TH}">% Utilización</th>
         <th style="${TH}">Hs Inoper.</th>
         <th style="${TH}">% Disp. Mec. al corte</th>
         <th style="${TH}">% Disp. Mec. proyec. mes</th>
       </tr>
-      ${body||`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin partes diarios en el corte ${dmy(cIni)} al ${dmy(cFin)}</td></tr>`}
+      ${body||`<tr><td colspan="8" style="${TD};text-align:center;color:#777">Sin partes diarios en el corte ${dmy(cIni)} al ${dmy(cFin)}</td></tr>`}
     </table>
-    <div style="font-size:8.5px;color:#666;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
-      <span>Avance: <span style="color:#15803d">✓ ≥100%</span> · <span style="color:#b45309">❗ 60–99%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
-      <span>Disp. Mec.: <span style="color:#15803d">✓ ≥90%</span> · <span style="color:#b45309">❗ 80–89%</span> · <span style="color:#b91c1c">✗ &lt;80%</span></span>
-      <span style="margin-left:auto">ⓘ % Avance = Hs trabajadas ÷ meta mín. (${META}h) · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. (H. Prog. = Nº partes × ${HP}h) · Proyec. mes = inoperatividad proyectada a los ${diasCorte} días · GAP = prom. real − meta</span>
+    <div style="font-size:8.5px;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+      <span style="color:#111">Avance: <span style="color:#15803d">✓ ≥100%</span> · <span style="color:#b45309">❗ 60–99%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
+      <span style="color:#111">Utilización: <span style="color:#15803d">✓ ≥80%</span> · <span style="color:#b45309">❗ 60–79%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
+      <span style="color:#111">Disp. Mec.: <span style="color:#15803d">✓ ≥90%</span> · <span style="color:#b45309">❗ 80–89%</span> · <span style="color:#b91c1c">✗ &lt;80%</span></span>
     </div>
 
     <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
