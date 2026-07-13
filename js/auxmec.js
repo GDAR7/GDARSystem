@@ -1870,7 +1870,6 @@ function _phResumenDoc(){
       if(!d[p.fecha])d[p.fecha]={op:false,inop:false};
       if(esInop(p))d[p.fecha].inop=true;else d[p.fecha].op=true;
     }
-    if(p.act&&String(p.act).trim())actividades.push({fecha:p.fecha,eqCod:eq?eq.codigo:('#'+p.eqId),frente:p.frenteT||p.areaT||'—',act:String(p.act).trim()});
     const noche=/noche/i.test(p.turno||'');
     (p.viajes||[]).forEach(function(v){
       const c=+v.cant||0;if(!c)return;
@@ -1913,6 +1912,10 @@ function _phResumenDoc(){
     const per=(DB.personal||[]).find(x=>x.id==pid);
     return{nombre:per?`${per.ape}, ${per.nom}`:('#'+pid),cargo:per?(per.cargo||'—'):'—',guardia:per?(per.guardia||'—'):'—',fecha};
   }).sort((a,b)=>a.fecha<b.fecha?-1:1);
+  // Ingresos A5 agrupados por cargo (sin nombres)
+  const porCargo={};
+  ingresos.forEach(i=>{porCargo[i.cargo]=(porCargo[i.cargo]||0)+1;});
+  const cargosArr=Object.entries(porCargo).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
 
   // ── Gráficos del documento (se convierten a imagen PNG para que salgan en el PDF) ──
   const SUBCOL_DOC={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
@@ -1929,7 +1932,7 @@ function _phResumenDoc(){
   }};
   const chartImg=(items,titulo)=>{
     if(typeof Chart==='undefined'||!items.length)return'';
-    const cv=document.createElement('canvas');cv.width=920;cv.height=280;
+    const cv=document.createElement('canvas');cv.width=980;cv.height=430;
     const ch=new Chart(cv.getContext('2d'),{
       type:'bar',
       data:{
@@ -1957,11 +1960,33 @@ function _phResumenDoc(){
   const chVol=filasEq.filter(r=>String((r.eq&&r.eq.sub)||'').toUpperCase().includes('VOLQUETE')).slice().sort(ordCod);
   const imgLA=chartImg(chLA,'HORAS EFECTIVAS LÍNEA AMARILLA — SEMANA');
   const imgVol=chartImg(chVol,'HORAS EFECTIVAS VOLQUETES — SEMANA');
-  const chartsHtml=(imgLA||imgVol)?`<div style="display:flex;gap:8px;margin-top:10px;page-break-inside:avoid">
-    ${imgLA?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
-    ${imgVol?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
+  const chartsHtml=(imgLA||imgVol)?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+    ${imgLA?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
+    ${imgVol?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
   </div>
   <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas efectivas de la semana por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta semanal prorrateada = ${metaSem}h (meta del corte ${typeof _rmMeta==='function'?_rmMeta():300}h × 7 ÷ ${diasCorteN} días)</div>`:'';
+
+  // Gráfico de personal por día (con etiquetas)
+  const imgPersonal=(()=>{
+    if(typeof Chart==='undefined')return'';
+    const vals=fechas.map(f=>perDia[f.iso].size);
+    if(!vals.some(v=>v))return'';
+    const cv=document.createElement('canvas');cv.width=760;cv.height=300;
+    const ch=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:fechas.map(f=>f.lbl+' '+f.dm),datasets:[{label:'Personas',data:vals,backgroundColor:'#6d28d9CC',borderRadius:3}]},
+      options:{responsive:false,animation:false,devicePixelRatio:2,layout:{padding:{top:14}},
+        plugins:{legend:{display:false},title:{display:true,text:'PERSONAL POR DÍA — SEMANA',color:'#1e3a5f',font:{size:12,weight:'bold'}}},
+        scales:{
+          x:{ticks:{color:'#333',font:{size:9,weight:'bold'}},grid:{display:false}},
+          y:{beginAtZero:true,ticks:{color:'#333',font:{size:9}},grid:{color:'#ddd'}}
+        }},
+      plugins:[vlBarras]
+    });
+    const url=cv.toDataURL('image/png');
+    ch.destroy();
+    return url;
+  })();
 
   const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
 
@@ -2096,33 +2121,22 @@ function _phResumenDoc(){
       ${imgTrans?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgTrans}" style="width:100%;display:block"></div>`:''}
     </div>
 
-    ${sec('4 · Actividades de la Semana')}
-    <table style="${TBL}">
-      <tr><th style="${TH}">Fecha</th><th style="${TH};text-align:left">Equipo</th><th style="${TH};text-align:left">Frente</th><th style="${TH};text-align:left">Actividades</th></tr>
-      ${actividades.length?actividades.sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.eqCod.localeCompare(b.eqCod)).map(a=>`<tr>
-        <td style="${TD};text-align:center;white-space:nowrap">${a.fecha.slice(8,10)}/${a.fecha.slice(5,7)}</td>
-        <td style="${TD};white-space:nowrap"><b>${a.eqCod}</b></td>
-        <td style="${TD}">${a.frente}</td>
-        <td style="${TD}">${a.act}</td>
-      </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin actividades registradas en los partes de la semana</td></tr>`}
-    </table>
-
-    ${sec('5 · Personal de la Semana')}
-    <table style="${TBL};page-break-inside:avoid">
-      <tr>${fechas.map(f=>`<th style="${TH}">${f.lbl}<br>${f.dm}</th>`).join('')}<th style="${TH}">Personas Distintas</th></tr>
-      <tr>${fechas.map(f=>`<td style="${TD};text-align:center;font-weight:700">${perDia[f.iso].size||'—'}</td>`).join('')}<td style="${TD};text-align:center;font-weight:900;color:${AZ}">${personasSem}</td></tr>
-    </table>
-    <div style="font-size:8.5px;color:#666;margin:2px 0 8px">Personas por día según tareaje (TD, TN, DLT y A5)</div>
-    <div style="font-size:11px;font-weight:800;color:#c2410c;margin-bottom:3px">Ingresos de personal nuevo — Anexo 5: ${ingresos.length}</div>
-    ${ingresos.length?`<table style="${TBL}">
-      <tr><th style="${TH};text-align:left">Apellidos y Nombres</th><th style="${TH};text-align:left">Cargo</th><th style="${TH}">Guardia</th><th style="${TH}">Fecha de Ingreso (A5)</th></tr>
-      ${ingresos.map(i=>`<tr>
-        <td style="${TD};font-weight:700">${i.nombre}</td>
-        <td style="${TD}">${i.cargo}</td>
-        <td style="${TD};text-align:center">${i.guardia}</td>
-        <td style="${TD};text-align:center">${dmy(i.fecha)}</td>
-      </tr>`).join('')}
-    </table>`:`<div style="font-size:10px;color:#777">Sin registros A5 en la semana — no hubo ingresos nuevos.</div>`}
+    ${sec('4 · Personal de la Semana')}
+    <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
+      ${imgPersonal?`<div style="flex:1.6;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgPersonal}" style="width:100%;display:block"></div>`:''}
+      <div style="flex:1;min-width:0">
+        <div style="border:2px solid #6d28d9;border-radius:8px;padding:6px 12px;margin-bottom:8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">Personas distintas en la semana</div><div style="font-size:19px;font-weight:900;color:#6d28d9">${personasSem}</div></div>
+        <table style="${TBL}">
+          <tr><th style="${TH};text-align:left">Ingresos Anexo 5 — por Cargo</th><th style="${TH}">Cant.</th></tr>
+          ${cargosArr.length?cargosArr.map(([c,n])=>`<tr>
+            <td style="${TD}">${c}</td>
+            <td style="${TD};text-align:center;font-weight:900;color:#c2410c">${n}</td>
+          </tr>`).join(''):`<tr><td colspan="2" style="${TD};text-align:center;color:#777">Sin registros A5 — no hubo ingresos nuevos</td></tr>`}
+          ${cargosArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}">TOTAL INGRESOS</td><td style="${TD};text-align:center;color:#c2410c">${ingresos.length}</td></tr>`:''}
+        </table>
+      </div>
+    </div>
+    <div style="font-size:8.5px;color:#666;margin-top:2px">Personas por día según tareaje (TD, TN, DLT y A5) · Ingresos = personas con registro A5 en la semana, agrupadas por cargo</div>
 
     <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
       <span>GDAR — Reporte generado automáticamente desde los partes diarios, tareaje y registro de viajes</span>
