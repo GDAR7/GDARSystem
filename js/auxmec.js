@@ -1324,13 +1324,13 @@ function _phRenderHoras(){
     const items=grupos[tipo];
     const subEf=items.reduce((s,r)=>s+r.ef,0);
     const subIm=items.reduce((s,r)=>s+r.im,0);
-    body+=`<tr><td colspan="${fechas.length+5}" style="padding:.45rem .7rem;background:rgba(249,115,22,.07);border:1px solid var(--border);color:var(--ceq);font-size:.71rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">${tipo} · ${items.length} equipo(s) · <span style="font-family:monospace">${fmtH(subEf)}h ef.</span>${subIm?` · <span style="font-family:monospace;color:#ef4444">${fmtH(subIm)}h imp.</span>`:''}</td></tr>`;
+    body+=`<tr><td colspan="${fechas.length+5}" style="padding:.45rem .7rem;background:rgba(249,115,22,.07);border:1px solid var(--border);color:var(--ceq);font-size:.71rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">${tipo} · ${items.length} equipo(s) · <span style="font-family:monospace">${fmtH(subEf)}h ef.</span>${subIm?` · <span style="font-family:monospace;color:#ef4444">${fmtH(subIm)}h inop.</span>`:''}</td></tr>`;
     items.forEach(function(r){
       const celdas=fechas.map(function(f){
         const c=grid[r.id][f.iso];
         const esHoy=f.iso===hoy;
         if(!c||(!c.ef&&!c.im))return`<td style="${TD};text-align:right;color:var(--muted);background:${esHoy?'rgba(245,158,11,.05)':heatBase}">—</td>`;
-        const ttl=`☀ ${fmtH(c.efD)}h · 🌙 ${fmtH(c.efN)}h${c.im?` · 🛑 Improd: ${fmtH(c.im)}h`:''}`;
+        const ttl=`☀ ${fmtH(c.efD)}h · 🌙 ${fmtH(c.efN)}h${c.im?` · 🛑 Inoper: ${fmtH(c.im)}h`:''}`;
         return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text);background:${esHoy?'rgba(245,158,11,.10)':heat(c.ef)}" title="${ttl}">${fmtH(c.ef)}${c.im?`<span style="color:#ef4444;font-size:.6rem"> +${fmtH(c.im)}i</span>`:''}</td>`;
       }).join('');
       const promCol=r.prom>=8?'#10b981':r.prom>=5?'#f59e0b':'#ef4444';
@@ -1353,7 +1353,7 @@ function _phRenderHoras(){
     name:'horas_maquina_'+fIni+'.xlsx',
     aoa:[
       ['HORAS MÁQUINA POR EQUIPO — '+rango+(_phTipoFiltro?' — '+_phTipoFiltro:'')],
-      ['Equipo','Línea',...fechas.map(f=>f.lbl+' '+f.dm),'Hs Efectivas','☀ Día','🌙 Noche','Hs Improd.','Días trab.','Prom h/día'],
+      ['Equipo','Línea',...fechas.map(f=>f.lbl+' '+f.dm),'Hs Efectivas','☀ Día','🌙 Noche','Hs Inoper.','Días trab.','Prom h/día'],
       ...rows.map(r=>[
         r.eq?r.eq.codigo:('#'+r.id),r.tipo,
         ...fechas.map(f=>{const c=grid[r.id][f.iso];return c&&c.ef?+c.ef.toFixed(1):'';}),
@@ -1366,7 +1366,7 @@ function _phRenderHoras(){
   el.innerHTML=bar+`
   <div class="kpi-row">
     <div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas de la Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(totalEf)}h ${delta(totalEf,totalPrev)}</div></div>
-    <div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Hs Improductivas</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(totalIm)}h</div></div>
+    <div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Hs Inoperativas</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(totalIm)}h</div></div>
     <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${rows.length}</div></div>
     <div class="kpi" style="--kc:#10b981"><div class="kpi-lbl">Prom. hs/equipo-día</div><div class="kpi-val" style="font-size:1.5rem">${rows.length?(rows.reduce((s,r)=>s+r.prom,0)/rows.length).toFixed(1):'—'}h</div></div>
   </div>
@@ -1378,7 +1378,7 @@ function _phRenderHoras(){
         <th style="${TH};text-align:left;min-width:130px">Equipo</th>
         ${fechas.map(f=>{const esHoy=f.iso===hoy;return`<th style="${TH};text-align:center;min-width:74px;${esHoy?'color:#f59e0b;background:rgba(245,158,11,.1)':''}">${f.lbl}<div style="font-size:.68rem;font-weight:400;font-family:monospace">${f.dm}</div></th>`;}).join('')}
         <th style="${TH};text-align:right;min-width:100px;color:var(--ceq);background:rgba(249,115,22,.08)">Total Semana<div style="font-size:.55rem;font-weight:400">vs sem. anterior</div></th>
-        <th style="${TH};text-align:right" title="Horas improductivas de la semana">🛑 Improd.</th>
+        <th style="${TH};text-align:right" title="Horas inoperativas de la semana">🛑 Inoper.</th>
         <th style="${TH};text-align:center">Días</th>
         <th style="${TH};text-align:right" title="Horas efectivas por día trabajado">Prom h/día</th>
       </tr></thead>
@@ -1393,7 +1393,7 @@ function _phRenderHoras(){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celdas = horas efectivas del día (tooltip: desglose ☀/🌙 e improductivas) · "+Xi" = horas improductivas · Prom h/día = hs efectivas ÷ días trabajados (verde ≥8, ámbar ≥5, rojo &lt;5) · ▲▼ compara con la semana anterior · Doble click en el código abre el Master</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celdas = horas efectivas del día (tooltip: desglose ☀/🌙 e inoperativas) · "+Xi" = horas inoperativas · Prom h/día = hs efectivas ÷ días trabajados (verde ≥8, ámbar ≥5, rojo &lt;5) · ▲▼ compara con la semana anterior · Doble click en el código abre el Master</div>`;
 
   // Gráfico: horas efectivas por día apiladas por línea
   if(rows.length&&typeof Chart!=='undefined'){
@@ -1562,7 +1562,7 @@ function _phRenderUtil(modo){
     name:(esDM?'disponibilidad_mecanica_':'utilizacion_equipos_')+fIni+'.xlsx',
     aoa:[
       [(esDM?'DISPONIBILIDAD MECÁNICA':'UTILIZACIÓN DE EQUIPOS')+' — Semana '+semLbl+' — Corte '+corteLbl+(_phTipoFiltro?' — '+_phTipoFiltro:'')],
-      ['Equipo','Línea','Días trab.','Sem H.Prog.',esDM?'Sem H.Improd.':'Sem H.Efect.','Sem '+mLbl+'%','Acum H.Prog.',esDM?'Acum H.Improd.':'Acum H.Efect.','Acum '+mLbl+'%'],
+      ['Equipo','Línea','Días trab.','Sem H.Prog.',esDM?'Sem H.Inoper.':'Sem H.Efect.','Sem '+mLbl+'%','Acum H.Prog.',esDM?'Acum H.Inoper.':'Acum H.Efect.','Acum '+mLbl+'%'],
       ...rows.map(r=>[
         r.eq?r.eq.codigo:('#'+r.id),r.tipo,r.dias,
         +r.semProg.toFixed(1),+(esDM?r.semIm:r.semEf).toFixed(1),r.semProg?+calcPct(r.semEf,r.semIm,r.semProg).toFixed(1):'',
@@ -1577,7 +1577,7 @@ function _phRenderUtil(modo){
     <div class="kpi" style="--kc:${utilCol(uSem)}"><div class="kpi-lbl">${esDM?'Disp. Mecánica':'Utilización'} de la Semana</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uSem)}">${tSemProg?uSem.toFixed(1)+'%':'—'}</div></div>
     <div class="kpi" style="--kc:${utilCol(uAc)}"><div class="kpi-lbl">${esDM?'Disp. Mecánica':'Utilización'} Acum. al Corte</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uAc)}">${tAcProg?uAc.toFixed(1)+'%':'—'}</div></div>
     ${esDM
-      ?`<div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Hs Improductivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemIm)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`
+      ?`<div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Hs Inoperativas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemIm)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`
       :`<div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemEf)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`}
     <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${rows.length}</div></div>
   </div>
@@ -1593,10 +1593,10 @@ function _phRenderUtil(modo){
         </tr>
         <tr style="background:var(--panel2)">
           <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">H. Prog.</th>
-          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">${esDM?'H. Improd.':'H. Efect.'}</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">${esDM?'H. Inoper.':'H. Efect.'}</th>
           <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">${mLbl} %</th>
           <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">H. Prog.</th>
-          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">${esDM?'H. Improd.':'H. Efect.'}</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">${esDM?'H. Inoper.':'H. Efect.'}</th>
           <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">${mLbl} %</th>
         </tr>
       </thead>
@@ -1618,7 +1618,7 @@ function _phRenderUtil(modo){
     <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
     <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
-    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Improd.) ÷ H. Prog.':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
+    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · H. Inoper. = hs de inoperatividad del parte diario':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
   </div>`;
 }
 
