@@ -2149,7 +2149,7 @@ function _phResumenDoc(){
 
     ${sec('2 · Disponibilidad Vehículos y Equipos Menores (por días de la semana)')}
     <table style="${TBL}">
-      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Disp. % (÷7)</th></tr>
+      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Incidencia S.</th></tr>
       ${filasMen.length?grupoRows(filasMen,r=>`<tr>
         <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
         <td style="${TD};text-align:center;font-weight:700">${r.op||'—'}</td>
