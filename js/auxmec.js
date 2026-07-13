@@ -2468,7 +2468,7 @@ function _rmDoc(){
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
       ${kpi('Días del Corte',diasCorte+' <span style="font-size:9px;color:#555">· '+diasTrans+' transc.</span>','#6d28d9')}
-      ${kpi('Meta Mín. Horas (defecto)',META+'h <span style="font-size:9px;color:#555">· por equipo: Hrs Mín. Venta</span>','#dc2626')}
+      ${kpi('Meta Mín. Horas (defecto)',META+'h <span style="font-size:9px;color:#555">· //</span>','#dc2626')}
       ${kpi('Prom. Real L. Amarilla'+(stLA?' ('+stLA.n+' eq.)':''),gapTxt(stLA),'#b45309')}
       ${kpi('Prom. Real Volquetes'+(stVol?' ('+stVol.n+' eq.)':''),gapTxt(stVol),'#2563eb')}
     </div>
