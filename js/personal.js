@@ -513,37 +513,31 @@ async function procesarQR(texto){
   }
 
   try{
-    // ── Calcular tipo de tareo automático ──
-    const _h=new Date().getHours();
-    const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
+    // El escáner SOLO marca la hora de entrada.
+    // El tareo (TD/TN/A5) se registra en lote con el botón "Registrar Tareo" del módulo Asistencia.
     const fecha=document.getElementById('asiDate')?.value||today();
     await loadAsistenciaFecha(fecha);
-    const prevDias=(DB.tareaje||[]).filter(r=>
-      r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
-      ['TD','TN','DLT','A5'].includes(r.tipo)
-    );
-    const esA5=prevDias.length===0;
-    const autoTipo=esA5?'A5':_turnoTipo;
-
-    // ── Auto-guardar tareaje ──
     const ahora=new Date().toTimeString().slice(0,5);
-    const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
-    if(existente){existente.tipo=autoTipo;await supaUpsert('tareaje',existente);}
-    else{const rec={id:nid('tar'),personalId:p.id,fecha,tipo:autoTipo,proy:p.proy||''};DB.tareaje.push(rec);await supaUpsert('tareaje',rec);}
 
-    // ── Auto-guardar asistencia (solo si no tiene entrada aún) ──
+    // ── Guardar asistencia (solo si no tiene entrada aún) ──
     const asiExist=DB.asistencia.find(a=>a.personalId===p.id&&a.fecha===fecha);
     if(!asiExist){
       const newRec={personalId:p.id,fecha,horaEntrada:ahora,horaSalida:'',guardia:p.guardia||'',estado:'Presente'};
       const{data,error}=await supa.from('asistencia').insert(toSnake(newRec)).select().single();
-      if(error)console.warn('[Asistencia insert]',error.message);
+      if(error){
+        console.warn('[Asistencia insert]',error.message);
+        _hablar('Error, reintente');
+        setScannerStatus('⚠ No se pudo guardar la hora — reintente el escaneo','err');
+        setTimeout(reiniciarEscaner,2500);
+        return;
+      }
       if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
     }
 
     // ── Feedback y reinicio ──
     const nombreCorto=(p.ape||'').split(' ')[0]+', '+(p.nom||'').split(' ')[0];
     _hablar('Registrado');
-    setScannerStatus(`✓ ${nombreCorto} — ${autoTipo}${existente?' (actualizado)':''} · ${ahora}`,'ok');
+    setScannerStatus(`✓ ${nombreCorto} · ${asiExist?'ya tenía hora '+asiExist.horaEntrada:'hora '+ahora}`,'ok');
     if(AP==='tareaje')rTareaje();
     if(AP==='asistencia')rAsistencia();
     document.getElementById('scanWorkerPanel').style.display='none';
@@ -554,6 +548,49 @@ async function procesarQR(texto){
     setTimeout(reiniciarEscaner,2500);
   }
 }
+// ── REGISTRO DE TAREO EN LOTE ──
+// Marca el tareo de todos los que tienen hora de entrada en la fecha:
+// TD si la entrada fue de 05:00 a 16:59, TN en otro horario · A5 si es su primer día trabajado
+async function registrarTareoAsistencia(){
+  const fecha=document.getElementById('asiDate')?.value||today();
+  toast('Cargando asistencia de '+fecha+'...');
+  await loadAsistenciaFecha(fecha);
+  const asis=DB.asistencia.filter(a=>a.fecha===fecha&&a.horaEntrada);
+  if(!asis.length){toast('No hay personal con hora marcada en '+fecha,true);return;}
+  if(!confirm(`Se registrará el tareo (TD/TN/A5) de ${asis.length} persona(s) con hora de entrada del ${fecha}.\n\n¿Continuar?`))return;
+  let ok=0,err=0,a5=0;
+  const fallidos=[];
+  for(const a of asis){
+    const p=DB.personal.find(x=>x.id===a.personalId);
+    if(!p){err++;fallidos.push('#'+a.personalId);continue;}
+    const h=parseInt(String(a.horaEntrada).slice(0,2),10);
+    const turno=(h>=5&&h<17)?'TD':'TN';
+    const prevDias=(DB.tareaje||[]).filter(r=>
+      r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
+      ['TD','TN','DLT','A5'].includes(r.tipo)
+    );
+    const tipo=prevDias.length===0?'A5':turno;
+    const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+    let e;
+    if(existente){
+      existente.tipo=tipo;
+      e=await supaUpsert('tareaje',existente);
+    }else{
+      const rec={id:nid('tar'),personalId:p.id,fecha,tipo,proy:p.proy||''};
+      DB.tareaje.push(rec);
+      e=await supaUpsert('tareaje',rec);
+      if(e)DB.tareaje=DB.tareaje.filter(r=>r!==rec); // no quedó en servidor: retirar copia local
+    }
+    if(e){err++;fallidos.push(`${p.ape}, ${p.nom}`);}
+    else{ok++;if(tipo==='A5')a5++;}
+  }
+  if(AP==='asistencia')rAsistencia();
+  if(AP==='tareaje')rTareaje();
+  const msg=`Tareo registrado: ${ok} ✓${a5?` · ${a5} A5 (ingreso nuevo)`:''}${err?` · ${err} FALLARON`:''}`;
+  toast(msg,err>0);
+  if(err)alert('⚠ No se pudo registrar el tareo de:\n\n'+fallidos.join('\n')+'\n\nVuelva a presionar "Registrar Tareo" para reintentar solo los pendientes.');
+}
+
 function _swSelTipo(k){
   _scanTipoSel=k;
   ['TD','TN','A5'].forEach(t=>{

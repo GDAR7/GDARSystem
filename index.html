@@ -156,6 +156,7 @@
         </select>
         <button id="btnAsiCompleta" onclick="_notifMarcarCompleto('asistencia')" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer">📋 Asistencia completada del día</button>
         <button class="btn btn-a" style="--ba:#10b981" onclick="openScanner()">📷 Escanear QR</button>
+        <button class="btn btn-a" style="--ba:#f59e0b" onclick="registrarTareoAsistencia()" title="Marca el tareo (TD/TN/A5) de todos los que tienen hora de entrada en la fecha seleccionada">✅ Registrar Tareo</button>
         <button class="btn btn-out" onclick="exportTareajePDF()">🖨 Exportar PDF</button>
       </div>
     </div>
@@ -2766,9 +2767,9 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=3"></script>
+<script src="js/config.js?v=4"></script>
 <script src="js/utils.js?v=4"></script>
-<script src="js/personal.js?v=2"></script>
+<script src="js/personal.js?v=3"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>

@@ -152,12 +152,13 @@ const ACTION_MAP={
 
 let _pendingSaves=0;
 async function supaUpsert(dbKey,record){
-  const table=SUPA_TABLES[dbKey];if(!table)return;
+  const table=SUPA_TABLES[dbKey];if(!table)return null;
   _pendingSaves++;
   try{
     const {error}=await supa.from(table).upsert(toSnake(record));
-    if(error){console.warn('[Supabase upsert]',table,error.message);toast('Error al guardar: '+error.message,true);}
-  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);}
+    if(error){console.warn('[Supabase upsert]',table,error.message);toast('Error al guardar: '+error.message,true);return error;}
+    return null;
+  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);return e;}
   finally{_pendingSaves--;}
 }
 
