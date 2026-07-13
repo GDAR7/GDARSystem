@@ -2103,7 +2103,6 @@ function _phResumenDoc(){
       <div style="flex:1;font-size:10px;color:#333">
         <div style="font-weight:800;color:${AZ}">${semTit}</div>
         <div>${corteTit}</div>
-        <div style="color:#777">Emitido: ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</div>
       </div>
       <div style="flex:2;text-align:center">
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL</div>
@@ -2204,7 +2203,7 @@ function _phResumenDoc(){
     <div style="font-size:8.5px;color:#666;margin-top:2px">Personas por día según tareaje (TD, TN, DLT y A5) · Ingresos = personas con registro A5 en la semana, agrupadas por cargo</div>
 
     <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
-      <span>GDAR — Reporte generado automáticamente desde los partes diarios, tareaje y registro de viajes</span>
+      <span>GDAR</span>
       <span>${semTit}</span>
     </div>
   </div>`;
@@ -2432,7 +2431,6 @@ function _rmDoc(){
       <div style="flex:1;font-size:10px;color:#333">
         <div style="font-weight:800;color:${AZ}">Corte ${dmy(cIni)} al ${dmy(cFin)}</div>
         <div>${diasCorte} días · ${diasTrans} transcurrido(s)</div>
-        <div style="color:#777">Emitido: ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</div>
       </div>
       <div style="flex:2;text-align:center">
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — AVANCE DEL MES</div>
@@ -2475,7 +2473,7 @@ function _rmDoc(){
     </div>
 
     <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
-      <span>GDAR — Reporte generado automáticamente desde los partes diarios</span>
+      <span>GDAR</span>
       <span>Corte ${dmy(cIni)} al ${dmy(cFin)}</span>
     </div>
   </div>`;
