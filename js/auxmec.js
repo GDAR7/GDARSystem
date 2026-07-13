@@ -1916,6 +1916,13 @@ function _phResumenDoc(){
   const porCargo={};
   ingresos.forEach(i=>{porCargo[i.cargo]=(porCargo[i.cargo]||0)+1;});
   const cargosArr=Object.entries(porCargo).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  // Conteo por tipo de tareaje y día (todos los tipos: TD, TN, DL, DM, etc.)
+  const tiposDia={};
+  (DB.tareaje||[]).forEach(r=>{
+    if(!r.fecha||r.fecha<fIni||r.fecha>fFin||!r.tipo)return;
+    if(!tiposDia[r.tipo])tiposDia[r.tipo]={};
+    tiposDia[r.tipo][r.fecha]=(tiposDia[r.tipo][r.fecha]||0)+1;
+  });
 
   // ── Gráficos del documento (se convierten a imagen PNG para que salgan en el PDF) ──
   const SUBCOL_DOC={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
@@ -1982,6 +1989,53 @@ function _phResumenDoc(){
           y:{beginAtZero:true,ticks:{color:'#333',font:{size:9}},grid:{color:'#ddd'}}
         }},
       plugins:[vlBarras]
+    });
+    const url=cv.toDataURL('image/png');
+    ch.destroy();
+    return url;
+  })();
+
+  // Gráfico apilado: tipos de tareaje por día (TD, TN, DL, DM, etc.) con etiquetas por segmento
+  const imgTipos=(()=>{
+    if(typeof Chart==='undefined')return'';
+    const ORD=['TD','TN','DLT','A5','DL','P','F','DM','LP','LM','LF','V','R'];
+    const tipos=ORD.filter(t=>tiposDia[t]).concat(Object.keys(tiposDia).filter(t=>!ORD.includes(t)).sort());
+    if(!tipos.length)return'';
+    const TT=typeof _TARE_T!=='undefined'?_TARE_T:{};
+    const vlStack={id:'vlStack',afterDatasetsDraw(chart){
+      const ctx=chart.ctx;ctx.save();ctx.font='bold 9px Arial';ctx.textAlign='center';
+      chart.data.datasets.forEach((ds,di)=>{
+        const meta=chart.getDatasetMeta(di);
+        meta.data.forEach((bar,i)=>{
+          const v=ds.data[i];if(!v)return;
+          if(Math.abs(bar.base-bar.y)>=11){ctx.fillStyle=ds._tx||'#fff';ctx.fillText(v,bar.x,(bar.y+bar.base)/2+3);}
+        });
+      });
+      ctx.restore();
+    }};
+    const cv=document.createElement('canvas');cv.width=760;cv.height=340;
+    const ch=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:fechas.map(f=>f.lbl+' '+f.dm),
+        datasets:tipos.map(t=>({
+          label:t+(TT[t]?' · '+TT[t].l:''),
+          _tx:(TT[t]||{}).tx||'#fff',
+          data:fechas.map(f=>tiposDia[t][f.iso]||0),
+          backgroundColor:(TT[t]||{}).bg||'#6b7280',
+          stack:'s',borderRadius:1
+        }))
+      },
+      options:{responsive:false,animation:false,devicePixelRatio:2,
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{color:'#333',font:{size:8.5},boxWidth:10}},
+          title:{display:true,text:'TAREAJE POR DÍA Y TIPO — SEMANA',color:'#1e3a5f',font:{size:12,weight:'bold'}}
+        },
+        scales:{
+          x:{stacked:true,ticks:{color:'#333',font:{size:9,weight:'bold'}},grid:{display:false}},
+          y:{stacked:true,beginAtZero:true,ticks:{color:'#333',font:{size:9}},grid:{color:'#ddd'}}
+        }},
+      plugins:[vlStack]
     });
     const url=cv.toDataURL('image/png');
     ch.destroy();
@@ -2123,7 +2177,10 @@ function _phResumenDoc(){
 
     ${sec('4 · Personal de la Semana')}
     <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
-      ${imgPersonal?`<div style="flex:1.6;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgPersonal}" style="width:100%;display:block"></div>`:''}
+      <div style="flex:1.6;min-width:0;display:flex;flex-direction:column;gap:8px">
+        ${imgPersonal?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgPersonal}" style="width:100%;display:block"></div>`:''}
+        ${imgTipos?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgTipos}" style="width:100%;display:block"></div>`:''}
+      </div>
       <div style="flex:1;min-width:0">
         <div style="border:2px solid #6d28d9;border-radius:8px;padding:6px 12px;margin-bottom:8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">Personas distintas en la semana</div><div style="font-size:19px;font-weight:900;color:#6d28d9">${personasSem}</div></div>
         <table style="${TBL}">
@@ -2148,17 +2205,16 @@ function _phResumenDoc(){
 function _phPrintResumen(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
-  // La página del PDF toma el tamaño exacto del contenido (sin forzar A4): sale tal como se ve en la vista previa
+  // Ancho estándar A4 (210mm) · el ALTO de la página se ajusta al contenido: una sola hoja continua, sin cortes
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Semanal Horas Máquina</title>
-  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box}</style>
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:194mm;padding:8mm;box-sizing:content-box}</style>
   </head><body><div id="doc">${_phResumenDoc()}</div>
   <script>
   window.onload=function(){
     var d=document.getElementById('doc');
-    var wmm=(d.offsetWidth/96*25.4).toFixed(1);
-    var hmm=((d.offsetHeight+2)/96*25.4).toFixed(1);
+    var hmm=Math.ceil((d.offsetHeight+4)/96*25.4);
     var st=document.createElement('style');
-    st.textContent='@page{size:'+wmm+'mm '+hmm+'mm;margin:0}';
+    st.textContent='@page{size:210mm '+hmm+'mm;margin:0}';
     document.head.appendChild(st);
     window.print();
   };
