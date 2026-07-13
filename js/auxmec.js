@@ -1874,18 +1874,21 @@ function _phResumenDoc(){
     const noche=/noche/i.test(p.turno||'');
     (p.viajes||[]).forEach(function(v){
       const c=+v.cant||0;if(!c)return;
+      if(!v.material)return; // viajes sin material = cambio de frente: no se consideran en este reporte
       if(noche)viajesN+=c;else viajesD+=c;
-      const m3=v.material?c*cap:0;m3Tot+=m3;
-      const k=(v.destino||'(sin destino)')+'||'+(v.material||'(sin material)');
-      if(!rutas[k])rutas[k]={destino:v.destino||'(sin destino)',material:v.material||'(sin material)',viajes:0,m3:0};
+      const m3=c*cap;m3Tot+=m3;
+      const k=(v.destino||'(sin destino)')+'||'+v.material;
+      if(!rutas[k])rutas[k]={destino:v.destino||'(sin destino)',material:v.material,viajes:0,m3:0};
       rutas[k].viajes+=c;rutas[k].m3+=m3;
     });
   });
   const viajesTot=viajesD+viajesN;
 
-  // Líneas: filas + totales
-  const filasEq=Object.entries(eqLineas).map(([id,r])=>({id,...r,dias:r.dias.size,prog:r.n*HP}))
-    .sort((a,b)=>a.tipo===b.tipo?b.ef-a.ef:a.tipo.localeCompare(b.tipo));
+  // Líneas: filas + totales (orden: línea → subtipo → código)
+  const _subOf=r=>String((r.eq&&r.eq.sub)||'').toUpperCase();
+  const _codOf=r=>String((r.eq&&r.eq.codigo)||'');
+  const _ordEq=(a,b)=>a.tipo!==b.tipo?a.tipo.localeCompare(b.tipo):(_subOf(a)!==_subOf(b)?_subOf(a).localeCompare(_subOf(b)):_codOf(a).localeCompare(_codOf(b)));
+  const filasEq=Object.entries(eqLineas).map(([id,r])=>({id,...r,dias:r.dias.size,prog:r.n*HP})).sort(_ordEq);
   const tProg=filasEq.reduce((s,r)=>s+r.prog,0),tEf=filasEq.reduce((s,r)=>s+r.ef,0),tIm=filasEq.reduce((s,r)=>s+r.im,0);
   const uSem=tProg?tEf/tProg*100:0;
   const dmSem=tProg?(tProg-tIm)/tProg*100:0;
@@ -1894,7 +1897,7 @@ function _phResumenDoc(){
   const filasMen=Object.entries(menores).map(([id,a])=>{
     let op=0,inop=0;Object.values(a.days).forEach(d=>{if(d.op)op++;else if(d.inop)inop++;});
     return{id,eq:a.eq,tipo:a.tipo,op,inop,disp:Math.max(0,(op-inop)/7*100)};
-  }).sort((a,b)=>a.tipo===b.tipo?b.op-a.op:a.tipo.localeCompare(b.tipo));
+  }).sort(_ordEq);
   const nMen=filasMen.length;
   const dispMen=nMen?Math.max(0,(filasMen.reduce((s,r)=>s+r.op,0)-filasMen.reduce((s,r)=>s+r.inop,0))/(nMen*7)*100):0;
 
@@ -1916,6 +1919,14 @@ function _phResumenDoc(){
   const subColDoc=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL_DOC)if(s.includes(k))return SUBCOL_DOC[k];return'#6b7280';};
   const diasCorteN=Math.round((cFinD-cIniD)/864e5)+1;
   const metaSem=Math.round((typeof _rmMeta==='function'?_rmMeta():300)*7/diasCorteN);
+  // Plugin: etiquetas de valor sobre cada barra
+  const vlBarras={id:'vlBarras',afterDatasetsDraw(chart){
+    const ctx=chart.ctx;const di=chart.data.datasets.length-1;
+    const meta=chart.getDatasetMeta(di);if(!meta)return;
+    ctx.save();ctx.fillStyle='#1e3a5f';ctx.font='bold 10px Arial';ctx.textAlign='center';
+    meta.data.forEach((bar,i)=>{const v=chart.data.datasets[di].data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE'),bar.x,bar.y-4);});
+    ctx.restore();
+  }};
   const chartImg=(items,titulo)=>{
     if(typeof Chart==='undefined'||!items.length)return'';
     const cv=document.createElement('canvas');cv.width=920;cv.height=280;
@@ -1929,11 +1940,13 @@ function _phResumenDoc(){
         ]
       },
       options:{responsive:false,animation:false,devicePixelRatio:2,
+        layout:{padding:{top:14}},
         plugins:{legend:{display:false},title:{display:true,text:titulo,color:'#1e3a5f',font:{size:13,weight:'bold'}}},
         scales:{
           x:{ticks:{color:'#333',font:{size:9,weight:'bold'}},grid:{display:false}},
           y:{beginAtZero:true,ticks:{color:'#333',font:{size:9},callback:v=>v+' h'},grid:{color:'#ddd'}}
-        }}
+        }},
+      plugins:[vlBarras]
     });
     const url=cv.toDataURL('image/png');
     ch.destroy();
@@ -1972,6 +1985,36 @@ function _phResumenDoc(){
   };
 
   const rutasArr=Object.values(rutas).sort((a,b)=>b.m3-a.m3||b.viajes-a.viajes);
+
+  // Gráfico de transporte (m³ por destino, barras horizontales) para colocar al costado del cuadro
+  const imgTrans=(()=>{
+    if(typeof Chart==='undefined'||!rutasArr.length)return'';
+    const agg={};rutasArr.forEach(r=>{agg[r.destino]=(agg[r.destino]||0)+r.m3;});
+    const ds=Object.entries(agg).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+    if(!ds.length)return'';
+    const cv=document.createElement('canvas');cv.width=560;cv.height=Math.max(240,60+ds.length*34);
+    const vlHoriz={id:'vlHoriz',afterDatasetsDraw(chart){
+      const ctx=chart.ctx;const meta=chart.getDatasetMeta(0);if(!meta)return;
+      ctx.save();ctx.fillStyle='#1e3a5f';ctx.font='bold 10px Arial';ctx.textAlign='left';
+      meta.data.forEach((bar,i)=>{const v=chart.data.datasets[0].data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE'),bar.x+4,bar.y+3.5);});
+      ctx.restore();
+    }};
+    const ch=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:ds.map(d=>d[0]),datasets:[{label:'m³',data:ds.map(d=>+d[1].toFixed(1)),backgroundColor:'#0e7490CC',borderRadius:3}]},
+      options:{indexAxis:'y',responsive:false,animation:false,devicePixelRatio:2,
+        layout:{padding:{right:44}},
+        plugins:{legend:{display:false},title:{display:true,text:'m³ POR DESTINO — SEMANA',color:'#1e3a5f',font:{size:12,weight:'bold'}}},
+        scales:{
+          x:{beginAtZero:true,ticks:{color:'#333',font:{size:9},callback:v=>v.toLocaleString('es-PE')},grid:{color:'#ddd'}},
+          y:{ticks:{color:'#333',font:{size:9,weight:'bold'}},grid:{display:false}}
+        }},
+      plugins:[vlHoriz]
+    });
+    const url=cv.toDataURL('image/png');
+    ch.destroy();
+    return url;
+  })();
   const hoyD=new Date();
 
   return`
@@ -1983,8 +2026,8 @@ function _phResumenDoc(){
         <div style="color:#777">Emitido: ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</div>
       </div>
       <div style="flex:2;text-align:center">
-        <div style="font-size:17px;font-weight:900;color:${AZ}">REPORTE SEMANAL DE OPERACIONES — HORAS MÁQUINA</div>
-        <div style="font-size:11px;color:#444;margin-top:2px">GDAR · ECOSERMO</div>
+        <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL</div>
+        <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
       <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
@@ -1992,10 +2035,9 @@ function _phResumenDoc(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       ${kpi('Utilización Semana',tProg?uSem.toFixed(1)+'%':'—',semCol(uSem))}
       ${kpi('Disp. Mecánica',tProg?dmSem.toFixed(1)+'%':'—',semCol(dmSem))}
-      ${kpi('Disp. Menores',nMen?dispMen.toFixed(1)+'%':'—',semCol(dispMen))}
       ${kpi('Hs Efectivas',fmt1(tEf)+'h',AZ)}
-      ${kpi('Material Transportado',fmt1(m3Tot)+' m³','#0e7490')}
       ${kpi('Viajes',viajesTot.toLocaleString(),'#0e7490')}
+      ${kpi('Material Transportado',fmt1(m3Tot)+' m³','#0e7490')}
       ${kpi('Personal en Semana',personasSem,'#6d28d9')}
       ${kpi('Ingresos (Anexo 5)',ingresos.length,'#c2410c')}
     </div>
@@ -2006,7 +2048,7 @@ function _phResumenDoc(){
     <table style="${TBL}">
       <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días</th><th style="${TH}">H. Prog.</th><th style="${TH}">H. Efect.</th><th style="${TH}">Utiliz. %</th><th style="${TH}">H. Inoper.</th><th style="${TH}">Disp. Mec. %</th></tr>
       ${filasEq.length?grupoRows(filasEq,r=>`<tr>
-        <td style="${TD}"><b>${r.eq?r.eq.codigo:'#'+r.id}</b> <span style="color:#666;font-size:9px">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</span></td>
+        <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
         <td style="${TD};text-align:center">${r.dias}</td>
         <td style="${TD};text-align:right">${fmt1(r.prog)}</td>
         <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
@@ -2029,7 +2071,7 @@ function _phResumenDoc(){
     <table style="${TBL}">
       <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Disp. % (÷7)</th></tr>
       ${filasMen.length?grupoRows(filasMen,r=>`<tr>
-        <td style="${TD}"><b>${r.eq?r.eq.codigo:'#'+r.id}</b> <span style="color:#666;font-size:9px">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</span></td>
+        <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
         <td style="${TD};text-align:center;font-weight:700">${r.op||'—'}</td>
         <td style="${TD};text-align:center;color:${r.inop?'#b91c1c':'#999'}">${r.inop||'—'}</td>
         <td style="${TD};text-align:right">${pct(r.disp)}</td>
@@ -2037,17 +2079,22 @@ function _phResumenDoc(){
     </table>
 
     ${sec('3 · Transporte de Material')}
-    <table style="${TBL}">
-      <tr><th style="${TH};text-align:left">Destino</th><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes</th><th style="${TH}">m³</th></tr>
-      ${rutasArr.length?rutasArr.map(r=>`<tr>
-        <td style="${TD}">${r.destino}</td>
-        <td style="${TD};color:${r.material==='(sin material)'?'#999':'#111'}">${r.material}${r.material==='(sin material)'?' · traslado':''}</td>
-        <td style="${TD};text-align:right;font-weight:700">${r.viajes.toLocaleString()}</td>
-        <td style="${TD};text-align:right;font-weight:700">${r.m3?fmt1(r.m3):'—'}</td>
-      </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin viajes registrados en la semana</td></tr>`}
-      ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="2">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
-    </table>
-    <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · viajes sin material (traslado de equipo) cuentan el viaje pero no el volumen</div>
+    <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
+      <div style="flex:1.25;min-width:0">
+        <table style="${TBL}">
+          <tr><th style="${TH};text-align:left">Destino</th><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes</th><th style="${TH}">m³</th></tr>
+          ${rutasArr.length?rutasArr.map(r=>`<tr>
+            <td style="${TD}">${r.destino}</td>
+            <td style="${TD}">${r.material}</td>
+            <td style="${TD};text-align:right;font-weight:700">${r.viajes.toLocaleString()}</td>
+            <td style="${TD};text-align:right;font-weight:700">${r.m3?fmt1(r.m3):'—'}</td>
+          </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin viajes con material registrados en la semana</td></tr>`}
+          ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="2">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
+        </table>
+        <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · los viajes sin material (cambio de frente) no se consideran en este reporte</div>
+      </div>
+      ${imgTrans?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgTrans}" style="width:100%;display:block"></div>`:''}
+    </div>
 
     ${sec('4 · Actividades de la Semana')}
     <table style="${TBL}">
