@@ -2064,6 +2064,224 @@ function _phRenderResumen(){
   el.innerHTML=bar+`<div style="background:#fff;border-radius:8px;padding:1.1rem 1.4rem;max-width:1050px;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_phResumenDoc()}</div>`;
 }
 
+// ══ REPORTE MENSUAL AL CORTE (horas programadas vs ejecutadas · meta mínima · disp. mecánica) ══
+let _rmCorteOff=0,_rmSub='',_rmChartLA=null,_rmChartLB=null,_rmExport=null;
+function _rmMeta(){return +(localStorage.getItem('gdar_rm_metacorte')||300);}
+function _rmSetMeta(){
+  const v=prompt('Meta mínima de horas por equipo al corte:',_rmMeta());
+  if(v===null)return;
+  const n=+String(v).replace(',','.');
+  if(!(n>0)){toast('Valor inválido',true);return;}
+  localStorage.setItem('gdar_rm_metacorte',n);
+  rReporteMensual();
+}
+function _rmNav(d){_rmCorteOff+=d;rReporteMensual();}
+function _rmExportXls(){
+  if(!_rmExport||!_rmExport.aoa){toast('Nada que exportar',true);return;}
+  if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
+  const ws=XLSX.utils.aoa_to_sheet(_rmExport.aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Mensual');
+  XLSX.writeFile(wb,_rmExport.name);
+}
+function rReporteMensual(){
+  const el=document.getElementById('rmBody');if(!el)return;
+  const pad=n=>String(n).padStart(2,'0');
+  const fmt1=v=>(+v||0).toLocaleString('es-PE',{maximumFractionDigits:1});
+  const HP=_phHsProgTurno(),META=_rmMeta();
+
+  // Corte 21→20 según offset de meses
+  const hoyD=new Date(today()+'T12:00:00');
+  let cIniD=hoyD.getDate()>=21?new Date(hoyD.getFullYear(),hoyD.getMonth(),21):new Date(hoyD.getFullYear(),hoyD.getMonth()-1,21);
+  cIniD=new Date(cIniD.getFullYear(),cIniD.getMonth()+_rmCorteOff,21);
+  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const cIni=isoD(cIniD),cFin=isoD(cFinD);
+  const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
+  const diasCorte=Math.round((cFinD-cIniD)/864e5)+1;
+  const hoyIso=today();
+  const finData=hoyIso<cFin?hoyIso:cFin;
+  const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(finData+'T12:00:00')-cIniD)/864e5)+1));
+
+  // Acumular partes del corte (solo Línea Amarilla y Línea Blanca)
+  const acc={};
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||p.fecha<cIni||p.fecha>cFin||!p.eqId)return;
+    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+    const tipo=eq?(eq.tipo||''):'';
+    if(tipo!=='Línea Amarilla'&&tipo!=='Línea Blanca')return;
+    if(!acc[p.eqId])acc[p.eqId]={eq,tipo,sub:(eq.sub||'OTROS').toUpperCase(),n:0,ef:0,im:0,dias:new Set()};
+    const a=acc[p.eqId];
+    a.n++;a.ef+=Math.max(0,+p.ef||0);a.im+=Math.max(0,+p.im||0);a.dias.add(p.fecha);
+  });
+  const todos=Object.entries(acc).map(([id,a])=>{
+    const prog=a.n*HP;
+    const imProj=a.im/diasTrans*diasCorte;
+    const progBase=diasCorte*HP;
+    return{id,eq:a.eq,tipo:a.tipo,sub:a.sub,dias:a.dias.size,ef:a.ef,im:a.im,prog,
+      avance:META?a.ef/META*100:0,
+      dm:prog?(prog-a.im)/prog*100:0,
+      dmProj:Math.max(0,Math.min(100,(progBase-imProj)/progBase*100))};
+  });
+  const subs=[...new Set(todos.map(r=>r.sub))].sort();
+  const rows=(_rmSub?todos.filter(r=>r.sub===_rmSub):todos)
+    .sort((a,b)=>a.sub===b.sub?String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')):a.sub.localeCompare(b.sub));
+
+  // Colores por subtipo (gráficos y grupos)
+  const SUBCOL={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
+  const subCol=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL)if(s.includes(k))return SUBCOL[k];return'#6b7280';};
+
+  // Semáforos con icono (como el monthly report)
+  const icoAvance=u=>u>=100?['✓','#10b981']:u>=60?['❗','#f59e0b']:['✗','#ef4444'];
+  const icoDM=u=>u>=90?['✓','#10b981']:u>=80?['❗','#f59e0b']:['✗','#ef4444'];
+  const celda=(u,ic,TD,bgWarn)=>{
+    const[i,c]=ic(u);
+    return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${c};background:${c}12">${u.toFixed(2)}% <span style="font-size:.8rem">${i}</span></td>`;
+  };
+
+  // Promedios y GAP por grupo (meta vs real)
+  const grupoStats=filtro=>{
+    const g=todos.filter(filtro);
+    if(!g.length)return null;
+    const prom=g.reduce((s,r)=>s+r.ef,0)/g.length;
+    return{n:g.length,prom,gap:prom-META};
+  };
+  const stLA=grupoStats(r=>r.tipo==='Línea Amarilla');
+  const stVol=grupoStats(r=>r.sub.includes('VOLQUETE'));
+
+  const TH='padding:.45rem .55rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);white-space:nowrap;border:1px solid var(--border)';
+  const TD='padding:.42rem .6rem;border:1px solid var(--border);font-size:.75rem;vertical-align:middle';
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)';
+
+  // Barra superior
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
+    <button onclick="_rmNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Corte anterior">‹</button>
+    <span style="font-size:.72rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${dmy(cIni)} al ${dmy(cFin)}</span>
+    <button onclick="_rmNav(1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Corte siguiente">›</button>
+    ${_rmCorteOff?`<button onclick="_rmCorteOff=0;rReporteMensual()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">Corte actual</button>`:''}
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Subtipo</span>
+    <select onchange="_rmSub=this.value;rReporteMensual()" style="${inpS}">
+      <option value="">— Todas —</option>
+      ${subs.map(s=>`<option value="${s}"${_rmSub===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+    <button onclick="_rmSetMeta()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Meta mínima de horas por equipo al corte">🎯 Meta ${META}h</button>
+    <button onclick="_phSetHsProg()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Horas programadas por parte/turno">⚙ ${HP}h/turno</button>
+    <button onclick="_rmExportXls()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+  </div>`;
+
+  // KPIs (bordes completos con el color del indicador)
+  const gapKpi=st=>st?`${fmt1(st.prom)}h <span style="font-size:.75rem;font-weight:700;color:${st.gap>=0?'#10b981':'#ef4444'}">GAP ${st.gap>=0?'+':''}${fmt1(st.gap)}</span>`:'—';
+  const kpis=`<div class="kpi-row">
+    <div class="kpi" style="--kc:#a78bfa"><div class="kpi-lbl">Días del Corte</div><div class="kpi-val" style="font-size:1.5rem">${diasCorte} <span style="font-size:.75rem;color:var(--muted2)">· ${diasTrans} transcurrido(s)</span></div></div>
+    <div class="kpi" style="--kc:#dc2626"><div class="kpi-lbl">Meta Mín. Horas al Corte</div><div class="kpi-val" style="font-size:1.5rem">${META}h <span style="font-size:.72rem;color:var(--muted2)">por equipo</span></div></div>
+    <div class="kpi" style="--kc:#f59e0b"><div class="kpi-lbl">Prom. Real L. Amarilla${stLA?' ('+stLA.n+' eq.)':''}</div><div class="kpi-val" style="font-size:1.5rem">${gapKpi(stLA)}</div></div>
+    <div class="kpi" style="--kc:#3b82f6"><div class="kpi-lbl">Prom. Real Volquetes${stVol?' ('+stVol.n+' eq.)':''}</div><div class="kpi-val" style="font-size:1.5rem">${gapKpi(stVol)}</div></div>
+  </div>`;
+
+  // Tabla agrupada por subtipo
+  let body='';let lastSub='';
+  rows.forEach(function(r){
+    if(r.sub!==lastSub){
+      lastSub=r.sub;
+      const col=subCol(r.sub);
+      body+=`<tr><td colspan="7" style="padding:.4rem .7rem;background:${col}12;border:1px solid var(--border);border-left:4px solid ${col};color:${col};font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em">${r.sub}</td></tr>`;
+    }
+    body+=`<tr>
+      <td style="${TD};white-space:nowrap;padding-left:1.2rem">
+        <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+        <span style="font-size:.62rem;color:var(--muted2)"> (${r.eq?((r.eq.marca||'')+' '+(r.eq.modelo||'')).trim():''})</span>
+      </td>
+      <td style="${TD};text-align:center;font-family:monospace">${r.dias}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text)">${fmt1(r.ef)}</td>
+      ${celda(r.avance,icoAvance,TD)}
+      <td style="${TD};text-align:right;font-family:monospace;color:${r.im?'#ef4444':'var(--muted)'}">${r.im?fmt1(r.im):'—'}</td>
+      ${celda(r.dm,icoDM,TD)}
+      ${celda(r.dmProj,icoDM,TD)}
+    </tr>`;
+  });
+
+  // Exportación
+  _rmExport={
+    name:'mensual_corte_'+cIni+'.xlsx',
+    aoa:[
+      ['MENSUAL AL CORTE — HORAS PROGRAMADAS VS EJECUTADAS — '+dmy(cIni)+' al '+dmy(cFin)+' — Meta mín. '+META+'h'+(_rmSub?' — '+_rmSub:'')],
+      ['Subtipo','Equipo','Marca/Modelo','Días T','Horas trabajadas','% Avance hrs mín-prog.','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
+      ...rows.map(r=>[
+        r.sub,r.eq?r.eq.codigo:('#'+r.id),r.eq?((r.eq.marca||'')+' '+(r.eq.modelo||'')).trim():'',
+        r.dias,+r.ef.toFixed(1),+r.avance.toFixed(2),+r.im.toFixed(1),+r.dm.toFixed(2),+r.dmProj.toFixed(2)
+      ])
+    ]
+  };
+
+  const chLA=todos.filter(r=>r.tipo==='Línea Amarilla').sort((a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')));
+  const chLB=todos.filter(r=>r.tipo==='Línea Blanca').sort((a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')));
+
+  el.innerHTML=bar+kpis+`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.9rem">
+    <div class="card"><div class="card-body" style="height:260px;position:relative;padding:.7rem"><canvas id="rmChartLA"></canvas></div></div>
+    <div class="card"><div class="card-body" style="height:260px;position:relative;padding:.7rem"><canvas id="rmChartLB"></canvas></div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--panel2)">
+          <th style="${TH};text-align:left;min-width:170px">Tipo de Equipo</th>
+          <th style="${TH};text-align:center" title="Días con parte diario en el corte">Días T</th>
+          <th style="${TH};text-align:right">Horas Trabajadas</th>
+          <th style="${TH};text-align:right" title="Horas trabajadas ÷ meta mínima (${META}h)">% Avance hrs mín-prog.</th>
+          <th style="${TH};text-align:right">Hs Inoper.</th>
+          <th style="${TH};text-align:right" title="(H. Prog. − H. Inoper.) ÷ H. Prog. con los partes del corte">% Disp. Mec. al corte</th>
+          <th style="${TH};text-align:right" title="Proyección al cierre: inoperatividad proyectada linealmente sobre ${diasCorte} días">% Disp. Mec. proyec. mes</th>
+        </tr>
+      </thead>
+      <tbody>${body||`<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en el corte ${dmy(cIni)} al ${dmy(cFin)}</td></tr>`}</tbody>
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+    <span>Avance: <span style="color:#10b981">✓ ≥100%</span> · <span style="color:#f59e0b">❗ 60–99%</span> · <span style="color:#ef4444">✗ &lt;60%</span></span>
+    <span>Disp. Mec.: <span style="color:#10b981">✓ ≥90%</span> · <span style="color:#f59e0b">❗ 80–89%</span> · <span style="color:#ef4444">✗ &lt;80%</span></span>
+    <span style="margin-left:auto">ⓘ % Avance = Hs trabajadas ÷ meta mín. (🎯 ${META}h) · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. (H. Prog. = Nº partes × ${HP}h) · Proyec. mes = inoperatividad proyectada a los ${diasCorte} días del corte · GAP = prom. real − meta</span>
+  </div>`;
+
+  // Gráficos: barras de horas acumuladas + línea punteada de meta
+  if(typeof Chart!=='undefined'){
+    if(_rmChartLA){_rmChartLA.destroy();_rmChartLA=null;}
+    if(_rmChartLB){_rmChartLB.destroy();_rmChartLB=null;}
+    const mk=(canvasId,items,titulo)=>{
+      const ctx=document.getElementById(canvasId);
+      if(!ctx)return null;
+      return new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.id),
+          datasets:[
+            {type:'line',label:`Meta mín. ${META}h`,data:items.map(()=>META),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
+            {label:'Horas trabajadas',data:items.map(r=>+r.ef.toFixed(1)),backgroundColor:items.map(r=>subCol(r.sub)+'CC'),borderRadius:3}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{
+            legend:{display:false},
+            title:{display:true,text:titulo,color:'#8b93a7',font:{size:11,weight:'bold'}},
+            tooltip:{callbacks:{label:c=>c.datasetIndex===0?`Meta mín.: ${META}h`:`${(c.raw||0).toLocaleString('es-PE')} h · ${items[c.dataIndex].sub}`}}
+          },
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:9}},grid:{display:false}},
+            y:{beginAtZero:true,ticks:{color:'#8b93a7',font:{size:9},callback:v=>v+' h'},grid:{color:'rgba(139,147,167,.12)'}}
+          }
+        }
+      });
+    };
+    if(chLA.length)_rmChartLA=mk('rmChartLA',chLA,`HORAS ACUMULADAS LÍNEA AMARILLA (${dmy(cIni)} – ${dmy(cFin)})`);
+    if(chLB.length)_rmChartLB=mk('rmChartLB',chLB,`HORAS ACUMULADAS LÍNEA BLANCA (${dmy(cIni)} – ${dmy(cFin)})`);
+  }
+}
+
 // ══ DASHBOARD EQUIPOS ══
 function rDashEquipos(){
   const el=document.getElementById('page-dashEquipos');
