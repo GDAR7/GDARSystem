@@ -55,7 +55,7 @@ function refreshSelects(){
    ['coEq',eqListOpt],['rpEq',eqList],['rpOp',trabList],
    ['aePers',trabList],['asPers',allPersEq],['smPers',allPersEq],['emPers',almList],
    ['asItem',stockOpts],
-   ['rqSol',trabList],['rqArea',areaOpts],
+   ['rqArea',areaOpts],
    ['fpReq',reqOpts]
   ].forEach(([id,html])=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
 }

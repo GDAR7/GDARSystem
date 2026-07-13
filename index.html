@@ -1928,7 +1928,11 @@
         <input id="rqCodProy" readonly placeholder="—" style="width:100%;padding:.46rem .7rem;background:var(--panel2);border:1px solid var(--alm);border-radius:5px;color:var(--alm);font-size:.85rem;font-family:'Roboto Mono',monospace;font-weight:700;cursor:default">
       </div>
       <div class="fg"><label>Fecha</label><input id="rqF" type="date"></div>
-      <div class="fg"><label>Solicitante</label><select id="rqSol"></select></div>
+      <div class="fg" id="rqSolRow" style="position:relative">
+        <label>Solicitante</label>
+        <input id="rqSol" autocomplete="off" placeholder="Buscar por nombre, cargo o DNI..." oninput="_rqSolSearch(this.value)" onfocus="_rqSolSearch(this.value)" onblur="setTimeout(()=>{const d=document.getElementById('rqSolDrop');if(d)d.style.display='none'},180)">
+        <div id="rqSolDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;z-index:999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.6)"></div>
+      </div>
       <div class="fg"><label>Área Solicitante</label><select id="rqArea"></select></div>
       <div class="fg"><label>Fecha Entrega Requerida</label><input id="rqFEnt" type="date"></div>
       <div class="fg"><label>Prioridad</label><select id="rqPrior"><option>Normal</option><option>Urgente</option><option>Muy Urgente</option></select></div>
@@ -2755,12 +2759,12 @@
 
 
 <script src="js/config.js?v=3"></script>
-<script src="js/utils.js?v=2"></script>
+<script src="js/utils.js?v=3"></script>
 <script src="js/personal.js?v=2"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js"></script>
 <script src="js/combustible.js?v=2"></script>
-<script src="js/requerimientos.js?v=5"></script>
+<script src="js/requerimientos.js?v=6"></script>
 <script src="js/mantenimiento.js?v=2"></script>
 <script src="js/tareaje.js?v=2"></script>
 <script src="js/engrase.js"></script>

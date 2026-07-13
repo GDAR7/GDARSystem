@@ -169,7 +169,32 @@ function selectEmAc(idx,cod,desc,und){
   hideEmAc();
 }
 function hideEmAc(){const d=document.getElementById('emAcDrop');if(d)d.style.display='none';}
-function openMReq(){_reqEditId=null;reqItemsArr=[];addReqItem();document.getElementById('rqProy').value='';document.getElementById('rqCodProy').value='';document.getElementById('rqProyNumHint').textContent='';document.querySelector('#mReq .mttl').textContent='📝 Nuevo Requerimiento de Materiales';document.querySelector('#mReq .mf .btn-a').textContent='Registrar Requerimiento';openM('mReq');}
+// ── Buscador de solicitante (personal activo, como en abastecimiento de combustible) ──
+function _rqSolSearch(q){
+  const drop=document.getElementById('rqSolDrop');if(!drop)return;
+  const txt=(q||'').toLowerCase().trim();
+  const lista=(DB.personal||[])
+    .filter(p=>(p.est||'').toLowerCase()==='activo'||(p.est||'')==='')
+    .filter(p=>{if(!txt)return true;return((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.dni||'')).toLowerCase().includes(txt);})
+    .sort((a,b)=>(a.ape||'').localeCompare(b.ape||''))
+    .slice(0,30);
+  if(!lista.length){drop.style.display='none';return;}
+  drop.innerHTML=lista.map(p=>{
+    const nombre=`${p.ape||''}, ${p.nom||''}`.trim().replace(/^,\s*/,'');
+    return`<div onmousedown="_rqSolSelect('${nombre.replace(/'/g,"\\'")}')"
+      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <span style="font-weight:700">${nombre}</span>
+      <span style="font-size:.68rem;color:var(--muted2);margin-left:.5rem;white-space:nowrap">${p.cargo||''}</span>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
+}
+function _rqSolSelect(nombre){
+  const inp=document.getElementById('rqSol');if(inp)inp.value=nombre;
+  const drop=document.getElementById('rqSolDrop');if(drop)drop.style.display='none';
+}
+function openMReq(){_reqEditId=null;reqItemsArr=[];addReqItem();document.getElementById('rqProy').value='';document.getElementById('rqCodProy').value='';document.getElementById('rqProyNumHint').textContent='';document.getElementById('rqSol').value='';document.querySelector('#mReq .mttl').textContent='📝 Nuevo Requerimiento de Materiales';document.querySelector('#mReq .mf .btn-a').textContent='Registrar Requerimiento';openM('mReq');}
 function intentarEditarReq(id){
   const r=DB.requerimientos.find(x=>x.id===id);if(!r)return;
   const bloqueado=r.est==='Atendido'||r.est==='Anulado';
@@ -188,8 +213,8 @@ function editReq(id){
   document.getElementById('rqProy').value=r.proyecto||'';
   document.getElementById('rqCodProy').value=r.codProy||'';
   document.getElementById('rqF').value=r.fecha||'';
-  // set solicitante select
-  const solSel=document.getElementById('rqSol');[...solSel.options].forEach(o=>{o.selected=o.text===r.solicitante||o.value===r.solicitante;});
+  // solicitante (input con buscador)
+  document.getElementById('rqSol').value=r.solicitante||'';
   // set area select
   const areaSel=document.getElementById('rqArea');[...areaSel.options].forEach(o=>{o.selected=o.text===r.area||o.value===r.area;});
   document.getElementById('rqFEnt').value=r.fechaEnt||'';
@@ -553,7 +578,13 @@ function gReq(){
     const idx=DB.requerimientos.findIndex(x=>x.id===_reqEditId);
     if(idx<0){toast('Requerimiento no encontrado',true);return;}
     const r=DB.requerimientos[idx];
-    r.proyecto=document.getElementById('rqProy').value.trim();
+    // El número NO se recalcula al editar (mantiene su RQ original).
+    // Solo si se cambia de proyecto, toma el siguiente correlativo del nuevo proyecto.
+    const proyNuevo=document.getElementById('rqProy').value.trim();
+    const cambioProy=(r.proyecto||'').trim().toUpperCase()!==proyNuevo.toUpperCase();
+    let numNuevo=null;
+    if(cambioProy&&proyNuevo){const _i=_proyNextNum(proyNuevo);if(_i)numNuevo=_i.next;}
+    r.proyecto=proyNuevo;
     r.codProy=_resolverCodProy(r.proyecto,document.getElementById('rqCodProy').value.trim());
     document.getElementById('rqCodProy').value=r.codProy;
     r.fecha=document.getElementById('rqF').value||today();
@@ -564,13 +595,7 @@ function gReq(){
     r.est=document.getElementById('rqEst').value;
     r.obs=document.getElementById('rqObs').value;
     r.items=items;
-    // Recalcular num por proyecto al editar
-    if(r.proyecto){
-      const p=r.proyecto.toUpperCase();
-      const sorted=DB.requerimientos.filter(x=>x.proyecto&&x.proyecto.toUpperCase()===p).sort((a,b)=>a.id-b.id);
-      const pos=sorted.findIndex(x=>x.id===_reqEditId);
-      if(pos>=0)r.num='RQ-'+String(pos+1).padStart(3,'0');
-    }
+    if(numNuevo)r.num=numNuevo;
     supaGuardarRequerimiento(r);
     _reqEditId=null;
     closeM('mReq');rReq();toast('Requerimiento actualizado: '+r.num);
