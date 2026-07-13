@@ -1223,9 +1223,10 @@ function _phTabSwitch(t){_phTab=t;rPanelHoras();}
 function rPanelHoras(){
   const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
-  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal']];
+  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica']];
   root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_phTab===n;return`<button onclick="_phTabSwitch(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="phTabBody"></div>`;
-  if(_phTab===2){_phRenderUtil();return;}
+  if(_phTab===2){_phRenderUtil('util');return;}
+  if(_phTab===3){_phRenderUtil('dm');return;}
   _phRenderHoras();
 }
 function _phRenderHoras(){
@@ -1431,7 +1432,7 @@ function _phRenderHoras(){
   }
 }
 
-// ── TAB 2: UTILIZACIÓN SEMANAL (H. Prog vs H. Efect · semana + acumulado al corte 21→20) ──
+// ── TABS 2 y 3: UTILIZACIÓN (H. Efect ÷ H. Prog) y DISPONIBILIDAD MECÁNICA ((H. Prog − Improd) ÷ H. Prog) · semana + acumulado al corte 21→20 ──
 function _phHsProgTurno(){return +(localStorage.getItem('gdar_ph_hsprog')||10);}
 function _phSetHsProg(){
   const v=prompt('Horas programadas por parte/turno:',_phHsProgTurno());
@@ -1441,7 +1442,8 @@ function _phSetHsProg(){
   localStorage.setItem('gdar_ph_hsprog',n);
   rPanelHoras();
 }
-function _phRenderUtil(){
+function _phRenderUtil(modo){
+  const esDM=modo==='dm';
   const el=document.getElementById('phTabBody');if(!el)return;
   const pad=n=>String(n).padStart(2,'0');
   const fmtH=v=>v.toLocaleString('es-PE',{maximumFractionDigits:1});
@@ -1478,11 +1480,11 @@ function _phRenderUtil(){
     const enSem=p.fecha>=fIni&&p.fecha<=fFin;
     const enAc=p.fecha>=cIni&&p.fecha<=aFin;
     if(!enSem&&!enAc)return;
-    if(!acc[p.eqId])acc[p.eqId]={eq,tipo:eq?(eq.tipo||'Otros'):'Otros',semN:0,semEf:0,semDias:new Set(),acN:0,acEf:0};
+    if(!acc[p.eqId])acc[p.eqId]={eq,tipo:eq?(eq.tipo||'Otros'):'Otros',semN:0,semEf:0,semIm:0,semDias:new Set(),acN:0,acEf:0,acIm:0};
     const a=acc[p.eqId];
-    const ef=Math.max(0,+p.ef||0);
-    if(enSem){a.semN++;a.semEf+=ef;a.semDias.add(p.fecha);}
-    if(enAc){a.acN++;a.acEf+=ef;}
+    const ef=Math.max(0,+p.ef||0),im=Math.max(0,+p.im||0);
+    if(enSem){a.semN++;a.semEf+=ef;a.semIm+=im;a.semDias.add(p.fecha);}
+    if(enAc){a.acN++;a.acEf+=ef;a.acIm+=im;}
   });
 
   const rows=Object.entries(acc).map(([id,a])=>({id,...a,dias:a.semDias.size,semProg:a.semN*HP,acProg:a.acN*HP}))
@@ -1492,9 +1494,11 @@ function _phRenderUtil(){
   const tiposOrden=Object.keys(grupos).sort((a,b)=>grupos[b].reduce((s,r)=>s+r.semEf,0)-grupos[a].reduce((s,r)=>s+r.semEf,0));
 
   const utilCol=u=>u>=80?'#10b981':u>=60?'#f59e0b':'#ef4444';
-  const utilCell=(ef,prog,TD)=>{
+  // % del tab: Utilización = H.Efect ÷ H.Prog · Disp. Mec. = (H.Prog − Improd) ÷ H.Prog
+  const calcPct=(ef,im,prog)=>esDM?(prog-im)/prog*100:ef/prog*100;
+  const utilCell=(ef,im,prog,TD)=>{
     if(!prog)return`<td style="${TD};text-align:right;color:var(--muted)">—</td>`;
-    const u=ef/prog*100;
+    const u=calcPct(ef,im,prog);
     return`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${utilCol(u)}">${u.toFixed(1)}%</td>`;
   };
 
@@ -1538,40 +1542,43 @@ function _phRenderUtil(){
         </td>
         <td style="${TD};text-align:center;font-family:monospace">${r.dias||'—'}</td>
         <td style="${TD};text-align:right;font-family:monospace;color:var(--muted2)">${r.semProg?fmtH(r.semProg):'—'}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text)">${r.semN?fmtH(r.semEf):'—'}</td>
-        ${utilCell(r.semEf,r.semProg,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${esDM?(r.semIm?'#ef4444':'var(--muted)'):'var(--text)'}">${r.semN?fmtH(esDM?r.semIm:r.semEf):'—'}</td>
+        ${utilCell(r.semEf,r.semIm,r.semProg,TD)}
         <td style="${TD};text-align:right;font-family:monospace;color:var(--muted2);background:rgba(148,163,184,.05)">${r.acProg?fmtH(r.acProg):'—'}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--text);background:rgba(148,163,184,.05)">${r.acN?fmtH(r.acEf):'—'}</td>
-        ${utilCell(r.acEf,r.acProg,TD+';background:rgba(148,163,184,.05)')}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${esDM?(r.acIm?'#ef4444':'var(--muted)'):'var(--text)'};background:rgba(148,163,184,.05)">${r.acN?fmtH(esDM?r.acIm:r.acEf):'—'}</td>
+        ${utilCell(r.acEf,r.acIm,r.acProg,TD+';background:rgba(148,163,184,.05)')}
       </tr>`;
     });
   });
 
   // Totales
-  const tSemProg=rows.reduce((s,r)=>s+r.semProg,0),tSemEf=rows.reduce((s,r)=>s+r.semEf,0);
-  const tAcProg=rows.reduce((s,r)=>s+r.acProg,0),tAcEf=rows.reduce((s,r)=>s+r.acEf,0);
-  const uSem=tSemProg?tSemEf/tSemProg*100:0,uAc=tAcProg?tAcEf/tAcProg*100:0;
+  const tSemProg=rows.reduce((s,r)=>s+r.semProg,0),tSemEf=rows.reduce((s,r)=>s+r.semEf,0),tSemIm=rows.reduce((s,r)=>s+r.semIm,0);
+  const tAcProg=rows.reduce((s,r)=>s+r.acProg,0),tAcEf=rows.reduce((s,r)=>s+r.acEf,0),tAcIm=rows.reduce((s,r)=>s+r.acIm,0);
+  const uSem=tSemProg?calcPct(tSemEf,tSemIm,tSemProg):0,uAc=tAcProg?calcPct(tAcEf,tAcIm,tAcProg):0;
+  const mLbl=esDM?'Disp. Mec.':'Utiliz.';
 
   // Exportación
   _phExport={
-    name:'utilizacion_equipos_'+fIni+'.xlsx',
+    name:(esDM?'disponibilidad_mecanica_':'utilizacion_equipos_')+fIni+'.xlsx',
     aoa:[
-      ['UTILIZACIÓN DE EQUIPOS — Semana '+semLbl+' — Corte '+corteLbl+(_phTipoFiltro?' — '+_phTipoFiltro:'')],
-      ['Equipo','Línea','Días trab.','Sem H.Prog.','Sem H.Efect.','Sem Utiliz.%','Acum H.Prog.','Acum H.Efect.','Acum Utiliz.%'],
+      [(esDM?'DISPONIBILIDAD MECÁNICA':'UTILIZACIÓN DE EQUIPOS')+' — Semana '+semLbl+' — Corte '+corteLbl+(_phTipoFiltro?' — '+_phTipoFiltro:'')],
+      ['Equipo','Línea','Días trab.','Sem H.Prog.',esDM?'Sem H.Improd.':'Sem H.Efect.','Sem '+mLbl+'%','Acum H.Prog.',esDM?'Acum H.Improd.':'Acum H.Efect.','Acum '+mLbl+'%'],
       ...rows.map(r=>[
         r.eq?r.eq.codigo:('#'+r.id),r.tipo,r.dias,
-        +r.semProg.toFixed(1),+r.semEf.toFixed(1),r.semProg?+(r.semEf/r.semProg*100).toFixed(1):'',
-        +r.acProg.toFixed(1),+r.acEf.toFixed(1),r.acProg?+(r.acEf/r.acProg*100).toFixed(1):''
+        +r.semProg.toFixed(1),+(esDM?r.semIm:r.semEf).toFixed(1),r.semProg?+calcPct(r.semEf,r.semIm,r.semProg).toFixed(1):'',
+        +r.acProg.toFixed(1),+(esDM?r.acIm:r.acEf).toFixed(1),r.acProg?+calcPct(r.acEf,r.acIm,r.acProg).toFixed(1):''
       ]),
-      ['TOTAL','','',+tSemProg.toFixed(1),+tSemEf.toFixed(1),+uSem.toFixed(1),+tAcProg.toFixed(1),+tAcEf.toFixed(1),+uAc.toFixed(1)]
+      ['TOTAL','','',+tSemProg.toFixed(1),+(esDM?tSemIm:tSemEf).toFixed(1),+uSem.toFixed(1),+tAcProg.toFixed(1),+(esDM?tAcIm:tAcEf).toFixed(1),+uAc.toFixed(1)]
     ]
   };
 
   el.innerHTML=bar+`
   <div class="kpi-row">
-    <div class="kpi" style="--kc:${utilCol(uSem)}"><div class="kpi-lbl">Utilización de la Semana</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uSem)}">${tSemProg?uSem.toFixed(1)+'%':'—'}</div></div>
-    <div class="kpi" style="--kc:${utilCol(uAc)}"><div class="kpi-lbl">Utilización Acum. al Corte</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uAc)}">${tAcProg?uAc.toFixed(1)+'%':'—'}</div></div>
-    <div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemEf)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>
+    <div class="kpi" style="--kc:${utilCol(uSem)}"><div class="kpi-lbl">${esDM?'Disp. Mecánica':'Utilización'} de la Semana</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uSem)}">${tSemProg?uSem.toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi" style="--kc:${utilCol(uAc)}"><div class="kpi-lbl">${esDM?'Disp. Mecánica':'Utilización'} Acum. al Corte</div><div class="kpi-val" style="font-size:1.5rem;color:${utilCol(uAc)}">${tAcProg?uAc.toFixed(1)+'%':'—'}</div></div>
+    ${esDM
+      ?`<div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Hs Improductivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemIm)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`
+      :`<div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemEf)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`}
     <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${rows.length}</div></div>
   </div>
   <div class="card" style="padding:0">
@@ -1586,11 +1593,11 @@ function _phRenderUtil(){
         </tr>
         <tr style="background:var(--panel2)">
           <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">H. Prog.</th>
-          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">H. Efect.</th>
-          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">Utiliz. %</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">${esDM?'H. Improd.':'H. Efect.'}</th>
+          <th style="${TH};text-align:right;background:rgba(59,130,246,.06)">${mLbl} %</th>
           <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">H. Prog.</th>
-          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">H. Efect.</th>
-          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">Utiliz. %</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">${esDM?'H. Improd.':'H. Efect.'}</th>
+          <th style="${TH};text-align:right;background:rgba(148,163,184,.05)">${mLbl} %</th>
         </tr>
       </thead>
       <tbody>${body||`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en esta semana (${rango}) ni en el corte (${corteLbl})</td></tr>`}</tbody>
@@ -1598,11 +1605,11 @@ function _phRenderUtil(){
         <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL GENERAL</td>
         <td style="${TD}"></td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--muted2)">${fmtH(tSemProg)}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq)">${fmtH(tSemEf)}</td>
-        ${utilCell(tSemEf,tSemProg,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${esDM?'#ef4444':'var(--ceq)'}">${fmtH(esDM?tSemIm:tSemEf)}</td>
+        ${utilCell(tSemEf,tSemIm,tSemProg,TD)}
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--muted2)">${fmtH(tAcProg)}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ceq)">${fmtH(tAcEf)}</td>
-        ${utilCell(tAcEf,tAcProg,TD)}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${esDM?'#ef4444':'var(--ceq)'}">${fmtH(esDM?tAcIm:tAcEf)}</td>
+        ${utilCell(tAcEf,tAcIm,tAcProg,TD)}
       </tr></tfoot>`:''}
     </table>
     </div>
@@ -1611,7 +1618,7 @@ function _phRenderUtil(){
     <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
     <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
-    <span style="margin-left:auto">ⓘ H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
+    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Improd.) ÷ H. Prog.':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
   </div>`;
 }
 
