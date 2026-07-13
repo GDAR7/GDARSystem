@@ -2213,9 +2213,10 @@ function _phResumenDoc(){
 function _phPrintResumen(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
-  // Ancho estándar A4 (210mm) · alto ajustado al contenido · .salto-pdf parte el reporte en 2 páginas
+  // Se dibuja al MISMO ancho de la vista previa (1010px) y se escala (zoom) para caber en 210mm:
+  // el formato del PDF queda idéntico a lo que se ve en pantalla · .salto-pdf parte el reporte en 2 páginas
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Semanal Horas Máquina</title>
-  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:194mm;padding:8mm;box-sizing:content-box}.salto-pdf{page-break-after:always;break-after:page;height:0}</style>
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box;zoom:0.7559}.salto-pdf{page-break-after:always;break-after:page;height:0}</style>
   </head><body><div id="doc">${_phResumenDoc()}</div>
   <script>
   window.onload=function(){
@@ -2227,7 +2228,7 @@ function _phPrintResumen(){
       var h1=m.bottom-r.top;          // página 1: hasta el salto
       var h2=r.bottom-m.bottom+60;    // página 2: lo que sigue (+ margen)
       hpx=Math.max(h1,h2)+8;
-    }else{hpx=d.offsetHeight+4;}
+    }else{hpx=d.getBoundingClientRect().height+4;}
     var hmm=Math.ceil(hpx/96*25.4);
     var st=document.createElement('style');
     st.textContent='@page{size:210mm '+hmm+'mm;margin:0}';
@@ -2483,14 +2484,15 @@ function _rmDoc(){
 function _rmPrint(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
-  // Ancho estándar A4 (210mm) · el ALTO de la página se ajusta al contenido: una sola hoja continua
+  // Se dibuja al MISMO ancho de la vista previa (1010px) y se escala (zoom) para caber en 210mm:
+  // el formato del PDF queda idéntico a lo que se ve en pantalla · alto ajustado al contenido
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Mensual Horas Máquina</title>
-  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:194mm;padding:8mm;box-sizing:content-box}</style>
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box;zoom:0.7559}</style>
   </head><body><div id="doc">${_rmDoc()}</div>
   <script>
   window.onload=function(){
     var d=document.getElementById('doc');
-    var hmm=Math.ceil((d.offsetHeight+4)/96*25.4);
+    var hmm=Math.ceil((d.getBoundingClientRect().height+4)/96*25.4);
     var st=document.createElement('style');
     st.textContent='@page{size:210mm '+hmm+'mm;margin:0}';
     document.head.appendChild(st);
