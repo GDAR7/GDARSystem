@@ -1879,8 +1879,12 @@ function _phResumenDoc(){
       if(!mat||/^sin\s*material/i.test(mat))return;
       if(noche)viajesN+=c;else viajesD+=c;
       const m3=c*cap;m3Tot+=m3;
-      const k=(v.destino||'(sin destino)')+'||'+v.material;
-      if(!rutas[k])rutas[k]={destino:v.destino||'(sin destino)',material:v.material,viajes:0,m3:0};
+      // Origen del viaje: campo del viaje · si falta, el inicio del tramo
+      let ori=String(v.origen||'').trim();
+      if(!ori&&v.tramoId){const tr=(DB.tramos||[]).find(t=>t.id==v.tramoId);ori=tr?(tr.inicio||''):'';}
+      ori=ori||'(sin origen)';
+      const k=ori+'||'+(v.destino||'(sin destino)')+'||'+v.material;
+      if(!rutas[k])rutas[k]={origen:ori,destino:v.destino||'(sin destino)',material:v.material,viajes:0,m3:0};
       rutas[k].viajes+=c;rutas[k].m3+=m3;
     });
   });
@@ -2173,16 +2177,17 @@ function _phResumenDoc(){
     <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
       <div style="flex:1.25;min-width:0">
         <table style="${TBL}">
-          <tr><th style="${TH};text-align:left">Destino</th><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes</th><th style="${TH}">m³</th></tr>
+          <tr><th style="${TH};text-align:left">Origen</th><th style="${TH};text-align:left">Destino</th><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes</th><th style="${TH}">m³</th></tr>
           ${rutasArr.length?rutasArr.map(r=>`<tr>
+            <td style="${TD};color:${r.origen==='(sin origen)'?'#999':'#111'}">${r.origen}</td>
             <td style="${TD}">${r.destino}</td>
             <td style="${TD}">${r.material}</td>
             <td style="${TD};text-align:right;font-weight:700">${r.viajes.toLocaleString()}</td>
             <td style="${TD};text-align:right;font-weight:700">${r.m3?fmt1(r.m3):'—'}</td>
-          </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin viajes con material registrados en la semana</td></tr>`}
-          ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="2">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
+          </tr>`).join(''):`<tr><td colspan="5" style="${TD};text-align:center;color:#777">Sin viajes con material registrados en la semana</td></tr>`}
+          ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="3">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
         </table>
-        <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · los viajes sin material (cambio de frente) no se consideran en este reporte</div>
+        <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · los viajes sin material (cambio de frente) no se consideran en este reporte · si el viaje no tiene origen, se toma el inicio del tramo</div>
       </div>
       ${imgTrans?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgTrans}" style="width:100%;display:block"></div>`:''}
     </div>
