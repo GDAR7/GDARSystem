@@ -2124,39 +2124,44 @@ function _phResumenDoc(){
 
     ${chartsHtml}
 
-    ${sec('1 · Utilización y Disponibilidad Mecánica — Línea Amarilla y Línea Blanca')}
-    <table style="${TBL}">
-      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días</th><th style="${TH}">H. Prog.</th><th style="${TH}">H. Efect.</th><th style="${TH}">Utiliz. %</th><th style="${TH}">H. Inoper.</th><th style="${TH}">Disp. Mec. %</th></tr>
-      ${filasEq.length?grupoRows(filasEq,r=>`<tr>
-        <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
-        <td style="${TD};text-align:center">${r.dias}</td>
-        <td style="${TD};text-align:right">${fmt1(r.prog)}</td>
-        <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
-        <td style="${TD};text-align:right">${pct(r.prog?r.ef/r.prog*100:0)}</td>
-        <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
-        <td style="${TD};text-align:right">${pct(r.prog?(r.prog-r.im)/r.prog*100:0)}</td>
-      </tr>`,7):`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin partes diarios de líneas en la semana</td></tr>`}
-      ${filasEq.length?`<tr style="background:#e8edf3;font-weight:900">
-        <td style="${TD}">TOTAL</td><td style="${TD}"></td>
-        <td style="${TD};text-align:right">${fmt1(tProg)}</td>
-        <td style="${TD};text-align:right">${fmt1(tEf)}</td>
-        <td style="${TD};text-align:right">${pct(uSem)}</td>
-        <td style="${TD};text-align:right;color:${tIm?'#b91c1c':'#999'}">${tIm?fmt1(tIm):'—'}</td>
-        <td style="${TD};text-align:right">${pct(dmSem)}</td>
-      </tr>`:''}
-    </table>
-    <div style="font-size:8.5px;color:#666;margin-top:2px">H. Prog. = Nº de partes × ${HP}h · Utiliz. = H. Efect. ÷ H. Prog. · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · <span style="color:#15803d">■</span> ≥80% · <span style="color:#b45309">■</span> 60–79% · <span style="color:#b91c1c">■</span> &lt;60%</div>
-
-    ${sec('2 · Disponibilidad Vehículos y Equipos Menores (por días de la semana)')}
-    <table style="${TBL}">
-      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Incidencia S.</th></tr>
-      ${filasMen.length?grupoRows(filasMen,r=>`<tr>
-        <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
-        <td style="${TD};text-align:center;font-weight:700">${r.op||'—'}</td>
-        <td style="${TD};text-align:center;color:${r.inop?'#b91c1c':'#999'}">${r.inop||'—'}</td>
-        <td style="${TD};text-align:right">${pct(r.disp)}</td>
-      </tr>`,4):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin partes de menores en la semana</td></tr>`}
-    </table>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="flex:1.45;min-width:0">
+        ${sec('1 · Utilización y Disponibilidad Mecánica — Línea Amarilla y Línea Blanca')}
+        <table style="${TBL}">
+          <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días</th><th style="${TH}">H. Prog.</th><th style="${TH}">H. Efect.</th><th style="${TH}">Utiliz. %</th><th style="${TH}">H. Inoper.</th><th style="${TH}">Disp. Mec. %</th></tr>
+          ${filasEq.length?grupoRows(filasEq,r=>`<tr>
+            <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
+            <td style="${TD};text-align:center">${r.dias}</td>
+            <td style="${TD};text-align:right">${fmt1(r.prog)}</td>
+            <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
+            <td style="${TD};text-align:right">${pct(r.prog?r.ef/r.prog*100:0)}</td>
+            <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
+            <td style="${TD};text-align:right">${pct(r.prog?(r.prog-r.im)/r.prog*100:0)}</td>
+          </tr>`,7):`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin partes diarios de líneas en la semana</td></tr>`}
+          ${filasEq.length?`<tr style="background:#e8edf3;font-weight:900">
+            <td style="${TD}">TOTAL</td><td style="${TD}"></td>
+            <td style="${TD};text-align:right">${fmt1(tProg)}</td>
+            <td style="${TD};text-align:right">${fmt1(tEf)}</td>
+            <td style="${TD};text-align:right">${pct(uSem)}</td>
+            <td style="${TD};text-align:right;color:${tIm?'#b91c1c':'#999'}">${tIm?fmt1(tIm):'—'}</td>
+            <td style="${TD};text-align:right">${pct(dmSem)}</td>
+          </tr>`:''}
+        </table>
+        <div style="font-size:8.5px;color:#666;margin-top:2px">H. Prog. = Nº de partes × ${HP}h · Utiliz. = H. Efect. ÷ H. Prog. · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · <span style="color:#15803d">■</span> ≥80% · <span style="color:#b45309">■</span> 60–79% · <span style="color:#b91c1c">■</span> &lt;60%</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        ${sec('2 · Disponibilidad Vehículos y Equipos Menores (por días de la semana)')}
+        <table style="${TBL}">
+          <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Incidencia S.</th></tr>
+          ${filasMen.length?grupoRows(filasMen,r=>`<tr>
+            <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
+            <td style="${TD};text-align:center;font-weight:700">${r.op||'—'}</td>
+            <td style="${TD};text-align:center;color:${r.inop?'#b91c1c':'#999'}">${r.inop||'—'}</td>
+            <td style="${TD};text-align:right">${pct(r.disp)}</td>
+          </tr>`,4):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin partes de menores en la semana</td></tr>`}
+        </table>
+      </div>
+    </div>
 
     ${sec('3 · Transporte de Material')}
     <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
