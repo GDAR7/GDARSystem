@@ -2345,7 +2345,7 @@ function _rmDoc(){
   const AZ='#1e3a5f';
   const icoAvance=u=>u>=100?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
   const icoUtil=u=>u>=80?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
-  const icoDM=u=>u>=90?['✓','#15803d']:u>=80?['❗','#b45309']:['✗','#b91c1c'];
+  const icoDM=u=>u>=85?['✓','#15803d']:u>=75?['❗','#b45309']:['✗','#b91c1c'];
 
   const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
   const TD='padding:3px 7px;font-size:10.5px;border:1px solid #bbb;color:#111';
@@ -2463,7 +2463,7 @@ function _rmDoc(){
       ${imgLA?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
       ${imgVol?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
     </div>
-    <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas acumuladas del corte por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta mínima por equipo = Hrs Mín. Venta del Master de Equipos (si no la tiene, ${META}h por defecto)</div>`:''}
+    <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas acumuladas del corte por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta mínima por equipo</div>`:''}
 
     <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${AZ};border-bottom:2px solid ${AZ};padding-bottom:3px;margin:16px 0 6px">Horas Programadas vs Ejecutadas y Disponibilidad Mecánica${_rmSub?' — '+_rmSub:''}</div>
     <table style="${TBL}">
@@ -2482,7 +2482,7 @@ function _rmDoc(){
     <div style="font-size:8.5px;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
       <span style="color:#111">Avance: <span style="color:#15803d">✓ ≥100%</span> · <span style="color:#b45309">❗ 60–99%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
       <span style="color:#111">Utilización: <span style="color:#15803d">✓ ≥80%</span> · <span style="color:#b45309">❗ 60–79%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
-      <span style="color:#111">Disp. Mec.: <span style="color:#15803d">✓ ≥90%</span> · <span style="color:#b45309">❗ 80–89%</span> · <span style="color:#b91c1c">✗ &lt;80%</span></span>
+      <span style="color:#111">Disp. Mec.: <span style="color:#15803d">✓ ≥85%</span> · <span style="color:#b45309">❗ 75–84%</span> · <span style="color:#b91c1c">✗ &lt;75%</span></span>
     </div>
 
     <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
