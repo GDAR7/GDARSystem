@@ -2163,6 +2163,8 @@ function _phResumenDoc(){
       </div>
     </div>
 
+    <div class="salto-pdf"></div>
+
     ${sec('3 · Transporte de Material')}
     <div style="display:flex;gap:8px;align-items:flex-start;page-break-inside:avoid">
       <div style="flex:1.25;min-width:0">
@@ -2211,14 +2213,22 @@ function _phResumenDoc(){
 function _phPrintResumen(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
-  // Ancho estándar A4 (210mm) · el ALTO de la página se ajusta al contenido: una sola hoja continua, sin cortes
+  // Ancho estándar A4 (210mm) · alto ajustado al contenido · .salto-pdf parte el reporte en 2 páginas
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Semanal Horas Máquina</title>
-  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:194mm;padding:8mm;box-sizing:content-box}</style>
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:194mm;padding:8mm;box-sizing:content-box}.salto-pdf{page-break-after:always;break-after:page;height:0}</style>
   </head><body><div id="doc">${_phResumenDoc()}</div>
   <script>
   window.onload=function(){
     var d=document.getElementById('doc');
-    var hmm=Math.ceil((d.offsetHeight+4)/96*25.4);
+    var mk=d.querySelector('.salto-pdf');
+    var hpx;
+    if(mk){
+      var r=d.getBoundingClientRect(),m=mk.getBoundingClientRect();
+      var h1=m.bottom-r.top;          // página 1: hasta el salto
+      var h2=r.bottom-m.bottom+60;    // página 2: lo que sigue (+ margen)
+      hpx=Math.max(h1,h2)+8;
+    }else{hpx=d.offsetHeight+4;}
+    var hmm=Math.ceil(hpx/96*25.4);
     var st=document.createElement('style');
     st.textContent='@page{size:210mm '+hmm+'mm;margin:0}';
     document.head.appendChild(st);
