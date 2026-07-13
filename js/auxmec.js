@@ -1874,7 +1874,9 @@ function _phResumenDoc(){
     const noche=/noche/i.test(p.turno||'');
     (p.viajes||[]).forEach(function(v){
       const c=+v.cant||0;if(!c)return;
-      if(!v.material)return; // viajes sin material = cambio de frente: no se consideran en este reporte
+      // viajes sin material (campo vacío o el texto "SIN MATERIAL") = cambio de frente: no se consideran en este reporte
+      const mat=String(v.material||'').trim();
+      if(!mat||/^sin\s*material/i.test(mat))return;
       if(noche)viajesN+=c;else viajesD+=c;
       const m3=c*cap;m3Tot+=m3;
       const k=(v.destino||'(sin destino)')+'||'+v.material;

@@ -3,6 +3,8 @@ let _amtTab=1, _amtFechaD=null, _amtFechaH=null, _amtMatFiltro=new Set(), _amtFi
 let _amtMatDropEl=null;
 let _amtCapM3=+localStorage.getItem('_amtCapM3')||12;
 function _amtSetCap(v){_amtCapM3=Math.max(1,+v||12);localStorage.setItem('_amtCapM3',_amtCapM3);_amtRender();}
+// Material válido = no vacío y distinto del texto "SIN MATERIAL" (traslado: cuenta el viaje, no el volumen)
+function _amtMatOk(m){m=String(m||'').trim();return !!m&&!/^sin\s*material/i.test(m);}
 
 function rAvanceMT(){
   if(!_amtFechaD){
@@ -89,7 +91,7 @@ function _amtRenderTramos(body){
       if(!byTramo[v.tramoId]) byTramo[v.tramoId]={viajes:0,m3:0,parteIds:new Set(),lastFecha:''};
       byTramo[v.tramoId].viajes+=(parseFloat(v.cant)||0);
       // Sin material = traslado → no suma volumen
-      byTramo[v.tramoId].m3+=v.material?(parseFloat(v.cant)||0)*_amtCapM3:0;
+      byTramo[v.tramoId].m3+=_amtMatOk(v.material)?(parseFloat(v.cant)||0)*_amtCapM3:0;
       byTramo[v.tramoId].parteIds.add(p.id);
       if(p.fecha>byTramo[v.tramoId].lastFecha) byTramo[v.tramoId].lastFecha=p.fecha;
     });
@@ -198,14 +200,14 @@ function _amtRenderAreas(body){
       const _cant=parseFloat(v.cant)||0;
       byDest[dest].viajes+=_cant;
       // Sin material = traslado → cuenta el viaje pero no el volumen
-      byDest[dest].m3+=v.material?_cant*_amtCapM3:0;
+      byDest[dest].m3+=_amtMatOk(v.material)?_cant*_amtCapM3:0;
       byDest[dest].parteIds.add(p.id);
       if(p.fecha>byDest[dest].lastFecha) byDest[dest].lastFecha=p.fecha;
       if(v.material){byDest[dest].materiales[v.material]=(byDest[dest].materiales[v.material]||0)+(_cant*_amtCapM3);}
       if(v.tramoId){
         if(!byDest[dest].tramos[v.tramoId]) byDest[dest].tramos[v.tramoId]={viajes:0,m3:0};
         byDest[dest].tramos[v.tramoId].viajes+=_cant;
-        byDest[dest].tramos[v.tramoId].m3+=v.material?_cant*_amtCapM3:0;
+        byDest[dest].tramos[v.tramoId].m3+=_amtMatOk(v.material)?_cant*_amtCapM3:0;
       }
     });
   });
@@ -416,7 +418,7 @@ function _amtSemViajes(fIni,fFin){
       if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
       const cant=parseFloat(v.cant)||0;if(!cant)return;
       // Sin material = traslado de un frente a otro → cuenta el viaje pero NO el volumen
-      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:v.material?cant*_amtCapM3:0,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
+      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:_amtMatOk(v.material)?cant*_amtCapM3:0,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
     });
   });
   return out;
