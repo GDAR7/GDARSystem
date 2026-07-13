@@ -2290,8 +2290,10 @@ function _rmDatos(){
     const prog=a.n*HP;
     const imProj=a.im/diasTrans*diasCorte;
     const progBase=diasCorte*HP;
-    return{id,eq:a.eq,tipo:a.tipo,sub:a.sub,dias:a.dias.size,ef:a.ef,im:a.im,prog,
-      avance:META?a.ef/META*100:0,
+    // Meta por equipo: Hrs Mín. Venta del Master de Equipos · si no la tiene, la meta global 🎯
+    const metaEq=(a.eq&&+a.eq.hrsMinVenta>0)?+a.eq.hrsMinVenta:META;
+    return{id,eq:a.eq,tipo:a.tipo,sub:a.sub,dias:a.dias.size,ef:a.ef,im:a.im,prog,meta:metaEq,
+      avance:metaEq?a.ef/metaEq*100:0,
       util:prog?a.ef/prog*100:0,
       dm:prog?(prog-a.im)/prog*100:0,
       dmProj:Math.max(0,Math.min(100,(progBase-imProj)/progBase*100))};
@@ -2324,12 +2326,13 @@ function _rmDoc(){
   const kpi=(lbl,val,col)=>`<div style="min-width:0;border:2px solid ${col};border-radius:8px;padding:6px 8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:15px;font-weight:900;color:${col};white-space:nowrap">${val}</div></div>`;
   const celda=(u,ic)=>{const[i,c]=ic(u);return`<td style="${TD};text-align:right;font-weight:900;color:${c}">${u.toFixed(2)}% ${i}</td>`;};
 
-  // Promedios y GAP por grupo (meta vs real)
+  // Promedios y GAP por grupo (meta promedio del grupo vs real)
   const grupoStats=filtro=>{
     const g=todos.filter(filtro);
     if(!g.length)return null;
     const prom=g.reduce((s,r)=>s+r.ef,0)/g.length;
-    return{n:g.length,prom,gap:prom-META};
+    const metaProm=g.reduce((s,r)=>s+r.meta,0)/g.length;
+    return{n:g.length,prom,metaProm,gap:prom-metaProm};
   };
   const stLA=grupoStats(r=>r.tipo==='Línea Amarilla');
   const stVol=grupoStats(r=>r.sub.includes('VOLQUETE'));
@@ -2351,7 +2354,7 @@ function _rmDoc(){
       data:{
         labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.id),
         datasets:[
-          {type:'line',label:'Meta',data:items.map(()=>META),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
+          {type:'line',label:'Meta',data:items.map(r=>r.meta),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0,stepped:'middle'},
           {label:'Horas',data:items.map(r=>+r.ef.toFixed(1)),backgroundColor:items.map(r=>subCol(r.sub)),borderRadius:3}
         ]
       },
@@ -2383,7 +2386,7 @@ function _rmDoc(){
       <td style="${TD};white-space:nowrap;padding-left:14px"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
       <td style="${TD};text-align:center">${r.dias}</td>
       <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
-      ${celda(r.avance,icoAvance)}
+      ${(()=>{const[i,c]=icoAvance(r.avance);return`<td style="${TD};text-align:right;font-weight:900;color:${c}">${r.avance.toFixed(2)}% ${i}<div style="font-weight:400;color:#666;font-size:8px">meta ${fmt1(r.meta)}h</div></td>`;})()}
       ${celda(r.util,icoUtil)}
       <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
       ${celda(r.dm,icoDM)}
@@ -2396,10 +2399,10 @@ function _rmDoc(){
     name:'mensual_corte_'+cIni+'.xlsx',
     aoa:[
       ['REPORTE MENSUAL — HORAS PROGRAMADAS VS EJECUTADAS — '+dmy(cIni)+' al '+dmy(cFin)+' — Meta mín. '+META+'h'+(_rmSub?' — '+_rmSub:'')],
-      ['Subtipo','Equipo','Placa','Días T','Horas trabajadas','% Avance hrs mín-prog.','% Utilización','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
+      ['Subtipo','Equipo','Placa','Días T','Horas trabajadas','Meta Hrs Mín. Venta','% Avance hrs mín-prog.','% Utilización','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
       ...rows.map(r=>[
         r.sub,r.eq?r.eq.codigo:('#'+r.id),r.eq?(r.eq.placa||''):'',
-        r.dias,+r.ef.toFixed(1),+r.avance.toFixed(2),+r.util.toFixed(2),+r.im.toFixed(1),+r.dm.toFixed(2),+r.dmProj.toFixed(2)
+        r.dias,+r.ef.toFixed(1),+r.meta.toFixed(1),+r.avance.toFixed(2),+r.util.toFixed(2),+r.im.toFixed(1),+r.dm.toFixed(2),+r.dmProj.toFixed(2)
       ])
     ]
   };
@@ -2424,7 +2427,7 @@ function _rmDoc(){
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
       ${kpi('Días del Corte',diasCorte+' <span style="font-size:9px;color:#555">· '+diasTrans+' transc.</span>','#6d28d9')}
-      ${kpi('Meta Mín. Horas al Corte',META+'h','#dc2626')}
+      ${kpi('Meta Mín. Horas (defecto)',META+'h <span style="font-size:9px;color:#555">· por equipo: Hrs Mín. Venta</span>','#dc2626')}
       ${kpi('Prom. Real L. Amarilla'+(stLA?' ('+stLA.n+' eq.)':''),gapTxt(stLA),'#b45309')}
       ${kpi('Prom. Real Volquetes'+(stVol?' ('+stVol.n+' eq.)':''),gapTxt(stVol),'#2563eb')}
     </div>
@@ -2433,7 +2436,7 @@ function _rmDoc(){
       ${imgLA?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
       ${imgVol?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
     </div>
-    <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas acumuladas del corte por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta mínima al corte = ${META}h</div>`:''}
+    <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas acumuladas del corte por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta mínima por equipo = Hrs Mín. Venta del Master de Equipos (si no la tiene, ${META}h por defecto)</div>`:''}
 
     <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${AZ};border-bottom:2px solid ${AZ};padding-bottom:3px;margin:16px 0 6px">Horas Programadas vs Ejecutadas y Disponibilidad Mecánica${_rmSub?' — '+_rmSub:''}</div>
     <table style="${TBL}">
