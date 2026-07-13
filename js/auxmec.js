@@ -1911,6 +1911,47 @@ function _phResumenDoc(){
     return{nombre:per?`${per.ape}, ${per.nom}`:('#'+pid),cargo:per?(per.cargo||'—'):'—',guardia:per?(per.guardia||'—'):'—',fecha};
   }).sort((a,b)=>a.fecha<b.fecha?-1:1);
 
+  // ── Gráficos del documento (se convierten a imagen PNG para que salgan en el PDF) ──
+  const SUBCOL_DOC={'EXCAVADORA':'#ef4444','CARGADOR':'#a855f7','MOTONIVELADORA':'#10b981','RETRO':'#f59e0b','TRACTOR':'#06b6d4','RODILLO':'#84cc16','VOLQUETE':'#3b82f6','CISTERNA':'#0ea5e9'};
+  const subColDoc=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL_DOC)if(s.includes(k))return SUBCOL_DOC[k];return'#6b7280';};
+  const diasCorteN=Math.round((cFinD-cIniD)/864e5)+1;
+  const metaSem=Math.round((typeof _rmMeta==='function'?_rmMeta():300)*7/diasCorteN);
+  const chartImg=(items,titulo)=>{
+    if(typeof Chart==='undefined'||!items.length)return'';
+    const cv=document.createElement('canvas');cv.width=920;cv.height=280;
+    const ch=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.id),
+        datasets:[
+          {type:'line',label:'Meta',data:items.map(()=>metaSem),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
+          {label:'Horas',data:items.map(r=>+r.ef.toFixed(1)),backgroundColor:items.map(r=>subColDoc(r.eq?r.eq.sub:'')),borderRadius:3}
+        ]
+      },
+      options:{responsive:false,animation:false,devicePixelRatio:2,
+        plugins:{legend:{display:false},title:{display:true,text:titulo,color:'#1e3a5f',font:{size:13,weight:'bold'}}},
+        scales:{
+          x:{ticks:{color:'#333',font:{size:9,weight:'bold'}},grid:{display:false}},
+          y:{beginAtZero:true,ticks:{color:'#333',font:{size:9},callback:v=>v+' h'},grid:{color:'#ddd'}}
+        }}
+    });
+    const url=cv.toDataURL('image/png');
+    ch.destroy();
+    return url;
+  };
+  const ordCod=(a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:''));
+  const chLA=filasEq.filter(r=>r.tipo==='Línea Amarilla').slice().sort(ordCod);
+  const chVol=filasEq.filter(r=>String((r.eq&&r.eq.sub)||'').toUpperCase().includes('VOLQUETE')).slice().sort(ordCod);
+  const imgLA=chartImg(chLA,'HORAS EFECTIVAS LÍNEA AMARILLA — SEMANA');
+  const imgVol=chartImg(chVol,'HORAS EFECTIVAS VOLQUETES — SEMANA');
+  const chartsHtml=(imgLA||imgVol)?`<div style="display:flex;gap:8px;margin-top:10px;page-break-inside:avoid">
+    ${imgLA?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
+    ${imgVol?`<div style="flex:1;min-width:0;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
+  </div>
+  <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas efectivas de la semana por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta semanal prorrateada = ${metaSem}h (meta del corte ${typeof _rmMeta==='function'?_rmMeta():300}h × 7 ÷ ${diasCorteN} días)</div>`:'';
+
+  const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
+
   // ── Documento (estilos para papel blanco) ──
   const AZ='#1e3a5f';
   const semCol=u=>u>=80?'#15803d':u>=60?'#b45309':'#b91c1c';
@@ -1935,16 +1976,17 @@ function _phResumenDoc(){
 
   return`
   <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${AZ};padding-bottom:6px">
-      <div>
-        <div style="font-size:17px;font-weight:900;color:${AZ}">REPORTE SEMANAL DE OPERACIONES — HORAS MÁQUINA</div>
-        <div style="font-size:11px;color:#444;margin-top:2px">GDAR · ECOSERMO</div>
-      </div>
-      <div style="text-align:right;font-size:10.5px;color:#333">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:3px solid ${AZ};padding-bottom:6px">
+      <div style="flex:1;font-size:10px;color:#333">
         <div style="font-weight:800;color:${AZ}">${semTit}</div>
         <div>${corteTit}</div>
         <div style="color:#777">Emitido: ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</div>
       </div>
+      <div style="flex:2;text-align:center">
+        <div style="font-size:17px;font-weight:900;color:${AZ}">REPORTE SEMANAL DE OPERACIONES — HORAS MÁQUINA</div>
+        <div style="font-size:11px;color:#444;margin-top:2px">GDAR · ECOSERMO</div>
+      </div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -1957,6 +1999,8 @@ function _phResumenDoc(){
       ${kpi('Personal en Semana',personasSem,'#6d28d9')}
       ${kpi('Ingresos (Anexo 5)',ingresos.length,'#c2410c')}
     </div>
+
+    ${chartsHtml}
 
     ${sec('1 · Utilización y Disponibilidad Mecánica — Línea Amarilla y Línea Blanca')}
     <table style="${TBL}">
@@ -2216,7 +2260,7 @@ function rReporteMensual(){
   };
 
   const chLA=todos.filter(r=>r.tipo==='Línea Amarilla').sort((a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')));
-  const chLB=todos.filter(r=>r.tipo==='Línea Blanca').sort((a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')));
+  const chLB=todos.filter(r=>r.sub.includes('VOLQUETE')).sort((a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:'')));
 
   el.innerHTML=bar+kpis+`
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.9rem">
@@ -2278,7 +2322,7 @@ function rReporteMensual(){
       });
     };
     if(chLA.length)_rmChartLA=mk('rmChartLA',chLA,`HORAS ACUMULADAS LÍNEA AMARILLA (${dmy(cIni)} – ${dmy(cFin)})`);
-    if(chLB.length)_rmChartLB=mk('rmChartLB',chLB,`HORAS ACUMULADAS LÍNEA BLANCA (${dmy(cIni)} – ${dmy(cFin)})`);
+    if(chLB.length)_rmChartLB=mk('rmChartLB',chLB,`HORAS ACUMULADAS VOLQUETES (${dmy(cIni)} – ${dmy(cFin)})`);
   }
 }
 
