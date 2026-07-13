@@ -2310,7 +2310,8 @@ function _rmDatos(){
   const diasCorte=Math.round((cFinD-cIniD)/864e5)+1;
   // Avance dinámico: se acumula desde el 21 hasta el FIN DE LA SEMANA elegida (las metas siguen siendo mensuales)
   const aFin=fFin<cFin?fFin:cFin;
-  const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(aFin+'T12:00:00')-cIniD)/864e5)+1));
+  // Ambas fechas a las 12:00 para que la resta dé días exactos (cIniD está a las 00:00)
+  const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(aFin+'T12:00:00')-new Date(cIni+'T12:00:00'))/864e5)+1));
 
   // Acumular partes del corte hasta la semana elegida (solo Línea Amarilla y Línea Blanca)
   const acc={};
