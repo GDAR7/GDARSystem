@@ -2264,7 +2264,13 @@ function _rmSetMeta(){
   localStorage.setItem('gdar_rm_metacorte',n);
   rReporteMensual();
 }
-function _rmNav(d){_rmCorteOff+=d;rReporteMensual();}
+function _rmNav(d){
+  // Navega de semana en semana (mismo estado que Panel de Horas / Resumen Semanal)
+  const dd=new Date((_phSemIni||_phSemDefault())+'T12:00:00');
+  dd.setDate(dd.getDate()+d*7);
+  _phSemIni=dd.toISOString().slice(0,10);
+  rReporteMensual();
+}
 function _rmExportXls(){
   if(!_rmExport||!_rmExport.aoa){toast('Nada que exportar',true);return;}
   if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
@@ -2278,22 +2284,28 @@ function _rmDatos(){
   const pad=n=>String(n).padStart(2,'0');
   const HP=_phHsProgTurno(),META=_rmMeta();
 
-  // Corte 21→20 según offset de meses
-  const hoyD=new Date(today()+'T12:00:00');
-  let cIniD=hoyD.getDate()>=21?new Date(hoyD.getFullYear(),hoyD.getMonth(),21):new Date(hoyD.getFullYear(),hoyD.getMonth()-1,21);
-  cIniD=new Date(cIniD.getFullYear(),cIniD.getMonth()+_rmCorteOff,21);
+  // Semana elegida (estado compartido con Panel de Horas / Resumen Semanal)
+  if(!_phSemIni)_phSemIni=_phSemDefault();
+  const d0=new Date(_phSemIni+'T12:00:00');
+  const fechasSem=[];
+  for(let i=0;i<7;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);fechasSem.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
+  const fIni=fechasSem[0],fFin=fechasSem[6];
+
+  // Corte 21→20 que contiene el fin de la semana elegida
+  const dF=new Date(fFin+'T12:00:00');
+  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
   const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
   const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const cIni=isoD(cIniD),cFin=isoD(cFinD);
   const diasCorte=Math.round((cFinD-cIniD)/864e5)+1;
-  const hoyIso=today();
-  const finData=hoyIso<cFin?hoyIso:cFin;
-  const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(finData+'T12:00:00')-cIniD)/864e5)+1));
+  // Avance dinámico: se acumula desde el 21 hasta el FIN DE LA SEMANA elegida (las metas siguen siendo mensuales)
+  const aFin=fFin<cFin?fFin:cFin;
+  const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(aFin+'T12:00:00')-cIniD)/864e5)+1));
 
-  // Acumular partes del corte (solo Línea Amarilla y Línea Blanca)
+  // Acumular partes del corte hasta la semana elegida (solo Línea Amarilla y Línea Blanca)
   const acc={};
   (DB.partes||[]).forEach(function(p){
-    if(!p.fecha||p.fecha<cIni||p.fecha>cFin||!p.eqId)return;
+    if(!p.fecha||p.fecha<cIni||p.fecha>aFin||!p.eqId)return;
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
     const tipo=eq?(eq.tipo||''):'';
     if(tipo!=='Línea Amarilla'&&tipo!=='Línea Blanca')return;
@@ -2314,13 +2326,13 @@ function _rmDatos(){
       dmProj:Math.max(0,Math.min(100,(progBase-imProj)/progBase*100))};
   });
   _rmSubs=[...new Set(todos.map(r=>r.sub))].sort();
-  _rmHdr={cIni,cFin};
-  return{HP,META,cIni,cFin,diasCorte,diasTrans,todos};
+  _rmHdr={cIni,cFin,fIni,fFin,aFin};
+  return{HP,META,cIni,cFin,fIni,fFin,aFin,diasCorte,diasTrans,todos};
 }
 
 // Documento en hoja blanca (mismo formato que el Resumen Semanal)
 function _rmDoc(){
-  const{HP,META,cIni,cFin,diasCorte,diasTrans,todos}=_rmDatos();
+  const{HP,META,cIni,cFin,fIni,fFin,aFin,diasCorte,diasTrans,todos}=_rmDatos();
   const pad=n=>String(n).padStart(2,'0');
   const fmt1=v=>(+v||0).toLocaleString('es-PE',{maximumFractionDigits:1});
   const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
@@ -2386,8 +2398,8 @@ function _rmDoc(){
     return url;
   };
   const ordCod=(a,b)=>String(a.eq?a.eq.codigo:'').localeCompare(String(b.eq?b.eq.codigo:''));
-  const imgLA=chartImg(todos.filter(r=>r.tipo==='Línea Amarilla').slice().sort(ordCod),`HORAS ACUMULADAS LÍNEA AMARILLA (${dmy(cIni)} – ${dmy(cFin)})`);
-  const imgVol=chartImg(todos.filter(r=>r.sub.includes('VOLQUETE')).slice().sort(ordCod),`HORAS ACUMULADAS VOLQUETES (${dmy(cIni)} – ${dmy(cFin)})`);
+  const imgLA=chartImg(todos.filter(r=>r.tipo==='Línea Amarilla').slice().sort(ordCod),`HORAS ACUMULADAS LÍNEA AMARILLA (${dmy(cIni)} – ${dmy(aFin)})`);
+  const imgVol=chartImg(todos.filter(r=>r.sub.includes('VOLQUETE')).slice().sort(ordCod),`HORAS ACUMULADAS VOLQUETES (${dmy(cIni)} – ${dmy(aFin)})`);
 
   // Filas de la tabla agrupadas por subtipo
   let body='';let lastSub='';
@@ -2413,7 +2425,7 @@ function _rmDoc(){
   _rmExport={
     name:'mensual_corte_'+cIni+'.xlsx',
     aoa:[
-      ['REPORTE MENSUAL — HORAS PROGRAMADAS VS EJECUTADAS — '+dmy(cIni)+' al '+dmy(cFin)+' — Meta mín. '+META+'h'+(_rmSub?' — '+_rmSub:'')],
+      ['REPORTE SEMANAL — AVANCE DEL MES — Corte '+dmy(cIni)+' al '+dmy(cFin)+' — Avance al '+dmy(aFin)+' — Meta mín. '+META+'h'+(_rmSub?' — '+_rmSub:'')],
       ['Subtipo','Equipo','Placa','Días T','Horas trabajadas','Meta Hrs Mín. Venta','% Avance hrs mín-prog.','% Utilización','Hs Inoper.','% Disp. Mec. al corte','% Disp. Mec. proyec. mes'],
       ...rows.map(r=>[
         r.sub,r.eq?r.eq.codigo:('#'+r.id),r.eq?(r.eq.placa||''):'',
@@ -2430,7 +2442,8 @@ function _rmDoc(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:3px solid ${AZ};padding-bottom:6px">
       <div style="flex:1;font-size:10px;color:#333">
         <div style="font-weight:800;color:${AZ}">Corte ${dmy(cIni)} al ${dmy(cFin)}</div>
-        <div>${diasCorte} días · ${diasTrans} transcurrido(s)</div>
+        <div>Avance a la semana: ${dmy(fIni)} – ${dmy(fFin)}</div>
+        <div>${diasTrans} de ${diasCorte} días del corte</div>
       </div>
       <div style="flex:2;text-align:center">
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — AVANCE DEL MES</div>
