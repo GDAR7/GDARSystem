@@ -2520,14 +2520,18 @@ function rReporteMensual(){
   const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)';
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Semana</span>
+    <button onclick="_rmNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
+    <input type="date" value="${_phSemIni}" onchange="_phSemIni=this.value;rReporteMensual()" style="${inpS};width:135px">
+    <button onclick="_rmNav(1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana siguiente">›</button>
+    <span style="font-size:.72rem;color:var(--ceq);font-weight:700;font-family:monospace;white-space:nowrap">${dmy(_rmHdr.fIni)} – ${dmy(_rmHdr.fFin)}</span>
+    <button onclick="_phSemIni=_phSemDefault();rReporteMensual()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">Semana actual (Lun)</button>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
-    <button onclick="_rmNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Corte anterior">‹</button>
-    <span style="font-size:.72rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${dmy(_rmHdr.cIni)} al ${dmy(_rmHdr.cFin)}</span>
-    <button onclick="_rmNav(1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Corte siguiente">›</button>
-    ${_rmCorteOff?`<button onclick="_rmCorteOff=0;rReporteMensual()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">Corte actual</button>`:''}
+    <span style="font-size:.72rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap" title="Corte 21→20 que contiene la semana elegida · las horas se acumulan del 21 hasta el fin de la semana">${dmy(_rmHdr.cIni)} al ${dmy(_rmHdr.cFin)} · avance al ${dmy(_rmHdr.aFin)}</span>
     <div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Subtipo</span>
-    <select onchange="_rmSub=this.value;rReporteMensual()" style="${inpS}">
+    <select onchange="_rmSub=this.value;rReporteMensual()" style="${inpS};max-width:200px">
       <option value="">— Todas —</option>
       ${_rmSubs.map(s=>`<option value="${s}"${_rmSub===s?' selected':''}>${s}</option>`).join('')}
     </select>
