@@ -1997,7 +1997,7 @@ function _phResumenDoc(){
   const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
   const TD='padding:3px 7px;font-size:10.5px;border:1px solid #bbb;color:#111';
   const TBL='width:100%;border-collapse:collapse;page-break-inside:auto';
-  const kpi=(lbl,val,col)=>`<div style="flex:1;min-width:105px;border:2px solid ${col};border-radius:8px;padding:6px 10px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:16px;font-weight:900;color:${col}">${val}</div></div>`;
+  const kpi=(lbl,val,col)=>`<div style="min-width:0;border:2px solid ${col};border-radius:8px;padding:6px 8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:15px;font-weight:900;color:${col};white-space:nowrap">${val}</div></div>`;
   const pct=u=>`<span style="font-weight:900;color:${semCol(u)}">${u.toFixed(1)}%</span>`;
 
   const grupoRows=(items,mapFila,cols)=>{
@@ -2057,7 +2057,7 @@ function _phResumenDoc(){
       <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+    <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
       ${kpi('Utilización Semana',tProg?uSem.toFixed(1)+'%':'—',semCol(uSem))}
       ${kpi('Disp. Mecánica',tProg?dmSem.toFixed(1)+'%':'—',semCol(dmSem))}
       ${kpi('Hs Efectivas',fmt1(tEf)+'h',AZ)}
@@ -2148,9 +2148,21 @@ function _phResumenDoc(){
 function _phPrintResumen(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  // La página del PDF toma el tamaño exacto del contenido (sin forzar A4): sale tal como se ve en la vista previa
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Semanal Horas Máquina</title>
-  <style>@page{size:A4;margin:12mm}body{margin:0;background:#fff}table{page-break-inside:auto}tr{page-break-inside:avoid}</style>
-  </head><body>${_phResumenDoc()}<script>window.onload=function(){window.print();}<${'/'}script></body></html>`);
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box}</style>
+  </head><body><div id="doc">${_phResumenDoc()}</div>
+  <script>
+  window.onload=function(){
+    var d=document.getElementById('doc');
+    var wmm=(d.offsetWidth/96*25.4).toFixed(1);
+    var hmm=((d.offsetHeight+2)/96*25.4).toFixed(1);
+    var st=document.createElement('style');
+    st.textContent='@page{size:'+wmm+'mm '+hmm+'mm;margin:0}';
+    document.head.appendChild(st);
+    window.print();
+  };
+  <${'/'}script></body></html>`);
   win.document.close();
 }
 
