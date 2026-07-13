@@ -1223,11 +1223,12 @@ function _phTabSwitch(t){_phTab=t;rPanelHoras();}
 function rPanelHoras(){
   const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
-  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores']];
+  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal']];
   root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_phTab===n;return`<button onclick="_phTabSwitch(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="phTabBody"></div>`;
   if(_phTab===2){_phRenderUtil('util');return;}
   if(_phTab===3){_phRenderUtil('dm');return;}
   if(_phTab===4){_phRenderMenores();return;}
+  if(_phTab===5){_phRenderResumen();return;}
   _phRenderHoras();
 }
 function _phRenderHoras(){
@@ -1821,6 +1822,246 @@ function _phRenderMenores(){
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
     <span style="margin-left:auto">ⓘ Disp. = (D. Oper. − D. Inop.) ÷ días del período (semana = 7 · corte = ${diasCorte}) · D. Oper. = días con parte operativo/standby · D. Inop. = días donde todos los partes fueron INOPERATIVO (falla mecánica) · Total = promedio sobre ${n} equipo(s)</span>
   </div>`;
+}
+
+// ── TAB 5: RESUMEN SEMANAL (documento imprimible: utilización, disp. mecánica, transporte, actividades y personal) ──
+function _phResumenDoc(){
+  const pad=n=>String(n).padStart(2,'0');
+  const fmt1=v=>(+v||0).toLocaleString('es-PE',{maximumFractionDigits:1});
+  const HP=_phHsProgTurno();
+
+  // Semana + corte (misma lógica de los demás tabs)
+  const d0=new Date(_phSemIni+'T12:00:00');
+  const fechas=[];const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  for(let i=0;i<7;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);fechas.push({iso:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,lbl:DN[d.getDay()],dm:`${pad(d.getDate())}/${pad(d.getMonth()+1)}`});}
+  const fIni=fechas[0].iso,fFin=fechas[6].iso;
+  const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
+  const dISO=new Date(fFin+'T12:00:00');
+  const jue=new Date(dISO);jue.setDate(dISO.getDate()+(4-(dISO.getDay()||7)));
+  const nSem=Math.ceil((((jue-new Date(jue.getFullYear(),0,1))/864e5)+1)/7);
+  const dF=new Date(fFin+'T12:00:00');
+  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
+  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const cIni=isoD(cIniD),cFin=isoD(cFinD);
+  const semTit=`Semana ${jue.getFullYear()}-S${pad(nSem)} · ${dmy(fIni)} al ${dmy(fFin)}`;
+  const corteTit=`Corte ${dmy(cIni)} al ${dmy(cFin)}`;
+
+  const cap=typeof _amtCapM3!=='undefined'?(+_amtCapM3||15):15;
+  const esInop=p=>String(p.condicion||'').toUpperCase().startsWith('INOPERATIVO');
+
+  // ── Recolectar datos de la semana ──
+  const eqLineas={};   // líneas amarilla/blanca: horas
+  const menores={};    // menores: días op/inop
+  const actividades=[];// {fecha,eqCod,frente,act}
+  let viajesD=0,viajesN=0,m3Tot=0;
+  const rutas={};
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||p.fecha<fIni||p.fecha>fFin||!p.eqId)return;
+    const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
+    const tipo=eq?(eq.tipo||'Otros'):'Otros';
+    const ef=Math.max(0,+p.ef||0),im=Math.max(0,+p.im||0);
+    if(tipo==='Línea Amarilla'||tipo==='Línea Blanca'){
+      if(!eqLineas[p.eqId])eqLineas[p.eqId]={eq,tipo,n:0,ef:0,im:0,dias:new Set()};
+      const r=eqLineas[p.eqId];r.n++;r.ef+=ef;r.im+=im;r.dias.add(p.fecha);
+    }else if(tipo==='Vehículo Menor'||tipo==='Equipos Menores'){
+      if(!menores[p.eqId])menores[p.eqId]={eq,tipo,days:{}};
+      const d=menores[p.eqId].days;
+      if(!d[p.fecha])d[p.fecha]={op:false,inop:false};
+      if(esInop(p))d[p.fecha].inop=true;else d[p.fecha].op=true;
+    }
+    if(p.act&&String(p.act).trim())actividades.push({fecha:p.fecha,eqCod:eq?eq.codigo:('#'+p.eqId),frente:p.frenteT||p.areaT||'—',act:String(p.act).trim()});
+    const noche=/noche/i.test(p.turno||'');
+    (p.viajes||[]).forEach(function(v){
+      const c=+v.cant||0;if(!c)return;
+      if(noche)viajesN+=c;else viajesD+=c;
+      const m3=v.material?c*cap:0;m3Tot+=m3;
+      const k=(v.destino||'(sin destino)')+'||'+(v.material||'(sin material)');
+      if(!rutas[k])rutas[k]={destino:v.destino||'(sin destino)',material:v.material||'(sin material)',viajes:0,m3:0};
+      rutas[k].viajes+=c;rutas[k].m3+=m3;
+    });
+  });
+  const viajesTot=viajesD+viajesN;
+
+  // Líneas: filas + totales
+  const filasEq=Object.entries(eqLineas).map(([id,r])=>({id,...r,dias:r.dias.size,prog:r.n*HP}))
+    .sort((a,b)=>a.tipo===b.tipo?b.ef-a.ef:a.tipo.localeCompare(b.tipo));
+  const tProg=filasEq.reduce((s,r)=>s+r.prog,0),tEf=filasEq.reduce((s,r)=>s+r.ef,0),tIm=filasEq.reduce((s,r)=>s+r.im,0);
+  const uSem=tProg?tEf/tProg*100:0;
+  const dmSem=tProg?(tProg-tIm)/tProg*100:0;
+
+  // Menores: filas + total
+  const filasMen=Object.entries(menores).map(([id,a])=>{
+    let op=0,inop=0;Object.values(a.days).forEach(d=>{if(d.op)op++;else if(d.inop)inop++;});
+    return{id,eq:a.eq,tipo:a.tipo,op,inop,disp:Math.max(0,(op-inop)/7*100)};
+  }).sort((a,b)=>a.tipo===b.tipo?b.op-a.op:a.tipo.localeCompare(b.tipo));
+  const nMen=filasMen.length;
+  const dispMen=nMen?Math.max(0,(filasMen.reduce((s,r)=>s+r.op,0)-filasMen.reduce((s,r)=>s+r.inop,0))/(nMen*7)*100):0;
+
+  // Personal de la semana (tareaje: TD/TN/DLT trabajado · A5 ingreso nuevo)
+  const TIPOS_ASIS=['TD','TN','DLT','A5'];
+  const tarSem=(DB.tareaje||[]).filter(r=>r.fecha>=fIni&&r.fecha<=fFin&&TIPOS_ASIS.includes(r.tipo));
+  const perDia={};fechas.forEach(f=>perDia[f.iso]=new Set());
+  tarSem.forEach(r=>{if(perDia[r.fecha])perDia[r.fecha].add(r.personalId);});
+  const personasSem=new Set(tarSem.map(r=>r.personalId)).size;
+  const a5Map={};
+  tarSem.filter(r=>r.tipo==='A5').forEach(r=>{if(!a5Map[r.personalId]||r.fecha<a5Map[r.personalId])a5Map[r.personalId]=r.fecha;});
+  const ingresos=Object.entries(a5Map).map(([pid,fecha])=>{
+    const per=(DB.personal||[]).find(x=>x.id==pid);
+    return{nombre:per?`${per.ape}, ${per.nom}`:('#'+pid),cargo:per?(per.cargo||'—'):'—',guardia:per?(per.guardia||'—'):'—',fecha};
+  }).sort((a,b)=>a.fecha<b.fecha?-1:1);
+
+  // ── Documento (estilos para papel blanco) ──
+  const AZ='#1e3a5f';
+  const semCol=u=>u>=80?'#15803d':u>=60?'#b45309':'#b91c1c';
+  const sec=t=>`<div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${AZ};border-bottom:2px solid ${AZ};padding-bottom:3px;margin:16px 0 6px">${t}</div>`;
+  const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
+  const TD='padding:3px 7px;font-size:10.5px;border:1px solid #bbb;color:#111';
+  const TBL='width:100%;border-collapse:collapse;page-break-inside:auto';
+  const kpi=(lbl,val,col)=>`<div style="flex:1;min-width:105px;border:2px solid ${col};border-radius:8px;padding:6px 10px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:16px;font-weight:900;color:${col}">${val}</div></div>`;
+  const pct=u=>`<span style="font-weight:900;color:${semCol(u)}">${u.toFixed(1)}%</span>`;
+
+  const grupoRows=(items,mapFila,cols)=>{
+    let out='';let last='';
+    items.forEach(r=>{
+      if(r.tipo!==last){last=r.tipo;out+=`<tr><td colspan="${cols}" style="${TD};background:#e8edf3;font-weight:800;color:${AZ};text-transform:uppercase;font-size:9.5px">${r.tipo}</td></tr>`;}
+      out+=mapFila(r);
+    });
+    return out;
+  };
+
+  const rutasArr=Object.values(rutas).sort((a,b)=>b.m3-a.m3||b.viajes-a.viajes);
+  const hoyD=new Date();
+
+  return`
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${AZ};padding-bottom:6px">
+      <div>
+        <div style="font-size:17px;font-weight:900;color:${AZ}">REPORTE SEMANAL DE OPERACIONES — HORAS MÁQUINA</div>
+        <div style="font-size:11px;color:#444;margin-top:2px">GDAR · ECOSERMO</div>
+      </div>
+      <div style="text-align:right;font-size:10.5px;color:#333">
+        <div style="font-weight:800;color:${AZ}">${semTit}</div>
+        <div>${corteTit}</div>
+        <div style="color:#777">Emitido: ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      ${kpi('Utilización Semana',tProg?uSem.toFixed(1)+'%':'—',semCol(uSem))}
+      ${kpi('Disp. Mecánica',tProg?dmSem.toFixed(1)+'%':'—',semCol(dmSem))}
+      ${kpi('Disp. Menores',nMen?dispMen.toFixed(1)+'%':'—',semCol(dispMen))}
+      ${kpi('Hs Efectivas',fmt1(tEf)+'h',AZ)}
+      ${kpi('Material Transportado',fmt1(m3Tot)+' m³','#0e7490')}
+      ${kpi('Viajes',viajesTot.toLocaleString(),'#0e7490')}
+      ${kpi('Personal en Semana',personasSem,'#6d28d9')}
+      ${kpi('Ingresos (Anexo 5)',ingresos.length,'#c2410c')}
+    </div>
+
+    ${sec('1 · Utilización y Disponibilidad Mecánica — Línea Amarilla y Línea Blanca')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días</th><th style="${TH}">H. Prog.</th><th style="${TH}">H. Efect.</th><th style="${TH}">Utiliz. %</th><th style="${TH}">H. Inoper.</th><th style="${TH}">Disp. Mec. %</th></tr>
+      ${filasEq.length?grupoRows(filasEq,r=>`<tr>
+        <td style="${TD}"><b>${r.eq?r.eq.codigo:'#'+r.id}</b> <span style="color:#666;font-size:9px">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</span></td>
+        <td style="${TD};text-align:center">${r.dias}</td>
+        <td style="${TD};text-align:right">${fmt1(r.prog)}</td>
+        <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
+        <td style="${TD};text-align:right">${pct(r.prog?r.ef/r.prog*100:0)}</td>
+        <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
+        <td style="${TD};text-align:right">${pct(r.prog?(r.prog-r.im)/r.prog*100:0)}</td>
+      </tr>`,7):`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin partes diarios de líneas en la semana</td></tr>`}
+      ${filasEq.length?`<tr style="background:#e8edf3;font-weight:900">
+        <td style="${TD}">TOTAL</td><td style="${TD}"></td>
+        <td style="${TD};text-align:right">${fmt1(tProg)}</td>
+        <td style="${TD};text-align:right">${fmt1(tEf)}</td>
+        <td style="${TD};text-align:right">${pct(uSem)}</td>
+        <td style="${TD};text-align:right;color:${tIm?'#b91c1c':'#999'}">${tIm?fmt1(tIm):'—'}</td>
+        <td style="${TD};text-align:right">${pct(dmSem)}</td>
+      </tr>`:''}
+    </table>
+    <div style="font-size:8.5px;color:#666;margin-top:2px">H. Prog. = Nº de partes × ${HP}h · Utiliz. = H. Efect. ÷ H. Prog. · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · <span style="color:#15803d">■</span> ≥80% · <span style="color:#b45309">■</span> 60–79% · <span style="color:#b91c1c">■</span> &lt;60%</div>
+
+    ${sec('2 · Disponibilidad Vehículos y Equipos Menores (por días de la semana)')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH}">Días Operativos</th><th style="${TH}">Días Inoperativos</th><th style="${TH}">Disp. % (÷7)</th></tr>
+      ${filasMen.length?grupoRows(filasMen,r=>`<tr>
+        <td style="${TD}"><b>${r.eq?r.eq.codigo:'#'+r.id}</b> <span style="color:#666;font-size:9px">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</span></td>
+        <td style="${TD};text-align:center;font-weight:700">${r.op||'—'}</td>
+        <td style="${TD};text-align:center;color:${r.inop?'#b91c1c':'#999'}">${r.inop||'—'}</td>
+        <td style="${TD};text-align:right">${pct(r.disp)}</td>
+      </tr>`,4):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin partes de menores en la semana</td></tr>`}
+    </table>
+
+    ${sec('3 · Transporte de Material')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Destino</th><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes</th><th style="${TH}">m³</th></tr>
+      ${rutasArr.length?rutasArr.map(r=>`<tr>
+        <td style="${TD}">${r.destino}</td>
+        <td style="${TD};color:${r.material==='(sin material)'?'#999':'#111'}">${r.material}${r.material==='(sin material)'?' · traslado':''}</td>
+        <td style="${TD};text-align:right;font-weight:700">${r.viajes.toLocaleString()}</td>
+        <td style="${TD};text-align:right;font-weight:700">${r.m3?fmt1(r.m3):'—'}</td>
+      </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin viajes registrados en la semana</td></tr>`}
+      ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="2">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
+    </table>
+    <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva · viajes sin material (traslado de equipo) cuentan el viaje pero no el volumen</div>
+
+    ${sec('4 · Actividades de la Semana')}
+    <table style="${TBL}">
+      <tr><th style="${TH}">Fecha</th><th style="${TH};text-align:left">Equipo</th><th style="${TH};text-align:left">Frente</th><th style="${TH};text-align:left">Actividades</th></tr>
+      ${actividades.length?actividades.sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.eqCod.localeCompare(b.eqCod)).map(a=>`<tr>
+        <td style="${TD};text-align:center;white-space:nowrap">${a.fecha.slice(8,10)}/${a.fecha.slice(5,7)}</td>
+        <td style="${TD};white-space:nowrap"><b>${a.eqCod}</b></td>
+        <td style="${TD}">${a.frente}</td>
+        <td style="${TD}">${a.act}</td>
+      </tr>`).join(''):`<tr><td colspan="4" style="${TD};text-align:center;color:#777">Sin actividades registradas en los partes de la semana</td></tr>`}
+    </table>
+
+    ${sec('5 · Personal de la Semana')}
+    <table style="${TBL};page-break-inside:avoid">
+      <tr>${fechas.map(f=>`<th style="${TH}">${f.lbl}<br>${f.dm}</th>`).join('')}<th style="${TH}">Personas Distintas</th></tr>
+      <tr>${fechas.map(f=>`<td style="${TD};text-align:center;font-weight:700">${perDia[f.iso].size||'—'}</td>`).join('')}<td style="${TD};text-align:center;font-weight:900;color:${AZ}">${personasSem}</td></tr>
+    </table>
+    <div style="font-size:8.5px;color:#666;margin:2px 0 8px">Personas por día según tareaje (TD, TN, DLT y A5)</div>
+    <div style="font-size:11px;font-weight:800;color:#c2410c;margin-bottom:3px">Ingresos de personal nuevo — Anexo 5: ${ingresos.length}</div>
+    ${ingresos.length?`<table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Apellidos y Nombres</th><th style="${TH};text-align:left">Cargo</th><th style="${TH}">Guardia</th><th style="${TH}">Fecha de Ingreso (A5)</th></tr>
+      ${ingresos.map(i=>`<tr>
+        <td style="${TD};font-weight:700">${i.nombre}</td>
+        <td style="${TD}">${i.cargo}</td>
+        <td style="${TD};text-align:center">${i.guardia}</td>
+        <td style="${TD};text-align:center">${dmy(i.fecha)}</td>
+      </tr>`).join('')}
+    </table>`:`<div style="font-size:10px;color:#777">Sin registros A5 en la semana — no hubo ingresos nuevos.</div>`}
+
+    <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
+      <span>GDAR — Reporte generado automáticamente desde los partes diarios, tareaje y registro de viajes</span>
+      <span>${semTit}</span>
+    </div>
+  </div>`;
+}
+
+function _phPrintResumen(){
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Semanal Horas Máquina</title>
+  <style>@page{size:A4;margin:12mm}body{margin:0;background:#fff}table{page-break-inside:auto}tr{page-break-inside:avoid}</style>
+  </head><body>${_phResumenDoc()}<script>window.onload=function(){window.print();}<${'/'}script></body></html>`);
+  win.document.close();
+}
+
+function _phRenderResumen(){
+  const el=document.getElementById('phTabBody');if(!el)return;
+  const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Semana</span>
+    <button onclick="_phNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
+    <input type="date" value="${_phSemIni}" onchange="_phSemIni=this.value;rPanelHoras()" style="${inpS};width:135px">
+    <button onclick="_phNav(7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana siguiente">›</button>
+    <button onclick="_phSemIni=_phSemDefault();rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">Semana actual (Lun)</button>
+    <span style="font-size:.62rem;color:var(--muted2)">Vista previa del documento — imprime tal como se ve</span>
+    <button onclick="_phPrintResumen()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
+  </div>`;
+  el.innerHTML=bar+`<div style="background:#fff;border-radius:8px;padding:1.1rem 1.4rem;max-width:1050px;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_phResumenDoc()}</div>`;
 }
 
 // ══ DASHBOARD EQUIPOS ══
