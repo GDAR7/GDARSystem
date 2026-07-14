@@ -2731,6 +2731,22 @@ function _reqOnTipoChange(){
   rReporteEquipos();
 }
 
+// Tabs del Reporte de Equipos: 1 = Partes Diarios · 2 = Utilización de Equipos
+let _reqTabSel=1;
+function _reqTabSwitch(t){
+  _reqTabSel=t;
+  const p=document.getElementById('reqTabPartes'),u=document.getElementById('reqUtil');
+  if(p)p.style.display=t===1?'':'none';
+  if(u)u.style.display=t===2?'':'none';
+  [[1,'reqTabBtn1'],[2,'reqTabBtn2']].forEach(([n,id])=>{
+    const b=document.getElementById(id);if(!b)return;
+    const sel=t===n;
+    b.style.borderColor=sel?'var(--ceq)':'var(--border)';
+    b.style.background=sel?'rgba(249,115,22,.15)':'var(--panel2)';
+    b.style.color=sel?'var(--ceq)':'var(--muted2)';
+    b.style.fontWeight=sel?'800':'500';
+  });
+}
 function rReporteEquipos(){
   const TIPOS_EQ=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
   const fTipo=(document.getElementById('reqFiltTipo')||{}).value||'';
@@ -2795,7 +2811,7 @@ function rReporteEquipos(){
   // Tabla de utilización por equipo
   const utilEl=document.getElementById('reqUtil');
   if(utilEl){
-    utilEl.innerHTML=!utilRows.length?'':`<div class="card">
+    utilEl.innerHTML=!utilRows.length?'<div class="card"><div class="card-body" style="text-align:center;color:var(--muted2);padding:2rem;font-size:.85rem">Sin datos de utilización para los filtros seleccionados.</div></div>':`<div class="card">
       <div class="card-head"><span class="card-title">📈 Utilización de Equipos</span>
         <span style="font-size:.63rem;color:var(--muted2)">Hs efectivas ÷ Hs disponibles · ${diasPer} día${diasPer===1?'':'s'} × ${jornada}h jornada = ${fmtN(hsDisp)}h por equipo</span>
       </div>

@@ -1206,8 +1206,12 @@
     </div>
   </div>
   <div class="kpi-row" id="reqKpis" style="margin-top:.8rem"></div>
-  <div id="reqUtil" style="margin-top:.8rem"></div>
-  <div class="card" style="margin-top:.8rem">
+  <div style="display:flex;gap:.35rem;margin-top:.8rem;flex-wrap:wrap">
+    <button id="reqTabBtn1" onclick="_reqTabSwitch(1)" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid var(--ceq);background:rgba(249,115,22,.15);color:var(--ceq);cursor:pointer;font-weight:800">📄 Partes Diarios</button>
+    <button id="reqTabBtn2" onclick="_reqTabSwitch(2)" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid var(--border);background:var(--panel2);color:var(--muted2);cursor:pointer;font-weight:500">📈 Utilización de Equipos</button>
+  </div>
+  <div id="reqUtil" style="margin-top:.8rem;display:none"></div>
+  <div class="card" style="margin-top:.8rem" id="reqTabPartes">
     <div class="card-head"><span class="card-title">Partes Diarios – Valorización</span></div>
     <div class="card-body" style="padding:0">
       <div class="tbl-wrap">
@@ -2777,7 +2781,7 @@
 <script src="js/mantenimiento.js?v=2"></script>
 <script src="js/tareaje.js?v=2"></script>
 <script src="js/engrase.js"></script>
-<script src="js/auxmec.js?v=39"></script>
+<script src="js/auxmec.js?v=40"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js"></script>
 <script src="js/pizarra.js"></script>
