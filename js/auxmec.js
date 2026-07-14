@@ -1338,7 +1338,7 @@ function _phRenderHoras(){
       const promCol=r.prom>=8?'#10b981':r.prom>=5?'#f59e0b':'#ef4444';
       body+=`<tr>
         <td style="${TD};white-space:nowrap">
-          <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+          <span class="mono" style="font-weight:700;color:#06b6d4">${r.eq?r.eq.codigo:'#'+r.id}</span>
           <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
         </td>
         ${celdas}
@@ -1395,7 +1395,7 @@ function _phRenderHoras(){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celdas = horas efectivas del día (tooltip: desglose ☀/🌙 e inoperativas) · "+Xi" = horas inoperativas · Prom h/día = hs efectivas ÷ días trabajados (verde ≥8, ámbar ≥5, rojo &lt;5) · ▲▼ compara con la semana anterior · Doble click en el código abre el Master</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celdas = horas efectivas del día (tooltip: desglose ☀/🌙 e inoperativas) · "+Xi" = horas inoperativas · Prom h/día = hs efectivas ÷ días trabajados (verde ≥8, ámbar ≥5, rojo &lt;5) · ▲▼ compara con la semana anterior</div>`;
 
   // Gráfico: horas efectivas por día apiladas por línea
   if(rows.length&&typeof Chart!=='undefined'){
@@ -1544,7 +1544,7 @@ function _phRenderUtil(modo){
     items.forEach(function(r){
       body+=`<tr>
         <td style="${TD};white-space:nowrap">
-          <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+          <span class="mono" style="font-weight:700;color:#06b6d4">${r.eq?r.eq.codigo:'#'+r.id}</span>
           <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
         </td>
         <td style="${TD};text-align:center;font-family:monospace">${r.dias||'—'}</td>
@@ -1625,7 +1625,7 @@ function _phRenderUtil(modo){
     <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
     <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
-    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · H. Inoper. = hs de inoperatividad del parte diario':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)} · Doble click en el código abre el Master</span>
+    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · H. Inoper. = hs de inoperatividad del parte diario':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)}</span>
   </div>`;
 }
 
@@ -1741,7 +1741,7 @@ function _phRenderMenores(){
     items.forEach(function(r){
       body+=`<tr>
         <td style="${TD};white-space:nowrap">
-          <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+          <span class="mono" style="font-weight:700;color:#06b6d4">${r.eq?r.eq.codigo:'#'+r.id}</span>
           <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.sub||'')+' '+(r.eq.marca||'')):''}</div>
         </td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#10b981">${r.semOp||'—'}</td>
@@ -2185,7 +2185,7 @@ function _phResumenDoc(){
             <td style="${TD};text-align:right;font-weight:700">${r.viajes.toLocaleString()}</td>
             <td style="${TD};text-align:right;font-weight:700">${r.m3?fmt1(r.m3):'—'}</td>
           </tr>`).join(''):`<tr><td colspan="5" style="${TD};text-align:center;color:#777">Sin viajes con material registrados en la semana</td></tr>`}
-          ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="3">TOTAL · ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
+          ${rutasArr.length?`<tr style="background:#e8edf3;font-weight:900"><td style="${TD}" colspan="3">TOTAL DE VIAJES -> ☀ ${viajesD.toLocaleString()} día / 🌙 ${viajesN.toLocaleString()} noche</td><td style="${TD};text-align:right">${viajesTot.toLocaleString()}</td><td style="${TD};text-align:right">${fmt1(m3Tot)}</td></tr>`:''}
         </table>
         <div style="font-size:8.5px;color:#666;margin-top:2px">m³ = viajes × ${cap} m³ por tolva </div>
       </div>
