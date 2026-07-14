@@ -232,34 +232,31 @@ async function refreshData(){
 // ══ CARGA INICIAL DESDE SUPABASE ══
 async function loadSheetsData(){
   try{
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='catalogoItems'&&k!=='asistencia'&&k!=='almacen'&&k!=='tareaje');
+    // Tablas que crecen sin límite: se cargan paginadas (Supabase corta en 1000 filas por consulta)
+    const PAGINADAS={catalogoItems:'materiales',tareaje:'tareaje',partes:'partes',combustible:'combustible'};
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen'&&!PAGINADAS[k]);
     const results=await Promise.all(
       simpleKeys.map(dbKey=>
         supa.from(SUPA_TABLES[dbKey]).select('*')
           .then(({data,error})=>({dbKey,data,error}))
       )
     );
-    // Carga paginada de materiales (puede superar las 1000 filas)
-    {
-      let allMat=[],from=0,pageSize=1000,done=false;
-      while(!done){
-        const{data,error}=await supa.from('materiales').select('*').range(from,from+pageSize-1).order('id');
-        if(error||!data||data.length===0){done=true;break;}
-        allMat=allMat.concat(data);
-        if(data.length<pageSize)done=true;else from+=pageSize;
+    // Carga paginada en bloques de 1000 hasta traer todo
+    const cargarPaginado=async tabla=>{
+      let all=[],from=0,pageSize=1000;
+      while(true){
+        const{data,error}=await supa.from(tabla).select('*').range(from,from+pageSize-1).order('id');
+        if(error){console.warn('[loadPaginado]',tabla,error.message);break;}
+        if(!data||data.length===0)break;
+        all=all.concat(data);
+        if(data.length<pageSize)break;
+        from+=pageSize;
       }
-      if(allMat.length>0)results.push({dbKey:'catalogoItems',data:allMat,error:null});
-    }
-    // Carga paginada de tareaje (crece rápido: N trabajadores × 31 días × meses)
-    {
-      let allTar=[],from=0,pageSize=1000,done=false;
-      while(!done){
-        const{data,error}=await supa.from('tareaje').select('*').range(from,from+pageSize-1).order('id');
-        if(error||!data||data.length===0){done=true;break;}
-        allTar=allTar.concat(data);
-        if(data.length<pageSize)done=true;else from+=pageSize;
-      }
-      if(allTar.length>0)results.push({dbKey:'tareaje',data:allTar,error:null});
+      return all;
+    };
+    for(const[dbKey,tabla]of Object.entries(PAGINADAS)){
+      const data=await cargarPaginado(tabla);
+      if(data.length>0)results.push({dbKey,data,error:null});
     }
     const nxMap={personal:'personal',social:'social',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',
