@@ -501,3 +501,55 @@ function _renderDrillDown(){
       <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:#ef4444;border-radius:2px"></span>Hs Inoperativas</span>
     </div>`;
 }
+
+// ══ FLOTA DE EQUIPOS ══
+function rFlotaEquipos(){
+  const fTipo=document.getElementById('flotaFiltTipo')?.value||'';
+  const eqs=fTipo?DB.equipos.filter(e=>e.tipo===fTipo):DB.equipos;
+  // KPIs
+  const total=eqs.length;
+  const operativos=eqs.filter(e=>e.est==='Operativo'||e.est==='operativo').length;
+  const inMant=eqs.filter(e=>e.est==='En Mantenimiento'||e.est==='Mantenimiento').length;
+  const inop=eqs.filter(e=>e.est==='Inoperativo'||e.est==='inoperativo').length;
+  const desmovilizados=eqs.filter(e=>e.est==='Desmovilizado').length;
+  const kpiEl=document.getElementById('flotaKpis');
+  if(kpiEl)kpiEl.innerHTML=[
+    {l:'Total Equipos',v:total,c:'var(--ceq)'},
+    {l:'Operativos',v:operativos,c:'#10b981'},
+    {l:'En Mantenimiento',v:inMant,c:'#f59e0b'},
+    {l:'Inoperativos',v:inop,c:'#ef4444'},
+    {l:'Desmovilizados',v:desmovilizados,c:'#8b5cf6'},
+  ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
+  // Días para próximo mantenimiento
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  function diasParaMant(proxMant){
+    if(!proxMant)return null;
+    const d=new Date(proxMant+'T00:00:00');
+    return Math.round((d-hoy)/(1000*60*60*24));
+  }
+  function diasBadge(dias){
+    if(dias===null)return '<span style="color:var(--muted)">—</span>';
+    if(dias<0)return `<span style="background:rgba(239,68,68,.2);color:#ef4444;border:1px solid #ef444440;border-radius:4px;padding:1px 7px;font-size:.7rem;font-weight:700">Vencido ${Math.abs(dias)}d</span>`;
+    if(dias<=10)return `<span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef444440;border-radius:4px;padding:1px 7px;font-size:.7rem;font-weight:700">${dias} días</span>`;
+    if(dias<=30)return `<span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b40;border-radius:4px;padding:1px 7px;font-size:.7rem;font-weight:700">${dias} días</span>`;
+    return `<span style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid #10b98140;border-radius:4px;padding:1px 7px;font-size:.7rem;font-weight:700">${dias} días</span>`;
+  }
+  // Tabla
+  const sortedEqs=[...eqs].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||(a.codigo||'').localeCompare(b.codigo||''));
+  document.getElementById('tbFlota').innerHTML=sortedEqs.map(e=>{
+    const dias=diasParaMant(e.proxMant);
+    const lineaBadge=e.tipo?`<span class="badge" style="background:rgba(6,182,212,.15);color:var(--ceq);border:1px solid #06b6d440;font-size:.65rem">${e.tipo}</span>`:'';
+    const subBadge=e.sub?`<span class="badge b-cyan" style="font-size:.62rem">${e.sub}</span>`:'';
+    return`<tr>
+      <td class="mono" style="color:var(--ceq);font-weight:600">${e.codigo}</td>
+      <td><strong>${e.nombre}</strong></td>
+      <td style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">${lineaBadge}${subBadge}</td>
+      <td class="mono">${e.placa||'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${bge(e.est)}</td>
+      <td class="mono">${fmtN(e.hr)} ${e.tipo==='Línea Blanca'||e.tipo==='Vehículo Menor'?'km':'h'}</td>
+      <td class="mono">${e.ultMant||'<span style="color:var(--muted)">—</span>'}</td>
+      <td class="mono">${e.proxMant||'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${diasBadge(dias)}</td>
+    </tr>`;
+  }).join('');
+}
