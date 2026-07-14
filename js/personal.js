@@ -320,14 +320,19 @@ async function rAsistencia(){
         :'<span class="badge" style="background:rgba(16,185,129,.18);color:#10b981;border:1px solid #10b98135">COMPLETO</span>';
     const tipoBadge=p.tipo?`<span class="badge" style="background:${p.tipo==='Staff'?'rgba(99,102,241,.2)':'rgba(16,185,129,.2)'};color:${p.tipo==='Staff'?'#818cf8':'#34d399'};border:1px solid ${p.tipo==='Staff'?'#818cf860':'#34d39960'}">${p.tipo}</span>`:'<span style="color:var(--muted)">—</span>';
     const grdBadge=p.guardia?`<span class="badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b50">Grd.${p.guardia}</span>`:'<span style="color:var(--muted)">—</span>';
+    const esManual=!!(reg&&reg.registradoPor);
+    const entradaCell=entrada
+      ?(esManual?`<span title="Registro manual · por ${reg.registradoPor}">✋ ${entrada}</span>`:entrada)
+      :'<span style="color:var(--muted)">—</span>';
+    const btnManual=`<button onclick="marcarManualAsi(${p.id},'${fecha}',this)" title="Registrar asistencia manual: Día = 06:00 · Noche = 18:00" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.72rem;padding:.08rem .38rem;margin-left:.35rem">✋</button>`;
     return `<tr>
       <td class="mono">${p.dni}</td>
       <td><strong>${p.ape}, ${p.nom}</strong></td>
       <td>${tipoBadge}</td><td>${grdBadge}</td>
-      <td class="mono" style="color:#10b981;font-weight:600">${entrada||'<span style="color:var(--muted)">—</span>'}</td>
+      <td class="mono" style="color:${esManual?'#f59e0b':'#10b981'};font-weight:600">${entradaCell}</td>
       <td class="mono">${horas||'<span style="color:var(--muted)">—</span>'}</td>
       <td>${tareoBadge}</td>
-      <td>${estadoBadge}</td>
+      <td>${estadoBadge}${btnManual}</td>
     </tr>`;
   }).join('');
   if(typeof _notifActualizarBotones==='function')_notifActualizarBotones();
@@ -682,12 +687,39 @@ function imprimirFotocheck(){
 }
 
 // ── REGISTRO MANUAL ──
+// ── ASISTENCIA MANUAL RÁPIDA (✋ → ☀ Día 06:00 · 🌙 Noche 18:00) ──
+// Hora fija por convención para diferenciar los registros manuales de los escaneados (hora real)
+function marcarManualAsi(personalId,fecha,btn){
+  btn.outerHTML=`<span style="display:inline-flex;gap:.25rem;margin-left:.35rem;vertical-align:middle">
+    <button onclick="gManualTurno(${personalId},'${fecha}','D')" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">☀ Día</button>
+    <button onclick="gManualTurno(${personalId},'${fecha}','N')" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;border-radius:5px;color:#60a5fa;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">🌙 Noche</button>
+    <button onclick="rAsistencia()" title="Cancelar" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.68rem;padding:.08rem .3rem">✕</button>
+  </span>`;
+}
+async function gManualTurno(personalId,fecha,turno){
+  const hora=turno==='N'?'18:00':'06:00';
+  const p=DB.personal.find(x=>x.id===personalId);
+  const existing=DB.asistencia.find(a=>a.personalId===personalId&&a.fecha===fecha);
+  if(existing){
+    Object.assign(existing,{horaEntrada:hora,registradoPor:CU.nombre});
+    const{error}=await supa.from('asistencia').update(toSnake(existing)).eq('id',existing.id);
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+  }else{
+    const rec={personalId,fecha,horaEntrada:hora,horaSalida:'',guardia:p?.guardia||'',estado:'Presente',registradoPor:CU.nombre};
+    const{data,error}=await supa.from('asistencia').insert(toSnake(rec)).select().single();
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+    if(data){rec.id=data.id;DB.asistencia.push(rec);}
+  }
+  toast(`✋ Manual: ${p?p.ape+', '+p.nom:('#'+personalId)} · ${turno==='N'?'NOCHE 18:00':'DÍA 06:00'}`);
+  rAsistencia();
+}
 function registrarManualAsistencia(personalId,fecha){
   _manualAsiPersonalId=personalId;_manualAsiFecha=fecha;
   const p=DB.personal.find(x=>x.id===personalId);
   const reg=DB.asistencia.find(a=>a.personalId===personalId&&a.fecha===fecha);
   document.getElementById('manAsiNombre').textContent=p?`${p.ape}, ${p.nom} — ${fecha}`:'';
-  document.getElementById('manAsiEntrada').value=reg?.horaEntrada||'';
+  // Registro manual: hora fija 07:00 por convención, para diferenciarlo de los escaneados (hora real)
+  document.getElementById('manAsiEntrada').value=reg?.horaEntrada||'07:00';
   document.getElementById('manAsiSalida').value=reg?.horaSalida||'';
   document.getElementById('manAsiObs').value=reg?.obs||'';
   openM('mManualAsi');
@@ -708,18 +740,8 @@ async function gManualAsi(){
     const{data}=await supa.from('asistencia').insert(toSnake(rec)).select().single();
     if(data){rec.id=data.id;DB.asistencia.push(rec);}
   }
-  // Crear tariaje automático si no existe aún
-  const existeTar=DB.tareaje.find(r=>r.personalId===_manualAsiPersonalId&&r.fecha===fecha);
-  if(!existeTar){
-    const _h=parseInt((entrada||'08:00').split(':')[0])||8;
-    const _turnoTipo=(_h>=5&&_h<17)?'TD':'TN';
-    const prevDias=(DB.tareaje||[]).filter(r=>r.personalId===_manualAsiPersonalId&&r.fecha<fecha&&['TD','TN','DLT','A5'].includes(r.tipo));
-    const tipo=prevDias.length===0?'A5':_turnoTipo;
-    const tarRec={id:nid('tar'),personalId:_manualAsiPersonalId,fecha,tipo,proy:p?.proy||''};
-    DB.tareaje.push(tarRec);
-    syncSheet('saveTareaje',tarRec);
-  }
-  closeM('mManualAsi');rAsistencia();toast('Asistencia guardada');
+  // El tareo NO se crea aquí: se registra en lote con el botón "✅ Registrar Tareo"
+  closeM('mManualAsi');rAsistencia();toast('Asistencia manual guardada');
 }
 
 // ── EXPORTAR PDF TAREAJE ──
