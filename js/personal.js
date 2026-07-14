@@ -693,7 +693,7 @@ function marcarManualAsi(personalId,fecha,btn){
   btn.outerHTML=`<span style="display:inline-flex;gap:.25rem;margin-left:.35rem;vertical-align:middle">
     <button onclick="gManualTurno(${personalId},'${fecha}','D')" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">☀ Día</button>
     <button onclick="gManualTurno(${personalId},'${fecha}','N')" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;border-radius:5px;color:#60a5fa;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">🌙 Noche</button>
-    <button onclick="gManualLimpiar(${personalId},'${fecha}')" title="Quitar la marca del día (por si se registró por error)" style="background:rgba(239,68,68,.12);border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">⌫ Vacío</button>
+    <button onclick="gManualLimpiar(${personalId},'${fecha}')" title="Quitar la marca del día (por si se registró por error)" style="background:rgba(239,68,68,.12);border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">⌫-Borrar</button>
     <button onclick="rAsistencia()" title="Cancelar" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.68rem;padding:.08rem .3rem">✕</button>
   </span>`;
 }

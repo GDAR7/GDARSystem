@@ -1186,6 +1186,23 @@ function _feAddRow(it){
     <td style="padding:.25rem .2rem;text-align:center"><button onclick="this.closest('tr').remove();_feRecalc()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.85rem" title="Quitar fila">🗑</button></td>`;
   tb.appendChild(tr);
 }
+// Quitar IGV: divide TODOS los P. Unit entre 1.18, los sobrescribe y recalcula los subtotales
+function _feQuitarIgv(){
+  const trs=[...document.querySelectorAll('#feItems tr')];
+  if(!trs.length){toast('No hay ítems para calcular',true);return;}
+  if(!confirm('Se dividirán TODOS los P. Unit entre 1.18 (quitar IGV) y se sobrescribirán.\n\n⚠ Úsalo solo una vez: si lo presionas de nuevo, volverá a dividir los valores ya convertidos.\n\n¿Continuar?'))return;
+  let n=0;
+  trs.forEach(tr=>{
+    const inp=tr.querySelector('.fe-punit');if(!inp)return;
+    const v=+inp.value||0;if(!v)return;
+    inp.value=(v/1.18).toFixed(4);
+    const cant=+tr.querySelector('.fe-cant').value||0;
+    const imp=tr.querySelector('.fe-imp');if(imp)imp.value=(cant*(+inp.value)).toFixed(2);
+    n++;
+  });
+  _feRecalc();
+  toast('IGV retirado de '+n+' ítem(s): P. Unit ÷ 1.18');
+}
 function _feRowCalc(el){
   const tr=el.closest('tr');
   const cant=+tr.querySelector('.fe-cant').value||0;
