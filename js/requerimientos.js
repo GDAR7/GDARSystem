@@ -1117,6 +1117,9 @@ async function extraerFactura(id){
   if(!url){toast('Esta factura no tiene PDF',true);return;}
   if(typeof pdfjsLib==='undefined'){toast('PDF.js no está cargado',true);return;}
   _feFacturaId=id;
+  _feEditIds=null; // modo extracción (no edición)
+  document.querySelector('#mFactExtract .mttl').textContent='🔍 Extracción de Factura → Reembolsables / Gastos';
+  const _bg=document.getElementById('feBtnGuardar');if(_bg)_bg.textContent='💾 Guardar en Reembolsables';
   openM('mFactExtract');
   const _vp=document.getElementById('feVerPdf');if(_vp)_vp.href=url;
   document.getElementById('feStatus').style.display='';
@@ -1235,20 +1238,48 @@ function gReembolsables(){
   const obs=document.getElementById('feObs').value.trim();
   const proy=document.getElementById('feProy').value.trim();
   const tipoCobro=document.getElementById('feTipoCobro').value;
+  const leerFila=tr=>({
+    desc:tr.querySelector('.fe-desc').value.trim(),
+    codigo:(tr.querySelector('.fe-cod').value||'').trim().toUpperCase(),
+    nombreCodif:tr.querySelector('.fe-codif').value.trim(),
+    cant:+tr.querySelector('.fe-cant').value||0,
+    unidad:tr.querySelector('.fe-und').value.trim(),
+    punit:+tr.querySelector('.fe-punit').value||0,
+    importe:+tr.querySelector('.fe-imp').value||0
+  });
   let n=0;
+  if(_feEditIds){
+    // ── MODO EDICIÓN: actualizar los registros existentes de la factura ──
+    const oldIds=[..._feEditIds];
+    trs.forEach(tr=>{
+      const it=leerFila(tr);
+      if(!it.desc||it.importe<=0)return;
+      n++;
+      const id=oldIds.length?oldIds.shift():nid('reemb');
+      const rec={id,facturaId:_feFacturaId,fecha:fIso,proyecto:proy,moneda,obs,
+        tipoCp,serie,correlativo,ruc,proveedor:prov,codigo:it.codigo,itemFac:String(n).padStart(2,'0'),
+        nombreCodif:it.nombreCodif,desc:it.desc,edp,cantidad:it.cant,unidad:it.unidad,precioUnit:it.punit,importe:it.importe,tc,tipoCobro};
+      const idx=DB.reembolsables.findIndex(x=>x.id===id);
+      if(idx>-1)DB.reembolsables[idx]=rec;else DB.reembolsables.push(rec);
+      syncSheet('saveReembolsable',rec);
+    });
+    if(!n){toast('No hay ítems válidos para guardar',true);return;}
+    // Filas eliminadas en el modal → borrar de la base
+    oldIds.forEach(id=>{supaDelete('reembolsables',id);DB.reembolsables=DB.reembolsables.filter(x=>x.id!==id);});
+    _feEditIds=null;
+    closeM('mFactExtract');
+    toast(`Factura actualizada: ${n} ítem(s)`);
+    rFPago();
+    _fpTab('reemb');
+    return;
+  }
   trs.forEach(tr=>{
-    const desc=tr.querySelector('.fe-desc').value.trim();
-    const codigo=(tr.querySelector('.fe-cod').value||'').trim().toUpperCase();
-    const nombreCodif=tr.querySelector('.fe-codif').value.trim();
-    const cant=+tr.querySelector('.fe-cant').value||0;
-    const unidad=tr.querySelector('.fe-und').value.trim();
-    const punit=+tr.querySelector('.fe-punit').value||0;
-    const importe=+tr.querySelector('.fe-imp').value||0;
-    if(!desc||importe<=0)return;
+    const it=leerFila(tr);
+    if(!it.desc||it.importe<=0)return;
     n++;
     const rec={id:nid('reemb'),facturaId:_feFacturaId,fecha:fIso,proyecto:proy,moneda,obs,
-      tipoCp,serie,correlativo,ruc,proveedor:prov,codigo,itemFac:String(n).padStart(2,'0'),
-      nombreCodif,desc,edp,cantidad:cant,unidad,precioUnit:punit,importe,tc,tipoCobro};
+      tipoCp,serie,correlativo,ruc,proveedor:prov,codigo:it.codigo,itemFac:String(n).padStart(2,'0'),
+      nombreCodif:it.nombreCodif,desc:it.desc,edp,cantidad:it.cant,unidad:it.unidad,precioUnit:it.punit,importe:it.importe,tc,tipoCobro};
     DB.reembolsables.push(rec);
     syncSheet('saveReembolsable',rec);
   });
@@ -1257,6 +1288,48 @@ function gReembolsables(){
   toast(`${n} ítem(s) guardado(s) en Reembolsables/Gastos`);
   rFPago();
   _fpTab('reemb');
+}
+
+// ── Editar FACTURA COMPLETA de Reembolsables (reutiliza el modal de extracción) ──
+let _feEditIds=null; // ids de los registros que se están editando (null = modo extracción)
+function editFacturaReemb(){
+  if(!_reembFiltFact){toast('Seleccione una factura en el filtro',true);return;}
+  const rows=(DB.reembolsables||[]).filter(r=>{
+    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
+    return `${r.serie||''} - ${r.correlativo||''}`.trim()===_reembFiltFact;
+  }).sort((a,b)=>String(a.itemFac||'').localeCompare(String(b.itemFac||'')));
+  if(!rows.length){toast('No hay ítems de esa factura',true);return;}
+  const r0=rows[0];
+  _feEditIds=rows.map(r=>r.id);
+  _feFacturaId=r0.facturaId||null;
+  _fePopulateDatalist();
+  // Cabecera
+  document.getElementById('feTipoCp').value=r0.tipoCp||'FE';
+  document.getElementById('feSerie').value=r0.serie||'';
+  document.getElementById('feCorrel').value=r0.correlativo||'';
+  document.getElementById('feFecha').value=r0.fecha||'';
+  document.getElementById('feRuc').value=r0.ruc||'';
+  document.getElementById('feProv').value=r0.proveedor||'';
+  document.getElementById('feMoneda').value=r0.moneda||'SOLES';
+  document.getElementById('feTc').value=r0.tc||'';
+  document.getElementById('feEdp').value=r0.edp||'';
+  document.getElementById('feObs').value=r0.obs||'';
+  document.getElementById('feProy').value=r0.proyecto||'';
+  const tcob=document.getElementById('feTipoCobro');if(tcob&&r0.tipoCobro)tcob.value=r0.tipoCobro;
+  document.getElementById('feTotal').value=(rows.reduce((a,r)=>a+(+r.importe||0),0)*1.18).toFixed(2);
+  // Ítems guardados
+  const tb=document.getElementById('feItems');if(tb)tb.innerHTML='';
+  rows.forEach(r=>_feAddRow({desc:r.desc||'',cant:+r.cantidad||0,unidad:r.unidad||'',punit:+r.precioUnit||0,importe:+r.importe||0,codigo:r.codigo||'',nombreCodif:r.nombreCodif||''}));
+  _feRecalc();
+  // Modo edición: título, botón y PDF
+  document.querySelector('#mFactExtract .mttl').textContent='✏️ Editar Factura '+_reembFiltFact;
+  const bg=document.getElementById('feBtnGuardar');if(bg)bg.textContent='💾 Guardar Cambios';
+  document.getElementById('feStatus').style.display='none';
+  document.getElementById('feBody').style.display='';
+  const f=(DB.facturasPago||[]).find(x=>x.id===r0.facturaId);
+  const vp=document.getElementById('feVerPdf');
+  if(vp){const u=f?(f.pdfUrl||f.pdfData||''):'';vp.style.display=u?'':'none';if(u)vp.href=u;}
+  openM('mFactExtract');
 }
 
 // ── Editar un ítem de Reembolsables / Gastos ──
@@ -1416,6 +1489,7 @@ function rReembolsables(){
             <option value="">— Todas —</option>
             ${facts.map(f=>`<option value="${f}" ${f===_reembFiltFact?'selected':''}>${f}</option>`).join('')}
           </select>
+          ${_reembFiltFact?`<button onclick="editFacturaReemb()" title="Editar la cabecera y todos los ítems de esta factura" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:6px;color:#f59e0b;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✏ Editar factura</button>`:''}
           ${(_reembFiltProv||_reembFiltFact)?`<button onclick="_reembFiltProv='';_reembFiltFact='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
         </div>
         <div class="card-head-right">
