@@ -890,63 +890,86 @@ function _amtRenderSemMatriz(body){
   const info=_amtSemInfo();
   const{fIni,fFin,rango}=info;
   const TH=_AMT_TH,TD=_AMT_TD;
+  const pad=n=>String(n).padStart(2,'0');
+  const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const d0=new Date(fIni+'T12:00:00');
+  const fechas=[];
+  for(let i=0;i<7;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);const iso=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;fechas.push({iso,lbl:DN[d.getDay()],dm:`${pad(d.getDate())}/${pad(d.getMonth()+1)}`});}
+  const hoy=today();
+
   const vs=_amtSemViajes(fIni,fFin).filter(v=>v.destino);
 
-  // matriz[material][destino]={m3,viajes} · sin material = traslado (cuenta viajes, no volumen)
-  const matriz={};const destSet=new Set();
+  // data[material][destino][fecha]={m3D,m3N,vD,vN} · sin material = traslado (cuenta viajes, no volumen)
+  const data={};const destSet=new Set();
   vs.forEach(function(v){
     const mat=_amtMatOk(v.material)?v.material:'(Sin material)';
-    if(!matriz[mat])matriz[mat]={};
-    if(!matriz[mat][v.destino])matriz[mat][v.destino]={m3:0,viajes:0};
-    matriz[mat][v.destino].m3+=v.m3;
-    matriz[mat][v.destino].viajes+=v.cant;
+    if(!data[mat])data[mat]={};
+    if(!data[mat][v.destino])data[mat][v.destino]={};
+    if(!data[mat][v.destino][v.fecha])data[mat][v.destino][v.fecha]={m3D:0,m3N:0,vD:0,vN:0};
+    const c=data[mat][v.destino][v.fecha];
+    if(v.noche){c.m3N+=v.m3;c.vN+=v.cant;}else{c.m3D+=v.m3;c.vD+=v.cant;}
     destSet.add(v.destino);
   });
 
-  // Ordenar destinos y materiales por volumen total
-  const totDest={};
-  destSet.forEach(d=>{totDest[d]=0;});
-  Object.values(matriz).forEach(row=>Object.entries(row).forEach(([d,c])=>{totDest[d]+=c.m3;}));
-  const destinos=[...destSet].sort((a,b)=>totDest[b]-totDest[a]);
-  const materiales=Object.keys(matriz).sort((a,b)=>{
-    const tA=Object.values(matriz[a]).reduce((s,c)=>s+c.m3,0);
-    const tB=Object.values(matriz[b]).reduce((s,c)=>s+c.m3,0);
-    return tB-tA;
+  // Totales por material, por día y generales
+  const matTot={};
+  Object.entries(data).forEach(([m,dests])=>{
+    matTot[m]={m3:0,viajes:0};
+    Object.values(dests).forEach(days=>Object.values(days).forEach(c=>{matTot[m].m3+=c.m3D+c.m3N;matTot[m].viajes+=c.vD+c.vN;}));
   });
+  const materiales=Object.keys(data).sort((a,b)=>matTot[b].m3-matTot[a].m3||matTot[b].viajes-matTot[a].viajes);
   let maxCelda=0,totalM3=0,totalViajes=0;
-  materiales.forEach(t=>destinos.forEach(d=>{
-    const c=matriz[t][d];if(!c)return;
-    if(c.m3>maxCelda)maxCelda=c.m3;
-    totalM3+=c.m3;totalViajes+=c.viajes;
-  }));
+  const totDia={};fechas.forEach(f=>{totDia[f.iso]=0;});
+  Object.values(data).forEach(dests=>Object.values(dests).forEach(days=>Object.entries(days).forEach(([iso,c])=>{
+    const m3=c.m3D+c.m3N;
+    if(m3>maxCelda)maxCelda=m3;
+    totalM3+=m3;totalViajes+=c.vD+c.vN;
+    if(totDia[iso]!==undefined)totDia[iso]+=m3;
+  })));
 
-  const filas=materiales.map(function(mat){
-    let totFila=0,totV=0;
-    const celdas=destinos.map(function(d){
-      const c=matriz[mat][d];
-      if(!c||(!c.m3&&!c.viajes))return`<td style="${TD};text-align:right;color:var(--muted)">—</td>`;
-      totFila+=c.m3;totV+=c.viajes;
-      if(!c.m3)return`<td style="${TD};text-align:right;font-family:monospace;color:var(--muted2)" title="Traslado sin material — no suma volumen">${c.viajes.toLocaleString()} v</td>`;
-      return`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;background:${_amtHeat(c.m3,maxCelda)}" title="${c.viajes} viaje(s)">${_amtFmt1(c.m3)}</td>`;
-    }).join('');
-    return`<tr>
-      <td style="${TD};font-weight:700;color:#a78bfa;white-space:nowrap">${mat}</td>
-      ${celdas}
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b;background:rgba(245,158,11,.07)">${_amtFmt1(totFila)}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">${totV.toLocaleString()} viajes</div></td>
-    </tr>`;
-  }).join('');
+  const nCols=fechas.length+2;
+  let filas='';
+  materiales.forEach(function(mat,i){
+    const col=_AMT_COLORES[i%_AMT_COLORES.length];
+    filas+=`<tr><td colspan="${nCols}" style="padding:.42rem .7rem;background:${col}14;border:1px solid var(--border);border-left:4px solid ${col};color:${col};font-size:.72rem;font-weight:800;text-transform:uppercase">${mat} <span style="font-family:monospace;font-weight:700;font-size:.68rem;text-transform:none">· ${_amtFmt1(matTot[mat].m3)} m³ · ${matTot[mat].viajes.toLocaleString()} viajes</span></td></tr>`;
+    const dests=Object.keys(data[mat]).sort((a,b)=>{
+      const s=d=>Object.values(data[mat][d]).reduce((x,c)=>x+c.m3D+c.m3N,0);
+      return s(b)-s(a);
+    });
+    dests.forEach(function(dest){
+      let totM3=0,totV=0;
+      const celdas=fechas.map(function(f){
+        const c=data[mat][dest][f.iso];
+        const esHoy=f.iso===hoy;
+        if(!c)return`<td style="${TD};text-align:right;color:var(--muted);${esHoy?'background:rgba(245,158,11,.05)':''}">—</td>`;
+        const m3=c.m3D+c.m3N,v=c.vD+c.vN;
+        totM3+=m3;totV+=v;
+        const ttl=`☀ Día: ${_amtFmt1(c.m3D)} m³ (${c.vD.toLocaleString()} v) · 🌙 Noche: ${_amtFmt1(c.m3N)} m³ (${c.vN.toLocaleString()} v)`;
+        if(!m3)return`<td style="${TD};text-align:right;font-family:monospace;color:var(--muted2)" title="Traslado sin material — no suma volumen · ${ttl}">${v.toLocaleString()} v</td>`;
+        return`<td style="${TD};text-align:right;font-family:monospace;background:${esHoy?'rgba(245,158,11,.1)':_amtHeat(m3,maxCelda)}" title="${ttl}">
+          <div style="font-weight:800">${_amtFmt1(m3)}</div>
+          <div style="font-size:.58rem;color:var(--muted2)"><span style="color:#fbbf24">☀</span> ${_amtFmt1(c.m3D)} · <span style="filter:grayscale(1) brightness(1.2)">🌙</span> ${_amtFmt1(c.m3N)}</div>
+        </td>`;
+      }).join('');
+      filas+=`<tr>
+        <td style="${TD};padding-left:1.2rem;font-weight:700;color:var(--text);white-space:nowrap">→ ${dest}</td>
+        ${celdas}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b;background:rgba(245,158,11,.07)">${totM3?_amtFmt1(totM3):'—'}<div style="font-size:.58rem;color:var(--muted2);font-weight:400">${totV.toLocaleString()} viajes</div></td>
+      </tr>`;
+    });
+  });
 
   _amtSemExportData={
-    name:'matriz_material_destino_'+fIni+'.xlsx',
+    name:'material_destino_diario_'+fIni+'.xlsx',
     aoa:[
-      ['MATRIZ MATERIAL → DESTINO (m³) — '+rango],
-      ['Material',...destinos,'Total'],
-      ...materiales.map(mat=>{
-        let tot=0;
-        const vals=destinos.map(d=>{const c=matriz[mat][d];if(!c)return'';tot+=c.m3;return +c.m3.toFixed(1);});
-        return[mat,...vals,+tot.toFixed(1)];
-      }),
-      ['TOTAL',...destinos.map(d=>+totDest[d].toFixed(1)),+totalM3.toFixed(1)]
+      ['MATERIAL → DESTINO · POR DÍA Y TURNO (m³) — '+rango],
+      ['Material','Destino',...fechas.flatMap(f=>[f.dm+' ☀',f.dm+' 🌙']),'Total m³','Viajes'],
+      ...materiales.flatMap(mat=>Object.keys(data[mat]).map(dest=>{
+        let tm=0,tv=0;
+        const cols=fechas.flatMap(f=>{const c=data[mat][dest][f.iso];if(!c)return['',''];tm+=c.m3D+c.m3N;tv+=c.vD+c.vN;return[+c.m3D.toFixed(1),+c.m3N.toFixed(1)];});
+        return[mat,dest,...cols,+tm.toFixed(1),tv];
+      })),
+      ['TOTAL','',...fechas.flatMap(()=>['','']),+totalM3.toFixed(1),totalViajes]
     ]
   };
 
@@ -955,26 +978,26 @@ function _amtRenderSemMatriz(body){
     ${_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+_amtFmt1(totalM3)+'</b>','var(--ctl)')}
     ${_amtKpi('Viajes','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b>','#3b82f6')}
     ${_amtKpi('Tipos de Material','<b style="font-size:1.3rem">'+materiales.length+'</b>','#a78bfa')}
-    ${_amtKpi('Destinos Alimentados','<b style="font-size:1.3rem">'+destinos.length+'</b>','#8b5cf6')}
+    ${_amtKpi('Destinos Alimentados','<b style="font-size:1.3rem">'+destSet.size+'</b>','#8b5cf6')}
   </div>
   <div class="card" style="padding:0">
     <div class="tbl-wrap">
     <table style="min-width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--panel2)">
-        <th style="${TH};text-align:left;min-width:140px">Material ↓ / Destino →</th>
-        ${destinos.map(d=>`<th style="${TH};text-align:right;min-width:95px">${d}</th>`).join('')}
-        <th style="${TH};text-align:right;min-width:95px;color:#f59e0b;background:rgba(245,158,11,.08)">Total Material</th>
+        <th style="${TH};text-align:left;min-width:150px">Material / Destino</th>
+        ${fechas.map(f=>{const esHoy=f.iso===hoy;return`<th style="${TH};text-align:center;min-width:86px;${esHoy?'color:#f59e0b;background:rgba(245,158,11,.1)':''}">${f.lbl}<div style="font-size:.66rem;font-weight:400;font-family:monospace">${f.dm}</div></th>`;}).join('')}
+        <th style="${TH};text-align:right;min-width:95px;color:#f59e0b;background:rgba(245,158,11,.08)">Total</th>
       </tr></thead>
-      <tbody>${filas||`<tr><td colspan="${destinos.length+2}" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes con destino en esta semana (${rango})</td></tr>`}</tbody>
+      <tbody>${filas||`<tr><td colspan="${nCols}" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes con destino en esta semana (${rango})</td></tr>`}</tbody>
       ${materiales.length?`<tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
-        <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL DESTINO</td>
-        ${destinos.map(d=>`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ctl)">${_amtFmt1(totDest[d])}</td>`).join('')}
+        <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL DÍA (m³)</td>
+        ${fechas.map(f=>`<td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${totDia[f.iso]?'var(--ctl)':'var(--muted)'}">${totDia[f.iso]?_amtFmt1(totDia[f.iso]):'—'}</td>`).join('')}
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.85rem;color:#f59e0b;background:rgba(245,158,11,.1)">${_amtFmt1(totalM3)}</td>
       </tr></tfoot>`:''}
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Cada celda = m³ del material (fila) llevados al destino (columna) en la semana · Fondo más intenso = mayor volumen · Valores = viajes × ${_amtCapM3} m³/viaje · "N v" = viajes de traslado sin material (no suman volumen)</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Cada celda = m³ del material→destino en ese día, con desglose <span style="color:#fbbf24">☀</span> día / 🌙 noche (tooltip: viajes por turno) · Fondo más intenso = mayor volumen · Valores = viajes × ${_amtCapM3} m³/viaje · "N v" = traslados sin material (no suman volumen)</div>`;
 }
 
 // ── TAB 8: ORIGEN → DESTINO (viajes que salen de cada frente, con material) ──
