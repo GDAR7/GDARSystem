@@ -747,7 +747,8 @@ function _phResumenDoc(){
   const _asigDoc={};let _piDoc=0;
   const subColDoc=s=>{s=(s||'').toUpperCase();for(const k in SUBCOL_DOC)if(s.includes(k))return SUBCOL_DOC[k];if(!_asigDoc[s])_asigDoc[s]=_palDoc[_piDoc++%_palDoc.length];return _asigDoc[s];};
   const diasCorteN=Math.round((cFinD-cIniD)/864e5)+1;
-  const metaSem=Math.round((typeof _rmMeta==='function'?_rmMeta():300)*7/diasCorteN);
+  // Meta semanal prorrateada POR EQUIPO: meta del corte (Hrs Mín. Venta · Exc/Vol 210h · resto 180h) × 7 ÷ días del corte
+  const metaSemDe=eq=>Math.round((typeof _rmMetaDe==='function'?_rmMetaDe(eq):180)*7/diasCorteN);
   // Plugin: etiquetas de valor sobre cada barra
   const vlBarras={id:'vlBarras',afterDatasetsDraw(chart){
     const ctx=chart.ctx;const di=chart.data.datasets.length-1;
@@ -764,7 +765,7 @@ function _phResumenDoc(){
       data:{
         labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.id),
         datasets:[
-          {type:'line',label:'Meta',data:items.map(()=>metaSem),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
+          {type:'line',label:'Meta',data:items.map(r=>metaSemDe(r.eq)),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0,stepped:'middle'},
           {label:'Horas',data:items.map(r=>+r.ef.toFixed(1)),backgroundColor:items.map(r=>subColDoc(r.eq?r.eq.sub:'')),borderRadius:3}
         ]
       },
@@ -790,7 +791,7 @@ function _phResumenDoc(){
     ${imgLA?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgLA}" style="width:100%;display:block"></div>`:''}
     ${imgVol?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;page-break-inside:avoid"><img src="${imgVol}" style="width:100%;display:block"></div>`:''}
   </div>
-  <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas efectivas de la semana por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta semanal prorrateada = ${metaSem}h (meta del corte ${typeof _rmMeta==='function'?_rmMeta():300}h × 7 ÷ ${diasCorteN} días)</div>`:'';
+  <div style="font-size:8.5px;color:#666;margin-top:2px">Barras = horas efectivas de la semana por equipo (color según subtipo) · <span style="color:#dc2626">▬ ▬</span> meta semanal prorrateada por equipo = meta del corte (Exc/Vol ${typeof _rmMetaEV==='function'?_rmMetaEV():210}h · resto ${typeof _rmMeta==='function'?_rmMeta():180}h · o su Hrs Mín. Venta) × 7 ÷ ${diasCorteN} días</div>`:'';
 
   // Gráfico de personal por día (con etiquetas)
   const imgPersonal=(()=>{
@@ -1074,13 +1075,26 @@ function _phRenderResumen(){
 
 // ══ REPORTE MENSUAL AL CORTE (horas programadas vs ejecutadas · meta mínima · disp. mecánica) ══
 let _rmCorteOff=0,_rmSub='',_rmChartLA=null,_rmChartLB=null,_rmExport=null;
-function _rmMeta(){return +(localStorage.getItem('gdar_rm_metacorte')||300);}
+function _rmMeta(){return +(localStorage.getItem('gdar_rm_metacorte')||180);}
+function _rmMetaEV(){return +(localStorage.getItem('gdar_rm_meta_ev')||210);}
+// Meta mensual por equipo: 1º Hrs Mín. Venta del Master · 2º Excavadoras y Volquetes 210h · 3º resto 180h (🎯 configurables)
+function _rmMetaDe(eq){
+  if(eq&&+eq.hrsMinVenta>0)return +eq.hrsMinVenta;
+  const s=String((eq&&eq.sub)||'').toUpperCase();
+  const esEV=s.includes('VOLQUETE')||(s.includes('EXCAVADORA')&&!s.includes('RETRO'));
+  return esEV?_rmMetaEV():_rmMeta();
+}
 function _rmSetMeta(){
-  const v=prompt('Meta mínima de horas por equipo al corte:',_rmMeta());
+  const v=prompt('Meta mínima al corte — equipos en general:',_rmMeta());
   if(v===null)return;
   const n=+String(v).replace(',','.');
   if(!(n>0)){toast('Valor inválido',true);return;}
+  const v2=prompt('Meta mínima al corte — EXCAVADORAS y VOLQUETES:',_rmMetaEV());
+  if(v2===null)return;
+  const n2=+String(v2).replace(',','.');
+  if(!(n2>0)){toast('Valor inválido',true);return;}
   localStorage.setItem('gdar_rm_metacorte',n);
+  localStorage.setItem('gdar_rm_meta_ev',n2);
   rReporteMensual();
 }
 function _rmNav(d){
@@ -1137,8 +1151,8 @@ function _rmDatos(){
     const prog=a.n*HP;
     const imProj=a.im/diasTrans*diasCorte;
     const progBase=diasCorte*HP;
-    // Meta por equipo: Hrs Mín. Venta del Master de Equipos · si no la tiene, la meta global 🎯
-    const metaEq=(a.eq&&+a.eq.hrsMinVenta>0)?+a.eq.hrsMinVenta:META;
+    // Meta por equipo: Hrs Mín. Venta del Master · Excavadoras/Volquetes 210h · resto 180h (🎯 configurables)
+    const metaEq=_rmMetaDe(a.eq);
     return{id,eq:a.eq,tipo:a.tipo,sub:a.sub,dias:a.dias.size,ef:a.ef,im:a.im,prog,meta:metaEq,
       avance:metaEq?a.ef/metaEq*100:0,
       util:prog?a.ef/prog*100:0,
@@ -1277,7 +1291,7 @@ function _rmDoc(){
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
       ${kpi('Días del Corte',diasCorte+' <span style="font-size:9px;color:#555">· '+diasTrans+' transc.</span>','#6d28d9')}
-      ${kpi('Meta Mín. Horas (defecto)',META+'h <span style="font-size:9px;color:#555">· //</span>','#dc2626')}
+      ${kpi('Meta Mín. Horas',META+'h <span style="font-size:9px;color:#555">· Exc/Vol '+_rmMetaEV()+'h</span>','#dc2626')}
       ${kpi('Prom. Real L. Amarilla'+(stLA?' ('+stLA.n+' eq.)':''),gapTxt(stLA),'#b45309')}
       ${kpi('Prom. Real Volquetes'+(stVol?' ('+stVol.n+' eq.)':''),gapTxt(stVol),'#2563eb')}
     </div>
@@ -1358,7 +1372,7 @@ function rReporteMensual(){
       <option value="">— Todas —</option>
       ${_rmSubs.map(s=>`<option value="${s}"${_rmSub===s?' selected':''}>${s}</option>`).join('')}
     </select>
-    <button onclick="_rmSetMeta()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Meta mínima de horas por equipo al corte">🎯 Meta ${META}h</button>
+    <button onclick="_rmSetMeta()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Meta mínima de horas al corte: general y Excavadoras/Volquetes">🎯 Meta ${META}h · E/V ${_rmMetaEV()}h</button>
     <button onclick="_phSetHsProg()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Horas programadas por parte/turno">⚙ ${HP}h/turno</button>
     <button onclick="_rmPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
     <button onclick="_rmExportXls()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
