@@ -111,13 +111,20 @@
         <input type="date" id="perFDesde" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .3rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
         <span style="font-size:.7rem;color:var(--muted2);flex-shrink:0">Hasta:</span>
         <input type="date" id="perFHasta" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .3rem;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+        <select id="perFQr" onchange="_perFiltrar()" style="font-size:.72rem;padding:.18rem .35rem;height:24px;border-radius:5px;border:1px solid #22d3ee55;background:var(--panel);color:var(--text)" title="Filtrar por código de fotocheck/QR">
+          <option value="">— Cód. QR —</option>
+          <option value="con">Con código</option>
+          <option value="sin">Sin código (vacíos)</option>
+        </select>
+        <button id="perBtnQr" onclick="_perToggleQr()" style="font-size:.7rem;padding:.18rem .5rem;height:24px;border-radius:5px;border:1px solid #22d3ee40;background:transparent;color:#22d3ee;cursor:pointer;white-space:nowrap" title="Mostrar/ocultar columna Cód. Fotocheck/QR">🪪 Cód. QR</button>
         <button onclick="_perLimpiarFiltros()" style="font-size:.7rem;padding:.18rem .5rem;height:24px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap">✕ Limpiar</button>
         <span id="perContador" style="font-size:.7rem;color:var(--muted2);flex-shrink:0"></span>
-        <button onclick="exportPersonalXLSX()" style="margin-left:auto;font-size:.72rem;padding:.18rem .75rem;height:24px;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
+        <button onclick="printPersonalQR()" style="margin-left:auto;font-size:.72rem;padding:.18rem .75rem;height:24px;border-radius:5px;border:1px solid var(--mec);background:transparent;color:var(--mec);cursor:pointer;font-weight:700;white-space:nowrap">🖨 PDF</button>
+        <button onclick="exportPersonalXLSX()" style="font-size:.72rem;padding:.18rem .75rem;height:24px;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Exportar Excel</button>
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>DNI</th><th>Apellidos y Nombres</th><th>Cargo</th><th>Categoría</th><th>Proyecto</th><th>Procedencia</th><th>Tipo</th><th>Guardia</th><th>F. Ingreso</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
+      <thead><tr><th>DNI</th><th>Apellidos y Nombres</th><th>Cargo</th><th>Categoría</th><th>Proyecto</th><th>Procedencia</th><th>Tipo</th><th>Guardia</th><th>F. Ingreso</th><th>Estado</th><th id="thPerQr" style="display:none;color:#22d3ee">Cód. Fotocheck/QR</th><th>Notas</th><th></th></tr></thead>
       <tbody id="tbPersonal"></tbody>
     </table></div></div>
   </div>
@@ -2797,7 +2804,7 @@
 
 <script src="js/config.js?v=5"></script>
 <script src="js/utils.js?v=4"></script>
-<script src="js/personal.js?v=6"></script>
+<script src="js/personal.js?v=7"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>

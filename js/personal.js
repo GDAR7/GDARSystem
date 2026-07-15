@@ -67,12 +67,19 @@ function rPersonal(){
   _perFiltrar();
 }
 
+let _perShowQr=localStorage.getItem('_perShowQr')==='1';
+function _perToggleQr(){
+  _perShowQr=!_perShowQr;
+  localStorage.setItem('_perShowQr',_perShowQr?'1':'0');
+  _perFiltrar();
+}
 function _perGetFiltros(){
   return{
     proy:(document.getElementById('perFProy')||{}).value||'',
     est:(document.getElementById('perFEst')||{}).value||'',
     desde:(document.getElementById('perFDesde')||{}).value||'',
     hasta:(document.getElementById('perFHasta')||{}).value||'',
+    qr:(document.getElementById('perFQr')||{}).value||'',
     busq:((document.getElementById('perBuscador')||{}).value||'').toLowerCase().trim()
   };
 }
@@ -84,12 +91,17 @@ function _perFiltrar(){
     if(f.est&&p.est!==f.est)return false;
     if(f.desde&&(p.ing||'')<f.desde)return false;
     if(f.hasta&&(p.ing||'')>f.hasta)return false;
+    if(f.qr==='con'&&!(p.codigoQr||'').trim())return false;
+    if(f.qr==='sin'&&(p.codigoQr||'').trim())return false;
     if(f.busq){
-      const txt=`${p.dni} ${p.ape} ${p.nom} ${p.cargo} ${p.proc||''} ${p.proy||''}`.toLowerCase();
+      const txt=`${p.dni} ${p.ape} ${p.nom} ${p.cargo} ${p.proc||''} ${p.proy||''} ${p.codigoQr||''}`.toLowerCase();
       if(!txt.includes(f.busq))return false;
     }
     return true;
   });
+  // Mostrar/ocultar columna y estado del botón 🪪
+  const thQr=document.getElementById('thPerQr');if(thQr)thQr.style.display=_perShowQr?'':'none';
+  const btnQr=document.getElementById('perBtnQr');if(btnQr){btnQr.style.opacity=_perShowQr?'1':'.5';btnQr.style.textDecoration=_perShowQr?'none':'line-through';}
   const contador=document.getElementById('perContador');
   if(contador)contador.textContent=`${_perFiltered.length} de ${DB.personal.length}`;
   document.getElementById('tbPersonal').innerHTML=_perFiltered.map(p=>{
@@ -103,15 +115,59 @@ function _perFiltrar(){
     <td>${p.guardia?`<span class="badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b60">Grd. ${p.guardia}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
     <td class="mono">${p.ing}</td>
     <td>${bge(p.est)}</td>
+    ${_perShowQr?`<td class="mono" style="font-size:.72rem;color:${(p.codigoQr||'').trim()?'#22d3ee':'#ef4444'}">${(p.codigoQr||'').trim()||'⚠ SIN CÓDIGO'}</td>`:''}
     <td style="max-width:160px;font-size:.75rem;color:var(--muted2)">${p.notas||'<span style="color:var(--muted)">—</span>'}</td>
     <td style="display:flex;gap:.3rem"><button class="btn btn-sm" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;color:#f59e0b" onclick="openPersonalEdit(${p.id})">✏️</button></td>
   </tr>`;}).join('');
 }
 
 function _perLimpiarFiltros(){
-  ['perFProy','perFEst','perFDesde','perFHasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['perFProy','perFEst','perFDesde','perFHasta','perFQr'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const b=document.getElementById('perBuscador');if(b)b.value='';
   _perFiltrar();
+}
+
+// ── PDF del personal filtrado (incluye Cód. Fotocheck/QR, resalta los vacíos) ──
+function printPersonalQR(){
+  const datos=_perFiltered.length?_perFiltered:DB.personal;
+  if(!datos.length){toast('Sin datos para imprimir',true);return;}
+  const f=_perGetFiltros();
+  const sinCod=datos.filter(p=>!(p.codigoQr||'').trim()).length;
+  const filtros=[
+    f.proy?'Proyecto: '+f.proy:'',
+    f.est?'Estado: '+f.est:'',
+    f.qr==='sin'?'Solo SIN código':f.qr==='con'?'Solo CON código':'',
+    f.busq?'Búsqueda: "'+f.busq+'"':''
+  ].filter(Boolean).join(' · ')||'Sin filtros (todo el personal)';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const rows=datos.map((p,i)=>{
+    const cod=(p.codigoQr||'').trim();
+    return`<tr${cod?'':' style="background:#fef2f2"'}>
+      <td style="text-align:center">${i+1}</td>
+      <td style="font-family:monospace">${p.dni||''}</td>
+      <td style="font-weight:700">${p.ape}, ${p.nom}</td>
+      <td>${p.cargo||''}</td>
+      <td style="text-align:center">${p.guardia||'—'}</td>
+      <td style="text-align:center">${p.est||''}</td>
+      <td style="font-family:monospace;${cod?'color:#0e7490':'color:#b91c1c;font-weight:800'}">${cod||'⚠ SIN CÓDIGO'}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Personal — Cód. Fotocheck/QR</title>
+  <style>@page{size:A4;margin:1cm}body{font-family:Arial,sans-serif;font-size:10px;color:#111;margin:0}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  table{width:100%;border-collapse:collapse}th{background:#1e3a5f;color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase}
+  td{border:1px solid #cbd5e1;padding:3px 6px;font-size:9.5px}
+  </style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:6px;margin-bottom:8px">
+    <img src="${_logoUrl}" style="height:40px;object-fit:contain">
+    <div style="text-align:center"><div style="font-size:14px;font-weight:900;color:#1e3a5f">PERSONAL — CÓDIGO DE FOTOCHECK / QR</div><div style="font-size:9px;color:#64748b">${filtros}</div></div>
+    <div style="text-align:right;font-size:9px;color:#64748b">${new Date().toLocaleDateString('es-PE')}<br><b>${datos.length}</b> persona(s) · <b style="color:#b91c1c">${sinCod}</b> sin código</div>
+  </div>
+  <table><thead><tr><th style="width:26px">N°</th><th style="width:70px">DNI</th><th style="text-align:left">Apellidos y Nombres</th><th style="text-align:left">Cargo</th><th style="width:48px">Guardia</th><th style="width:52px">Estado</th><th style="width:150px">Cód. Fotocheck/QR</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  </body></html>`;
+  const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
+  win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),400);
 }
 
 function exportPersonalXLSX(){
