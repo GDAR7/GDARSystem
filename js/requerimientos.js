@@ -1259,6 +1259,65 @@ function gReembolsables(){
   _fpTab('reemb');
 }
 
+// ── Editar un ítem de Reembolsables / Gastos ──
+let _reembEditId=null;
+function editReembolsable(id){
+  const r=(DB.reembolsables||[]).find(x=>x.id===id);if(!r)return;
+  _reembEditId=id;
+  _fePopulateDatalist(); // el buscador de códigos también sirve en este modal
+  document.getElementById('reFactura').textContent=`${r.serie||''} - ${r.correlativo||''} · ${r.proveedor||''} · Ítem ${r.itemFac||''}`;
+  document.getElementById('reCod').value=r.codigo||'';
+  document.getElementById('reCodif').value=r.nombreCodif||'';
+  document.getElementById('reDesc').value=r.desc||'';
+  document.getElementById('reCant').value=+r.cantidad||0;
+  document.getElementById('reUnd').value=r.unidad||'';
+  document.getElementById('rePunit').value=+r.precioUnit||0;
+  document.getElementById('reTc').value=r.tc||'';
+  document.getElementById('reEdp').value=r.edp||'';
+  document.getElementById('reObs').value=r.obs||'';
+  _reembEditCalc();
+  openM('mReembEdit');
+}
+function _reembEditCod(){
+  const el=document.getElementById('reCod'),out=document.getElementById('reCodif');
+  const v=(el.value||'').trim().toUpperCase();
+  if(!v){out.value='';return;}
+  const cat=_feCatalogo();
+  let hit=cat.find(c=>(c.codigo||'').toUpperCase()===v);
+  if(!hit)hit=cat.find(c=>(c.desc||'').toUpperCase().includes(v));
+  if(hit){el.value=hit.codigo;out.value=hit.desc;}
+  else out.value='';
+}
+function _reembEditCalc(){
+  const cant=+document.getElementById('reCant').value||0;
+  const punit=+document.getElementById('rePunit').value||0;
+  const sub=cant*punit;
+  document.getElementById('reSub').textContent=`SubTotal: S/ ${sub.toFixed(2)} sin IGV · S/ ${(sub*1.18).toFixed(2)} inc. IGV`;
+}
+function gReembEdit(){
+  const r=(DB.reembolsables||[]).find(x=>x.id===_reembEditId);
+  if(!r){toast('Registro no encontrado',true);return;}
+  const desc=document.getElementById('reDesc').value.trim();
+  const cant=+document.getElementById('reCant').value||0;
+  const punit=+document.getElementById('rePunit').value||0;
+  if(!desc){toast('Ingrese la descripción',true);return;}
+  if(cant<=0||punit<=0){toast('Cantidad y P. Unit deben ser mayores a 0',true);return;}
+  r.codigo=(document.getElementById('reCod').value||'').trim().toUpperCase();
+  r.nombreCodif=document.getElementById('reCodif').value.trim();
+  r.desc=desc;
+  r.cantidad=cant;
+  r.unidad=document.getElementById('reUnd').value.trim();
+  r.precioUnit=punit;
+  r.importe=+(cant*punit).toFixed(2);
+  r.tc=+document.getElementById('reTc').value||0;
+  r.edp=document.getElementById('reEdp').value.trim();
+  r.obs=document.getElementById('reObs').value.trim();
+  syncSheet('saveReembolsable',r);
+  closeM('mReembEdit');
+  rReembolsables();
+  toast('Ítem actualizado');
+}
+
 // ── Render del tab Reembolsables / Gastos ──
 let _reembFiltProv='', _reembFiltFact='';
 function _reembSetFilt(tipo,val){
@@ -1334,7 +1393,10 @@ function rReembolsables(){
       <td style="${TDs};text-align:right;font-family:monospace">${totDol}</td>
       <td style="${TDs};text-align:right;font-family:monospace;color:var(--muted2)">${tc>0?_n3(tc):'—'}</td>
       <td style="${TDs};text-align:right;font-family:monospace">${subDol}</td>
-      <td style="${TDs}"><button class="btn btn-del btn-sm" onclick="del('reembolsables',${r.id})">🗑</button></td>
+      <td style="${TDs};white-space:nowrap">
+        <button onclick="editReembolsable(${r.id})" title="Editar ítem" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.75rem;padding:.15rem .4rem;margin-right:.25rem">✏</button>
+        <button class="btn btn-del btn-sm" onclick="del('reembolsables',${r.id})">🗑</button>
+      </td>
     </tr>`;
   }).join('');
   const THs='background:var(--panel2);color:var(--muted2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.45rem .55rem;white-space:nowrap;position:sticky;top:0;z-index:2';
