@@ -289,6 +289,25 @@ function setTareaje(personalId,fecha,tipo){
     if(row){const last=row.querySelector('td:last-child');if(last)last.innerHTML='<span style="color:#10b981;font-weight:700">'+totD+'</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">'+totN+'</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">'+totDL+'</span><span style="color:var(--muted2);font-size:.6rem">DL</span>'+_qdlt+_qa5;}
   }
 }
+// Personal filtrado EXACTAMENTE igual que la grilla: proyecto + guardia + texto del buscador
+function _tarPersFiltrados(monthStr){
+  const proyFiltro=document.getElementById('tareProy')?.value||'';
+  const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
+  const buscar=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
+  let persF;
+  if(proyFiltro){
+    const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
+  }else{persF=[...DB.personal];}
+  if(guardiaFiltro)persF=persF.filter(p=>p.guardia===guardiaFiltro);
+  if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
+  return persF;
+}
+function _tarFiltroTxt(){
+  const g=document.getElementById('tareGuardia')?.value||'';
+  const b=(document.getElementById('tareBuscar')?.value||'').trim();
+  return(g?' · Guardia '+g:'')+(b?' · Filtro: "'+b+'"':'');
+}
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
   const mv=document.getElementById('tareMes')?.value||new Date().toISOString().slice(0,7);
@@ -300,13 +319,10 @@ function printTareaje(){
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const proyEl=document.getElementById('tareProy');
   const proyFiltro=proyEl?proyEl.value:'';
-  const proyNombre=proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'— Todos —';
+  const proyNombre=(proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'— Todos —')+_tarFiltroTxt();
   const elab='';
-  let persF;
-  if(proyFiltro){
-    const _wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
-    persF=DB.personal.filter(p=>p.proy===proyFiltro||_wids.has(p.id));
-  }else{persF=DB.personal;}
+  // Solo los que están visibles en la grilla (proyecto + guardia + buscador)
+  const persF=_tarPersFiltrados(monthStr);
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
@@ -375,12 +391,9 @@ function _doExportTareaje(){
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const proyEl=document.getElementById('tareProy');
   const proyFiltro=proyEl?proyEl.value:'';
-  const proyNombre=proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'Todos los proyectos';
-  let persF;
-  if(proyFiltro){
-    const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
-    persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
-  }else{persF=DB.personal;}
+  const proyNombre=(proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'Todos los proyectos')+_tarFiltroTxt();
+  // Solo los que están visibles en la grilla (proyecto + guardia + buscador)
+  const persF=_tarPersFiltrados(monthStr);
   // colores por tipo (hex sin #)
   const _BG={TD:'10b981',TN:'1e3a8a',DL:'38bdf8',P:'f59e0b',F:'ef4444',DM:'8b5cf6',LP:'3b82f6',LM:'ec4899',LF:'374151',V:'0ea5e9',DLT:'84cc16',A5:'f97316',R:'7f1d1d'};
   const _FG={TD:'FFFFFF',TN:'FFFFFF',DL:'000000',P:'000000',F:'FFFFFF',DM:'FFFFFF',LP:'FFFFFF',LM:'FFFFFF',LF:'FFFFFF',V:'FFFFFF',DLT:'000000',A5:'FFFFFF',R:'FFFFFF'};
