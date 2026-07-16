@@ -745,13 +745,63 @@ function imprimirFotocheck(){
 // ── REGISTRO MANUAL ──
 // ── ASISTENCIA MANUAL RÁPIDA (✋ → ☀ Día 06:00 · 🌙 Noche 18:00) ──
 // Hora fija por convención para diferenciar los registros manuales de los escaneados (hora real)
+// Ventana emergente al presionar ✋: asistencia manual (☀/🌙/⌫) + TODAS las opciones de tareaje
+let _asiPickerCb=null;
+function _asiCloseMenu(){
+  if(_asiPickerCb){document.removeEventListener('click',_asiPickerCb);_asiPickerCb=null;}
+  const pk=document.getElementById('asiPicker');if(pk)pk.style.display='none';
+}
 function marcarManualAsi(personalId,fecha,btn){
-  btn.outerHTML=`<span style="display:inline-flex;gap:.25rem;margin-left:.35rem;vertical-align:middle">
-    <button onclick="gManualTurno(${personalId},'${fecha}','D')" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">☀ Día</button>
-    <button onclick="gManualTurno(${personalId},'${fecha}','N')" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;border-radius:5px;color:#60a5fa;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">🌙 Noche</button>
-    <button onclick="gManualLimpiar(${personalId},'${fecha}')" title="Quitar la marca del día (por si se registró por error)" style="background:rgba(239,68,68,.12);border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.68rem;padding:.08rem .4rem;font-weight:700;white-space:nowrap">⌫-Borrar</button>
-    <button onclick="rAsistencia()" title="Cancelar" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.68rem;padding:.08rem .3rem">✕</button>
-  </span>`;
+  _asiCloseMenu();
+  let pk=document.getElementById('asiPicker');
+  if(!pk){pk=document.createElement('div');pk.id='asiPicker';document.body.appendChild(pk);}
+  const p=DB.personal.find(x=>x.id===personalId);
+  const rec=DB.tareaje.find(r=>r.personalId===personalId&&r.fecha===fecha);
+  const cur=rec?rec.tipo:'';
+  let html=`<div style="font-size:.62rem;color:var(--text);margin-bottom:.4rem;font-weight:700">${p?p.ape+', '+p.nom:''} <span style="color:var(--muted2);font-family:monospace;font-weight:400">· ${fecha}</span></div>`;
+  html+=`<div style="font-size:.56rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem">Asistencia manual (hora fija)</div>
+  <div style="display:flex;gap:.3rem;margin-bottom:.55rem">
+    <button onclick="_asiCloseMenu();gManualTurno(${personalId},'${fecha}','D')" style="flex:1;background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.66rem;padding:.28rem .4rem;font-weight:700;white-space:nowrap">☀ Día 06:00</button>
+    <button onclick="_asiCloseMenu();gManualTurno(${personalId},'${fecha}','N')" style="flex:1;background:rgba(59,130,246,.15);border:1px solid #3b82f660;border-radius:5px;color:#60a5fa;cursor:pointer;font-size:.66rem;padding:.28rem .4rem;font-weight:700;white-space:nowrap">🌙 Noche 18:00</button>
+    <button onclick="_asiCloseMenu();gManualLimpiar(${personalId},'${fecha}')" title="Borrar la marca de asistencia del día" style="background:rgba(239,68,68,.12);border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.66rem;padding:.28rem .4rem;font-weight:700;white-space:nowrap">⌫ Borrar</button>
+  </div>`;
+  html+=`<div style="font-size:.56rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem">Tareo del día (solo tareaje, sin hora)</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;min-width:240px">`;
+  Object.entries(_TARE_T).forEach(([k,v])=>{
+    html+=`<button onclick="_asiSetTareo(${personalId},'${fecha}','${k}')" style="background:${v.bg};color:${v.tx};border:2px solid ${k===cur?'#fff':'transparent'};border-radius:5px;padding:4px 2px;font-size:.65rem;font-weight:700;cursor:pointer" title="${v.l}">${k}</button>`;
+  });
+  html+=`<button onclick="_asiSetTareo(${personalId},'${fecha}','')" style="background:#374151;color:#9ca3af;border:1px solid #6b7280;border-radius:5px;padding:4px 2px;font-size:.62rem;font-weight:700;cursor:pointer" title="Quitar el tareo del día">✕ Quitar</button>
+  </div>`;
+  const r=btn.getBoundingClientRect();
+  const w=260,h=250;
+  const left=Math.max(4,Math.min(r.left,window.innerWidth-w-10));
+  const top=(window.innerHeight-r.bottom-6>=h)?r.bottom+4:Math.max(4,r.top-h-4);
+  pk.style.cssText=`display:block;position:fixed;left:${left}px;top:${top}px;z-index:9999;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:${w}px`;
+  pk.innerHTML=html;
+  _asiPickerCb=e=>{if(!pk.contains(e.target))_asiCloseMenu();};
+  setTimeout(()=>document.addEventListener('click',_asiPickerCb),10);
+}
+// Fija cualquier tipo de tareo del día desde Asistencia (no toca la hora de entrada)
+async function _asiSetTareo(personalId,fecha,tipo){
+  _asiCloseMenu();
+  const p=DB.personal.find(x=>x.id===personalId);
+  const existing=DB.tareaje.find(r=>r.personalId===personalId&&r.fecha===fecha);
+  if(!tipo){
+    if(existing){await supaDelete('tareaje',existing.id);DB.tareaje=DB.tareaje.filter(r=>r!==existing);toast('Tareo del día quitado');}
+  }else if(existing){
+    existing.tipo=tipo;
+    const e=await supaUpsert('tareaje',existing);
+    if(e)return;
+    toast('Tareo: '+tipo+(_TARE_T[tipo]?' — '+_TARE_T[tipo].l:''));
+  }else{
+    const rec={id:nid('tar'),personalId,fecha,tipo,proy:p?.proy||''};
+    DB.tareaje.push(rec);
+    const e=await supaUpsert('tareaje',rec);
+    if(e){DB.tareaje=DB.tareaje.filter(r=>r!==rec);return;}
+    toast('Tareo: '+tipo+(_TARE_T[tipo]?' — '+_TARE_T[tipo].l:''));
+  }
+  rAsistencia();
+  if(AP==='tareaje')rTareaje();
 }
 async function gManualLimpiar(personalId,fecha){
   const existing=DB.asistencia.find(a=>a.personalId===personalId&&a.fecha===fecha);
