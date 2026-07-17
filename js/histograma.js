@@ -19,10 +19,15 @@ let _hgTab=1;
 function _hgTabSw(t){_hgTab=t;rHistograma();}
 function rHistograma(){
   const root=document.getElementById('hgBody');if(!root)return;
+  // Preservar la posición del scroll de la grilla entre re-renderizados (al editar celdas)
+  const prevScroll=document.getElementById('hgScroll');
+  const sT=prevScroll?prevScroll.scrollTop:0,sL=prevScroll?prevScroll.scrollLeft:0;
   const tabs=[[1,'📝 Plan'],[2,'🆚 Plan vs Real']];
   root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_hgTab===n;return`<button onclick="_hgTabSw(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ctl)':'var(--border)'};background:${sel?'rgba(16,185,129,.15)':'var(--panel2)'};color:${sel?'var(--ctl)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="hgTabBody"></div>`;
-  if(_hgTab===2){_hgRenderVs();return;}
-  _hgRenderPlan();
+  if(_hgTab===2){_hgRenderVs();}
+  else{_hgRenderPlan();}
+  const nowScroll=document.getElementById('hgScroll');
+  if(nowScroll){nowScroll.scrollTop=sT;nowScroll.scrollLeft=sL;}
 }
 function _hgRenderPlan(){
   const el=document.getElementById('hgTabBody');if(!el)return;
@@ -98,7 +103,7 @@ function _hgRenderPlan(){
     <div class="kpi" style="--kc:#10b981"><div class="kpi-lbl">Plan Total Semana Vigente</div><div class="kpi-val" style="font-size:1.5rem">${colAct?rows.reduce((s,r)=>s+(+((r.valores||{})[colAct])||0),0):'—'}</div></div>
   </div>
   <div class="card" style="padding:0">
-    <div class="tbl-wrap" style="max-height:70vh;overflow:auto">
+    <div class="tbl-wrap" id="hgScroll" style="max-height:70vh;overflow:auto">
     <table style="min-width:100%;border-collapse:collapse">
       <thead style="position:sticky;top:0;z-index:2"><tr style="background:var(--panel2)">
         <th style="${TH};text-align:left;min-width:210px">Recurso</th>
@@ -373,7 +378,7 @@ function _hgRenderVs(){
   </div>
   <div class="card" style="margin-bottom:.9rem"><div class="card-body" style="height:230px;position:relative;padding:.7rem"><canvas id="hgVsChart"></canvas></div></div>
   <div class="card" style="padding:0">
-    <div class="tbl-wrap" style="max-height:65vh;overflow:auto">
+    <div class="tbl-wrap" id="hgScroll" style="max-height:65vh;overflow:auto">
     <table style="min-width:100%;border-collapse:collapse">
       <thead style="position:sticky;top:0;z-index:2"><tr style="background:var(--panel2)">
         <th style="${TH};text-align:left;min-width:230px">Recurso · Vínculo</th>
