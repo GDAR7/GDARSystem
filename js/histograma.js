@@ -15,8 +15,17 @@ function _hgLblCol(iso){
   return(+p[2])+'-'+(M[+p[1]-1]||p[1]);
 }
 
+let _hgTab=1;
+function _hgTabSw(t){_hgTab=t;rHistograma();}
 function rHistograma(){
-  const el=document.getElementById('hgBody');if(!el)return;
+  const root=document.getElementById('hgBody');if(!root)return;
+  const tabs=[[1,'📝 Plan'],[2,'🆚 Plan vs Real']];
+  root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_hgTab===n;return`<button onclick="_hgTabSw(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ctl)':'var(--border)'};background:${sel?'rgba(16,185,129,.15)':'var(--panel2)'};color:${sel?'var(--ctl)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="hgTabBody"></div>`;
+  if(_hgTab===2){_hgRenderVs();return;}
+  _hgRenderPlan();
+}
+function _hgRenderPlan(){
+  const el=document.getElementById('hgTabBody');if(!el)return;
   const cols=_hgCols();
   const rows=(DB.histogramaPlan||[]).slice().sort((a,b)=>{
     const ga=_HG_GRUPOS.indexOf(a.grupo),gb=_HG_GRUPOS.indexOf(b.grupo);
@@ -225,4 +234,272 @@ function _hgExport(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Histograma');
   XLSX.writeFile(wb,'histograma_recursos.xlsx');
+}
+
+// ══════════ FASE 2: PLAN VS REAL ══════════
+// Vínculo por fila: 'eq:TEXTO' (equipos por subtipo con partes en la semana) · 'cargo:TEXTO' (personal por cargo con tareaje trabajado)
+// Semana de una columna = del día de la columna a +6 días · Varios términos con | (PEON|VIGIA)
+let _hgVsChart=null;
+
+function _hgRowsOrdenadas(){
+  return(DB.histogramaPlan||[]).slice().sort((a,b)=>{
+    const ga=_HG_GRUPOS.indexOf(a.grupo),gb=_HG_GRUPOS.indexOf(b.grupo);
+    return(ga<0?99:ga)-(gb<0?99:gb)||(+a.orden||0)-(+b.orden||0)||String(a.recurso).localeCompare(String(b.recurso));
+  });
+}
+
+// Precalcula, por columna-semana pasada: equipos con partes (id→subtipo) y personal con tareaje trabajado (id→cargo)
+function _hgRealData(cols){
+  const pad=n=>String(n).padStart(2,'0');
+  const hoy=today();
+  const colsPast=cols.filter(c=>c<=hoy);
+  const finDe={};
+  colsPast.forEach(c=>{const d=new Date(c+'T12:00:00');d.setDate(d.getDate()+6);finDe[c]=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;});
+  const colDe=f=>{let sel=null;for(const c of colsPast){if(c<=f&&f<=finDe[c])sel=c;}return sel;};
+  const eqW={},pgW={};
+  colsPast.forEach(c=>{eqW[c]={};pgW[c]={};});
+  const eqById={};(DB.equipos||[]).forEach(e=>{eqById[e.id]=e;});
+  (DB.partes||[]).forEach(p=>{
+    if(!p.fecha||!p.eqId)return;
+    const c=colDe(p.fecha);if(!c)return;
+    const eq=eqById[p.eqId];if(!eq)return;
+    eqW[c][p.eqId]=String(eq.sub||eq.nombre||'').toUpperCase();
+  });
+  const perById={};(DB.personal||[]).forEach(x=>{perById[x.id]=x;});
+  const TRAB={TD:1,TN:1,DLT:1,A5:1};
+  (DB.tareaje||[]).forEach(r=>{
+    if(!r.fecha||!TRAB[r.tipo])return;
+    const c=colDe(r.fecha);if(!c)return;
+    const per=perById[r.personalId];if(!per)return;
+    pgW[c][r.personalId]=String(per.cargo||'').toUpperCase();
+  });
+  return{eqW,pgW,colsPast:new Set(colsPast)};
+}
+function _hgReal(row,col,RD){
+  if(!row.vinculo||!RD.colsPast.has(col))return null;
+  const i=String(row.vinculo).indexOf(':');if(i<1)return null;
+  const tipo=row.vinculo.slice(0,i);
+  const terms=row.vinculo.slice(i+1).toUpperCase().split('|').map(t=>t.trim()).filter(Boolean);
+  if(!terms.length)return null;
+  const src=tipo==='eq'?RD.eqW[col]:tipo==='cargo'?RD.pgW[col]:null;
+  if(!src)return null;
+  let n=0;
+  Object.values(src).forEach(s=>{if(terms.some(t=>s.includes(t)))n++;});
+  return n;
+}
+function _hgVincLbl(v){
+  if(!v)return'';
+  const i=String(v).indexOf(':');
+  return(v.slice(0,i)==='eq'?'⚙ ':'👷 ')+v.slice(i+1);
+}
+
+function _hgRenderVs(){
+  const el=document.getElementById('hgTabBody');if(!el)return;
+  const cols=_hgCols();
+  const rows=_hgRowsOrdenadas();
+  if(!rows.length||!cols.length){
+    el.innerHTML=`<div class="card"><div class="card-body" style="text-align:center;padding:3rem;color:var(--muted2);font-size:.85rem">Primero carga el Plan en el tab <b>📝 Plan</b> (importa desde Excel)</div></div>`;
+    return;
+  }
+  const RD=_hgRealData(cols);
+  const hoy=today();
+  let colAct='';cols.forEach(c=>{if(c<=hoy)colAct=c;});
+  const TH='padding:.4rem .4rem;font-size:.58rem;text-transform:uppercase;color:var(--muted2);white-space:nowrap;border:1px solid var(--border);text-align:center';
+  const TD='padding:.14rem .25rem;border:1px solid var(--border);font-size:.7rem;vertical-align:middle';
+
+  // KPIs de la semana vigente (solo filas vinculadas)
+  let planAct=0,realAct=0,vinculadas=0;
+  rows.forEach(r=>{
+    if(!r.vinculo)return;
+    vinculadas++;
+    if(colAct){planAct+=+((r.valores||{})[colAct])||0;realAct+=_hgReal(r,colAct,RD)||0;}
+  });
+  const cump=planAct?realAct/planAct*100:0;
+  const cumpCol=cump>=100?'#10b981':cump>=80?'#f59e0b':'#ef4444';
+
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <button onclick="_hgAutoVinc()" style="font-size:.72rem;padding:.3rem .8rem;border-radius:6px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-weight:700" title="Intenta vincular automáticamente cada recurso con un subtipo de equipo o cargo de personal">✨ Auto-vincular</button>
+    <span style="font-size:.66rem;color:var(--muted2)">${vinculadas} de ${rows.length} recursos vinculados · usa 🔗 en cada fila para ajustar</span>
+    <span style="margin-left:auto;font-size:.64rem;color:var(--muted2)"><span style="color:#10b981">■</span> Real ≥ Plan · <span style="color:#f59e0b">■</span> ≥80% · <span style="color:#ef4444">■</span> &lt;80%</span>
+    <button onclick="_hgExportVs()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+  </div>`;
+
+  const grupos=[...new Set(rows.map(r=>r.grupo))];
+  let body='';
+  grupos.forEach(function(g){
+    const items=rows.filter(r=>r.grupo===g);
+    const col=_HG_COLOR[g]||'#6b7280';
+    body+=`<tr><td colspan="${cols.length+1}" style="padding:.4rem .7rem;background:${col}14;border:1px solid var(--border);border-left:4px solid ${col};color:${col};font-weight:800;font-size:.72rem;text-transform:uppercase">${g}</td></tr>`;
+    items.forEach(function(r){
+      const celdas=cols.map(function(c){
+        const p=(r.valores||{})[c];
+        const rl=_hgReal(r,c,RD);
+        const esAct=c===colAct?'outline:1px solid rgba(245,158,11,.5);outline-offset:-1px;':'';
+        if(rl==null)return`<td style="${TD};text-align:center;font-family:monospace;color:var(--muted2);${esAct}">${p!=null?p:'—'}</td>`;
+        const pp=+p||0;
+        const cc=rl>=pp?'#10b981':rl>=pp*0.8?'#f59e0b':'#ef4444';
+        const bg=rl>=pp?'rgba(16,185,129,.10)':rl>=pp*0.8?'rgba(245,158,11,.10)':'rgba(239,68,68,.12)';
+        return`<td style="${TD};text-align:center;background:${bg};${esAct}" title="Plan ${pp} · Real ${rl}"><span style="font-family:monospace;font-weight:900;color:${cc}">${rl}</span><span style="font-size:.58rem;color:var(--muted2);font-family:monospace">/${pp}</span></td>`;
+      }).join('');
+      body+=`<tr>
+        <td style="${TD};white-space:nowrap;padding:.12rem .5rem;min-width:230px">
+          <span style="font-weight:600">${r.recurso}</span>
+          <button onclick="_hgVincOpen(${r.id},this)" style="background:none;border:1px solid ${r.vinculo?'#10b98140':'#f59e0b50'};border-radius:4px;color:${r.vinculo?'#10b981':'#f59e0b'};cursor:pointer;font-size:.58rem;padding:.05rem .3rem;margin-left:.3rem" title="${r.vinculo?'Vínculo: '+_hgVincLbl(r.vinculo):'Sin vínculo — clic para configurar'}">${r.vinculo?_hgVincLbl(r.vinculo):'🔗 vincular'}</button>
+        </td>
+        ${celdas}
+      </tr>`;
+    });
+  });
+
+  el.innerHTML=bar+`
+  <div class="kpi-row">
+    <div class="kpi" style="--kc:#8b5cf6"><div class="kpi-lbl">Semana Vigente</div><div class="kpi-val" style="font-size:1.5rem">${colAct?_hgLblCol(colAct):'—'}</div></div>
+    <div class="kpi" style="--kc:#3b82f6"><div class="kpi-lbl">Plan (recursos vinculados)</div><div class="kpi-val" style="font-size:1.5rem">${planAct}</div></div>
+    <div class="kpi" style="--kc:#10b981"><div class="kpi-lbl">Real de la Semana</div><div class="kpi-val" style="font-size:1.5rem">${realAct}</div></div>
+    <div class="kpi" style="--kc:${cumpCol}"><div class="kpi-lbl">Cumplimiento</div><div class="kpi-val" style="font-size:1.5rem;color:${cumpCol}">${planAct?cump.toFixed(0)+'%':'—'}${planAct&&realAct<planAct?` <span style="font-size:.75rem;color:#ef4444">faltan ${planAct-realAct}</span>`:''}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:.9rem"><div class="card-body" style="height:230px;position:relative;padding:.7rem"><canvas id="hgVsChart"></canvas></div></div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap" style="max-height:65vh;overflow:auto">
+    <table style="min-width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:2"><tr style="background:var(--panel2)">
+        <th style="${TH};text-align:left;min-width:230px">Recurso · Vínculo</th>
+        ${cols.map(c=>`<th style="${TH};${c===colAct?'color:#f59e0b;background:rgba(245,158,11,.12);':''}" title="${c}">${_hgLblCol(c)}</th>`).join('')}
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    </div>
+  </div>
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celda = <b>Real</b>/Plan · Real: ⚙ equipos con partes diarios en la semana (por subtipo) · 👷 personas con tareaje trabajado (TD/TN/DLT/A5) en la semana (por cargo) · Semana = fecha de la columna + 6 días · Semanas futuras muestran solo el plan</div>`;
+
+  // Gráfico Plan vs Real por semana (totales de filas vinculadas)
+  if(typeof Chart!=='undefined'){
+    if(_hgVsChart){_hgVsChart.destroy();_hgVsChart=null;}
+    const ctx=document.getElementById('hgVsChart');
+    if(ctx){
+      const vinc=rows.filter(r=>r.vinculo);
+      const planTot=cols.map(c=>vinc.reduce((s,r)=>s+(+((r.valores||{})[c])||0),0));
+      const realTot=cols.map(c=>{if(!RD.colsPast.has(c))return null;return vinc.reduce((s,r)=>s+(_hgReal(r,c,RD)||0),0);});
+      _hgVsChart=new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:cols.map(_hgLblCol),
+          datasets:[
+            {label:'Plan',data:planTot,backgroundColor:'rgba(59,130,246,.45)',borderRadius:2},
+            {label:'Real',data:realTot,backgroundColor:'rgba(16,185,129,.85)',borderRadius:2}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{
+            legend:{position:'bottom',labels:{color:'#8b93a7',font:{size:9},boxWidth:10}},
+            title:{display:true,text:'Recursos vinculados: Plan vs Real por semana',color:'#8b93a7',font:{size:11}}
+          },
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:8}},grid:{display:false}},
+            y:{beginAtZero:true,ticks:{color:'#8b93a7',font:{size:9}},grid:{color:'rgba(139,147,167,.12)'}}
+          }
+        }
+      });
+    }
+  }
+}
+
+// ── Popup para configurar el vínculo de una fila ──
+let _hgVincCb=null;
+function _hgVincClose(){
+  if(_hgVincCb){document.removeEventListener('click',_hgVincCb);_hgVincCb=null;}
+  const pk=document.getElementById('hgVincPop');if(pk)pk.style.display='none';
+}
+function _hgVincOpen(id,btn){
+  _hgVincClose();
+  let pk=document.getElementById('hgVincPop');
+  if(!pk){pk=document.createElement('div');pk.id='hgVincPop';document.body.appendChild(pk);}
+  const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
+  const cur=r.vinculo||'';const i=cur.indexOf(':');
+  const curTipo=i>0?cur.slice(0,i):(['Operadores','Personal Obrero','Staff','Conductores'].includes(r.grupo)?'cargo':'eq');
+  const curTxt=i>0?cur.slice(i+1):'';
+  const subs=[...new Set((DB.equipos||[]).map(e=>String(e.sub||'').toUpperCase()).filter(Boolean))].sort();
+  const cargos=[...new Set((DB.personal||[]).map(p=>String(p.cargo||'').toUpperCase()).filter(Boolean))].sort();
+  const inpS='width:100%;background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:.3rem .45rem;color:var(--text);font-size:.72rem';
+  pk.innerHTML=`
+    <div style="font-size:.66rem;font-weight:700;margin-bottom:.4rem;color:var(--text)">🔗 Vincular "<span style="color:var(--ctl)">${r.recurso}</span>" al Real</div>
+    <select id="hgVTipo" style="${inpS};margin-bottom:.35rem">
+      <option value="eq"${curTipo==='eq'?' selected':''}>⚙ Equipos por subtipo (partes de la semana)</option>
+      <option value="cargo"${curTipo==='cargo'?' selected':''}>👷 Personal por cargo (tareaje de la semana)</option>
+    </select>
+    <input id="hgVTxt" list="dlHgVinc" value="${curTxt.replace(/"/g,'&quot;')}" placeholder="Texto a buscar · varios con | (PEON|VIGIA)" style="${inpS};margin-bottom:.45rem;font-family:monospace" onkeydown="if(event.key==='Enter')_hgVincSave(${id})">
+    <datalist id="dlHgVinc">${[...subs,...cargos].map(s=>`<option value="${s}">`).join('')}</datalist>
+    <div style="display:flex;gap:.3rem">
+      <button onclick="_hgVincSave(${id})" style="flex:1;background:rgba(16,185,129,.15);border:1px solid #10b98150;border-radius:5px;color:#10b981;cursor:pointer;font-size:.68rem;padding:.3rem;font-weight:700">💾 Guardar</button>
+      ${r.vinculo?`<button onclick="_hgVincQuitar(${id})" style="background:rgba(239,68,68,.12);border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.68rem;padding:.3rem .5rem">Quitar</button>`:''}
+      <button onclick="_hgVincClose()" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.68rem;padding:.3rem .5rem">✕</button>
+    </div>`;
+  const rc=btn.getBoundingClientRect();
+  const w=340;
+  const left=Math.max(4,Math.min(rc.left,window.innerWidth-w-10));
+  const top=(window.innerHeight-rc.bottom-6>=190)?rc.bottom+4:Math.max(4,rc.top-190);
+  pk.style.cssText=`display:block;position:fixed;left:${left}px;top:${top}px;z-index:9999;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);width:${w}px`;
+  _hgVincCb=e=>{if(!pk.contains(e.target))_hgVincClose();};
+  setTimeout(()=>document.addEventListener('click',_hgVincCb),10);
+}
+function _hgVincSave(id){
+  const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
+  const tipo=document.getElementById('hgVTipo').value;
+  const txt=(document.getElementById('hgVTxt').value||'').trim().toUpperCase();
+  if(!txt){toast('Escribe el texto del vínculo',true);return;}
+  r.vinculo=tipo+':'+txt;
+  supaUpsert('histogramaPlan',r);
+  _hgVincClose();
+  rHistograma();
+  toast('Vínculo guardado: '+_hgVincLbl(r.vinculo));
+}
+function _hgVincQuitar(id){
+  const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
+  r.vinculo='';
+  supaUpsert('histogramaPlan',r);
+  _hgVincClose();
+  rHistograma();
+}
+
+// ── Auto-vincular: busca el primer token del recurso dentro de los subtipos/cargos existentes ──
+function _hgAutoVinc(){
+  const subs=[...new Set((DB.equipos||[]).map(e=>String(e.sub||'').toUpperCase()).filter(Boolean))];
+  const cargos=[...new Set((DB.personal||[]).map(p=>String(p.cargo||'').toUpperCase()).filter(Boolean))];
+  let n=0;
+  (DB.histogramaPlan||[]).forEach(r=>{
+    if(r.vinculo)return;
+    const esPersona=['Operadores','Personal Obrero','Staff','Conductores'].includes(r.grupo);
+    const base=String(r.recurso).toUpperCase().replace(/^OP\.?\s+|^CON\.?\s+/,'');
+    const univ=esPersona?cargos:subs;
+    const toks=base.split(/[^A-ZÁÉÍÓÚÑ0-9]+/).filter(t=>t.length>=4);
+    let term=null;
+    for(const t of toks){if(univ.some(u=>u.includes(t))){term=t;break;}}
+    if(!term)return;
+    r.vinculo=(esPersona?'cargo':'eq')+':'+term;
+    supaUpsert('histogramaPlan',r);
+    n++;
+  });
+  toast(n?('✨ '+n+' recurso(s) vinculados automáticamente — revisa y ajusta con 🔗'):'No se encontraron coincidencias automáticas — vincula manualmente con 🔗',!n);
+  rHistograma();
+}
+
+function _hgExportVs(){
+  if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
+  const cols=_hgCols();
+  const rows=_hgRowsOrdenadas();
+  const RD=_hgRealData(cols);
+  const aoa=[
+    ['HISTOGRAMA — PLAN VS REAL'],
+    ['Grupo','Recurso','Vínculo',...cols.flatMap(c=>[_hgLblCol(c)+' Plan',_hgLblCol(c)+' Real'])],
+    ...rows.map(r=>[r.grupo,r.recurso,r.vinculo||'',...cols.flatMap(c=>{
+      const p=(r.valores||{})[c];
+      const rl=_hgReal(r,c,RD);
+      return[p!=null?p:'',rl!=null?rl:''];
+    })])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Plan vs Real');
+  XLSX.writeFile(wb,'histograma_plan_vs_real.xlsx');
 }
