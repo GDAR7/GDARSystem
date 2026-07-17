@@ -49,7 +49,8 @@ function _hgRenderPlan(){
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">＋ Semana</span>
     <input id="hgNewCol" type="date" style="${inpS};width:135px">
     <button onclick="_hgAddCol()" style="font-size:.72rem;padding:.28rem .6rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋</button>
-    <button onclick="_hgExport()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+    <button onclick="_hgPrint()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:1px solid #ef444460;background:transparent;color:#ef4444;cursor:pointer;font-weight:700;white-space:nowrap">🖨 PDF</button>
+    <button onclick="_hgExport()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
   </div>`;
 
   if(!rows.length){
@@ -332,6 +333,7 @@ function _hgRenderVs(){
     <button onclick="_hgAutoVinc()" style="font-size:.72rem;padding:.3rem .8rem;border-radius:6px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-weight:700" title="Intenta vincular automáticamente cada recurso con un subtipo de equipo o cargo de personal">✨ Auto-vincular</button>
     <span style="font-size:.66rem;color:var(--muted2)">${vinculadas} de ${rows.length} recursos vinculados · usa 🔗 en cada fila para ajustar</span>
     <span style="margin-left:auto;font-size:.64rem;color:var(--muted2)"><span style="color:#10b981">■</span> Real ≥ Plan · <span style="color:#f59e0b">■</span> ≥80% · <span style="color:#ef4444">■</span> &lt;80%</span>
+    <button onclick="_hgPrint()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:1px solid #ef444460;background:transparent;color:#ef4444;cursor:pointer;font-weight:700;white-space:nowrap">🖨 PDF</button>
     <button onclick="_hgExportVs()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
   </div>`;
 
@@ -493,6 +495,66 @@ function _hgAutoVinc(){
   });
   toast(n?('✨ '+n+' recurso(s) vinculados automáticamente — revisa y ajusta con 🔗'):'No se encontraron coincidencias automáticas — vincula manualmente con 🔗',!n);
   rHistograma();
+}
+
+// ── IMPRESIÓN PDF (A4 horizontal · imprime el tab activo: Plan o Plan vs Real) ──
+function _hgPrint(){
+  const cols=_hgCols();
+  const rows=_hgRowsOrdenadas();
+  if(!rows.length||!cols.length){toast('No hay datos para imprimir',true);return;}
+  const esVs=_hgTab===2;
+  const RD=esVs?_hgRealData(cols):null;
+  const hoy=today();
+  let colAct='';cols.forEach(c=>{if(c<=hoy)colAct=c;});
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const AZ='#1e3a5f';
+  const grupos=[...new Set(rows.map(r=>r.grupo))];
+
+  const thd=`<tr><th style="background:${AZ};color:#fff;text-align:left;min-width:130px;padding:2px 5px">Recurso${esVs?' · Vínculo':''}</th>${cols.map(c=>`<th style="background:${c===colAct?'#b45309':AZ};color:#fff;padding:2px 1px;font-size:6.5px;min-width:22px">${_hgLblCol(c)}</th>`).join('')}${esVs?'':`<th style="background:${AZ};color:#fff;font-size:6.5px">Pico</th>`}</tr>`;
+
+  let body='';
+  grupos.forEach(function(g){
+    const items=rows.filter(r=>r.grupo===g);
+    const col=_HG_COLOR[g]||'#6b7280';
+    body+=`<tr><td colspan="${cols.length+(esVs?1:2)}" style="background:${col}22;border-left:3px solid ${col};font-weight:800;font-size:7.5px;text-transform:uppercase;color:#333;padding:2px 5px">${g}</td></tr>`;
+    items.forEach(function(r){
+      const celdas=cols.map(function(c){
+        const p=(r.valores||{})[c];
+        if(!esVs)return`<td style="text-align:center;font-family:monospace">${p!=null?p:''}</td>`;
+        const rl=_hgReal(r,c,RD);
+        if(rl==null)return`<td style="text-align:center;font-family:monospace;color:#94a3b8">${p!=null?p:''}</td>`;
+        const pp=+p||0;
+        const cc=rl>=pp?'#15803d':rl>=pp*0.8?'#b45309':'#b91c1c';
+        const bg=rl>=pp?'#dcfce7':rl>=pp*0.8?'#fef3c7':'#fee2e2';
+        return`<td style="text-align:center;font-family:monospace;background:${bg}"><b style="color:${cc}">${rl}</b><span style="color:#64748b;font-size:5.5px">/${pp}</span></td>`;
+      }).join('');
+      const pico=cols.reduce((m,c)=>Math.max(m,+((r.valores||{})[c])||0),0);
+      body+=`<tr><td style="font-weight:700;padding:1px 5px;white-space:nowrap">${r.recurso}${esVs&&r.vinculo?` <span style="color:#64748b;font-weight:400;font-size:6px">(${_hgVincLbl(r.vinculo)})</span>`:''}</td>${celdas}${esVs?'':`<td style="text-align:center;font-family:monospace;font-weight:800">${pico||''}</td>`}</tr>`;
+    });
+    if(!esVs){
+      body+=`<tr style="background:#e8edf3"><td style="font-weight:800;font-size:6.5px;text-transform:uppercase;padding:1px 5px;color:${col}">Total ${g}</td>${cols.map(c=>{const s=items.reduce((x,r)=>x+(+((r.valores||{})[c])||0),0);return`<td style="text-align:center;font-family:monospace;font-weight:800">${s||''}</td>`;}).join('')}<td></td></tr>`;
+    }
+  });
+  const totGen=esVs?'':`<tr style="background:#dbeafe"><td style="font-weight:900;font-size:7px;padding:2px 5px">TOTAL GENERAL</td>${cols.map(c=>{const s=rows.reduce((x,r)=>x+(+((r.valores||{})[c])||0),0);return`<td style="text-align:center;font-family:monospace;font-weight:900">${s||''}</td>`;}).join('')}<td></td></tr>`;
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Histograma de Recursos${esVs?' — Plan vs Real':''}</title>
+<style>@page{size:A4 landscape;margin:.7cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+body{font-family:Arial,sans-serif;font-size:8px;color:#111;margin:0}
+table{width:100%;border-collapse:collapse}th{font-size:6.5px}
+td{border:1px solid #cbd5e1;padding:1px 2px;font-size:7px;vertical-align:middle}
+tr{page-break-inside:avoid}</style></head><body>
+<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:4px;margin-bottom:6px">
+  <img src="${_logoUrl}" style="height:36px;object-fit:contain">
+  <div style="text-align:center"><div style="font-size:13px;font-weight:900;color:${AZ}">HISTOGRAMA DE RECURSOS${esVs?' — PLAN VS REAL':' — PLAN'}</div><div style="font-size:8px;color:#2563eb;font-weight:700">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div></div>
+  <div style="text-align:right;font-size:7.5px;color:#64748b">${new Date().toLocaleDateString('es-PE')}<br>${rows.length} recursos · ${cols.length} semanas${colAct?'<br>Semana vigente: <b style="color:#b45309">'+_hgLblCol(colAct)+'</b>':''}</div>
+</div>
+${esVs?`<div style="font-size:7px;color:#475569;margin-bottom:4px">Celda = <b>Real</b>/Plan · <span style="background:#dcfce7;padding:0 4px">Real ≥ Plan</span> · <span style="background:#fef3c7;padding:0 4px">≥80%</span> · <span style="background:#fee2e2;padding:0 4px">&lt;80%</span> · Real: ⚙ equipos con partes de la semana · 👷 personal con tareaje trabajado</div>`:''}
+<table><thead>${thd}</thead><tbody>${body}${totGen}</tbody></table>
+</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
 }
 
 function _hgExportVs(){
