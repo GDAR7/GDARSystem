@@ -101,7 +101,7 @@ function _hgRenderPlan(){
     <table style="min-width:100%;border-collapse:collapse">
       <thead style="position:sticky;top:0;z-index:2"><tr style="background:var(--panel2)">
         <th style="${TH};text-align:left;min-width:210px">Recurso</th>
-        ${cols.map(c=>`<th style="${TH};${c===colAct?'color:#f59e0b;background:rgba(245,158,11,.12);':''}" title="${c}">${_hgLblCol(c)}</th>`).join('')}
+        ${cols.map(c=>`<th style="${TH};${c===colAct?'color:#f59e0b;background:rgba(245,158,11,.12);':''}" title="${c}">${_hgLblCol(c)}<div><button onclick="_hgDelCol('${c}')" title="Eliminar esta columna (borra sus valores)" style="background:none;border:none;color:#ef444466;cursor:pointer;font-size:.6rem;padding:0;line-height:1">✕</button></div></th>`).join('')}
         <th style="${TH}" title="Valor máximo planificado">Pico</th>
       </tr></thead>
       <tbody>${body}</tbody>
@@ -128,6 +128,17 @@ function _hgSetVal(id,iso,val){
   }
   supaUpsert('histogramaPlan',r);
   rHistograma();
+}
+function _hgDelCol(iso){
+  const conDatos=(DB.histogramaPlan||[]).filter(r=>r.valores&&r.valores[iso]!=null);
+  const msg=conDatos.length
+    ?`La columna ${_hgLblCol(iso)} (${iso}) tiene ${conDatos.length} valor(es) guardados.\n\n¿Eliminar la columna y BORRAR esos valores de forma permanente?`
+    :`¿Quitar la columna ${_hgLblCol(iso)} (${iso})?`;
+  if(!confirm(msg))return;
+  conDatos.forEach(r=>{delete r.valores[iso];supaUpsert('histogramaPlan',r);});
+  _hgColsExtra.delete(iso);
+  rHistograma();
+  toast('Columna '+_hgLblCol(iso)+' eliminada');
 }
 function _hgAddCol(){
   const el=document.getElementById('hgNewCol');
