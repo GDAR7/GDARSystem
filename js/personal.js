@@ -1000,7 +1000,7 @@ function _rosterSetPersonaTurno(personalId,turno){
   }else if(existing){
     existing.turno=turno;syncSheet('savePersonalRosterCfg',existing);
   }else{
-    const rec={id:nid('personalRosterCfg'),personalId,turno};
+    const rec={id:nid('prc'),personalId,turno};
     DB.personalRosterCfg.push(rec);syncSheet('savePersonalRosterCfg',rec);
   }
   rRoster();
