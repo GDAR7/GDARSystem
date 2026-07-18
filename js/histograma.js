@@ -283,7 +283,8 @@ function _hgRealData(cols){
     eqW[c][p.eqId]=String(eq.sub||eq.nombre||'').toUpperCase();
   });
   const perById={};(DB.personal||[]).forEach(x=>{perById[x.id]=x;});
-  const TRAB={TD:1,TN:1,DLT:1,A5:1};
+  // Personal: cuenta también los días libres (DL) — la persona sigue asignada al proyecto esa semana
+  const TRAB={TD:1,TN:1,DLT:1,A5:1,DL:1};
   (DB.tareaje||[]).forEach(r=>{
     if(!r.fecha||!TRAB[r.tipo])return;
     const c=colDe(r.fecha);if(!c)return;
@@ -388,7 +389,7 @@ function _hgRenderVs(){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celda = <b>Real</b>/Plan · Real: ⚙ equipos con partes diarios en la semana (por subtipo) · 👷 personas con tareaje trabajado (TD/TN/DLT/A5) en la semana (por cargo) · Semana = fecha de la columna + 6 días · Semanas futuras muestran solo el plan</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celda = <b>Real</b>/Plan · Real: ⚙ equipos con partes diarios en la semana (por subtipo) · 👷 personas con tareaje en la semana — incluye días libres (TD/TN/DLT/A5/DL) — por cargo · Semana = fecha de la columna + 6 días · Semanas futuras muestran solo el plan</div>`;
 
   // Gráfico Plan vs Real por semana (totales de filas vinculadas)
   if(typeof Chart!=='undefined'){
@@ -553,7 +554,7 @@ tr{page-break-inside:avoid}</style></head><body>
   <div style="text-align:center"><div style="font-size:13px;font-weight:900;color:${AZ}">HISTOGRAMA DE RECURSOS${esVs?' — PLAN VS REAL':' — PLAN'}</div><div style="font-size:8px;color:#2563eb;font-weight:700">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div></div>
   <div style="text-align:right;font-size:7.5px;color:#64748b">${new Date().toLocaleDateString('es-PE')}<br>${rows.length} recursos · ${cols.length} semanas${colAct?'<br>Semana vigente: <b style="color:#b45309">'+_hgLblCol(colAct)+'</b>':''}</div>
 </div>
-${esVs?`<div style="font-size:7px;color:#475569;margin-bottom:4px">Celda = <b>Real</b>/Plan · <span style="background:#dcfce7;padding:0 4px">Real ≥ Plan</span> · <span style="background:#fef3c7;padding:0 4px">≥80%</span> · <span style="background:#fee2e2;padding:0 4px">&lt;80%</span> · Real: ⚙ equipos con partes de la semana · 👷 personal con tareaje trabajado</div>`:''}
+${esVs?`<div style="font-size:7px;color:#475569;margin-bottom:4px">Celda = <b>Real</b>/Plan · <span style="background:#dcfce7;padding:0 4px">Real ≥ Plan</span> · <span style="background:#fef3c7;padding:0 4px">≥80%</span> · <span style="background:#fee2e2;padding:0 4px">&lt;80%</span> · Real: ⚙ equipos con partes de la semana · 👷 personal con tareaje de la semana (incluye DL)</div>`:''}
 <table><thead>${thd}</thead><tbody>${body}${totGen}</tbody></table>
 </body></html>`;
   const win=window.open('','_blank');
