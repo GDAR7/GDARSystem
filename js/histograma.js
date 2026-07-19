@@ -119,7 +119,7 @@ function _hgRenderPlan(){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Celdas editables (clic y escribe, se guarda al salir de la celda) · Doble click en el nombre para renombrar · Columna ámbar = semana vigente · Pico = máximo planificado del recurso</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)"></div>`;
 }
 
 function _hgSetVal(id,iso,val){
