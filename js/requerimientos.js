@@ -1391,6 +1391,42 @@ function gReembEdit(){
   toast('Ítem actualizado');
 }
 
+// ── Exportar Reembolsables/Gastos a Excel (respeta los filtros de proveedor y factura) ──
+function _reembExportXls(){
+  if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
+  const all=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  const rows=all.filter(r=>{
+    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
+    if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
+    return true;
+  });
+  if(!rows.length){toast('Sin datos para exportar',true);return;}
+  const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
+  const aoa=[
+    ['REEMBOLSABLES / GASTOS'+(_reembFiltProv?' — Proveedor: '+_reembFiltProv:'')+(_reembFiltFact?' — Factura: '+_reembFiltFact:'')],
+    ['ID','PROYECTO','EDP','MONEDA','FECHA DE FACT.','OBSERVACIONES','TIPO DE CP','SERIE','CORRELATIVO','FACTURA Y FECHA','FACTURA','RUC','PROVEEDOR','CÓD. REEMB','NOMBRE CODIF.','ÍTEM FAC','DESCRIPCIÓN','CANTIDAD','UNIDAD','P. UNIT S/IGV','SUBTOTAL S/ SIN IGV','COSTO UNIT C/IGV','IGV','TOTAL S/ (INC. IGV)','TOTAL $','TC','SUBTOTAL $ (SIN IGV)'],
+    ...rows.map(r=>{
+      const punit=+r.precioUnit||0;
+      const subTotal=+r.importe||0;
+      const tc=+r.tc||0;
+      const factura=`${r.serie||''} - ${r.correlativo||''}`.trim();
+      return[
+        r.id,r.proyecto||'',r.edp||'',r.moneda||'SOLES',_dmy(r.fecha),r.obs||'',r.tipoCp||'FE',
+        r.serie||'',r.correlativo||'',`${_dmy(r.fecha)}(${factura})`,factura,r.ruc||'',r.proveedor||'',
+        r.codigo||'',r.nombreCodif||'',r.itemFac||'',r.desc||'',
+        +r.cantidad||0,r.unidad||'',
+        +punit.toFixed(4),+subTotal.toFixed(2),+(punit*1.18).toFixed(2),+(punit*0.18).toFixed(2),+(subTotal*1.18).toFixed(2),
+        tc>0?+(subTotal*1.18/tc).toFixed(2):'',tc>0?+tc.toFixed(3):'',tc>0?+(subTotal/tc).toFixed(2):''
+      ];
+    }),
+    ['','','','','','','','','','','','','','','','','TOTAL','','','',+rows.reduce((a,r)=>a+(+r.importe||0),0).toFixed(2),'','',+rows.reduce((a,r)=>a+(+r.importe||0)*1.18,0).toFixed(2),'','','']
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Reembolsables');
+  XLSX.writeFile(wb,'reembolsables_gastos'+(_reembFiltFact?'_'+_reembFiltFact.replace(/\s/g,''):'')+'.xlsx');
+}
+
 // ── Render del tab Reembolsables / Gastos ──
 let _reembFiltProv='', _reembFiltFact='';
 function _reembSetFilt(tipo,val){
@@ -1491,6 +1527,7 @@ function rReembolsables(){
           </select>
           ${_reembFiltFact?`<button onclick="editFacturaReemb()" title="Editar la cabecera y todos los ítems de esta factura" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:6px;color:#f59e0b;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✏ Editar factura</button>`:''}
           ${(_reembFiltProv||_reembFiltFact)?`<button onclick="_reembFiltProv='';_reembFiltFact='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
+          <button onclick="_reembExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
         </div>
         <div class="card-head-right">
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbReemb')"></div>
