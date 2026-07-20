@@ -15,6 +15,9 @@ const AREAS={
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
   controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
     modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
+  // Área compartida para accesos externos — reusa Seguimiento e Histograma (siguen también en Control de Proyecto)
+  general:{label:'General',icon:'📋',color:'#14b8a6',prefix:'ECOGEN',
+    modules:[{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
     //-Menu para control de equipos.
   controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
     modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteMensual',label:'Mensual al Corte',icon:'📈'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
