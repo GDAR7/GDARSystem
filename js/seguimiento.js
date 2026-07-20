@@ -1,12 +1,15 @@
 // ══ SEGUIMIENTO GENERAL (Panel tipo Trello) ══
-let _segTab=1,_segQ='',_segFResp='',_segDragId=null,_segCompId=null;
+let _segTab=1,_segQ='',_segFResp='',_segDragId=null,_segCompId=null,_segBloqId=null;
 
 const SEG_ESTADOS=[
   {key:'Pendiente', icon:'📋', color:'#f59e0b'},
+  {key:'Bloqueado', icon:'⛔', color:'#ef4444'},
   {key:'En Proceso',icon:'🚧', color:'#3b82f6'},
   {key:'Completado',icon:'✅', color:'#10b981'}
 ];
 const SEG_CAUSAS=['Falta de recursos','Falta de materiales','Falta de personal','Equipos / maquinaria','Clima','Logística / transporte','Aprobaciones / permisos','Mala programación','Cambio de alcance','Otros'];
+// Restricciones (CNC = Causa de No Cumplimiento) que bloquean una tarea
+const SEG_RESTRICCIONES=['Cliente / Aprobación externa','Logística / Transporte','QA/QC / Calidad','Falta de materiales','Falta de equipos','Falta de personal','Ingeniería / Planos','Permisos / Seguridad','Depende de otra tarea','Otros'];
 const SEG_PRIO={'Alta':'#ef4444','Media':'#f59e0b','Baja':'#3b82f6'};
 
 function rSeguimiento(){
@@ -71,12 +74,14 @@ function _segRenderBoard(body){
   const hoy=today();
   const tareas=_segTareas();
   const abiertas=tareas.filter(t=>t.est!=='Completado');
+  const bloqueadas=tareas.filter(t=>t.est==='Bloqueado');
   const vencidas=abiertas.filter(t=>t.fechaProm&&t.fechaProm<hoy);
   const comp=tareas.filter(t=>t.est==='Completado');
   const aTiempo=comp.filter(t=>{const d=_segDesfase(t);return d!==null&&d<=0;});
 
-  const kpis=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
+  const kpis=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin-bottom:.9rem">
     ${_segKpi('Tareas Abiertas',abiertas.length,'#3b82f6')}
+    ${_segKpi('Bloqueadas',bloqueadas.length,bloqueadas.length?'#ef4444':'#10b981')}
     ${_segKpi('Vencidas',vencidas.length,vencidas.length?'#ef4444':'#10b981')}
     ${_segKpi('Completadas',comp.length,'#10b981')}
     ${_segKpi('% A Tiempo',comp.length?Math.round(aTiempo.length/comp.length*100)+'%':'—','#8b5cf6')}
@@ -111,12 +116,16 @@ function _segCard(t,hoy){
       <span style="font-size:.58rem;font-weight:700;color:${pc};text-transform:uppercase;letter-spacing:.06em">● ${t.prioridad||'Media'}</span>
       ${t.area?`<span style="font-size:.58rem;color:var(--muted2)">· ${t.area}</span>`:''}
       <span style="margin-left:auto;display:flex;gap:.25rem">
+        ${t.est!=='Completado'&&t.est!=='Bloqueado'?`<button class="seg-cbtn" title="Bloquear (registrar restricción/CNC)" style="color:#ef4444" onclick="event.stopPropagation();_segOpenBloq(${t.id})">⛔</button>`:''}
+        ${t.est==='Bloqueado'?`<button class="seg-cbtn" title="Desbloquear → En Proceso" style="color:#10b981" onclick="event.stopPropagation();_segDesbloq(${t.id})">🔓</button>`:''}
         ${t.est!=='Completado'?`<button class="seg-cbtn" title="Marcar completada" onclick="event.stopPropagation();_segOpenComp(${t.id})">✓</button>`:''}
         <button class="seg-cbtn" title="Eliminar" style="color:#ef4444" onclick="event.stopPropagation();_segDel(${t.id})">🗑</button>
       </span>
     </div>
     <div style="font-size:.8rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:.25rem">${t.titulo||'(sin título)'}</div>
     ${t.desc?`<div style="font-size:.66rem;color:var(--muted2);margin-bottom:.35rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${t.desc}</div>`:''}
+    ${t.est==='Bloqueado'&&t.restriccion?`<div style="font-size:.63rem;color:#fecaca;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);border-radius:5px;padding:.22rem .45rem;margin-bottom:.35rem">🚫 <b>CNC:</b> ${t.restriccion}${t.restriccionDet?' — '+t.restriccionDet:''}${t.restriccionResp?`<div style="color:#fca5a5;margin-top:.1rem">🔧 Levanta: ${t.restriccionResp}${t.fechaBloq?' · bloqueada hace '+_segDias(t.fechaBloq,hoy)+' d':''}</div>`:t.fechaBloq?`<div style="color:#fca5a5;margin-top:.1rem">Bloqueada hace ${_segDias(t.fechaBloq,hoy)} d</div>`:''}</div>`:''}
+    ${(t.reprogHist&&t.reprogHist.length)?`<div style="font-size:.62rem;color:#f59e0b;margin-bottom:.35rem" title="${t.reprogHist.map(r=>fmtF(r.de)+'→'+fmtF(r.a)).join(' · ')}">↻ Reprogramada ${t.reprogHist.length} ${t.reprogHist.length===1?'vez':'veces'} (${fmtF(t.reprogHist[0].de)} → ${fmtF(t.fechaProm)})</div>`:''}
     ${t.recursos?`<div style="font-size:.64rem;color:#06b6d4;margin-bottom:.35rem">📦 ${t.recursos}</div>`:''}
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.64rem;color:var(--muted2)">
       ${t.responsable?`<span>👤 ${t.responsable}</span>`:''}
@@ -143,6 +152,7 @@ function _segDrop(ev,est){
 function _segMove(id,est){
   const t=(DB.seguimiento||[]).find(x=>x.id===id);if(!t||t.est===est)return;
   if(est==='Completado'){_segOpenComp(id);return;}
+  if(est==='Bloqueado'){_segOpenBloq(id);return;}
   t.est=est;
   // al reabrir una tarea completada se limpia el cierre anterior
   if(t.fechaComp){t.fechaComp='';t.causaDesfase='';t.causaDetalle='';}
@@ -182,14 +192,23 @@ function _segSave(){
     t={id:nid('seg'),est:'Pendiente',fechaComp:'',causaDesfase:'',causaDetalle:'',creadoPor:CU?CU.nombre:''};
     DB.seguimiento.push(t);
   }
+  const nuevaProm=g('segFechaProm');
+  // Reprogramación: al editar, si la fecha prometida se mueve a una POSTERIOR, se registra en el historial
+  if(_segEditId!==null&&t.fechaProm&&nuevaProm&&nuevaProm>t.fechaProm){
+    t.reprogHist=t.reprogHist||[];
+    t.reprogHist.push({de:t.fechaProm,a:nuevaProm,fecha:today(),por:CU?CU.nombre:''});
+  }
   t.titulo=titulo;t.desc=g('segDesc');t.area=g('segArea');t.responsable=g('segResp');
-  t.recursos=g('segRecursos');t.fecha=g('segFecha');t.fechaProm=g('segFechaProm');
+  t.recursos=g('segRecursos');t.fecha=g('segFecha');t.fechaProm=nuevaProm;
   t.prioridad=g('segPrio');
   const nuevoEst=g('segEst');
   if(nuevoEst!=='Completado'&&t.fechaComp){t.fechaComp='';t.causaDesfase='';t.causaDetalle='';}
   if(nuevoEst==='Completado'&&t.est!=='Completado'){
     t.est=t.est||'Pendiente';
     syncSheet('saveSegTarea',t);closeM('mSegTarea');_segOpenComp(t.id);return;
+  }
+  if(nuevoEst==='Bloqueado'&&t.est!=='Bloqueado'){
+    syncSheet('saveSegTarea',t);closeM('mSegTarea');_segOpenBloq(t.id);return;
   }
   t.est=nuevoEst;
   syncSheet('saveSegTarea',t);
@@ -203,6 +222,42 @@ function _segDel(id){
   supaDelete('seguimiento',id);
   _segRender();
   toast('Tarea eliminada');
+}
+
+// ── Modal: bloquear tarea (registrar restricción / CNC) ──────────────────────
+function _segOpenBloq(id){
+  const t=(DB.seguimiento||[]).find(x=>x.id===id);if(!t)return;
+  _segBloqId=id;
+  const dl=document.getElementById('segRespList');
+  if(dl)dl.innerHTML=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
+  document.getElementById('segBloqInfo').innerHTML=`<b>${t.titulo}</b>`;
+  const c=document.getElementById('segBloqCausa');
+  c.innerHTML='<option value=""></option>'+SEG_RESTRICCIONES.map(x=>`<option ${x===t.restriccion?'selected':''}>${x}</option>`).join('');
+  document.getElementById('segBloqDet').value=t.restriccionDet||'';
+  document.getElementById('segBloqResp').value=t.restriccionResp||'';
+  openM('mSegBloq');
+}
+function _segSaveBloq(){
+  const t=(DB.seguimiento||[]).find(x=>x.id===_segBloqId);if(!t)return;
+  const causa=document.getElementById('segBloqCausa').value;
+  if(!causa){toast('Indique la causa del bloqueo (CNC)',true);return;}
+  if(t.est!=='Bloqueado')t.fechaBloq=today();
+  t.est='Bloqueado';
+  t.restriccion=causa;
+  t.restriccionDet=document.getElementById('segBloqDet').value.trim();
+  t.restriccionResp=document.getElementById('segBloqResp').value.trim();
+  if(t.fechaComp){t.fechaComp='';t.causaDesfase='';t.causaDetalle='';}
+  syncSheet('saveSegTarea',t);
+  closeM('mSegBloq');_segRender();
+  toast('⛔ Tarea bloqueada — CNC registrada');
+}
+function _segDesbloq(id){
+  const t=(DB.seguimiento||[]).find(x=>x.id===id);if(!t)return;
+  t.est='En Proceso';
+  t.fechaBloq='';
+  syncSheet('saveSegTarea',t);
+  _segRender();
+  toast('🔓 Restricción levantada → En Proceso');
 }
 
 // ── Modal: completar tarea (fecha real + causa del desfase) ──────────────────
@@ -266,6 +321,27 @@ function _segRenderAnalisis(body){
   const colores=['#ef4444','#f97316','#f59e0b','#8b5cf6','#3b82f6','#06b6d4','#ec4899','#84cc16','#a78bfa','#6b7280'];
 
   const fmtF=f=>f?new Date(f+'T12:00').toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+  const hoy=today();
+
+  // Restricciones activas (tareas bloqueadas) — el registro de CNC vigente
+  const bloq=(_segTareas()).filter(t=>t.est==='Bloqueado').sort((a,b)=>(a.fechaBloq||'9999')<(b.fechaBloq||'9999')?-1:1);
+  const restrPanel=`<div class="card" style="margin-bottom:.9rem;padding:0">
+    <div class="card-head"><span class="card-title">⛔ Restricciones activas (CNC) · ${bloq.length}</span></div>
+    ${bloq.length?`<div class="tbl-wrap"><table style="font-size:.72rem">
+      <thead><tr><th>Tarea</th><th>Área</th><th>CNC</th><th>Detalle / depende de</th><th>Levanta</th><th>Días bloq.</th></tr></thead>
+      <tbody>${bloq.map(t=>{
+        const dias=t.fechaBloq?_segDias(t.fechaBloq,hoy):null;
+        return `<tr style="cursor:pointer" onclick="_segEdit(${t.id})">
+          <td style="font-weight:600">${t.titulo}</td>
+          <td style="font-size:.65rem;color:var(--muted2)">${t.area||'—'}</td>
+          <td><span class="badge b-red">${t.restriccion||'—'}</span></td>
+          <td style="font-size:.66rem;color:var(--muted2)">${t.restriccionDet||'—'}</td>
+          <td style="font-size:.66rem">${t.restriccionResp||'<span style="color:#ef4444">sin asignar</span>'}</td>
+          <td style="text-align:center;font-weight:700;color:${dias>=5?'#ef4444':dias>=2?'#f59e0b':'var(--muted2)'}">${dias!=null?dias+' d':'—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`:'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem">Sin restricciones activas 🎉</div>'}
+  </div>`;
 
   body.innerHTML=_segFiltroBar()+`
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
@@ -274,6 +350,7 @@ function _segRenderAnalisis(body){
     ${_segKpi('Con Retraso',tarde.length,tarde.length?'#ef4444':'#10b981')}
     ${_segKpi('Desfase Promedio',tarde.length?'+'+prom+' días':'—','#f59e0b')}
   </div>
+  ${restrPanel}
 
   <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:.8rem;align-items:start">
     <div class="card" style="padding:.8rem 1rem">
@@ -295,19 +372,21 @@ function _segRenderAnalisis(body){
     <div class="card" style="padding:0">
       <div class="card-head"><span class="card-title">Detalle de tareas completadas</span></div>
       <div class="tbl-wrap"><table style="font-size:.72rem">
-        <thead><tr><th>Tarea</th><th>Responsable</th><th>Prometida</th><th>Completada</th><th>Desfase</th><th>Causa</th></tr></thead>
+        <thead><tr><th>Tarea</th><th>Responsable</th><th>Prometida</th><th>Completada</th><th>Desfase</th><th>Reprog.</th><th>Causa</th></tr></thead>
         <tbody>
         ${comp.length?comp.sort((a,b)=>(b.fechaComp||'')<(a.fechaComp||'')?-1:1).map(t=>{
           const d=_segDesfase(t);
+          const nr=(t.reprogHist&&t.reprogHist.length)||0;
           return `<tr style="cursor:pointer" onclick="_segEdit(${t.id})">
             <td style="font-weight:600">${t.titulo}</td>
             <td>${t.responsable||'—'}</td>
             <td>${fmtF(t.fechaProm)}</td>
             <td>${fmtF(t.fechaComp)}</td>
             <td>${_segBadgeDesfase(d)||'—'}</td>
+            <td style="text-align:center">${nr?'<span class="badge b-orange">↻ '+nr+'</span>':'—'}</td>
             <td style="font-size:.65rem;color:var(--muted2)">${d>0?(t.causaDesfase||'—')+(t.causaDetalle?' · '+t.causaDetalle:''):'—'}</td>
           </tr>`;
-        }).join(''):'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted2)">Aún no hay tareas completadas</td></tr>'}
+        }).join(''):'<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted2)">Aún no hay tareas completadas</td></tr>'}
         </tbody>
       </table></div>
     </div>
@@ -338,10 +417,21 @@ function _segEnsureModals(){
       <div class="fg"><label>Fecha de registro</label><input id="segFecha" type="date" style="color-scheme:dark"></div>
       <div class="fg"><label>Fecha prometida</label><input id="segFechaProm" type="date" style="color-scheme:dark"></div>
       <div class="fg"><label>Prioridad</label><select id="segPrio"><option>Alta</option><option>Media</option><option>Baja</option></select></div>
-      <div class="fg"><label>Estado</label><select id="segEst"><option>Pendiente</option><option>En Proceso</option><option>Completado</option></select></div>
+      <div class="fg"><label>Estado</label><select id="segEst"><option>Pendiente</option><option>Bloqueado</option><option>En Proceso</option><option>Completado</option></select></div>
     </div>
   </div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mSegTarea')">Cancelar</button><button class="btn btn-a" style="--ba:#10b981" onclick="_segSave()">💾 Guardar</button></div>
+</div></div>
+
+<div class="mo" id="mSegBloq"><div class="modal" style="max-width:460px">
+  <div class="mh"><span class="mttl">⛔ Bloquear Tarea — Restricción (CNC)</span><button class="mx" onclick="closeM('mSegBloq')">✕</button></div>
+  <div class="mb">
+    <div id="segBloqInfo" style="font-size:.82rem;margin-bottom:.7rem"></div>
+    <div class="fg" style="margin-bottom:.6rem"><label>Causa de No Cumplimiento (CNC) *</label><select id="segBloqCausa"></select></div>
+    <div class="fg" style="margin-bottom:.6rem"><label>Detalle / ¿de qué depende?</label><textarea id="segBloqDet" rows="2" placeholder="Ej: pendiente aprobación de inducción del cliente..."></textarea></div>
+    <div class="fg"><label>Responsable de levantar la restricción</label><input id="segBloqResp" list="segRespList" placeholder="¿Quién la destraba?"></div>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mSegBloq')">Cancelar</button><button class="btn btn-a" style="--ba:#ef4444" onclick="_segSaveBloq()">⛔ Bloquear</button></div>
 </div></div>
 
 <div class="mo" id="mSegComp"><div class="modal" style="max-width:460px">
