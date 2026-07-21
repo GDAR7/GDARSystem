@@ -617,14 +617,7 @@ function rProg(){
     {l:'En Proceso',v:proc,c:'#f59e0b',ic:'🔄',sub:'en ejecución'},
     {l:'Completados',v:comp,c:'#10b981',ic:'✅',sub:'finalizados'},
     {l:'Total OT',v:total,c:'#8b5cf6',ic:'📋',sub:'órdenes registradas'}
-  ].map(k=>`<div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid ${k.c};border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:150px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">
-      <span style="font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:600">${k.l}</span>
-      <span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span>
-    </div>
-    <div style="font-size:2.4rem;font-weight:800;color:${k.c};line-height:1;margin-bottom:.25rem">${k.v}</div>
-    <div style="font-size:.68rem;color:var(--muted2)">${k.sub}</div>
-  </div>`).join('');
+  ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div><div style="font-size:.62rem;color:var(--muted2);margin-top:.3rem">${k.sub}</div></div>`).join('');
   const fd=document.getElementById('progFDesde')?document.getElementById('progFDesde').value:'';
   const fh=document.getElementById('progFHasta')?document.getElementById('progFHasta').value:'';
   const rows=DB.mantenimientos.filter(r=>{

@@ -25,7 +25,7 @@ function rEngrase(){
     {l:'Total Engrase',v:monthRecs.length,c:'var(--mec)',ic:'🛢️',sub:'registros del mes'},
     {l:'Equipos Activos',v:uniqueEqs,c:'#10b981',ic:'🚜',sub:'con engrase este mes'},
     {l:'Promedio',v:uniqueEqs?(Math.round(monthRecs.length/uniqueEqs*10)/10):0,c:'#f59e0b',ic:'📊',sub:'engrase por equipo'},
-  ].map(k=>`<div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid ${k.c};border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem"><span style="font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:600">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div style="font-size:2.4rem;font-weight:800;color:${k.c};line-height:1;margin-bottom:.25rem">${k.v}</div><div style="font-size:.68rem;color:var(--muted2)">${k.sub}</div></div>`).join('');
+  ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div><div style="font-size:.62rem;color:var(--muted2);margin-top:.3rem">${k.sub}</div></div>`).join('');
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
@@ -160,7 +160,7 @@ function _updateEngraseTotals(monthStr){
   const monthRecs=DB.engrase.filter(r=>r.fecha&&r.fecha.startsWith(ms));
   const uniqueEqs=[...new Set(monthRecs.map(r=>r.eqId))].length;
   const kEl=document.getElementById('engraseKpis');
-  if(kEl){const divs=kEl.querySelectorAll('div>div:nth-child(2)');if(divs[0])divs[0].textContent=monthRecs.length;if(divs[1])divs[1].textContent=uniqueEqs;if(divs[2])divs[2].textContent=uniqueEqs?(Math.round(monthRecs.length/uniqueEqs*10)/10):0;}
+  if(kEl){const divs=kEl.querySelectorAll('.kpi-val');if(divs[0])divs[0].textContent=monthRecs.length;if(divs[1])divs[1].textContent=uniqueEqs;if(divs[2])divs[2].textContent=uniqueEqs?(Math.round(monthRecs.length/uniqueEqs*10)/10):0;}
 }
 function printEngrase(){
   const pad=n=>String(n).padStart(2,'0');
