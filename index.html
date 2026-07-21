@@ -672,6 +672,7 @@
         </select>
         <input type="text" id="engraseElab" placeholder="Elaborado por..." style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:155px">
         <input type="month" id="engraseMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem" oninput="rEngrase()">
+        <button id="engBtnCod" class="btn btn-out btn-sm" onclick="_engToggleCod()" style="color:#06b6d4;border-color:#06b6d460;font-size:.78rem" title="Mostrar/ocultar columna Código">🏷️ Código</button>
         <button class="btn btn-out btn-sm" onclick="printEngrase()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
       </div>
     </div>
@@ -2843,7 +2844,7 @@
 <script src="js/requerimientos.js?v=10"></script>
 <script src="js/mantenimiento.js?v=3"></script>
 <script src="js/tareaje.js?v=3"></script>
-<script src="js/engrase.js?v=2"></script>
+<script src="js/engrase.js?v=3"></script>
 <script src="js/auxmec.js?v=42"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>

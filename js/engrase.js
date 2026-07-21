@@ -1,4 +1,6 @@
 ﻿// ══ ENGRASE MENSUAL ══
+let _engShowCod=localStorage.getItem('_engShowCod')!=='0'; // columna Código (visible por defecto)
+function _engToggleCod(){_engShowCod=!_engShowCod;localStorage.setItem('_engShowCod',_engShowCod?'1':'0');rEngrase();}
 function rEngrase(){
   const pad=n=>String(n).padStart(2,'0');
   const mv=document.getElementById('engraseMes')?.value||new Date().toISOString().slice(0,7);
@@ -46,6 +48,7 @@ function rEngrase(){
     const eCnt=DB.engrase.filter(r=>r.eqId===eq.id&&r.fecha.startsWith(monthStr)&&r.tipo==='E').length;
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
+      ${_engShowCod?`<td class="mono" style="padding:3px 6px;font-size:.72rem;white-space:nowrap;color:#06b6d4;font-weight:700">${eq.codigo||'—'}</td>`:''}
       <td style="padding:3px 5px;white-space:nowrap"><span class="badge b-purple" style="font-size:.58rem">${eq.tipo||'—'}</span></td>
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem"><strong>${eq.nombre}</strong></td>
       <td class="mono" style="padding:3px 5px;font-size:.7rem;white-space:nowrap">${eq.placa||'—'}</td>
@@ -58,15 +61,18 @@ function rEngrase(){
     <thead>
       <tr style="background:var(--panel2)">
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:30px">N°</th>
+        ${_engShowCod?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#06b6d4">Código</th>`:''}
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:110px">Tipo</th>
         <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Descripción del Equipo</th>
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:65px">Placa</th>
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 6px;font-size:.68rem;text-align:center;white-space:nowrap;min-width:45px;background:rgba(4,78,100,.12)">Total</th>
       </tr>
-      <tr style="background:var(--panel2)">${'<th></th>'.repeat(4)}${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)">${'<th></th>'.repeat(_engShowCod?5:4)}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
+  const _bC=document.getElementById('engBtnCod');
+  if(_bC){_bC.style.opacity=_engShowCod?'1':'.45';_bC.style.textDecoration=_engShowCod?'none':'line-through';}
 }
 let _engPickEqId=null,_engPickFecha=null;
 function openEngrasePicker(eqId,fecha,evt){
@@ -194,7 +200,7 @@ function printEngrase(){
     }).join('');
     const pCntP=DB.engrase.filter(r=>r.eqId===eq.id&&r.fecha.startsWith(monthStr)&&(r.tipo||'P')==='P').length;
     const eCntP=DB.engrase.filter(r=>r.eqId===eq.id&&r.fecha.startsWith(monthStr)&&r.tipo==='E').length;
-    return`<tr><td style="text-align:center;font-size:8px;padding:2px 3px;border:1px solid #e2e8f0">${idx+1}</td><td style="font-size:7.5px;padding:2px 3px;border:1px solid #e2e8f0;white-space:nowrap">${eq.tipo||'—'}</td><td style="font-size:8px;font-weight:700;padding:2px 5px;border:1px solid #e2e8f0;white-space:nowrap">${eq.nombre}</td><td style="font-size:7.5px;padding:2px 3px;border:1px solid #e2e8f0;font-family:monospace">${eq.placa||'—'}</td>${cells}<td style="text-align:center;font-size:8px;padding:2px 4px;border:1px solid #e2e8f0;background:#e0f2fe;white-space:nowrap">${(pCntP||eCntP)?`<span style="color:#3b82f6;font-weight:700">${pCntP}P</span> <span style="color:#10b981;font-weight:700">${eCntP}E</span>`:''}</td></tr>`;
+    return`<tr><td style="text-align:center;font-size:8px;padding:2px 3px;border:1px solid #e2e8f0">${idx+1}</td>${_engShowCod?`<td style="font-size:8px;font-weight:700;padding:2px 4px;border:1px solid #e2e8f0;font-family:monospace">${eq.codigo||'—'}</td>`:''}<td style="font-size:7.5px;padding:2px 3px;border:1px solid #e2e8f0;white-space:nowrap">${eq.tipo||'—'}</td><td style="font-size:8px;font-weight:700;padding:2px 5px;border:1px solid #e2e8f0;white-space:nowrap">${eq.nombre}</td><td style="font-size:7.5px;padding:2px 3px;border:1px solid #e2e8f0;font-family:monospace">${eq.placa||'—'}</td>${cells}<td style="text-align:center;font-size:8px;padding:2px 4px;border:1px solid #e2e8f0;background:#e0f2fe;white-space:nowrap">${(pCntP||eCntP)?`<span style="color:#3b82f6;font-weight:700">${pCntP}P</span> <span style="color:#10b981;font-weight:700">${eCntP}E</span>`:''}</td></tr>`;
   }).join('');
   const elaborador=elab;
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Engrase ${mesNombre} ${y}</title>
@@ -220,7 +226,7 @@ td{border:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{backgrou
 </div>
 <table>
   <thead>
-    <tr><th rowspan="2">N°</th><th rowspan="2" style="min-width:90px">Tipo / Área</th><th rowspan="2" style="min-width:150px">Descripción del Equipo</th><th rowspan="2" style="min-width:55px">Placa</th><th colspan="${days}" style="text-align:center;background:#044e64">${mesNombre} ${y}</th><th rowspan="2" style="background:#e0f2fe;color:#044e64;min-width:35px">Total</th></tr>
+    <tr><th rowspan="2">N°</th>${_engShowCod?'<th rowspan="2" style="min-width:70px">Código</th>':''}<th rowspan="2" style="min-width:90px">Tipo / Área</th><th rowspan="2" style="min-width:150px">Descripción del Equipo</th><th rowspan="2" style="min-width:55px">Placa</th><th colspan="${days}" style="text-align:center;background:#044e64">${mesNombre} ${y}</th><th rowspan="2" style="background:#e0f2fe;color:#044e64;min-width:35px">Total</th></tr>
     <tr>${dayHdrs}</tr>
   </thead>
   <tbody>${rows}</tbody>
