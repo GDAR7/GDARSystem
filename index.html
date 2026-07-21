@@ -278,6 +278,9 @@
   </div>
 </div>
 
+<!-- BIENESTAR – VIÁTICOS -->
+<div class="page" id="page-viaticos"></div>
+
 <!-- BIENESTAR – RESIDENCIA -->
 <div class="page" id="page-residencia">
   <div class="ph"><div class="ph-title" style="color:var(--bsw)">Residencia</div><div class="ph-sub">Control de habitaciones y asignaciones</div></div>
@@ -1728,6 +1731,33 @@
   <div class="mf"><button class="btn btn-out" onclick="closeM('mSocial')">Cancelar</button><button class="btn btn-a" style="--ba:var(--bsw)" onclick="gSocial()">Guardar</button></div>
 </div></div>
 
+<!-- Viático Modal -->
+<div class="mo" id="mViatico"><div class="modal" style="max-width:720px">
+  <div class="mh"><span class="mttl" id="viaMtl">Nuevo Registro</span><button class="mx" onclick="closeM('mViatico')">✕</button></div>
+  <div class="mb"><div class="fg-grid">
+    <div class="fg" style="grid-column:1/-1"><label>Proyecto</label><input id="viaProy" placeholder="Nombre del proyecto"></div>
+    <div class="fg"><label>Moneda</label><select id="viaMoneda"><option>SOLES</option><option>DOLARES</option></select></div>
+    <div class="fg"><label>Fecha de Fact.</label><input id="viaFecha" type="date"></div>
+    <div class="fg"><label>Tipo de CP</label><select id="viaTipoCp"><option>FE</option><option>BE</option><option>RH</option><option>TICKET</option><option>OTRO</option></select></div>
+    <div class="fg"><label>Serie</label><input id="viaSerie" placeholder="F001"></div>
+    <div class="fg"><label>Correlativo</label><input id="viaCorrel" placeholder="00001"></div>
+    <div class="fg"><label>Ítem Fac (opcional)</label><input id="viaItemFac" placeholder="auto"></div>
+    <div class="fg"><label>RUC</label><input id="viaRuc" placeholder="20xxxxxxxxx"></div>
+    <div class="fg" style="grid-column:span 2"><label>Proveedor</label><input id="viaProv" placeholder="Razón social / Persona"></div>
+    <div class="fg"><label>Cód. Reemb 🔍</label><input id="viaCod" list="dlCodigoReemb" placeholder="R14..." oninput="_viaCod()" style="font-family:monospace;font-weight:700"></div>
+    <div class="fg" style="grid-column:span 2"><label>Nombre Codif.</label><input id="viaCodif" readonly placeholder="(auto según código)" style="opacity:.75"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="viaDesc" placeholder="Concepto / motivo del viático"></div>
+    <div class="fg"><label>Cantidad</label><input id="viaCant" type="number" step="0.01" value="1" oninput="_viaCalc()"></div>
+    <div class="fg"><label>Unidad</label><input id="viaUnd" placeholder="UND"></div>
+    <div class="fg"><label>P. Unit s/IGV</label><input id="viaPunit" type="number" step="0.0001" value="0" oninput="_viaCalc()"></div>
+    <div class="fg"><label>TC (tipo cambio)</label><input id="viaTc" type="number" step="0.001" placeholder="—"></div>
+    <div class="fg"><label>EDP</label><input id="viaEdp"></div>
+    <div class="fg" style="grid-column:span 2"><label>Observaciones</label><input id="viaObs" placeholder="Opcional"></div>
+    <div class="fg" style="grid-column:1/-1"><div id="viaSub" style="text-align:right;font-size:.8rem;font-family:monospace;color:#10b981;font-weight:700"></div></div>
+  </div></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mViatico')">Cancelar</button><button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaSave()">💾 Guardar</button></div>
+</div></div>
+
 <!-- Residencia Modal -->
 <div class="mo" id="mResidencia"><div class="modal">
   <div class="mh"><span class="mttl">Asignar Habitación</span><button class="mx" onclick="closeM('mResidencia')">✕</button></div>
@@ -2835,13 +2865,14 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=8"></script>
-<script src="js/utils.js?v=5"></script>
+<script src="js/config.js?v=11"></script>
+<script src="js/utils.js?v=6"></script>
 <script src="js/personal.js?v=9"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=10"></script>
+<script src="js/viaticos.js?v=2"></script>
 <script src="js/mantenimiento.js?v=3"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=3"></script>

@@ -3,7 +3,7 @@ const AREAS={
   administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
     modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia del día',icon:'✅'},{key:'planilla',label:'Planilla',icon:'💵'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'},{key:'resumenTareaje',label:'Resumen Diario Tareaje',icon:'📊'},{key:'roster',label:'Roster de Guardias',icon:'🗓️'}]},
   bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
-    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'}]},
+    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'viaticos',label:'Reembolsables B.S.',icon:'🧾'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'}]},
   almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
     modules:[{key:'proyectos',label:'Proyectos',icon:'🏗️'},{key:'almacen',label:'Kardex / Almacén',icon:'📋'},{key:'combustible',label:'Combustible',icon:'⛽'},{key:'requerimientos',label:'Requerimientos',icon:'📝'},{key:'materiales',label:'Materiales',icon:'🏗️'},{key:'facturasPago',label:'Facturas / Boletas',icon:'🧾'}]},
   operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
@@ -86,7 +86,7 @@ function toCamel(obj){
 }
 
 const SUPA_TABLES={
-  personal:'personal',social:'social',residencia:'residencia',
+  personal:'personal',social:'social',viaticos:'reembolsables_bbss',residencia:'residencia',
   alimentacion:'alimentacion',hospedaje:'hospedaje',lavanderia:'lavanderia',
   almacen:'almacen',requerimientos:'requerimientos',facturasPago:'facturas_pago',
   combustible:'combustible',supervision:'supervision',incidentes:'incidentes',
@@ -122,7 +122,7 @@ const SUPA_TABLES={
 };
 
 const ACTION_MAP={
-  savePersonal:'personal',saveSocial:'social',saveResidencia:'residencia',
+  savePersonal:'personal',saveSocial:'social',saveViatico:'viaticos',saveResidencia:'residencia',
   saveAlimentacion:'alimentacion',saveHospedaje:'hospedaje',saveLavanderia:'lavanderia',
   saveAlmacen:'almacen',saveSupervision:'supervision',saveIncidente:'incidentes',
   savePetar:'petar',saveAmbiental:'ambiental',saveEquipo:'equipos',
@@ -263,7 +263,7 @@ async function loadSheetsData(){
       const data=await cargarPaginado(tabla);
       if(data.length>0)results.push({dbKey,data,error:null});
     }
-    const nxMap={personal:'personal',social:'social',residencia:'res',
+    const nxMap={personal:'personal',social:'social',viaticos:'via',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
@@ -387,13 +387,13 @@ async function seedSupabase(){
 
 // ══ DB ══
 const DB={
-  personal:[],social:[],residencia:[],alimentacion:[],hospedaje:[],lavanderia:[],
+  personal:[],social:[],viaticos:[],residencia:[],alimentacion:[],hospedaje:[],lavanderia:[],
   almacen:[],requerimientos:[],facturasPago:[],combustible:[],supervision:[],
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],histogramaPlan:[],planillaMes:[],
   lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1}
+  nx:{personal:1,social:1,via:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1}
 };
 
 // ══ STATE ══
