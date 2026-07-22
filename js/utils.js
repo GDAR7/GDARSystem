@@ -31,11 +31,13 @@ function flt(inp,tid){
   Array.from(tb.rows).forEach(r=>r.style.display=r.textContent.toLowerCase().includes(v)?'':'none');
 }
 
+// Quita tildes para comparar cargos sin importar si están escritos con o sin acento (ej. "MECANICO" vs "Mecánico")
+const _sinTildes=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'');
 // Personal para los selectores de atención mecánica (Mecánico / Ayudante Mecánico) + opción Terceros
 // sel = valor ya guardado del registro (se conserva como opción aunque ya no califique, para no perderlo al editar)
 function _mecOptsHtml(sel){
   sel=sel||'';
-  const list=DB.personal.filter(p=>p.est==='Activo'&&(p.cargo||'').toLowerCase().includes('mecán'));
+  const list=DB.personal.filter(p=>p.est==='Activo'&&_sinTildes(p.cargo).toLowerCase().includes('mecan'));
   let html='<option value="">— Seleccionar —</option>'+
     list.map(p=>{const n=`${p.ape}, ${p.nom}`;return`<option${n===sel?' selected':''}>${n}</option>`;}).join('')+
     `<option value="Terceros"${sel==='Terceros'?' selected':''}>Terceros (externo)</option>`;
