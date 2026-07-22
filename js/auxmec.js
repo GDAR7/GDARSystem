@@ -46,13 +46,14 @@ function rAuxMec(){
   document.getElementById('tbAuxMec').innerHTML=DB.auxiliosMecanicos.slice().reverse().map(r=>{
     const eq=DB.equipos.find(e=>e.id===r.eqId);
     const eqLabel=eq?`<span class="mono" style="font-size:.71rem;color:var(--mec)">${eq.codigo}</span> ${eq.nombre.split(' ').slice(0,2).join(' ')}`:'—';
-    return`<tr>
+    const anulado=r.est==='Anulado';
+    return`<tr style="${anulado?'opacity:.55':''}">
       <td class="mono" style="color:var(--mec);font-size:.71rem">${r.cod||'—'}</td>
       <td class="mono">${r.fecha||'—'}</td>
       <td style="font-size:.8rem">${eqLabel}</td>
       <td class="mono tr" style="font-size:.78rem">${r.horometro!=null?fmtN(r.horometro)+' h':'—'}</td>
       <td><span class="badge b-purple" style="font-size:.64rem">${r.tipo||'—'}</span></td>
-      <td style="font-size:.77rem;max-width:170px;white-space:normal">${r.desc||'—'}</td>
+      <td style="font-size:.77rem;max-width:170px;white-space:normal;${anulado?'text-decoration:line-through':''}">${r.desc||'—'}</td>
       <td style="font-size:.78rem">${r.mec||'—'}</td>
       <td class="mono tr">${r.tiempoParada!=null?fmtN(r.tiempoParada)+' h':'—'}</td>
       <td>${bge(r.est)}</td>
@@ -60,8 +61,9 @@ function rAuxMec(){
       <td style="font-size:.72rem;color:var(--muted2)">${DB.auxMecInsumos.filter(i=>i.auxilioId===r.id).length||'—'}</td>
       <td style="display:flex;gap:.3rem;flex-wrap:nowrap">
         <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verAuxMec(${r.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
-        ${r.est!=='Atendido'?`<button class="btn btn-out btn-sm" title="Editar" onclick="editAuxMec(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>`:''}
-        ${r.est!=='Atendido'?`<button class="btn btn-del btn-sm" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:''}
+        <button class="btn btn-out btn-sm" title="Editar" onclick="intentarEditarAuxMec(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
+        ${!anulado?`<button class="btn btn-out btn-sm" title="Anular" onclick="anularAuxMec(${r.id})" style="color:#ef4444;border-color:#ef444460">🚫</button>`:''}
+        ${r.est==='Pendiente'?`<button class="btn btn-del btn-sm" title="Eliminar definitivamente" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -148,6 +150,28 @@ function gAuxMec(){
   }
 }
 
+// Bloquea la edición de auxilios anulados (salvo administrador general)
+function intentarEditarAuxMec(id){
+  const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r)return;
+  if(r.est==='Anulado'&&(!CU||CU.codigo!=='EIBEL25')){
+    alert('⚠️ Este auxilio mecánico está anulado y ya no se puede editar.\n\nComunícate con el Administrador General si necesitas reactivarlo.');
+    return;
+  }
+  editAuxMec(id);
+}
+// Anula un auxilio (queda en el historial marcado como Anulado, sin borrarlo)
+function anularAuxMec(id){
+  const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r)return;
+  if(r.est==='Anulado'){toast('Este auxilio ya está anulado',true);return;}
+  const motivo=prompt('Motivo de anulación (opcional):','');
+  if(motivo===null)return;
+  if(!confirm('¿Anular el auxilio '+(r.cod||'')+'?\n\nQuedará marcado como Anulado en el historial y no podrá editarse.'))return;
+  r.est='Anulado';
+  r.motivoAnulacion=motivo.trim()||null;
+  syncSheet('saveAuxMec',r);
+  rAuxMec();
+  toast('Auxilio anulado: '+(r.cod||''));
+}
 function editAuxMec(id){
   const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r)return;
   _amEditId=id;
@@ -217,6 +241,7 @@ function verAuxMec(id){
     ${row('T. Parada',r.tiempoParada!=null?fmtN(r.tiempoParada)+' h':'—')}
     ${row('Traslado',r.traslado+(r.trasladoDest?' → '+r.trasladoDest:''))}
     ${row('Estado',r.est)}
+    ${r.est==='Anulado'?row('Motivo de Anulación',r.motivoAnulacion||'—'):''}
     ${sec('INSUMOS Y REPUESTOS')}
     ${ins.length?`<table style="width:100%;font-size:.75rem;border-collapse:collapse;margin-top:.3rem">
       <thead><tr style="color:var(--muted2)"><th style="text-align:left;padding:.2rem .4rem">Descripción</th><th>Cód.</th><th>Cant.</th><th>Und.</th><th>Origen</th></tr></thead>
