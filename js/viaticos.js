@@ -1,5 +1,12 @@
 // ══ VIÁTICOS (Bienestar Social) · mismo modelo/columnas que Reembolsables/Gastos ══
 let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaQ='',_viaEditId=null;
+const _VIA_BUCKET='Reembolsables_BS_pdf'; // bucket de Supabase Storage para los PDF
+function _viaStoragePath(url){
+  if(!url)return null;
+  const marker='/object/public/'+_VIA_BUCKET+'/';
+  const i=url.indexOf(marker);
+  return i!==-1?decodeURIComponent(url.slice(i+marker.length)):null;
+}
 
 const _viaDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
 const _viaN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -77,6 +84,7 @@ function rViaticos(){
       <td style="${TDs};text-align:right;font-family:monospace">${totDol}</td>
       <td style="${TDs};text-align:right;font-family:monospace;color:var(--muted2)">${tc>0?_viaN3(tc):'—'}</td>
       <td style="${TDs};text-align:right;font-family:monospace">${subDol}</td>
+      <td style="${TDs};text-align:center">${r.pdfUrl?`<a href="${r.pdfUrl}" target="_blank" rel="noopener" title="Ver PDF: ${(r.pdfName||'comprobante').replace(/"/g,'&quot;')}" style="text-decoration:none;font-size:1rem">📄</a>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td style="${TDs};white-space:nowrap">
         <button onclick="_viaEdit(${r.id})" title="Editar" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.75rem;padding:.15rem .4rem;margin-right:.25rem">✏</button>
         <button class="btn btn-del btn-sm" onclick="_viaDel(${r.id})">🗑</button>
@@ -84,7 +92,7 @@ function rViaticos(){
     </tr>`;
   }).join('');
 
-  const cols=['ID','Proyecto','EDP','Moneda','Fecha de Fact.','Observaciones','Tipo CP','Serie','Correlativo','Factura y Fecha','Factura','RUC','Proveedor','Cód. Reemb','Nombre Codif.','Ítem Fac','Descripción','Cantidad','Unidad','P. Unit s/IGV','Subtotal S/ sin IGV','Costo Unit c/IGV','IGV','Total S/ (Inc. IGV)','Total $','TC','Subtotal $ (sin IGV)'];
+  const cols=['ID','Proyecto','EDP','Moneda','Fecha de Fact.','Observaciones','Tipo CP','Serie','Correlativo','Factura y Fecha','Factura','RUC','Proveedor','Cód. Reemb','Nombre Codif.','Ítem Fac','Descripción','Cantidad','Unidad','P. Unit s/IGV','Subtotal S/ sin IGV','Costo Unit c/IGV','IGV','Total S/ (Inc. IGV)','Total $','TC','Subtotal $ (sin IGV)','PDF'];
 
   pg.innerHTML=`
     <div class="ph"><div class="ph-title" style="color:var(--bsw)">🧾 Reembolsables B.S.</div><div class="ph-sub">Reembolsables de Bienestar Social: viáticos, alimentación, hospedaje y habitación</div></div>
@@ -150,6 +158,10 @@ function _viaFill(r){
   s('viaItemFac',r.itemFac);s('viaDesc',r.desc);s('viaCant',r.cantidad!=null?r.cantidad:1);
   s('viaUnd',r.unidad||'UND');s('viaPunit',r.precioUnit!=null?r.precioUnit:0);s('viaEdp',r.edp);
   s('viaTc',r.tc);s('viaObs',r.obs);
+  // PDF: limpiar el input de archivo y mostrar el estado del PDF actual
+  const fi=document.getElementById('viaPdf');if(fi)fi.value='';
+  const pi=document.getElementById('viaPdfActual');
+  if(pi)pi.innerHTML=r.pdfUrl?`<a href="${r.pdfUrl}" target="_blank" rel="noopener" style="color:var(--bsw)">📄 Ver PDF actual</a> <span style="color:var(--muted2)">· sube otro para reemplazarlo</span>`:'<span style="color:var(--muted2)">Sin PDF adjunto</span>';
   _viaCalc();
 }
 function _viaCod(){
@@ -167,30 +179,47 @@ function _viaCalc(){
   const sub=cant*punit;
   document.getElementById('viaSub').textContent=`SubTotal: S/ ${sub.toFixed(2)} sin IGV · S/ ${(sub*1.18).toFixed(2)} inc. IGV`;
 }
-function _viaSave(){
+async function _viaSave(){
   const g=id=>(document.getElementById(id).value||'').trim();
   const desc=g('viaDesc');
   const cant=+document.getElementById('viaCant').value||0;
   const punit=+document.getElementById('viaPunit').value||0;
   if(!desc){toast('Ingrese la descripción',true);return;}
   if(cant<=0||punit<=0){toast('Cantidad y P. Unit deben ser mayores a 0',true);return;}
-  let r;
-  if(_viaEditId!==null){r=(DB.viaticos||[]).find(x=>x.id===_viaEditId);if(!r)return;}
-  else{r={id:nid('via')};DB.viaticos.push(r);}
-  const fecha=g('viaFecha');
-  r.proyecto=g('viaProy');r.moneda=g('viaMoneda');r.fecha=fecha;r.tipoCp=g('viaTipoCp');
+  const editing=_viaEditId!==null;
+  const existing=editing?(DB.viaticos||[]).find(x=>x.id===_viaEditId):null;
+  if(editing&&!existing)return;
+  // Subir PDF (si se eligió uno) antes de guardar el registro
+  const file=document.getElementById('viaPdf')?.files[0];
+  let pdfUrl=null,pdfName=null;
+  if(file){
+    if(existing){const _old=_viaStoragePath(existing.pdfUrl);if(_old)await supa.storage.from(_VIA_BUCKET).remove([_old]);}
+    toast('Subiendo PDF...');
+    const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+    const path=((g('viaSerie')+'_'+g('viaCorrel')+'_'+Date.now())||'reemb').replace(/[^a-zA-Z0-9_-]/g,'_')+'.'+ext;
+    const{error:upErr}=await supa.storage.from(_VIA_BUCKET).upload(path,file,{upsert:true});
+    if(upErr){toast('Error al subir PDF: '+upErr.message,true);return;}
+    const{data:urlData}=supa.storage.from(_VIA_BUCKET).getPublicUrl(path);
+    pdfUrl=urlData.publicUrl;pdfName=file.name;
+  }
+  const r=editing?existing:{id:nid('via')};
+  if(!editing)DB.viaticos.push(r);
+  r.proyecto=g('viaProy');r.moneda=g('viaMoneda');r.fecha=g('viaFecha');r.tipoCp=g('viaTipoCp');
   r.serie=g('viaSerie').toUpperCase();r.correlativo=g('viaCorrel');r.ruc=g('viaRuc');r.proveedor=g('viaProv');
   r.codigo=g('viaCod').toUpperCase();r.nombreCodif=g('viaCodif');
   r.itemFac=g('viaItemFac')||String((DB.viaticos||[]).filter(x=>x.serie===r.serie&&x.correlativo===r.correlativo).length).padStart(2,'0');
   r.desc=desc;r.cantidad=cant;r.unidad=g('viaUnd');r.precioUnit=punit;r.importe=+(cant*punit).toFixed(2);
   r.tc=+document.getElementById('viaTc').value||0;r.edp=g('viaEdp');r.obs=g('viaObs');
+  if(pdfUrl){r.pdfUrl=pdfUrl;r.pdfName=pdfName;}
   syncSheet('saveViatico',r);
   closeM('mViatico');rViaticos();
-  toast(_viaEditId!==null?'Registro actualizado':'Registro guardado');
+  toast(editing?'Registro actualizado':'Registro guardado');
 }
-function _viaDel(id){
+async function _viaDel(id){
   const r=(DB.viaticos||[]).find(x=>x.id===id);if(!r)return;
-  if(!confirm('¿Eliminar este registro?'))return;
+  if(!confirm('¿Eliminar este registro?'+(r.pdfUrl?'\n\nTambién se eliminará su PDF adjunto.':'')))return;
+  const _p=_viaStoragePath(r.pdfUrl);
+  if(_p){try{await supa.storage.from(_VIA_BUCKET).remove([_p]);}catch(e){}}
   DB.viaticos=DB.viaticos.filter(x=>x.id!==id);
   supaDelete('viaticos',id);
   rViaticos();toast('Registro eliminado');
