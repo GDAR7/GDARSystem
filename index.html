@@ -1736,14 +1736,15 @@
   <div class="mh"><span class="mttl" id="viaMtl">Nuevo Registro</span><button class="mx" onclick="closeM('mViatico')">✕</button></div>
   <div class="mb"><div class="fg-grid">
     <div class="fg" style="grid-column:1/-1"><label>Proyecto</label><select id="viaProy"></select></div>
+    <div class="fg" style="grid-column:span 2"><label>Proveedor 🔍</label><input id="viaProv" list="dlViaProv" placeholder="Buscar o escribir nuevo..." oninput="_viaProvPick()"></div>
+    <div class="fg"><label>RUC</label><input id="viaRuc" placeholder="20xxxxxxxxx"></div>
+    <datalist id="dlViaProv"></datalist>
     <div class="fg"><label>Moneda</label><select id="viaMoneda"><option>SOLES</option><option>DOLARES</option></select></div>
     <div class="fg"><label>Fecha de Fact.</label><input id="viaFecha" type="date"></div>
     <div class="fg"><label>Tipo de CP</label><select id="viaTipoCp"><option>FE</option><option>BE</option><option>RH</option><option>TICKET</option><option>OTRO</option></select></div>
     <div class="fg"><label>Serie</label><input id="viaSerie" placeholder="F001"></div>
     <div class="fg"><label>Correlativo</label><input id="viaCorrel" placeholder="00001"></div>
     <div class="fg"><label>Ítem Fac (opcional)</label><input id="viaItemFac" placeholder="auto"></div>
-    <div class="fg"><label>RUC</label><input id="viaRuc" placeholder="20xxxxxxxxx"></div>
-    <div class="fg" style="grid-column:span 2"><label>Proveedor</label><input id="viaProv" placeholder="Razón social / Persona"></div>
     <div class="fg"><label>Cód. Reemb 🔍</label><input id="viaCod" list="dlCodigoReemb" placeholder="R14..." oninput="_viaCod()" style="font-family:monospace;font-weight:700"></div>
     <div class="fg" style="grid-column:span 2"><label>Nombre Codif.</label><input id="viaCodif" readonly placeholder="(auto según código)" style="opacity:.75"></div>
     <div class="fg" style="grid-column:1/-1"><label>Descripción</label><input id="viaDesc" placeholder="Concepto / motivo del viático"></div>
@@ -2873,7 +2874,7 @@
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=10"></script>
-<script src="js/viaticos.js?v=7"></script>
+<script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=3"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=3"></script>

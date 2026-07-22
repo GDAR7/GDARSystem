@@ -142,8 +142,26 @@ function _viaEdit(id){
   document.getElementById('viaMtl').textContent='✏️ Editar Registro';
   openM('mViatico');
 }
+// Mapa proveedor→RUC construido de los registros ya guardados (para autocompletar)
+function _viaProvMap(){
+  const map={};
+  (DB.viaticos||[]).forEach(r=>{if(r.proveedor&&map[r.proveedor]==null)map[r.proveedor]=r.ruc||'';});
+  return map;
+}
+function _viaPopulateProvList(){
+  const dl=document.getElementById('dlViaProv');if(!dl)return;
+  const map=_viaProvMap();
+  dl.innerHTML=Object.keys(map).sort().map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('');
+}
+// Al elegir/escribir un proveedor ya registrado, autocompleta su RUC
+function _viaProvPick(){
+  const v=(document.getElementById('viaProv').value||'').trim();
+  const map=_viaProvMap();
+  if(map[v])document.getElementById('viaRuc').value=map[v];
+}
 function _viaFill(r){
   if(typeof _fePopulateDatalist==='function')_fePopulateDatalist(); // reusa catálogo Cód. Reemb (R01-R18)
+  _viaPopulateProvList(); // buscador de proveedores ya registrados (autocompleta RUC)
   // Poblar selector de Proyecto desde la base de datos de proyectos
   const proySel=document.getElementById('viaProy');
   if(proySel){
