@@ -3,7 +3,7 @@ const AREAS={
   administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
     modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia del día',icon:'✅'},{key:'planilla',label:'Planilla',icon:'💵'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'},{key:'resumenTareaje',label:'Resumen Diario Tareaje',icon:'📊'},{key:'roster',label:'Roster de Guardias',icon:'🗓️'}]},
   bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
-    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'viaticos',label:'Reembolsables B.S.',icon:'🧾'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'}]},
+    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'},{key:'viaticos',label:'Reembolsables B.S.',icon:'🧾'}]},
   almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
     modules:[{key:'proyectos',label:'Proyectos',icon:'🏗️'},{key:'almacen',label:'Kardex / Almacén',icon:'📋'},{key:'combustible',label:'Combustible',icon:'⛽'},{key:'requerimientos',label:'Requerimientos',icon:'📝'},{key:'materiales',label:'Materiales',icon:'🏗️'},{key:'facturasPago',label:'Facturas / Boletas',icon:'🧾'}]},
   operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
