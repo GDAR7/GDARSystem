@@ -1419,7 +1419,7 @@ function _reembDetTablaHtml(){
   const{rows,byCod,codsOrd,totGen}=_reembDetGrupos();
   const AZ='#1e3a5f';
   const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${AZ}`;
-  const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:9px;vertical-align:middle';
+  const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:9px;vertical-align:middle;color:#111';
   const fila=(cod,prov,fact,desc,cant,punit,tot,estilo)=>`<tr style="${estilo||''}">
     <td style="${TD}">${cod||''}</td><td style="${TD}">${prov||''}</td><td style="${TD}">${fact||''}</td>
     <td style="${TD}">${desc||''}</td><td style="${TD};text-align:center">${cant||''}</td>
