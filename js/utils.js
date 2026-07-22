@@ -31,12 +31,23 @@ function flt(inp,tid){
   Array.from(tb.rows).forEach(r=>r.style.display=r.textContent.toLowerCase().includes(v)?'':'none');
 }
 
+// Personal para los selectores de atención mecánica (Mecánico / Ayudante Mecánico) + opción Terceros
+// sel = valor ya guardado del registro (se conserva como opción aunque ya no califique, para no perderlo al editar)
+function _mecOptsHtml(sel){
+  sel=sel||'';
+  const list=DB.personal.filter(p=>p.est==='Activo'&&(p.cargo||'').toLowerCase().includes('mecán'));
+  let html='<option value="">— Seleccionar —</option>'+
+    list.map(p=>{const n=`${p.ape}, ${p.nom}`;return`<option${n===sel?' selected':''}>${n}</option>`;}).join('')+
+    `<option value="Terceros"${sel==='Terceros'?' selected':''}>Terceros (externo)</option>`;
+  if(sel&&sel!=='Terceros'&&!list.some(p=>`${p.ape}, ${p.nom}`===sel))html+=`<option value="${sel.replace(/"/g,'&quot;')}" selected>${sel}</option>`;
+  return html;
+}
+
 // ══ SELECTS REFRESH ══
 function refreshSelects(){
   const trabList=DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');
   const eqList=DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}${e.placa?' ['+e.placa+']':''}</option>`).join('');
   const eqListOpt='<option value="">— Ninguno —</option>'+eqList;
-  const mecList=DB.personal.filter(p=>p.cat==='Mecánico'||p.cargo.toLowerCase().includes('mecán')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
   const almList=DB.personal.filter(p=>p.est==='Activo'&&p.cargo.toLowerCase().includes('almacen')).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('')||trabList;
   const persItemList=DB.personal.map(p=>`<option>${p.ape}, ${p.nom}${p.dni?' – '+p.dni:''}</option>`).join('');
   const eqNomList=DB.equipos.map(e=>`<option>${e.codigo} – ${e.nombre}</option>`).join('');
@@ -51,7 +62,7 @@ function refreshSelects(){
 
   [['soT',trabList],['rT',trabList],['alT',trabList],['hT',trabList],['lvT',trabList],
    ['inTr',trabList],['ptR',trabList],['suS',trabList],['acRe',trabList],
-   ['otEq',eqList],['otMec',mecList],['cbEq',eqList],['cbOp',trabList],
+   ['otEq',eqList],['otMec',_mecOptsHtml('')],['cbEq',eqList],['cbOp',trabList],
    ['coEq',eqListOpt],['rpEq',eqList],['rpOp',trabList],
    ['aePers',trabList],['emPers',almList],
    ['asItem',stockOpts],

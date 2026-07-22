@@ -115,8 +115,7 @@ function delEngrase(eqId,fecha){
 function openEngraseEjecForm(eqId,fecha){
   _closeEngrasePicker();
   _engPickEqId=eqId;_engPickFecha=fecha;
-  const personal=DB.personal||[];
-  const opts='<option value="">— Seleccionar —</option>'+personal.map(p=>`<option value="${p.ape}, ${p.nom}">${p.ape}, ${p.nom}</option>`).join('');
+  const opts=_mecOptsHtml('');
   document.getElementById('ejecMec').innerHTML=opts;
   document.getElementById('ejecMec2').innerHTML=opts;
   document.getElementById('ejecAyu').innerHTML=opts;

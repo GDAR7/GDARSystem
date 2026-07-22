@@ -2293,15 +2293,10 @@
       <div class="fg"><label>Fecha de Llegada</label><input id="eqFll" type="date"></div>
       <div class="fg"><label>Fecha de Salida</label><input id="eqFls" type="date"></div>
       <div class="fg"><label>Status</label><select id="eqSts"><option value="">— Seleccionar —</option><option>Operativo</option><option>En Mantenimiento</option><option>Parado</option><option>Inoperativo</option><option>En Tránsito</option><option>Alquilado</option><option>Desmovilizado</option></select></div>
-      <div class="fg"><label>N° SOAT</label><input id="eqSoat" placeholder="N° de póliza"></div>
       <div class="fg"><label>Vence SOAT</label><input id="eqSoatVenc" type="date"></div>
-      <div class="fg"><label>N° Póliza TREC</label><input id="eqPtr" placeholder="N° de póliza"></div>
       <div class="fg"><label>Vence Póliza TREC</label><input id="eqPtrVenc" type="date"></div>
-      <div class="fg"><label>N° Revisión Técnica</label><input id="eqRtec" placeholder="N° de certificado"></div>
-      <div class="fg"><label>Vence Rev. Técnica</label><input id="eqRtecVenc" type="date"></div>
-      <div class="fg"><label>Revisión Interna Cliente (RIC)</label><input id="eqRic" placeholder="N° / Referencia"></div>
+      <div class="fg"><label>Vence Revisión Técnica</label><input id="eqRtecVenc" type="date"></div>
       <div class="fg"><label>Vence RIC</label><input id="eqRicVenc" type="date"></div>
-      <div class="fg"><label>GPS</label><input id="eqGps" placeholder="Proveedor / ID"></div>
       <div class="fg"><label>Vence GPS</label><input id="eqGpsVenc" type="date"></div>
     </div>
     <div id="eqP2" class="fg-grid" style="display:none">
@@ -2432,7 +2427,7 @@
     <!-- Tab 2: Atención -->
     <div class="fg-grid" id="amP2" style="display:none">
       <div class="fg"><label>Mecánico Responsable</label><select id="amMec"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg"><label>Ayudante Mecánico</label><input id="amNMec" placeholder="Nombre del ayudante"></div>
+      <div class="fg"><label>Ayudante Mecánico</label><select id="amNMec"><option value="">— Seleccionar —</option></select></div>
       <div class="fg" style="grid-column:1/-1"><label>Acciones Realizadas</label><textarea id="amAccion" rows="3" placeholder="Trabajos realizados para solucionar el problema..."></textarea></div>
       <div class="fg"><label>T. Parada (horas)</label><input id="amParada" type="number" step="0.5" min="0" placeholder="0.0"></div>
       <div class="fg"><label>Requirió Traslado</label><select id="amTraslado" onchange="document.getElementById('amTrasladoDiv').style.display=this.value==='Sí'?'':'none'"><option value="No">No</option><option value="Sí">Sí</option></select></div>
@@ -2874,17 +2869,17 @@
 
 
 <script src="js/config.js?v=12"></script>
-<script src="js/utils.js?v=6"></script>
+<script src="js/utils.js?v=7"></script>
 <script src="js/personal.js?v=9"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=10"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=4"></script>
+<script src="js/mantenimiento.js?v=5"></script>
 <script src="js/tareaje.js?v=3"></script>
-<script src="js/engrase.js?v=3"></script>
-<script src="js/auxmec.js?v=43"></script>
+<script src="js/engrase.js?v=4"></script>
+<script src="js/auxmec.js?v=44"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=2"></script>

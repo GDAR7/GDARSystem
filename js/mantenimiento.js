@@ -244,7 +244,7 @@ function openEquipo(){
   _eqTab=0;eqGoTab(0);
   ['eqCod','eqMa','eqMo','eqAn','eqPl',
    'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls',
-   'eqSoat','eqSoatVenc','eqPtr','eqPtrVenc','eqRtec','eqRtecVenc','eqRic','eqRicVenc','eqGps','eqGpsVenc',
+   'eqSoatVenc','eqPtrVenc','eqRtecVenc','eqRicVenc','eqGpsVenc',
    'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
@@ -386,15 +386,10 @@ function gEquipo(){
     fechaLlegada:document.getElementById('eqFll').value||null,
     fechaSalida:document.getElementById('eqFls').value||null,
     status:document.getElementById('eqSts').value,
-    soat:document.getElementById('eqSoat').value,
     soatVenc:document.getElementById('eqSoatVenc').value||null,
-    polizaTrec:document.getElementById('eqPtr').value,
     polizaTrecVenc:document.getElementById('eqPtrVenc').value||null,
-    revisionTecnica:document.getElementById('eqRtec').value,
     revisionTecnicaVenc:document.getElementById('eqRtecVenc').value||null,
-    ric:document.getElementById('eqRic').value,
     ricVenc:document.getElementById('eqRicVenc').value||null,
-    gps:document.getElementById('eqGps').value,
     gpsVenc:document.getElementById('eqGpsVenc').value||null,
     proveedor:document.getElementById('eqProv').value,
     contacto:document.getElementById('eqCtc').value,
@@ -476,11 +471,9 @@ function verEquipo(id){
     ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
     ${row('Status',e.status)}
     ${sec('Vencimientos de Documentos')}
-    ${row('SOAT',e.soat)}${row('Vence SOAT',_vencBadge(e.soatVenc))}
-    ${row('Póliza TREC',e.polizaTrec)}${row('Vence Póliza TREC',_vencBadge(e.polizaTrecVenc))}
-    ${row('Revisión Técnica',e.revisionTecnica)}${row('Vence Rev. Técnica',_vencBadge(e.revisionTecnicaVenc))}
-    ${row('RIC',e.ric)}${row('Vence RIC',_vencBadge(e.ricVenc))}
-    ${row('GPS',e.gps)}${row('Vence GPS',_vencBadge(e.gpsVenc))}
+    ${row('Vence SOAT',_vencBadge(e.soatVenc))}${row('Vence Póliza TREC',_vencBadge(e.polizaTrecVenc))}
+    ${row('Vence Rev. Técnica',_vencBadge(e.revisionTecnicaVenc))}${row('Vence RIC',_vencBadge(e.ricVenc))}
+    ${row('Vence GPS',_vencBadge(e.gpsVenc))}
     ${sec('Contrato / Proveedor')}
     ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
     ${row('Celular',e.celular)}${row('Correo',e.correo)}
@@ -549,11 +542,9 @@ function printEquipoFicha(){
   ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
   ${row('Status',e.status)}
   ${sec('Vencimientos de Documentos')}
-  ${row('SOAT',e.soat)}${row('Vence SOAT',e.soatVenc)}
-  ${row('Póliza TREC',e.polizaTrec)}${row('Vence Póliza TREC',e.polizaTrecVenc)}
-  ${row('Rev. Técnica',e.revisionTecnica)}${row('Vence Rev. Técnica',e.revisionTecnicaVenc)}
-  ${row('RIC',e.ric)}${row('Vence RIC',e.ricVenc)}
-  ${row('GPS',e.gps)}${row('Vence GPS',e.gpsVenc)}
+  ${row('Vence SOAT',e.soatVenc)}${row('Vence Póliza TREC',e.polizaTrecVenc)}
+  ${row('Vence Rev. Técnica',e.revisionTecnicaVenc)}${row('Vence RIC',e.ricVenc)}
+  ${row('Vence GPS',e.gpsVenc)}
   ${sec('Contrato / Proveedor')}
   ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
   ${row('Celular',e.celular)}${row('Correo',e.correo)}
@@ -607,15 +598,10 @@ function editEquipo(id){
   document.getElementById('eqFll').value=e.fechaLlegada||'';
   document.getElementById('eqFls').value=e.fechaSalida||'';
   document.getElementById('eqSts').value=e.status||'';
-  document.getElementById('eqSoat').value=e.soat||'';
   document.getElementById('eqSoatVenc').value=e.soatVenc||'';
-  document.getElementById('eqPtr').value=e.polizaTrec||'';
   document.getElementById('eqPtrVenc').value=e.polizaTrecVenc||'';
-  document.getElementById('eqRtec').value=e.revisionTecnica||'';
   document.getElementById('eqRtecVenc').value=e.revisionTecnicaVenc||'';
-  document.getElementById('eqRic').value=e.ric||'';
   document.getElementById('eqRicVenc').value=e.ricVenc||'';
-  document.getElementById('eqGps').value=e.gps||'';
   document.getElementById('eqGpsVenc').value=e.gpsVenc||'';
   // Tab 2
   document.getElementById('eqProv').value=e.proveedor||'';

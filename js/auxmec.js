@@ -75,8 +75,9 @@ function openAuxMec(){
   const eqSel=document.getElementById('amEq');
   if(eqSel)eqSel.innerHTML='<option value="">— Seleccionar —</option>'+DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
   const mecSel=document.getElementById('amMec');
-  if(mecSel){const mecList=DB.personal.filter(p=>p.cat==='Mecánico'||(p.cargo||'').toLowerCase().includes('mecán'));
-    mecSel.innerHTML='<option value="">— Seleccionar —</option>'+(mecList.length?mecList:DB.personal).map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');}
+  if(mecSel)mecSel.innerHTML=_mecOptsHtml('');
+  const ayuSel=document.getElementById('amNMec');
+  if(ayuSel)ayuSel.innerHTML=_mecOptsHtml('');
   const fSel=document.getElementById('amFrente');
   if(fSel)fSel.innerHTML='<option value="">— Seleccionar frente —</option>'+DB.frentesTrabajo.map(f=>`<option>${f.nombre}</option>`).join('');
   const yr=new Date().getFullYear();
@@ -192,8 +193,8 @@ function editAuxMec(id){
   document.getElementById('amDesc').value=r.desc||'';
   document.getElementById('amCausaRaiz').value=r.causaRaiz||'';
   // Tab 2
-  const mecSel=document.getElementById('amMec');if(mecSel)mecSel.value=r.mec||'';
-  document.getElementById('amNMec').value=r.ayudante||'';
+  const mecSel=document.getElementById('amMec');if(mecSel)mecSel.innerHTML=_mecOptsHtml(r.mec||'');
+  const ayuSel=document.getElementById('amNMec');if(ayuSel)ayuSel.innerHTML=_mecOptsHtml(r.ayudante||'');
   document.getElementById('amAccion').value=r.accion||'';
   document.getElementById('amParada').value=r.tiempoParada||'';
   document.getElementById('amTraslado').value=r.traslado||'No';
