@@ -115,6 +115,7 @@ function rViaticos(){
           </select>
           ${(_viaFiltProv||_viaFiltProy||_viaFiltCod)?`<button onclick="_viaFiltProv='';_viaFiltProy='';_viaFiltCod='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;rViaticos()"></div>
+          <button onclick="_viaPrintDetalle()" style="background:transparent;border:1px solid #ef444460;border-radius:6px;color:#ef4444;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Imprime el detalle agrupado Código → Proveedor → Factura, respetando los filtros activos">🖨 PDF</button>
           <button onclick="_viaExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
           <button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaNuevo()">＋ Nuevo Registro</button>
         </div>
@@ -247,4 +248,96 @@ function _viaExportXls(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'ReembolsablesBS');
   XLSX.writeFile(wb,'reembolsables_bs.xlsx');
+}
+
+// ── PDF: Detalle de Reembolsables, agrupado Código → Proveedor → Factura (respeta los filtros activos) ──
+function _viaPrintDetalle(){
+  const rows=_viaRows();
+  if(!rows.length){toast('No hay registros para imprimir con los filtros actuales',true);return;}
+
+  // Agrupar: código → proveedor → factura (serie-correlativo+fecha) → ítems
+  const byCod={};
+  rows.forEach(r=>{
+    const cod=r.codigo||'(Sin código)';
+    if(!byCod[cod])byCod[cod]={nombre:r.nombreCodif||'',total:0,provs:{}};
+    const g=byCod[cod];g.total+=+r.importe||0;
+    if(!g.nombre&&r.nombreCodif)g.nombre=r.nombreCodif;
+    const prov=r.proveedor||'(Sin proveedor)';
+    if(!g.provs[prov])g.provs[prov]={total:0,facts:{}};
+    const gp=g.provs[prov];gp.total+=+r.importe||0;
+    const fk=(r.serie||'')+' - '+(r.correlativo||'');
+    if(!gp.facts[fk])gp.facts[fk]={fecha:r.fecha||'',total:0,items:[]};
+    const gf=gp.facts[fk];gf.total+=+r.importe||0;gf.items.push(r);
+  });
+  const codsOrd=Object.keys(byCod).sort();
+
+  const AZ='#1e3a5f';
+  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.02em`;
+  const TD='border:1px solid #cbd5e1;padding:2px 6px;font-size:9px;vertical-align:middle';
+  // Fila con las 7 columnas reales (Código · Proveedor · Factura y Fecha · Descripción · Cantidad · P.Unit · SubTotal)
+  const fila=(cod,prov,fact,desc,cant,punit,tot,estilo)=>`<tr style="${estilo||''}">
+    <td style="${TD}">${cod||''}</td>
+    <td style="${TD}">${prov||''}</td>
+    <td style="${TD}">${fact||''}</td>
+    <td style="${TD}">${desc||''}</td>
+    <td style="${TD};text-align:center">${cant||''}</td>
+    <td style="${TD};text-align:right">${punit||''}</td>
+    <td style="${TD};text-align:right">${tot}</td>
+  </tr>`;
+  let body='';
+  codsOrd.forEach(cod=>{
+    const g=byCod[cod];
+    body+=fila(cod,'','','','','',`<b style="color:${AZ}">S/ ${_viaN2(g.total)}</b>`,`background:#c7d2e0;font-weight:900;color:${AZ}`);
+    const provsOrd=Object.keys(g.provs).sort();
+    provsOrd.forEach(prov=>{
+      const gp=g.provs[prov];
+      body+=fila('',prov,'','','','',`<b>S/ ${_viaN2(gp.total)}</b>`,'font-weight:700');
+      const factsOrd=Object.keys(gp.facts).sort((a,b)=>(gp.facts[a].fecha||'').localeCompare(gp.facts[b].fecha||''));
+      factsOrd.forEach(fk=>{
+        const gf=gp.facts[fk];
+        body+=fila('','',_viaDmy(gf.fecha)+' // '+fk,'','','',`S/ ${_viaN2(gf.total)}`,'color:#334155');
+        gf.items.forEach(it=>{
+          body+=fila('','','',it.desc||'',(+it.cantidad||0).toLocaleString('es-PE'),'S/ '+_viaN2(it.precioUnit),`<b>S/ ${_viaN2(it.importe)}</b>`);
+        });
+      });
+    });
+  });
+  const totGen=rows.reduce((s,r)=>s+(+r.importe||0),0);
+  const subtitulo=_viaFiltCod
+    ?`${_viaFiltCod}${byCod[_viaFiltCod]&&byCod[_viaFiltCod].nombre?' - '+byCod[_viaFiltCod].nombre.toUpperCase():''}`
+    :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables</title>
+  <style>@page{size:A4;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  table{width:100%;border-collapse:collapse}
+  tr{page-break-inside:avoid}</style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
+    <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES</div>
+      <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
+    </div>
+    <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">BUENAVENTURA</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="${TH};text-align:left">Código</th>
+      <th style="${TH};text-align:left">Proveedor</th>
+      <th style="${TH};text-align:left">Factura y Fecha</th>
+      <th style="${TH};text-align:left">Descripción</th>
+      <th style="${TH};text-align:center">Cantidad</th>
+      <th style="${TH};text-align:right">Precio Unit. S/IGV</th>
+      <th style="${TH};text-align:right">SubTotal S/. sin IGV</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><td style="${TD};background:#dbeafe;font-weight:900" colspan="6">TOTAL GENERAL</td><td style="${TD};background:#dbeafe;font-weight:900;text-align:right;color:${AZ}">S/ ${_viaN2(totGen)}</td></tr></tfoot>
+  </table>
+  <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFiltProy?'Proyecto: '+_viaFiltProy+' · ':'')}${(_viaFiltProv?'Proveedor: '+_viaFiltProv+' · ':'')}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
 }
