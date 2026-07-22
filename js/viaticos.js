@@ -309,7 +309,7 @@ function _viaPrintDetalle(){
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables</title>
-  <style>@page{size:A4;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
   table{width:100%;border-collapse:collapse}
   tr{page-break-inside:avoid}</style></head><body>
