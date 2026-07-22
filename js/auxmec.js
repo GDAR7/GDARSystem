@@ -76,6 +76,8 @@ function openAuxMec(){
   if(eqSel)eqSel.innerHTML='<option value="">— Seleccionar —</option>'+DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
   const mecSel=document.getElementById('amMec');
   if(mecSel)mecSel.innerHTML=_mecOptsHtml('');
+  const mec2Sel=document.getElementById('amMec2');
+  if(mec2Sel)mec2Sel.innerHTML=_mecOptsHtml('');
   const ayuSel=document.getElementById('amNMec');
   if(ayuSel)ayuSel.innerHTML=_mecOptsHtml('');
   const fSel=document.getElementById('amFrente');
@@ -114,6 +116,7 @@ function gAuxMec(){
     desc:document.getElementById('amDesc').value.trim(),
     causaRaiz:document.getElementById('amCausaRaiz').value||null,
     mec:document.getElementById('amMec').value||null,
+    mec2:document.getElementById('amMec2').value||null,
     ayudante:document.getElementById('amNMec').value.trim()||null,
     accion:document.getElementById('amAccion').value.trim()||null,
     tiempoParada:parseFloat(document.getElementById('amParada').value)||null,
@@ -194,6 +197,7 @@ function editAuxMec(id){
   document.getElementById('amCausaRaiz').value=r.causaRaiz||'';
   // Tab 2
   const mecSel=document.getElementById('amMec');if(mecSel)mecSel.innerHTML=_mecOptsHtml(r.mec||'');
+  const mec2Sel=document.getElementById('amMec2');if(mec2Sel)mec2Sel.innerHTML=_mecOptsHtml(r.mec2||'');
   const ayuSel=document.getElementById('amNMec');if(ayuSel)ayuSel.innerHTML=_mecOptsHtml(r.ayudante||'');
   document.getElementById('amAccion').value=r.accion||'';
   document.getElementById('amParada').value=r.tiempoParada||'';
@@ -237,7 +241,8 @@ function verAuxMec(id){
     ${row('Tipo de Falla',r.tipo)}${row('Tipo de Intervención',r.tipoInt)}
     ${row('Descripción',r.desc)}${row('Causa Raíz',r.causaRaiz)}
     ${sec('ATENCIÓN')}
-    ${row('Mecánico',r.mec)}${row('Ayudante',r.ayudante)}
+    ${row('Mecánico',r.mec)}${row('Mecánico 2',r.mec2)}
+    ${row('Ayudante',r.ayudante)}
     ${row('Acciones',r.accion)}
     ${row('T. Parada',r.tiempoParada!=null?fmtN(r.tiempoParada)+' h':'—')}
     ${row('Traslado',r.traslado+(r.trasladoDest?' → '+r.trasladoDest:''))}
