@@ -127,6 +127,14 @@ function _viaEdit(id){
 }
 function _viaFill(r){
   if(typeof _fePopulateDatalist==='function')_fePopulateDatalist(); // reusa catálogo Cód. Reemb (R01-R18)
+  // Poblar selector de Proyecto desde la base de datos de proyectos
+  const proySel=document.getElementById('viaProy');
+  if(proySel){
+    const cur=r.proyecto||'';
+    let opts='<option value="">— Seleccionar proyecto —</option>'+(DB.proyectos||[]).map(p=>`<option value="${(p.nombre||'').replace(/"/g,'&quot;')}">${p.codigo?'['+p.codigo+'] ':''}${p.nombre||''}</option>`).join('');
+    if(cur&&!(DB.proyectos||[]).some(p=>(p.nombre||'')===cur))opts+=`<option value="${cur.replace(/"/g,'&quot;')}">${cur}</option>`; // conservar proyecto guardado aunque ya no esté en el catálogo
+    proySel.innerHTML=opts;
+  }
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v==null?'':v);};
   s('viaProy',r.proyecto);s('viaMoneda',r.moneda||'SOLES');s('viaFecha',r.fecha||today());
   s('viaTipoCp',r.tipoCp||'FE');s('viaSerie',r.serie);s('viaCorrel',r.correlativo);
