@@ -1,5 +1,5 @@
 // ══ VIÁTICOS (Bienestar Social) · mismo modelo/columnas que Reembolsables/Gastos ══
-let _viaFiltProv='',_viaFiltProy='',_viaQ='',_viaEditId=null;
+let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaQ='',_viaEditId=null;
 
 const _viaDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
 const _viaN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -9,6 +9,7 @@ function _viaRows(){
   let rows=[...(DB.viaticos||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
   if(_viaFiltProv)rows=rows.filter(r=>r.proveedor===_viaFiltProv);
   if(_viaFiltProy)rows=rows.filter(r=>r.proyecto===_viaFiltProy);
+  if(_viaFiltCod)rows=rows.filter(r=>(r.codigo||'')===_viaFiltCod);
   if(_viaQ){const q=_viaQ.toLowerCase();rows=rows.filter(r=>`${r.proveedor||''} ${r.desc||''} ${r.serie||''} ${r.correlativo||''} ${r.ruc||''} ${r.codigo||''} ${r.nombreCodif||''}`.toLowerCase().includes(q));}
   return rows;
 }
@@ -18,8 +19,11 @@ function rViaticos(){
   const all=[...(DB.viaticos||[])];
   const provs=[...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
   const proys=[...new Set(all.map(r=>r.proyecto).filter(Boolean))].sort();
+  const codMap={};all.forEach(r=>{if(r.codigo&&!codMap[r.codigo])codMap[r.codigo]=r.nombreCodif||'';});
+  const cods=Object.keys(codMap).sort();
   if(_viaFiltProv&&!provs.includes(_viaFiltProv))_viaFiltProv='';
   if(_viaFiltProy&&!proys.includes(_viaFiltProy))_viaFiltProy='';
+  if(_viaFiltCod&&!cods.includes(_viaFiltCod))_viaFiltCod='';
   const rows=_viaRows();
 
   const totSin=rows.reduce((a,r)=>a+(+r.importe||0),0);
@@ -93,11 +97,15 @@ function rViaticos(){
           <select onchange="_viaFiltProy=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>${proys.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaFiltProy?'selected':''}>${p}</option>`).join('')}
           </select>
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Cód. Reemb</span>
+          <select onchange="_viaFiltCod=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltCod?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none;font-family:monospace">
+            <option value="">— Todos —</option>${cods.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===_viaFiltCod?'selected':''}>${c}${codMap[c]?' — '+codMap[c]:''}</option>`).join('')}
+          </select>
           <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Proveedor</span>
           <select onchange="_viaFiltProv=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltProv?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>${provs.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaFiltProv?'selected':''}>${p}</option>`).join('')}
           </select>
-          ${(_viaFiltProv||_viaFiltProy)?`<button onclick="_viaFiltProv='';_viaFiltProy='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
+          ${(_viaFiltProv||_viaFiltProy||_viaFiltCod)?`<button onclick="_viaFiltProv='';_viaFiltProy='';_viaFiltCod='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;rViaticos()"></div>
           <button onclick="_viaExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
           <button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaNuevo()">＋ Nuevo Registro</button>
