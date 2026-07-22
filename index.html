@@ -611,7 +611,7 @@
         <th id="eqSortCodBtn" onclick="setEqSort('cod')" style="cursor:pointer;white-space:nowrap;user-select:none">Código <span style="font-size:.7rem;opacity:.6">↕</span></th>
         <th>Equipo</th>
         <th id="eqSortTipoBtn" onclick="setEqSort('tipo')" style="cursor:pointer;white-space:nowrap;user-select:none">Tipo <span style="font-size:.7rem;opacity:.6">↕</span></th>
-        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th></th>
+        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th title="Estado de vencimiento de documentos: SOAT, Póliza TREC, Rev. Técnica, RIC, GPS">Docs</th><th></th>
       </tr></thead>
       <tbody id="tbMaster"></tbody>
     </table></div></div>
@@ -2293,10 +2293,16 @@
       <div class="fg"><label>Fecha de Llegada</label><input id="eqFll" type="date"></div>
       <div class="fg"><label>Fecha de Salida</label><input id="eqFls" type="date"></div>
       <div class="fg"><label>Status</label><select id="eqSts"><option value="">— Seleccionar —</option><option>Operativo</option><option>En Mantenimiento</option><option>Parado</option><option>Inoperativo</option><option>En Tránsito</option><option>Alquilado</option><option>Desmovilizado</option></select></div>
-      <div class="fg"><label>SOAT</label><input id="eqSoat" placeholder="N° / Vencimiento"></div>
-      <div class="fg"><label>Póliza TREC</label><input id="eqPtr" placeholder="N° / Vencimiento"></div>
-      <div class="fg"><label>Revisión Técnica</label><input id="eqRtec" placeholder="N° / Vencimiento"></div>
+      <div class="fg"><label>N° SOAT</label><input id="eqSoat" placeholder="N° de póliza"></div>
+      <div class="fg"><label>Vence SOAT</label><input id="eqSoatVenc" type="date"></div>
+      <div class="fg"><label>N° Póliza TREC</label><input id="eqPtr" placeholder="N° de póliza"></div>
+      <div class="fg"><label>Vence Póliza TREC</label><input id="eqPtrVenc" type="date"></div>
+      <div class="fg"><label>N° Revisión Técnica</label><input id="eqRtec" placeholder="N° de certificado"></div>
+      <div class="fg"><label>Vence Rev. Técnica</label><input id="eqRtecVenc" type="date"></div>
+      <div class="fg"><label>Revisión Interna Cliente (RIC)</label><input id="eqRic" placeholder="N° / Referencia"></div>
+      <div class="fg"><label>Vence RIC</label><input id="eqRicVenc" type="date"></div>
       <div class="fg"><label>GPS</label><input id="eqGps" placeholder="Proveedor / ID"></div>
+      <div class="fg"><label>Vence GPS</label><input id="eqGpsVenc" type="date"></div>
     </div>
     <div id="eqP2" class="fg-grid" style="display:none">
       <div class="eq-sec">Proveedor / Contrato</div>
@@ -2875,7 +2881,7 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=10"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=3"></script>
+<script src="js/mantenimiento.js?v=4"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=3"></script>
 <script src="js/auxmec.js?v=42"></script>

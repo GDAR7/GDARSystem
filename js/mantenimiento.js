@@ -140,6 +140,7 @@ function rMaster(){
     <td class="tr mono">${fmtN(e.hr)} h</td>
     <td>${bge(e.est)}</td>
     <td><span class="mono" style="font-size:.72rem;color:#a78bfa">${e.proyecto||'—'}</span></td>
+    <td style="text-align:center">${_vencDot(e)}</td>
     <td style="display:flex;gap:.3rem">
       <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verEquipo(${e.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
       <button class="btn btn-out btn-sm" title="Editar" onclick="editEquipo(${e.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
@@ -242,7 +243,8 @@ function openEquipo(){
   document.querySelector('#mEquipo .mttl').textContent='Agregar Equipo';
   _eqTab=0;eqGoTab(0);
   ['eqCod','eqMa','eqMo','eqAn','eqPl',
-   'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls','eqSoat','eqPtr','eqRtec','eqGps',
+   'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls',
+   'eqSoat','eqSoatVenc','eqPtr','eqPtrVenc','eqRtec','eqRtecVenc','eqRic','eqRicVenc','eqGps','eqGpsVenc',
    'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
@@ -385,9 +387,15 @@ function gEquipo(){
     fechaSalida:document.getElementById('eqFls').value||null,
     status:document.getElementById('eqSts').value,
     soat:document.getElementById('eqSoat').value,
+    soatVenc:document.getElementById('eqSoatVenc').value||null,
     polizaTrec:document.getElementById('eqPtr').value,
+    polizaTrecVenc:document.getElementById('eqPtrVenc').value||null,
     revisionTecnica:document.getElementById('eqRtec').value,
+    revisionTecnicaVenc:document.getElementById('eqRtecVenc').value||null,
+    ric:document.getElementById('eqRic').value,
+    ricVenc:document.getElementById('eqRicVenc').value||null,
     gps:document.getElementById('eqGps').value,
+    gpsVenc:document.getElementById('eqGpsVenc').value||null,
     proveedor:document.getElementById('eqProv').value,
     contacto:document.getElementById('eqCtc').value,
     celular:document.getElementById('eqCel').value,
@@ -422,6 +430,29 @@ function gEquipo(){
     closeM('mEquipo');rMaster();toast('Equipo agregado');
   }
 }
+// Alerta visual de vencimiento de documentos: rojo vencido, ámbar ≤30 días, verde vigente
+function _vencDias(fecha){
+  if(!fecha)return null;
+  return Math.round((new Date(fecha+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);
+}
+function _vencBadge(fecha){
+  if(!fecha)return null;
+  const dias=_vencDias(fecha);
+  const col=dias<0?'#ef4444':dias<=30?'#f59e0b':'#10b981';
+  const txt=dias<0?`VENCIDO hace ${-dias} d`:dias===0?'VENCE HOY':dias<=30?`Vence en ${dias} d`:'Vigente';
+  return`<span style="color:${col};font-weight:700">${fecha}</span> <span style="background:${col}22;color:${col};border:1px solid ${col}55;border-radius:4px;padding:1px 6px;font-size:.65rem;font-weight:700">${txt}</span>`;
+}
+// Punto de color con el peor estado de los 5 documentos del equipo (para la tabla del Máster)
+function _vencDot(e){
+  const docs=[['SOAT',e.soatVenc],['Póliza TREC',e.polizaTrecVenc],['Rev. Técnica',e.revisionTecnicaVenc],['RIC',e.ricVenc],['GPS',e.gpsVenc]];
+  const conFecha=docs.filter(([,f])=>f);
+  if(!conFecha.length)return`<span style="color:var(--muted2)" title="Sin fechas de vencimiento registradas">—</span>`;
+  let peor=null;
+  conFecha.forEach(([n,f])=>{const d=_vencDias(f);if(!peor||d<peor.d)peor={n,f,d};});
+  const col=peor.d<0?'#ef4444':peor.d<=30?'#f59e0b':'#10b981';
+  const txt=peor.d<0?`${peor.n} VENCIDO hace ${-peor.d} d`:peor.d===0?`${peor.n} vence HOY`:peor.d<=30?`${peor.n} vence en ${peor.d} d`:'Documentos vigentes';
+  return`<span title="${txt}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col};box-shadow:0 0 5px ${col}"></span>`;
+}
 let _verEqId=null;
 function verEquipo(id){
   _verEqId=id;
@@ -443,9 +474,13 @@ function verEquipo(id){
     ${row('Capacidad M³',e.capacidadM3)}${row('Peso KG',e.pesoKg!=null?fmtN(e.pesoKg)+' kg':null)}
     ${row('Dimensiones',e.dimensiones)}${row('Ubicación',e.ubicacion)}
     ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
-    ${row('Status',e.status)}${row('SOAT',e.soat)}
-    ${row('P. TREC',e.polizaTrec)}${row('Rev. Técnica',e.revisionTecnica)}
-    ${row('GPS',e.gps)}
+    ${row('Status',e.status)}
+    ${sec('Vencimientos de Documentos')}
+    ${row('SOAT',e.soat)}${row('Vence SOAT',_vencBadge(e.soatVenc))}
+    ${row('Póliza TREC',e.polizaTrec)}${row('Vence Póliza TREC',_vencBadge(e.polizaTrecVenc))}
+    ${row('Revisión Técnica',e.revisionTecnica)}${row('Vence Rev. Técnica',_vencBadge(e.revisionTecnicaVenc))}
+    ${row('RIC',e.ric)}${row('Vence RIC',_vencBadge(e.ricVenc))}
+    ${row('GPS',e.gps)}${row('Vence GPS',_vencBadge(e.gpsVenc))}
     ${sec('Contrato / Proveedor')}
     ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
     ${row('Celular',e.celular)}${row('Correo',e.correo)}
@@ -512,8 +547,13 @@ function printEquipoFicha(){
   ${row('Capacidad M³',e.capacidadM3)}${row('Peso KG',e.pesoKg)}
   ${row('Dimensiones',e.dimensiones)}${row('Ubicación',e.ubicacion)}
   ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
-  ${row('Status',e.status)}${row('SOAT',e.soat)}
-  ${row('Póliza TREC',e.polizaTrec)}${row('Rev. Técnica',e.revisionTecnica)}${row('GPS',e.gps)}
+  ${row('Status',e.status)}
+  ${sec('Vencimientos de Documentos')}
+  ${row('SOAT',e.soat)}${row('Vence SOAT',e.soatVenc)}
+  ${row('Póliza TREC',e.polizaTrec)}${row('Vence Póliza TREC',e.polizaTrecVenc)}
+  ${row('Rev. Técnica',e.revisionTecnica)}${row('Vence Rev. Técnica',e.revisionTecnicaVenc)}
+  ${row('RIC',e.ric)}${row('Vence RIC',e.ricVenc)}
+  ${row('GPS',e.gps)}${row('Vence GPS',e.gpsVenc)}
   ${sec('Contrato / Proveedor')}
   ${row('Proveedor',e.proveedor)}${row('Contacto',e.contacto)}
   ${row('Celular',e.celular)}${row('Correo',e.correo)}
@@ -568,9 +608,15 @@ function editEquipo(id){
   document.getElementById('eqFls').value=e.fechaSalida||'';
   document.getElementById('eqSts').value=e.status||'';
   document.getElementById('eqSoat').value=e.soat||'';
+  document.getElementById('eqSoatVenc').value=e.soatVenc||'';
   document.getElementById('eqPtr').value=e.polizaTrec||'';
+  document.getElementById('eqPtrVenc').value=e.polizaTrecVenc||'';
   document.getElementById('eqRtec').value=e.revisionTecnica||'';
+  document.getElementById('eqRtecVenc').value=e.revisionTecnicaVenc||'';
+  document.getElementById('eqRic').value=e.ric||'';
+  document.getElementById('eqRicVenc').value=e.ricVenc||'';
   document.getElementById('eqGps').value=e.gps||'';
+  document.getElementById('eqGpsVenc').value=e.gpsVenc||'';
   // Tab 2
   document.getElementById('eqProv').value=e.proveedor||'';
   document.getElementById('eqCtc').value=e.contacto||'';
