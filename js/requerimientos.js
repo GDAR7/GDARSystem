@@ -915,15 +915,14 @@ async function gFPago(){
 let _fpTabActiva='comp';
 function _fpTab(t){
   _fpTabActiva=t;
-  const c=document.getElementById('fpTab-comp');
-  const r=document.getElementById('fpTab-reemb');
-  if(c)c.style.display=t==='comp'?'':'none';
-  if(r)r.style.display=t==='reemb'?'':'none';
-  ['comp','reemb'].forEach(x=>{
+  ['comp','reemb','detalle'].forEach(x=>{
+    const p=document.getElementById('fpTab-'+x);
+    if(p)p.style.display=x===t?'':'none';
     const b=document.getElementById('fpTabBtn-'+x);
     if(b){b.style.background=x===t?'var(--alm)':'transparent';b.style.color=x===t?'#fff':'var(--muted2)';}
   });
   if(t==='reemb')rReembolsables();
+  if(t==='detalle')rReembDetalle();
 }
 
 let _feFacturaId=null;
@@ -1391,6 +1390,116 @@ function gReembEdit(){
   toast('Ítem actualizado');
 }
 
+// ══ TAB: DETALLE POR CÓDIGO (segmentado por Cód. Reemb · vista A4 horizontal para imprimir/guardar PDF) ══
+let _reembDetCod='';
+const _rdN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _rdDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
+function _reembDetSetCod(c){_reembDetCod=c;rReembDetalle();}
+// Agrupa código → proveedor → factura → ítems (igual estructura que se imprime)
+function _reembDetGrupos(){
+  const all=DB.reembolsables||[];
+  const rows=_reembDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_reembDetCod):all;
+  const byCod={};
+  rows.forEach(r=>{
+    const cod=r.codigo||'(Sin código)';
+    if(!byCod[cod])byCod[cod]={nombre:r.nombreCodif||'',total:0,provs:{}};
+    const g=byCod[cod];g.total+=+r.importe||0;
+    if(!g.nombre&&r.nombreCodif)g.nombre=r.nombreCodif;
+    const prov=r.proveedor||'(Sin proveedor)';
+    if(!g.provs[prov])g.provs[prov]={total:0,facts:{}};
+    const gp=g.provs[prov];gp.total+=+r.importe||0;
+    const fk=(r.serie||'')+' - '+(r.correlativo||'');
+    if(!gp.facts[fk])gp.facts[fk]={fecha:r.fecha||'',total:0,items:[]};
+    const gf=gp.facts[fk];gf.total+=+r.importe||0;gf.items.push(r);
+  });
+  return{rows,byCod,codsOrd:Object.keys(byCod).sort(),totGen:rows.reduce((s,r)=>s+(+r.importe||0),0)};
+}
+// Construye la tabla (thead+tbody+tfoot) — se usa tanto en la vista previa como en el PDF
+function _reembDetTablaHtml(){
+  const{rows,byCod,codsOrd,totGen}=_reembDetGrupos();
+  const AZ='#1e3a5f';
+  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${AZ}`;
+  const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:9px;vertical-align:middle';
+  const fila=(cod,prov,fact,desc,cant,punit,tot,estilo)=>`<tr style="${estilo||''}">
+    <td style="${TD}">${cod||''}</td><td style="${TD}">${prov||''}</td><td style="${TD}">${fact||''}</td>
+    <td style="${TD}">${desc||''}</td><td style="${TD};text-align:center">${cant||''}</td>
+    <td style="${TD};text-align:right">${punit||''}</td><td style="${TD};text-align:right">${tot}</td>
+  </tr>`;
+  let body='';
+  codsOrd.forEach(cod=>{
+    const g=byCod[cod];
+    body+=fila(cod+(g.nombre?' - '+g.nombre.toUpperCase():''),'','','','','',`<b style="color:${AZ}">S/ ${_rdN2(g.total)}</b>`,`background:#c7d2e0;font-weight:900;color:${AZ}`);
+    Object.keys(g.provs).sort().forEach(prov=>{
+      const gp=g.provs[prov];
+      body+=fila('',prov,'','','','',`<b>S/ ${_rdN2(gp.total)}</b>`,'font-weight:700');
+      Object.keys(gp.facts).sort((a,b)=>(gp.facts[a].fecha||'').localeCompare(gp.facts[b].fecha||'')).forEach(fk=>{
+        const gf=gp.facts[fk];
+        body+=fila('','',_rdDmy(gf.fecha)+' // '+fk,'','','',`S/ ${_rdN2(gf.total)}`,'color:#334155');
+        gf.items.forEach(it=>{
+          body+=fila('','','',it.desc||'',(+it.cantidad||0).toLocaleString('es-PE'),'S/ '+_rdN2(it.precioUnit),`<b>S/ ${_rdN2(it.importe)}</b>`);
+        });
+      });
+    });
+  });
+  return`<table style="width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th style="${TH};text-align:left">Código</th><th style="${TH};text-align:left">Proveedor</th>
+      <th style="${TH};text-align:left">Factura y Fecha</th><th style="${TH};text-align:left">Descripción</th>
+      <th style="${TH};text-align:center">Cantidad</th><th style="${TH};text-align:right">Precio Unit. S/IGV</th>
+      <th style="${TH};text-align:right">SubTotal S/. sin IGV</th>
+    </tr></thead>
+    <tbody>${body||`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin registros para este código</td></tr>`}</tbody>
+    ${rows.length?`<tfoot><tr><td style="${TD};background:#dbeafe;font-weight:900" colspan="6">TOTAL GENERAL</td><td style="${TD};background:#dbeafe;font-weight:900;text-align:right;color:${AZ}">S/ ${_rdN2(totGen)}</td></tr></tfoot>`:''}
+  </table>`;
+}
+function _reembDetDocHtml(){
+  const{codsOrd,byCod}=_reembDetGrupos();
+  const AZ='#1e3a5f';
+  const subtitulo=_reembDetCod
+    ?`${_reembDetCod}${byCod[_reembDetCod]&&byCod[_reembDetCod].nombre?' - '+byCod[_reembDetCod].nombre.toUpperCase():''}`
+    :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  return`<div style="font-family:Arial,sans-serif;color:#111">
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
+      <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES</div>
+        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
+      </div>
+      <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">BUENAVENTURA</div>
+    </div>
+    ${_reembDetTablaHtml()}
+    <div style="margin-top:10px;font-size:7.5px;color:#64748b">Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+  </div>`;
+}
+function _reembDetPrint(){
+  const{rows}=_reembDetGrupos();
+  if(!rows.length){toast('No hay registros para imprimir con este código',true);return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables</title>
+  <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  tr{page-break-inside:avoid}</style></head><body>${_reembDetDocHtml()}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
+}
+function rReembDetalle(){
+  const pg=document.getElementById('fpTab-detalle');if(!pg)return;
+  const all=DB.reembolsables||[];
+  const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
+  const cods=Object.keys(codMap).sort();
+  const chip=(val,lbl)=>{const sel=_reembDetCod===val;return`<button onclick="_reembDetSetCod('${val.replace(/'/g,"\\'")}')" style="font-size:.72rem;padding:.32rem .8rem;border-radius:20px;border:1px solid ${sel?'var(--alm)':'var(--border)'};background:${sel?'var(--alm)':'var(--panel2)'};color:${sel?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'};white-space:nowrap">${lbl}</button>`;};
+  pg.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+      <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Código</span>
+      ${chip('','Todos')}
+      ${cods.map(c=>chip(c,c+(codMap[c]?' — '+codMap[c]:''))).join('')}
+      <button onclick="_reembDetPrint()" style="margin-left:auto;font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
+    </div>
+    <div style="background:#fff;border-radius:8px;padding:1rem 1.2rem;max-width:1200px;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_reembDetDocHtml()}</div>`;
+}
+
 // ── Exportar Reembolsables/Gastos a Excel (respeta los filtros de proveedor y factura) ──
 function _reembExportXls(){
   if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
@@ -1398,6 +1507,7 @@ function _reembExportXls(){
   const rows=all.filter(r=>{
     if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
     if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
+    if(_reembFiltCod&&(r.codigo||'')!==_reembFiltCod)return false;
     return true;
   });
   if(!rows.length){toast('Sin datos para exportar',true);return;}
@@ -1428,10 +1538,11 @@ function _reembExportXls(){
 }
 
 // ── Render del tab Reembolsables / Gastos ──
-let _reembFiltProv='', _reembFiltFact='';
+let _reembFiltProv='', _reembFiltFact='', _reembFiltCod='';
 function _reembSetFilt(tipo,val){
   if(tipo==='prov'){_reembFiltProv=val;_reembFiltFact='';}
-  else _reembFiltFact=val;
+  else if(tipo==='fact')_reembFiltFact=val;
+  else _reembFiltCod=val;
   rReembolsables();
 }
 function rReembolsables(){
@@ -1441,12 +1552,16 @@ function rReembolsables(){
   const provs=[...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
   const factsBase=_reembFiltProv?all.filter(r=>r.proveedor===_reembFiltProv):all;
   const facts=[...new Set(factsBase.map(r=>`${r.serie||''} - ${r.correlativo||''}`.trim()).filter(f=>f!=='-'))].sort();
+  const codMap={};all.forEach(r=>{if(r.codigo&&!codMap[r.codigo])codMap[r.codigo]=r.nombreCodif||'';});
+  const cods=Object.keys(codMap).sort();
   if(_reembFiltProv&&!provs.includes(_reembFiltProv))_reembFiltProv='';
   if(_reembFiltFact&&!facts.includes(_reembFiltFact))_reembFiltFact='';
+  if(_reembFiltCod&&!cods.includes(_reembFiltCod))_reembFiltCod='';
   // Aplicar filtros → KPIs y tabla dinámicos
   const rows=all.filter(r=>{
     if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
     if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
+    if(_reembFiltCod&&(r.codigo||'')!==_reembFiltCod)return false;
     return true;
   });
   const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
@@ -1525,8 +1640,13 @@ function rReembolsables(){
             <option value="">— Todas —</option>
             ${facts.map(f=>`<option value="${f}" ${f===_reembFiltFact?'selected':''}>${f}</option>`).join('')}
           </select>
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Cód. Reemb</span>
+          <select onchange="_reembSetFilt('cod',this.value)" style="background:var(--panel2);border:1px solid ${_reembFiltCod?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:220px;cursor:pointer;outline:none;font-family:monospace">
+            <option value="">— Todos —</option>
+            ${cods.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===_reembFiltCod?'selected':''}>${c}${codMap[c]?' — '+codMap[c]:''}</option>`).join('')}
+          </select>
           ${_reembFiltFact?`<button onclick="editFacturaReemb()" title="Editar la cabecera y todos los ítems de esta factura" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:6px;color:#f59e0b;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✏ Editar factura</button>`:''}
-          ${(_reembFiltProv||_reembFiltFact)?`<button onclick="_reembFiltProv='';_reembFiltFact='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
+          ${(_reembFiltProv||_reembFiltFact||_reembFiltCod)?`<button onclick="_reembFiltProv='';_reembFiltFact='';_reembFiltCod='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <button onclick="_reembExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
         </div>
         <div class="card-head-right">

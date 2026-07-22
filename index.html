@@ -500,8 +500,10 @@
   <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
     <button id="fpTabBtn-comp" onclick="_fpTab('comp')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--alm);color:#fff">📄 Comprobantes</button>
     <button id="fpTabBtn-reemb" onclick="_fpTab('reemb')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🧾 Reembolsables / Gastos</button>
+    <button id="fpTabBtn-detalle" onclick="_fpTab('detalle')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">📊 Detalle por Código</button>
   </div>
   <div id="fpTab-reemb" style="display:none"></div>
+  <div id="fpTab-detalle" style="display:none"></div>
   <div id="fpTab-comp">
   <div class="kpi-row" id="fpagoKpis"></div>
   <div class="card">
@@ -2875,7 +2877,7 @@
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
-<script src="js/requerimientos.js?v=10"></script>
+<script src="js/requerimientos.js?v=12"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=5"></script>
 <script src="js/tareaje.js?v=3"></script>
