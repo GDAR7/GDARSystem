@@ -502,6 +502,15 @@
     <button id="fpTabBtn-reemb" onclick="_fpTab('reemb')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🧾 Reembolsables / Gastos</button>
     <button id="fpTabBtn-detalle" onclick="_fpTab('detalle')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">📊 Detalle por Código</button>
   </div>
+  <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período</span>
+    <span style="font-size:.7rem;color:var(--muted2)">Desde</span>
+    <input type="date" id="fpFDesde" onchange="_fpSetFecha('desde',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem">
+    <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
+    <input type="date" id="fpFHasta" onchange="_fpSetFecha('hasta',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem">
+    <span id="fpFEtiqueta" style="font-size:.72rem;color:var(--alm);font-weight:700"></span>
+    <button id="fpFLimpiar" onclick="_fpLimpiarFecha()" style="display:none;font-size:.7rem;padding:.22rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar período</button>
+  </div>
   <div id="fpTab-reemb" style="display:none"></div>
   <div id="fpTab-detalle" style="display:none"></div>
   <div id="fpTab-comp">
@@ -2877,7 +2886,7 @@
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
-<script src="js/requerimientos.js?v=13"></script>
+<script src="js/requerimientos.js?v=14"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=5"></script>
 <script src="js/tareaje.js?v=3"></script>

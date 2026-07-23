@@ -700,7 +700,7 @@ function rFPago(){
   }
   const filtProy=pfEl?pfEl.value:'';
 
-  // Filtrar facturas según proyecto seleccionado
+  // Filtrar facturas según proyecto y período (Desde/Hasta) seleccionados
   let lista=DB.facturasPago;
   if(filtProy){
     lista=lista.filter(f=>{
@@ -709,6 +709,7 @@ function rFPago(){
       return req&&(req.proyecto||'')===filtProy;
     });
   }
+  lista=lista.filter(f=>_fpEnRango(f.fecha));
 
   // KPIs DEL SUBCONJUNTO FILTRADO
   const tot=lista.reduce((a,c)=>a+c.total,0);
@@ -921,8 +922,42 @@ function _fpTab(t){
     const b=document.getElementById('fpTabBtn-'+x);
     if(b){b.style.background=x===t?'var(--alm)':'transparent';b.style.color=x===t?'#fff':'var(--muted2)';}
   });
+  if(t==='comp')rFPago();
   if(t==='reemb')rReembolsables();
   if(t==='detalle')rReembDetalle();
+}
+
+// ── Filtro de período compartido (Desde/Hasta) — afecta a los 3 tabs de Facturas/Boletas de Pago ──
+let _fpFechaDesde='', _fpFechaHasta='';
+function _fpSetFecha(tipo,val){
+  if(tipo==='desde')_fpFechaDesde=val;else _fpFechaHasta=val;
+  _fpRefreshFiltroFecha();
+  _fpRefrescarActivo();
+}
+function _fpLimpiarFecha(){
+  _fpFechaDesde='';_fpFechaHasta='';
+  const d=document.getElementById('fpFDesde'),h=document.getElementById('fpFHasta');
+  if(d)d.value='';if(h)h.value='';
+  _fpRefreshFiltroFecha();
+  _fpRefrescarActivo();
+}
+function _fpEnRango(fecha){
+  if(!_fpFechaDesde&&!_fpFechaHasta)return true;
+  if(!fecha)return false;
+  if(_fpFechaDesde&&fecha<_fpFechaDesde)return false;
+  if(_fpFechaHasta&&fecha>_fpFechaHasta)return false;
+  return true;
+}
+function _fpRefreshFiltroFecha(){
+  const lbl=document.getElementById('fpFEtiqueta'),btn=document.getElementById('fpFLimpiar');
+  const activo=_fpFechaDesde||_fpFechaHasta;
+  if(lbl)lbl.textContent=activo?`Filtrando: ${_fpFechaDesde?_rdDmy(_fpFechaDesde):'inicio'} → ${_fpFechaHasta?_rdDmy(_fpFechaHasta):'hoy'}`:'';
+  if(btn)btn.style.display=activo?'':'none';
+}
+function _fpRefrescarActivo(){
+  if(_fpTabActiva==='comp')rFPago();
+  else if(_fpTabActiva==='reemb')rReembolsables();
+  else if(_fpTabActiva==='detalle')rReembDetalle();
 }
 
 let _feFacturaId=null;
@@ -1397,7 +1432,7 @@ const _rdDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.s
 function _reembDetSetCod(c){_reembDetCod=c;rReembDetalle();}
 // Agrupa código → proveedor → factura → ítems (igual estructura que se imprime)
 function _reembDetGrupos(){
-  const all=DB.reembolsables||[];
+  const all=(DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha));
   const rows=_reembDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_reembDetCod):all;
   const byCod={};
   rows.forEach(r=>{
@@ -1469,7 +1504,7 @@ function _reembDetDocHtml(){
       <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
     </div>
     ${_reembDetTablaHtml()}
-    <div style="margin-top:10px;font-size:7.5px;color:#64748b">Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_fpFechaDesde||_fpFechaHasta)?`Período: ${_fpFechaDesde?_rdDmy(_fpFechaDesde):'inicio'} al ${_fpFechaHasta?_rdDmy(_fpFechaHasta):'hoy'} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
   </div>`;
 }
 function _reembDetPrint(){
@@ -1486,7 +1521,7 @@ function _reembDetPrint(){
 }
 function rReembDetalle(){
   const pg=document.getElementById('fpTab-detalle');if(!pg)return;
-  const all=DB.reembolsables||[];
+  const all=(DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha));
   const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
   const chip=(val,lbl)=>{const sel=_reembDetCod===val;return`<button onclick="_reembDetSetCod('${val.replace(/'/g,"\\'")}')" style="font-size:.72rem;padding:.32rem .8rem;border-radius:20px;border:1px solid ${sel?'var(--alm)':'var(--border)'};background:${sel?'var(--alm)':'var(--panel2)'};color:${sel?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'};white-space:nowrap">${lbl}</button>`;};
@@ -1503,7 +1538,7 @@ function rReembDetalle(){
 // ── Exportar Reembolsables/Gastos a Excel (respeta los filtros de proveedor y factura) ──
 function _reembExportXls(){
   if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
-  const all=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  const all=[...(DB.reembolsables||[])].filter(r=>_fpEnRango(r.fecha)).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
   const rows=all.filter(r=>{
     if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
     if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
@@ -1547,7 +1582,7 @@ function _reembSetFilt(tipo,val){
 }
 function rReembolsables(){
   const pg=document.getElementById('fpTab-reemb');if(!pg)return;
-  const all=[...(DB.reembolsables||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  const all=[...(DB.reembolsables||[])].filter(r=>_fpEnRango(r.fecha)).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
   // Opciones de filtros (facturas dependen del proveedor elegido)
   const provs=[...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
   const factsBase=_reembFiltProv?all.filter(r=>r.proveedor===_reembFiltProv):all;
