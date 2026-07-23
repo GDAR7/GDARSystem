@@ -1450,6 +1450,49 @@ function gReembEdit(){
   toast('Ítem actualizado');
 }
 
+// ── Cambio masivo de código: todos los ítems de la factura filtrada cambian a un nuevo Cód. Reemb ──
+function _reembFacturaRows(){
+  return(DB.reembolsables||[]).filter(r=>{
+    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
+    return `${r.serie||''} - ${r.correlativo||''}`.trim()===_reembFiltFact;
+  });
+}
+function _reembCodMasivoOpen(){
+  if(!_reembFiltFact){toast('Seleccione una factura en el filtro',true);return;}
+  const rows=_reembFacturaRows();
+  if(!rows.length){toast('No hay ítems para esta factura',true);return;}
+  _fePopulateDatalist();
+  document.getElementById('rmFactura').textContent=`${_reembFiltFact} · ${_reembFiltProv||rows[0].proveedor||''} · ${rows.length} ítem${rows.length!==1?'s':''}`;
+  document.getElementById('rmCod').value='';
+  document.getElementById('rmCodif').value='';
+  openM('mReembCodMasivo');
+}
+function _reembCodMasivoAuto(){
+  const el=document.getElementById('rmCod'),out=document.getElementById('rmCodif');
+  const v=(el.value||'').trim().toUpperCase();
+  if(!v){out.value='';return;}
+  const cat=_feCatalogo();
+  let hit=cat.find(c=>(c.codigo||'').toUpperCase()===v);
+  if(!hit)hit=cat.find(c=>(c.desc||'').toUpperCase().includes(v));
+  if(hit){el.value=hit.codigo;out.value=hit.desc;}
+  else out.value='';
+}
+function gReembCodMasivo(){
+  const cod=(document.getElementById('rmCod').value||'').trim().toUpperCase();
+  if(!cod){toast('Ingrese el nuevo código',true);return;}
+  const nombreCodif=document.getElementById('rmCodif').value.trim();
+  const rows=_reembFacturaRows();
+  rows.forEach(r=>{
+    r.codigo=cod;
+    r.nombreCodif=nombreCodif;
+    syncSheet('saveReembolsable',r);
+  });
+  closeM('mReembCodMasivo');
+  _reembFiltCod='';
+  rReembolsables();
+  toast(`✓ ${rows.length} ítem${rows.length!==1?'s':''} actualizado${rows.length!==1?'s':''} a ${cod}`);
+}
+
 // ══ TAB: DETALLE POR CÓDIGO (segmentado por Cód. Reemb · vista A4 horizontal para imprimir/guardar PDF) ══
 let _reembDetCod='';
 const _rdN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1706,6 +1749,7 @@ function rReembolsables(){
             ${cods.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===_reembFiltCod?'selected':''}>${c}${codMap[c]?' — '+codMap[c]:''}</option>`).join('')}
           </select>
           ${_reembFiltFact?`<button onclick="editFacturaReemb()" title="Editar la cabecera y todos los ítems de esta factura" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:6px;color:#f59e0b;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✏ Editar factura</button>`:''}
+          ${_reembFiltFact?`<button onclick="_reembCodMasivoOpen()" title="Cambiar el código de reembolso en todos los ítems de esta factura, sin editar uno por uno" style="background:rgba(139,92,246,.15);border:1px solid #8b5cf660;border-radius:6px;color:#8b5cf6;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🏷 Cambiar código (todos)</button>`:''}
           ${(_reembFiltProv||_reembFiltFact||_reembFiltCod)?`<button onclick="_reembFiltProv='';_reembFiltFact='';_reembFiltCod='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <button onclick="_reembExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
         </div>

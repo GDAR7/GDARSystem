@@ -2177,6 +2177,23 @@
   </div>
 </div></div>
 
+<!-- Modal Cambio Masivo de Código Reembolsable (todos los ítems de una factura) -->
+<div class="mo" id="mReembCodMasivo"><div class="modal" style="max-width:500px">
+  <div class="mh"><span class="mttl">🏷 Cambiar Código a Todos los Ítems</span><button class="mx" onclick="closeM('mReembCodMasivo')">✕</button></div>
+  <div class="mb">
+    <div id="rmFactura" style="font-size:.75rem;color:var(--alm);font-family:monospace;font-weight:700;margin-bottom:.6rem"></div>
+    <div class="fg-grid">
+      <div class="fg"><label>Nuevo Cód. Reemb 🔍</label><input id="rmCod" list="dlCodigoReemb" placeholder="R14..." oninput="_reembCodMasivoAuto()" style="font-family:monospace;font-weight:700"></div>
+      <div class="fg"><label>Nombre Codif.</label><input id="rmCodif" readonly placeholder="(auto según código)" style="opacity:.75"></div>
+    </div>
+    <div style="font-size:.68rem;color:var(--muted2);margin-top:.6rem">⚠️ Esto reemplazará el código en <strong>todos</strong> los ítems de la factura seleccionada, sin necesidad de editarlos uno por uno.</div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mReembCodMasivo')">Cancelar</button>
+    <button class="btn btn-a" style="--ba:#8b5cf6" onclick="gReembCodMasivo()">💾 Aplicar a Todos</button>
+  </div>
+</div></div>
+
 <!-- Modal Ver Detalle Requerimiento -->
 <div class="mo" id="mReqVer"><div class="modal" style="max-width:1000px">
   <div class="mh"><span class="mttl" id="mReqVerTtl">Detalle de Requerimiento</span><button class="mx" onclick="closeM('mReqVer')">✕</button></div>
@@ -2886,7 +2903,7 @@
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=2"></script>
 <script src="js/combustible.js?v=2"></script>
-<script src="js/requerimientos.js?v=15"></script>
+<script src="js/requerimientos.js?v=16"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=5"></script>
 <script src="js/tareaje.js?v=3"></script>
