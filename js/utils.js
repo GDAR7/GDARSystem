@@ -45,6 +45,23 @@ function _mecOptsHtml(sel){
   return html;
 }
 
+// Proveedores registrados en los masters del sistema (Equipos, Almacén, Reembolsables) + "Almacén ECO" y "Otros"
+// Usado en el "Origen" de insumos/repuestos de Auxilios Mecánicos
+function _provOptsHtml(sel){
+  sel=sel||'';
+  if(sel==='Almacén')sel='Almacén ECO'; // alias del valor antiguo
+  const set=new Set();
+  (DB.equipos||[]).forEach(e=>{if(e.proveedor)set.add(e.proveedor.trim());});
+  (DB.almacen||[]).forEach(r=>{if(r.proveedor)set.add(r.proveedor.trim());});
+  (DB.reembolsables||[]).forEach(r=>{if(r.proveedor)set.add(r.proveedor.trim());});
+  const provs=[...set].filter(Boolean).sort();
+  let html=`<option${sel==='Almacén ECO'?' selected':''}>Almacén ECO</option>`+
+    provs.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('')+
+    `<option${sel==='Otros'?' selected':''}>Otros</option>`;
+  if(sel&&sel!=='Almacén ECO'&&sel!=='Otros'&&!provs.includes(sel))html+=`<option value="${sel.replace(/"/g,'&quot;')}" selected>${sel}</option>`;
+  return html;
+}
+
 // ══ SELECTS REFRESH ══
 function refreshSelects(){
   const trabList=DB.personal.filter(p=>p.est==='Activo').map(p=>`<option>${p.ape}, ${p.nom}</option>`).join('');

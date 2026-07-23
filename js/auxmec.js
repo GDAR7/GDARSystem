@@ -22,7 +22,7 @@ function amAddInsumo(){
     <td><input style="${ISS};width:85px" placeholder="M-001"></td>
     <td><input type="number" style="${ISS};width:65px" step="0.01" min="0" placeholder="0"></td>
     <td><input style="${ISS};width:60px" placeholder="und"></td>
-    <td><select style="${ISS};width:95px"><option>Almacén</option><option>Campo</option></select></td>
+    <td><select style="${ISS};width:150px">${_provOptsHtml('')}</select></td>
     <td><button class="btn btn-del btn-sm" onclick="this.closest('tr').remove()" style="padding:.2rem .4rem">✕</button></td>`;
   tbody.appendChild(tr);
 }
@@ -215,7 +215,7 @@ function editAuxMec(id){
         <td><input style="${ISS};width:85px" value="${ins.cod||''}"></td>
         <td><input type="number" style="${ISS};width:65px" step="0.01" min="0" value="${ins.cant||0}"></td>
         <td><input style="${ISS};width:60px" value="${ins.und||''}"></td>
-        <td><select style="${ISS};width:95px"><option${ins.origen==='Almacén'?' selected':''}>Almacén</option><option${ins.origen==='Campo'?' selected':''}>Campo</option></select></td>
+        <td><select style="${ISS};width:150px">${_provOptsHtml(ins.origen)}</select></td>
         <td><button class="btn btn-del btn-sm" onclick="this.closest('tr').remove()" style="padding:.2rem .4rem">✕</button></td>`;
       return tr;
     })());
