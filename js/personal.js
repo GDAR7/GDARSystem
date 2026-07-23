@@ -1081,7 +1081,7 @@ function rRoster(){
         else{bg='rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
         const mKey=`${p.id}|${d}`;
         const isSel=_rosterMultiSel.has(mKey);
-        return`<td onclick="${_rosterMultiMode?`_rosterMultiToggleCell('${mKey}',this)`:`_rosterOvrPicker(${p.id},'${d}',event)`}" title="${esOvr?'⚠️ Día sobreescrito':'Click para cambiar'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${isSel?'rgba(168,85,247,.45)':bg};color:${isSel?'#fff':tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${esOvr&&!isSel?'outline:2px solid #f59e0b;outline-offset:-2px;':''};${isSel?'outline:2px solid #a855f7;outline-offset:-2px;':''}">${lbl}${esOvr&&!isSel?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
+        return`<td onclick="${_rosterMultiMode?`_rosterMultiToggleCell('${mKey}',this)`:`_rosterOvrPicker(${p.id},'${d}',event)`}" title="${esOvr?'⚠️ Día sobreescrito':'Click para cambiar'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${isSel?'rgba(168,85,247,.45)':bg};color:${isSel?'#fff':tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${isSel?'outline:2px solid #a855f7;outline-offset:-2px;':''}">${lbl}${esOvr&&!isSel?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       const _pTurno=pCfgPersona?.turno;
