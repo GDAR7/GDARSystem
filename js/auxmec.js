@@ -178,8 +178,8 @@ function anularAuxMec(id){
 }
 function editAuxMec(id){
   const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r)return;
+  openAuxMec(); // openAuxMec() resetea _amEditId a null (modo "nuevo") — por eso se asigna DESPUÉS, no antes
   _amEditId=id;
-  openAuxMec();
   // Sobreescribir código y modo
   document.getElementById('amCod').value=r.cod||'';
   document.querySelector('#mAuxMec .mttl').textContent='✏️ Editar Auxilio: '+r.cod;
