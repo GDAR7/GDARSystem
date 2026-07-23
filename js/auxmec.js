@@ -1,5 +1,12 @@
 ﻿// ══ AUXILIOS MECÁNICOS ══
 let _amTab=0,_amEditId=null;
+// Eliminar solo disponible hasta 48h después de creado (mismo patrón que Máster de Equipos)
+function _amPuedeEliminar(id){
+  try{
+    const d=JSON.parse(localStorage.getItem('ecosermo_auxmec_ts')||'{}');
+    return d[id]&&(Date.now()-d[id])<172800000; // 48h en ms
+  }catch(e){return false;}
+}
 function amGoTab(n){
   _amTab=n;
   [0,1,2,3].forEach(i=>{
@@ -63,7 +70,7 @@ function rAuxMec(){
         <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verAuxMec(${r.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
         <button class="btn btn-out btn-sm" title="Editar" onclick="intentarEditarAuxMec(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
         ${!anulado?`<button class="btn btn-out btn-sm" title="Anular" onclick="anularAuxMec(${r.id})" style="color:#ef4444;border-color:#ef444460">🚫</button>`:''}
-        ${!anulado?`<button class="btn btn-del btn-sm" title="Eliminar definitivamente" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:''}
+        ${(!anulado&&_amPuedeEliminar(r.id))?`<button class="btn btn-del btn-sm" title="Eliminar (disponible 48h desde la creación)" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -150,6 +157,8 @@ function gAuxMec(){
     DB.auxiliosMecanicos.push(rec);
     syncSheet('saveAuxMec',rec);
     _saveInsumos(rec.id);
+    // Guardar timestamp de creación para la ventana de 48h del botón eliminar
+    try{const d=JSON.parse(localStorage.getItem('ecosermo_auxmec_ts')||'{}');d[rec.id]=Date.now();localStorage.setItem('ecosermo_auxmec_ts',JSON.stringify(d));}catch(e){}
     closeM('mAuxMec');rAuxMec();toast('Auxilio registrado: '+rec.cod);
   }
 }

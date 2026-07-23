@@ -991,7 +991,32 @@ const _CODIGO_REEMB_DEF=[
   {codigo:'R15',desc:'Parqueo de vehículos menores'},
   {codigo:'R16',desc:'Mobiliario y mat. de escritorio'},
   {codigo:'R17',desc:'Internet'},
-  {codigo:'R18',desc:'Equipos de operación'}
+  {codigo:'R18',desc:'Equipos de operación'},
+  // Códigos de Almacén (equipos/insumos)
+  {codigo:'UAE',desc:'Útiles administrativos y de escritorio'},
+  {codigo:'LTP-I',desc:'Laptop, tipo I'},
+  {codigo:'LTP-II',desc:'Laptop, tipo II'},
+  {codigo:'IMP',desc:'Impresora'},
+  {codigo:'ILO',desc:'Insumos de limpieza (oficinas)'},
+  {codigo:'ACO',desc:'Agua consumo obra'},
+  {codigo:'GEN-35',desc:'Generador 35 kV'},
+  {codigo:'CTR-20',desc:'Contenedor 20"'},
+  {codigo:'IEC-R',desc:'Implementación de energía en contenedor (puesta a tierra)'},
+  {codigo:'DTO',desc:'Detector de tormentas'},
+  {codigo:'MHI',desc:'Martillo hidráulico'},
+  {codigo:'MTB',desc:'Motobombas'},
+  {codigo:'LUM',desc:'Luminarias (equipo + combustible)'},
+  {codigo:'VAP',desc:'Vibroapisonadores'},
+  {codigo:'ZAR',desc:'Zaranda'},
+  {codigo:'TRC',desc:'Trompo de concreto'},
+  {codigo:'VCO',desc:'Vibrador de concreto'},
+  {codigo:'RAD',desc:'Radio para personal y equipo'},
+  {codigo:'MRD',desc:'Módulo de radio para carga de baterías y radios'},
+  {codigo:'EEL-11',desc:'Estufa eléctrica de 11 celdas'},
+  {codigo:'ALC',desc:'Alcoholímetro'},
+  {codigo:'ENG',desc:'Engrasadora neumática'},
+  {codigo:'CPA',desc:'Compresora de aire'},
+  {codigo:'PLC',desc:'Plancha compactadora'}
 ];
 function _feCatalogo(){
   return (DB.codigoReemb&&DB.codigoReemb.length)?DB.codigoReemb:_CODIGO_REEMB_DEF;
