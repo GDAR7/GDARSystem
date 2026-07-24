@@ -52,7 +52,8 @@ function _segTareas(){
 function _segRender(){
   const body=document.getElementById('segBody');if(!body)return;
   if(_segTab===1)_segRenderBoard(body);
-  else _segRenderAnalisis(body);
+  else if(_segTab===2)_segRenderAnalisis(body);
+  else _segRenderCarga(body);
 }
 
 // ── Barra de filtros ─────────────────────────────────────────────────────────
@@ -391,6 +392,75 @@ function _segRenderAnalisis(body){
       </table></div>
     </div>
   </div>`;
+}
+
+// ── TAB 3: CARGA POR PERSONA ────────────────────────────────────────────────
+function _segRenderCarga(body){
+  const hoy=today();
+  let list=DB.seguimiento||[];
+  if(_segQ){
+    const q=_segQ.toLowerCase();
+    list=list.filter(t=>Object.values(t).join(' ').toLowerCase().includes(q));
+  }
+  const byResp={};
+  list.forEach(t=>{
+    const r=t.responsable||'(Sin responsable)';
+    if(!byResp[r])byResp[r]={total:0,abiertas:0,bloqueadas:0,vencidas:0,completadas:0,aTiempo:0,conDesf:0};
+    const g=byResp[r];
+    g.total++;
+    if(t.est==='Completado'){
+      g.completadas++;
+      const d=_segDesfase(t);
+      if(d!==null){g.conDesf++;if(d<=0)g.aTiempo++;}
+    }else{
+      g.abiertas++;
+      if(t.est==='Bloqueado')g.bloqueadas++;
+      if(t.fechaProm&&t.fechaProm<hoy)g.vencidas++;
+    }
+  });
+  const rows=Object.entries(byResp).sort((a,b)=>b[1].vencidas-a[1].vencidas||b[1].abiertas-a[1].abiertas);
+  const maxAbiertas=Math.max(...rows.map(r=>r[1].abiertas),1);
+  const totAbiertas=rows.reduce((s,r)=>s+r[1].abiertas,0);
+  const totVenc=rows.reduce((s,r)=>s+r[1].vencidas,0);
+  const totBloq=rows.reduce((s,r)=>s+r[1].bloqueadas,0);
+
+  const kpis=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
+    ${_segKpi('Personas con tareas',rows.length,'#8b5cf6')}
+    ${_segKpi('Tareas Abiertas (total)',totAbiertas,'#3b82f6')}
+    ${_segKpi('Vencidas (total)',totVenc,totVenc?'#ef4444':'#10b981')}
+    ${_segKpi('Bloqueadas (total)',totBloq,totBloq?'#ef4444':'#10b981')}
+  </div>`;
+
+  const stat=(lbl,v,col)=>`<div><div style="font-size:.56rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">${lbl}</div><div style="font-size:1.15rem;font-weight:800;color:${col};line-height:1.3">${v}</div></div>`;
+
+  const cards=rows.length?rows.map(([resp,g])=>{
+    const pctVenc=g.abiertas?Math.round(g.vencidas/g.abiertas*100):0;
+    const pctATiempo=g.conDesf?Math.round(g.aTiempo/g.conDesf*100):null;
+    const sobrecarga=g.vencidas>=3||pctVenc>=50;
+    return`<div class="card" style="padding:.7rem .9rem;${sobrecarga?'border-color:#ef444470':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.6rem">
+        <span style="font-weight:700;font-size:.82rem">${resp}</span>
+        ${sobrecarga?'<span class="badge b-red">⚠ Sobrecargado</span>':''}
+      </div>
+      <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:.6rem">
+        ${stat('Abiertas',g.abiertas,'#3b82f6')}
+        ${stat('Bloqueadas',g.bloqueadas,g.bloqueadas?'#ef4444':'var(--muted2)')}
+        ${stat('Vencidas',g.vencidas,g.vencidas?'#ef4444':'var(--muted2)')}
+        ${stat('Completadas',g.completadas,'#10b981')}
+        ${stat('% A tiempo',pctATiempo!==null?pctATiempo+'%':'—','#8b5cf6')}
+      </div>
+      <div style="background:var(--border);border-radius:4px;height:7px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(g.abiertas/maxAbiertas*100)}%;background:${sobrecarga?'#ef4444':'#3b82f6'};border-radius:4px"></div>
+      </div>
+    </div>`;
+  }).join(''):'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem;grid-column:1/-1">Sin tareas registradas</div>';
+
+  body.innerHTML=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQ=this.value;_segRender()"></div>
+    <button class="btn btn-a" style="--ba:var(--ctl);margin-left:auto" onclick="_segNueva()">＋ Nueva Tarea</button>
+  </div>
+  ${kpis}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.7rem">${cards}</div>`;
 }
 
 function _segKpi(label,val,color){
