@@ -85,7 +85,12 @@ function refreshSelects(){
    ['asItem',stockOpts],
    ['rqArea',areaOpts],
    ['fpReq',reqOpts]
-  ].forEach(([id,html])=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
+  ].forEach(([id,html])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const prev=el.value;
+    el.innerHTML=html;
+    if(prev)el.value=prev;
+  });
 }
 
 // ══ DEMO CHIPS ══
