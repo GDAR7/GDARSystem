@@ -215,6 +215,14 @@ function _abcExportXls(){
 // ── VISTA SEMANAL — salidas de Kardex por semana: consumo por persona y vales emitidos ──
 let _abcSemIni=null;
 let _abcSemExportData=null;
+let _abcSemBuscar='';
+let _abcSemFiltroPersona='';
+function _abcSemSetBuscar(v){_abcSemBuscar=v;_abcRenderSemana();}
+function _abcSemFiltrarVale(nom){
+  _abcSemFiltroPersona=(_abcSemFiltroPersona===nom)?'':nom;
+  _abcRenderSemana();
+}
+function _abcSemQuitarFiltroVale(){_abcSemFiltroPersona='';_abcRenderSemana();}
 
 function _abcSemDefault(){
   const h=new Date(today()+'T12:00:00');
@@ -363,7 +371,11 @@ function _abcRenderSemana(){
   // ── Tabla consumo por persona ──
   const THs='background:var(--panel2);color:var(--muted2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.45rem .55rem;white-space:nowrap;position:sticky;top:0;z-index:2';
   const TDs='padding:.4rem .55rem;border-bottom:1px solid var(--border);font-size:.76rem;white-space:nowrap';
-  const tbodyPersona=personasOrd.map((p,i)=>{
+  const _escJs=s=>String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const buscQ=(_abcSemBuscar||'').toLowerCase().trim();
+  const personasFiltradas=buscQ?personasOrd.filter(p=>p.nom.toLowerCase().includes(buscQ)):personasOrd;
+  const tbodyPersona=personasFiltradas.map((p)=>{
+    const i=personasOrd.indexOf(p);
     const prev=porPersonaPrevTot[p.nom]||0;
     let cmpTxt='—',cmpCol='var(--muted2)';
     if(prev>0){
@@ -371,7 +383,8 @@ function _abcRenderSemana(){
       cmpTxt=d===0?'= igual':(d>0?'▲ +'+d+'%':'▼ '+d+'%');
       cmpCol=d<=0?'#10b981':'#ef4444';
     }else if(p.tot>0){cmpTxt='nuevo';cmpCol='#3b82f6';}
-    return`<tr>
+    const activo=_abcSemFiltroPersona===p.nom;
+    return`<tr ondblclick="_abcSemFiltrarVale('${_escJs(p.nom)}')" title="Doble clic para filtrar sus vales de salida" style="cursor:pointer;${activo?'background:rgba(139,92,246,.18);box-shadow:inset 3px 0 0 #8b5cf6':''}">
       <td style="${TDs};font-weight:700;${i===0&&p.tot>0?'color:#f59e0b':''}">${i===0&&p.tot>0?'🏆 ':''}${p.nom}</td>
       ${fechas.map(f=>{
         const v=p.dias[f.iso]||0;
@@ -382,14 +395,18 @@ function _abcRenderSemana(){
   }).join('');
 
   const tablaPersona=`<div class="card" style="margin-bottom:.9rem">
-    <div class="card-head"><span class="card-title">👤 Consumo por Persona / Responsable · ${personasOrd.length}</span></div>
+    <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
+      <span class="card-title">👤 Consumo por Persona / Responsable · ${personasFiltradas.length}${buscQ?' / '+personasOrd.length:''}</span>
+      <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input class="search-input" placeholder="Buscar persona / equipo..." value="${_abcSemBuscar}" oninput="_abcSemSetBuscar(this.value)"></div>
+    </div>
+    <div style="font-size:.66rem;color:var(--muted2);padding:0 .9rem .5rem">💡 Doble clic sobre una fila para filtrar sus vales de salida en la tabla de abajo.</div>
     <div class="card-body"><div style="overflow-x:auto;max-height:50vh;overflow-y:auto;border-radius:8px"><table style="width:100%;border-collapse:collapse;min-width:900px">
       <thead><tr>
         <th style="${THs}">Persona / Equipo</th>
         ${fechas.map(f=>`<th style="${THs};text-align:center">${f.lbl}<br>${f.dm}</th>`).join('')}
         <th style="${THs};text-align:right">Total Semana<br><span style="font-size:.58rem">vs sem. anterior</span></th>
       </tr></thead>
-      <tbody>${tbodyPersona||`<tr><td colspan="${fechas.length+2}" style="text-align:center;padding:2rem;color:var(--muted2)">Sin salidas registradas esta semana</td></tr>`}</tbody>
+      <tbody>${tbodyPersona||`<tr><td colspan="${fechas.length+2}" style="text-align:center;padding:2rem;color:var(--muted2)">${buscQ?'Sin resultados para "'+_abcSemBuscar+'"':'Sin salidas registradas esta semana'}</td></tr>`}</tbody>
     </table></div></div>
   </div>`;
 
@@ -403,7 +420,8 @@ function _abcRenderSemana(){
     if(r.fecha<g.fecha)g.fecha=r.fecha;
   });
   const valesOrd=Object.values(porVale).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const tbodyVales=valesOrd.map(v=>`<tr>
+  const valesFiltrados=_abcSemFiltroPersona?valesOrd.filter(v=>v.para===_abcSemFiltroPersona):valesOrd;
+  const tbodyVales=valesFiltrados.map(v=>`<tr>
     <td style="${TDs};font-family:monospace;font-weight:700;color:#ef4444">${v.numVale}</td>
     <td style="${TDs};font-family:monospace">${v.fecha||'—'}</td>
     <td style="${TDs}">${v.proyecto||'—'}</td>
@@ -414,10 +432,13 @@ function _abcRenderSemana(){
   </tr>`).join('');
 
   const tablaVales=`<div class="card">
-    <div class="card-head"><span class="card-title">🧾 Vales de Salida de la Semana · ${valesOrd.length}</span></div>
+    <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
+      <span class="card-title">🧾 Vales de Salida de la Semana · ${valesFiltrados.length}${_abcSemFiltroPersona?' / '+valesOrd.length:''}</span>
+      ${_abcSemFiltroPersona?`<span style="font-size:.68rem;color:#8b5cf6;font-weight:700;background:rgba(139,92,246,.15);border:1px solid #8b5cf660;border-radius:20px;padding:.2rem .7rem">Filtrando: ${_abcSemFiltroPersona}</span><button onclick="_abcSemQuitarFiltroVale()" style="font-size:.68rem;padding:.2rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Quitar filtro</button>`:''}
+    </div>
     <div class="card-body"><div style="overflow-x:auto;max-height:50vh;overflow-y:auto;border-radius:8px"><table style="width:100%;border-collapse:collapse;min-width:800px">
       <thead><tr><th style="${THs}">N° Vale</th><th style="${THs}">Fecha</th><th style="${THs}">Proyecto</th><th style="${THs}">Entregado a</th><th style="${THs};text-align:center">Ítems</th><th style="${THs};text-align:right">Cant. Total</th><th style="${THs}"></th></tr></thead>
-      <tbody>${tbodyVales||`<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted2)">Sin vales emitidos esta semana</td></tr>`}</tbody>
+      <tbody>${tbodyVales||`<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted2)">${_abcSemFiltroPersona?'Sin vales para '+_abcSemFiltroPersona:'Sin vales emitidos esta semana'}</td></tr>`}</tbody>
     </table></div></div>
   </div>`;
 
