@@ -214,7 +214,6 @@ function _abcExportXls(){
 
 // ── VISTA SEMANAL — salidas de Kardex por semana: consumo por persona y vales emitidos ──
 let _abcSemIni=null;
-let _abcSemChart=null;
 let _abcSemExportData=null;
 
 function _abcSemDefault(){
@@ -321,18 +320,44 @@ function _abcRenderSemana(){
     return{nom,dias,tot};
   }).sort((a,b)=>b.tot-a.tot);
 
-  // Gráfico apilado: top 6 personas + "Otros"
-  const topPersonas=personasOrd.slice(0,6);
-  const restoPersonas=personasOrd.slice(6);
-  const coloresP=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
-  const datasets=topPersonas.map((p,i)=>({label:p.nom,data:fechas.map(f=>p.dias[f.iso]||0),backgroundColor:coloresP[i%coloresP.length],stack:'s'}));
-  if(restoPersonas.length){
-    datasets.push({label:'Otros ('+restoPersonas.length+')',data:fechas.map(f=>restoPersonas.reduce((s,p)=>s+(p.dias[f.iso]||0),0)),backgroundColor:'#64748b',stack:'s'});
-  }
+  // ── Agrupación por día y Tipo de Material (para el gráfico) ──
+  const porTipo={};
+  rows.forEach(r=>{
+    const cat=(DB.catalogoItems||[]).find(c=>c.cod===r.codigo);
+    const t=cat&&cat.tipo?cat.tipo:'(Sin tipo)';
+    if(!porTipo[t])porTipo[t]=Object.fromEntries(fechas.map(f=>[f.iso,0]));
+    porTipo[t][r.fecha]=(porTipo[t][r.fecha]||0)+(+r.cant||0);
+  });
+  const tiposOrd=Object.entries(porTipo).map(([nom,dias])=>({nom,dias,tot:Object.values(dias).reduce((s,v)=>s+v,0)})).sort((a,b)=>b.tot-a.tot);
 
-  const chartCard=`<div class="card" style="padding:.8rem 1rem;margin-bottom:.9rem">
-    <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.5rem">Cantidad por día y responsable</div>
-    ${rows.length?'<div style="height:280px"><canvas id="abcSemChart"></canvas></div>':'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem">Sin salidas registradas esta semana</div>'}
+  // ── Agrupación por día y Unidad de Medida (para el gráfico) ──
+  const porUnidad={};
+  rows.forEach(r=>{
+    const u=r.unidad||'(Sin unidad)';
+    if(!porUnidad[u])porUnidad[u]=Object.fromEntries(fechas.map(f=>[f.iso,0]));
+    porUnidad[u][r.fecha]=(porUnidad[u][r.fecha]||0)+(+r.cant||0);
+  });
+  const unidadesOrd=Object.entries(porUnidad).map(([nom,dias])=>({nom,dias,tot:Object.values(dias).reduce((s,v)=>s+v,0)})).sort((a,b)=>b.tot-a.tot);
+
+  const coloresPal=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'];
+  const _abcSemDatasets=(ordArr,maxN)=>{
+    const top=ordArr.slice(0,maxN),resto=ordArr.slice(maxN);
+    const ds=top.map((g,i)=>({label:g.nom,data:fechas.map(f=>g.dias[f.iso]||0),backgroundColor:coloresPal[i%coloresPal.length],stack:'s'}));
+    if(resto.length)ds.push({label:'Otros ('+resto.length+')',data:fechas.map(f=>resto.reduce((s,g)=>s+(g.dias[f.iso]||0),0)),backgroundColor:'#64748b',stack:'s'});
+    return ds;
+  };
+  const datasetsTipo=_abcSemDatasets(tiposOrd,8);
+  const datasetsUnidad=_abcSemDatasets(unidadesOrd,6);
+
+  const chartCard=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:.9rem;margin-bottom:.9rem">
+    <div class="card" style="padding:.8rem 1rem">
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.5rem">Cantidad por día y Tipo de Material</div>
+      ${rows.length?'<div style="height:260px"><canvas id="abcSemChartTipo"></canvas></div>':'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem">Sin salidas registradas esta semana</div>'}
+    </div>
+    <div class="card" style="padding:.8rem 1rem">
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.5rem">Cantidad por día y Unidad de Medida</div>
+      ${rows.length?'<div style="height:260px"><canvas id="abcSemChartUnidad"></canvas></div>':'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem">Sin salidas registradas esta semana</div>'}
+    </div>
   </div>`;
 
   // ── Tabla consumo por persona ──
@@ -397,20 +422,24 @@ function _abcRenderSemana(){
   </div>`;
 
   pg.innerHTML=kpis+weekBar+chartCard+tablaPersona+tablaVales;
-  if(rows.length)_abcRenderSemChart(fechas,datasets);
+  if(rows.length){
+    _abcRenderSemChart('abcSemChartTipo','tipo',fechas,datasetsTipo);
+    _abcRenderSemChart('abcSemChartUnidad','unidad',fechas,datasetsUnidad);
+  }
   _abcSemExportData={fechas,personasOrd,valesOrd,rango};
 }
 
-function _abcRenderSemChart(fechas,datasets){
-  const cv=document.getElementById('abcSemChart');if(!cv)return;
-  if(_abcSemChart){_abcSemChart.destroy();_abcSemChart=null;}
-  _abcSemChart=new Chart(cv.getContext('2d'),{
+let _abcSemCharts={tipo:null,unidad:null};
+function _abcRenderSemChart(canvasId,key,fechas,datasets){
+  const cv=document.getElementById(canvasId);if(!cv)return;
+  if(_abcSemCharts[key]){_abcSemCharts[key].destroy();_abcSemCharts[key]=null;}
+  _abcSemCharts[key]=new Chart(cv.getContext('2d'),{
     type:'bar',
     data:{labels:fechas.map(f=>f.lbl+' '+f.dm),datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{
-        legend:{labels:{color:'#94a3b8',font:{size:10}}},
+        legend:{labels:{color:'#94a3b8',font:{size:9},boxWidth:11}},
         tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString('es-PE')}}
       },
       scales:{
