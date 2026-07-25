@@ -535,6 +535,7 @@ function _aeOnRqChange(){
   const rqId=opt?+opt.dataset.id:null;
   const rq=rqId?DB.requerimientos.find(r=>r.id===rqId):DB.requerimientos.find(r=>r.num===sel.value);
   if(!rq){matRow.style.display='none';return;}
+  
   // Auto-rellenar proyecto desde el RQ seleccionado
   const proyEl=document.getElementById('aeProyecto');
   if(proyEl&&rq.proyecto){
