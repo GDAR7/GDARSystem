@@ -747,6 +747,30 @@ function rFPago(){
   }).join('');
   if(typeof _fpTabActiva!=='undefined'&&_fpTabActiva==='reemb')rReembolsables();
 }
+function _fpExportXls(){
+  const pfEl=document.getElementById('fpProyFilterMain');
+  const filtProy=pfEl?pfEl.value:'';
+  let lista=DB.facturasPago;
+  if(filtProy){
+    lista=lista.filter(f=>{
+      if(!f.reqId)return false;
+      const req=DB.requerimientos.find(r=>r.id===f.reqId);
+      return req&&(req.proyecto||'')===filtProy;
+    });
+  }
+  lista=lista.filter(f=>_fpEnRango(f.fecha));
+  if(!lista.length){toast('No hay comprobantes para exportar',true);return;}
+  const wsData=[['N° Comp.','Tipo','Fecha','Proveedor','Requerimiento','Moneda','Total','Estado','Tipo Cobro','EDP']];
+  lista.forEach(f=>{
+    const req=DB.requerimientos.find(r=>r.id===f.reqId);
+    wsData.push([f.num||'',f.tipo||'',f.fecha||'',f.prov||'',req?req.num:'',f.moneda||'Soles (S/)',+f.total||0,f.est||'',f.tipoCobro||'',f.edp||'']);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:12},{wch:10},{wch:12},{wch:30},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Comprobantes');
+  XLSX.writeFile(wb,'comprobantes_pago'+(filtProy?'_'+filtProy.replace(/\s/g,''):'')+'.xlsx');
+}
 const todayDMY=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
 const toDMY=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
 const toISO=dmy=>{if(!dmy||!dmy.includes('/'))return dmy||'';const[d,m,y]=dmy.split('/');return`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;};

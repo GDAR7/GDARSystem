@@ -221,6 +221,8 @@ function rReporteEquipos(){
   const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
   const diasHmin=partes.filter(p=>hMinDia>0?(+p.ef||0)>=hMinDia:false).length;
   const stanby=hMinMes>0?Math.max(0,parseFloat((hMinMes-totEf).toFixed(2))):0;
+  const partesConHoras=partes.filter(p=>(+p.ef||0)>0);
+  const promHsTurno=partesConHoras.length?totEf/partesConHoras.length:0;
 
   // ── UTILIZACIÓN DE EQUIPO: hs efectivas ÷ hs disponibles (días del período × jornada) ──
   const jornada=hMinDia>0?hMinDia:10;
@@ -248,6 +250,7 @@ function rReporteEquipos(){
     {l:'Hs Efectivas',v:parseFloat(totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
     {l:'Hs Inoperativas',v:parseFloat(totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
     {l:'Utilización',v:partes.length?utilGlob.toFixed(0)+'%':'—',c:partes.length?_uCol(utilGlob):'var(--muted2)',ic:'📈'},
+    {l:'Prom. Hs / Turno',v:partesConHoras.length?`${promHsTurno.toFixed(2)}h<br><span style="font-size:.55rem;font-weight:600;color:var(--muted2);letter-spacing:.03em">${partesConHoras.length} turno${partesConHoras.length===1?'':'s'} trabajado${partesConHoras.length===1?'':'s'}</span>`:'—',c:'#06b6d4',ic:'📊'},
     {l:'Días Hmin Cumpl.',v:diasHmin,c:'#f59e0b',ic:'✅'},
     {l:'Hs Stanby a Pagar',v:stanby+'h',c:'#8b5cf6',ic:'⏸️'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.ic} ${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
