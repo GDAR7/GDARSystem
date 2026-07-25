@@ -86,29 +86,30 @@ function rAnalisisAbc(){
   const proys=(DB.proyectos||[]).slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   const activo=_abcDesde||_abcHasta;
 
-  const filtroBar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período</span>
-    <span style="font-size:.7rem;color:var(--muted2)">Desde</span>
-    <input type="date" id="abcFDesde" value="${_abcDesde}" onchange="_abcSetFecha('desde',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;color-scheme:dark">
-    <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
-    <input type="date" id="abcFHasta" value="${_abcHasta}" onchange="_abcSetFecha('hasta',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;color-scheme:dark">
-    ${activo?`<span style="font-size:.72rem;color:var(--alm);font-weight:700">Filtrando período</span><button onclick="_abcLimpiarFecha()" style="font-size:.7rem;padding:.22rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar</button>`:''}
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-left:.4rem">Proyecto</span>
-    <select onchange="_abcFiltProy=this.value;rAnalisisAbc()" style="background:var(--panel2);border:1px solid ${_abcFiltProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
+  const filtroBar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap;overflow-x:auto;margin-bottom:.7rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Período</span>
+    <span style="font-size:.7rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Desde</span>
+    <input type="date" id="abcFDesde" class="date-ic-azul" value="${_abcDesde}" onchange="_abcSetFecha('desde',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;color-scheme:dark;flex-shrink:0">
+    <span style="font-size:.7rem;color:var(--muted2);white-space:nowrap;flex-shrink:0">Hasta</span>
+    <input type="date" id="abcFHasta" class="date-ic-azul" value="${_abcHasta}" onchange="_abcSetFecha('hasta',this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;color-scheme:dark;flex-shrink:0">
+    ${activo?`<button onclick="_abcLimpiarFecha()" style="flex-shrink:0;white-space:nowrap;font-size:.7rem;padding:.22rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar</button>`:''}
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-left:.4rem;white-space:nowrap;flex-shrink:0">Proyecto</span>
+    <select onchange="_abcFiltProy=this.value;rAnalisisAbc()" style="background:var(--panel2);border:1px solid ${_abcFiltProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:180px;cursor:pointer;outline:none;flex-shrink:0">
       <option value="">— Todos —</option>
       ${proys.map(p=>`<option value="${p.codigo}" ${p.codigo===_abcFiltProy?'selected':''}>[${p.codigo}] ${p.nombre}</option>`).join('')}
     </select>
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Tipo</span>
-    <select onchange="_abcFiltTipo=this.value;rAnalisisAbc()" style="background:var(--panel2);border:1px solid ${_abcFiltTipo?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;cursor:pointer;outline:none">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex-shrink:0">Tipo</span>
+    <select onchange="_abcFiltTipo=this.value;rAnalisisAbc()" style="background:var(--panel2);border:1px solid ${_abcFiltTipo?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;cursor:pointer;outline:none;flex-shrink:0">
       <option value="">— Todos —</option>
       ${tipos.map(t=>`<option value="${t}" ${t===_abcFiltTipo?'selected':''}>${t}</option>`).join('')}
     </select>
-    <div style="margin-left:auto;display:flex;gap:.3rem;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:2px">
-      <button onclick="_abcSetMetric('cant')" style="padding:.3rem .75rem;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;background:${metric==='cant'?'var(--alm)':'transparent'};color:${metric==='cant'?'#fff':'var(--muted2)'}">📦 Cantidad</button>
-      <button onclick="_abcSetMetric('valor')" style="padding:.3rem .75rem;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;background:${metric==='valor'?'var(--alm)':'transparent'};color:${metric==='valor'?'#fff':'var(--muted2)'}">💰 Valor S/</button>
+    <div style="margin-left:auto;display:flex;gap:.3rem;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:2px;flex-shrink:0">
+      <button onclick="_abcSetMetric('cant')" style="padding:.3rem .75rem;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;white-space:nowrap;background:${metric==='cant'?'var(--alm)':'transparent'};color:${metric==='cant'?'#fff':'var(--muted2)'}">📦 Cantidad</button>
+      <button onclick="_abcSetMetric('valor')" style="padding:.3rem .75rem;border:none;border-radius:6px;cursor:pointer;font-size:.74rem;font-weight:700;white-space:nowrap;background:${metric==='valor'?'var(--alm)':'transparent'};color:${metric==='valor'?'#fff':'var(--muted2)'}">💰 Valor S/</button>
     </div>
-    <button onclick="_abcExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
-  </div>`;
+    <button onclick="_abcExportXls()" style="flex-shrink:0;background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
+  </div>
+  ${activo?`<div style="margin:-.4rem 0 .7rem;font-size:.72rem;color:var(--alm);font-weight:700">Filtrando período: ${_abcDesde||'inicio'} → ${_abcHasta||'hoy'}</div>`:''}`;
 
   const top=sorted.slice(0,15);
   const chartCard=`<div class="card" style="padding:.8rem 1rem;margin-bottom:.9rem">
