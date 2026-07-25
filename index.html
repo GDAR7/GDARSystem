@@ -494,10 +494,15 @@
   </div>
 </div>
 
-<!-- ALMACÉN – ANÁLISIS ABC / PARETO -->
+<!-- ALMACÉN – ANÁLISIS DE CONSUMO (ABC/Pareto + Vista Semanal) -->
 <div class="page" id="page-analisisAbc">
-  <div class="ph"><div class="ph-title" style="color:var(--alm)">Análisis ABC / Pareto</div><div class="ph-sub">Clasificación de materiales y EPPs según su consumo — identifica los ítems de mayor rotación</div></div>
+  <div class="ph"><div class="ph-title" style="color:var(--alm)">Análisis de Consumo</div><div class="ph-sub">Clasificación ABC/Pareto y seguimiento semanal de salidas de Almacén</div></div>
+  <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    <button id="abcTabBtn-pareto" onclick="_abcMainTab('pareto')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--alm);color:#fff">📈 Pareto ABC</button>
+    <button id="abcTabBtn-semana" onclick="_abcMainTab('semana')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🗓️ Vista Semanal</button>
+  </div>
   <div id="abcBody"></div>
+  <div id="abcSemBody" style="display:none"></div>
 </div>
 
 <!-- ALMACÉN – FACTURAS / BOLETAS DE PAGO -->
@@ -2904,12 +2909,12 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=14"></script>
+<script src="js/config.js?v=15"></script>
 <script src="js/utils.js?v=11"></script>
 <script src="js/personal.js?v=10"></script>
 <script src="js/planilla.js"></script>
-<script src="js/almacen.js?v=2"></script>
-<script src="js/analisisAbc.js?v=4"></script>
+<script src="js/almacen.js?v=3"></script>
+<script src="js/analisisAbc.js?v=5"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=16"></script>
 <script src="js/viaticos.js?v=8"></script>

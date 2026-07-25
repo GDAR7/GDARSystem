@@ -462,6 +462,10 @@ function _printValeFiltrar(){
 function printVale(){
   const vale=document.getElementById('printValeSel').value;if(!vale)return;
   const codProy=(document.getElementById('printValeProy')||{}).value||'';
+  _almImprimirVale(vale,codProy);
+  closeM('mPrintVale');
+}
+function _almImprimirVale(vale,codProy){
   const rows=DB.almacen.filter(r=>r.tipo==='S'&&String(r.numVale||'').trim()===vale&&(!codProy||(r.codProy||'').trim()===codProy));
   if(!rows.length){toast('Sin registros para ese vale',true);return;}
   const h=rows[0];
@@ -511,7 +515,7 @@ function printVale(){
     <div class="sign"><div class="sp"></div><div class="ln"></div><div class="lb">Área Autorizada</div><div class="sb">Firma y sello</div></div>
   </div>
   <script>window.onload=()=>{window.print();}<\/script></body></html>`);
-  w.document.close();closeM('mPrintVale');
+  w.document.close();
 }
 function _aeFilterRq(){
   const ps=document.getElementById('aeProyecto');
