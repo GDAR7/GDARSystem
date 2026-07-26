@@ -70,7 +70,7 @@ function rAuxMec(){
         <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verAuxMec(${r.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
         <button class="btn btn-out btn-sm" title="Editar" onclick="intentarEditarAuxMec(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
         ${!anulado?`<button class="btn btn-out btn-sm" title="Anular" onclick="anularAuxMec(${r.id})" style="color:#ef4444;border-color:#ef444460">🚫</button>`:''}
-        ${(!anulado&&_amPuedeEliminar(r.id))?`<button class="btn btn-del btn-sm" title="Eliminar (disponible 48h desde la creación)" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:''}
+        ${anulado?`<button class="btn btn-del btn-sm" title="Eliminar" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:(_amPuedeEliminar(r.id)?`<button class="btn btn-del btn-sm" title="Eliminar (disponible 48h desde la creación)" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:'')}
       </td>
     </tr>`;
   }).join('');
