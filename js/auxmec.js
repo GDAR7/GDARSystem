@@ -22,11 +22,28 @@ function amGoTab(n){
   if(next)next.style.display=n<3?'':'none';
   if(save)save.style.display=n===3?'':'none';
 }
+function _amPopulateMatDatalist(){
+  const dl=document.getElementById('dlAmMat');if(!dl)return;
+  const vistos=new Set();
+  dl.innerHTML=(DB.catalogoItems||[]).filter(c=>{
+    const d=(c.desc||'').trim();
+    if(!d||vistos.has(d.toLowerCase()))return false;
+    vistos.add(d.toLowerCase());return true;
+  }).map(c=>`<option value="${c.desc.replace(/"/g,'&quot;')}">`).join('');
+}
+// Al elegir/escribir una descripción que coincide con un material del catálogo, autocompleta su Código de Almacén
+function _amInsumoDescInput(el){
+  const tr=el.closest('tr');if(!tr)return;
+  const codInput=tr.querySelectorAll('input,select')[1];if(!codInput)return;
+  const v=(el.value||'').trim().toLowerCase();
+  const mat=v?(DB.catalogoItems||[]).find(c=>(c.desc||'').trim().toLowerCase()===v):null;
+  if(mat)codInput.value=mat.cod||'';
+}
 function amAddInsumo(){
   const tbody=document.getElementById('amInsumosBody');
   const ISS='background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:.25rem .4rem;color:var(--text);font-size:.73rem;width:100%';
   const tr=document.createElement('tr');
-  tr.innerHTML=`<td><input style="${ISS}" placeholder="Descripción del ítem"></td>
+  tr.innerHTML=`<td><input style="${ISS}" list="dlAmMat" autocomplete="off" placeholder="Descripción del ítem (buscar o escribir)" oninput="_amInsumoDescInput(this)"></td>
     <td><input style="${ISS};width:85px" placeholder="M-001"></td>
     <td><input type="number" style="${ISS};width:65px" step="0.01" min="0" placeholder="0"></td>
     <td><input style="${ISS};width:60px" placeholder="und"></td>
@@ -158,6 +175,7 @@ function openAuxMec(){
   document.getElementById('amConforme').checked=false;
   document.getElementById('amInsumosBody').innerHTML='';
   _renderAmMedia(null,null);
+  _amPopulateMatDatalist();
   openM('mAuxMec');
 }
 function gAuxMec(){
@@ -276,7 +294,7 @@ function editAuxMec(id){
     document.getElementById('amInsumosBody').appendChild((()=>{
       const ISS='background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:.25rem .4rem;color:var(--text);font-size:.73rem;width:100%';
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td><input style="${ISS}" value="${ins.desc||''}"></td>
+      tr.innerHTML=`<td><input style="${ISS}" list="dlAmMat" autocomplete="off" value="${ins.desc||''}" oninput="_amInsumoDescInput(this)"></td>
         <td><input style="${ISS};width:85px" value="${ins.cod||''}"></td>
         <td><input type="number" style="${ISS};width:65px" step="0.01" min="0" value="${ins.cant||0}"></td>
         <td><input style="${ISS};width:60px" value="${ins.und||''}"></td>
