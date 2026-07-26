@@ -630,6 +630,16 @@ function _genOT(){
   return`OT-${seq}-${yy}`;
 }
 const _OT_TIPOS_STD=['PM1 – 250 horas','PM2 – 500 horas','PM3 – 1,000 horas','PM4 – 2,000 horas','Correctivo','Predictivo','Reparación Mayor'];
+// Sugiere descripciones de trabajos ya registrados, para no volver a escribir lo mismo
+function _otPopulateDescDatalist(){
+  const dl=document.getElementById('dlOtDesc');if(!dl)return;
+  const vistos=new Set();
+  const descs=(DB.mantenimientos||[]).map(m=>(m.desc||'').trim()).filter(d=>{
+    if(!d||vistos.has(d.toLowerCase()))return false;
+    vistos.add(d.toLowerCase());return true;
+  });
+  dl.innerHTML=descs.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">`).join('');
+}
 function _otTiToggle(){
   const ti=document.getElementById('otTi'),wrap=document.getElementById('otTiOtroWrap');
   if(!ti||!wrap)return;
@@ -646,6 +656,7 @@ function openMant(){
   const mc=document.getElementById('otMec');if(mc)mc.selectedIndex=0;
   const es=document.getElementById('otEs');if(es)es.value='Programado';
   _otTiToggle();
+  _otPopulateDescDatalist();
   openM('mMant');
 }
 function rProg(){
@@ -730,6 +741,7 @@ function editMant(id){
   document.getElementById('otFe').value=r.fe||'';
   document.getElementById('otHs').value=r.hs||0;
   const es=document.getElementById('otEs');if(es)es.value=r.est||'Programado';
+  _otPopulateDescDatalist();
   openM('mMant');
 }
 function gMant(){

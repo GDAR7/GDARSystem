@@ -2422,7 +2422,7 @@
     <div class="fg"><label>Equipo</label><select id="otEq"></select></div>
     <div class="fg"><label>Tipo Mantenimiento</label><select id="otTi" onchange="_otTiToggle()"><option>PM1 – 250 horas</option><option>PM2 – 500 horas</option><option>PM3 – 1,000 horas</option><option>PM4 – 2,000 horas</option><option>Correctivo</option><option>Predictivo</option><option>Reparación Mayor</option><option value="Otros">Otros (especificar)...</option></select></div>
     <div class="fg" id="otTiOtroWrap" style="display:none"><label>Especificar Tipo</label><input id="otTiOtro" placeholder="Escriba el tipo de mantenimiento..."></div>
-    <div class="fg" style="grid-column:1/-1"><label>Descripción del Trabajo</label><input id="otDe" placeholder="Cambio de aceite, filtros, revisión general..."></div>
+    <div class="fg" style="grid-column:1/-1"><label>Descripción del Trabajo</label><input id="otDe" list="dlOtDesc" autocomplete="off" placeholder="Cambio de aceite, filtros, revisión general..."><datalist id="dlOtDesc"></datalist></div>
     <div class="fg"><label>Mecánico Responsable</label><select id="otMec"></select></div>
     <div class="fg"><label>F. Programada</label><input id="otFp" type="date"></div>
     <div class="fg"><label>F. Ejecución Real</label><input id="otFe" type="date"></div>
@@ -2463,7 +2463,13 @@
     <div class="fg-grid" id="amP1" style="display:none">
       <div class="fg"><label>Tipo de Falla</label><select id="amTipo"><option>Mecánico</option><option>Eléctrico</option><option>Hidráulico</option><option>Neumático</option><option>Estructura/Carrocería</option><option>Otros</option></select></div>
       <div class="fg"><label>Tipo de Intervención</label><select id="amTipoInt"><option>Correctiva no planificada</option><option>Correctiva planificada</option><option>Preventiva en campo</option><option>Asistencia operativa</option></select></div>
-      <div class="fg" style="grid-column:1/-1"><label>Descripción del Problema</label><textarea id="amDesc" rows="3" placeholder="Detalle la falla o avería presentada..."></textarea></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Descripción del Problema</span>
+          <button type="button" onclick="_amDescPicker(event,'desc','amDesc','Descripciones ya registradas')" title="Ver descripciones ya registradas" style="text-transform:none;letter-spacing:0;font-size:.68rem;font-weight:700;background:rgba(139,92,246,.15);border:1px solid #8b5cf660;color:#8b5cf6;border-radius:5px;padding:.15rem .55rem;cursor:pointer">📋 Lista</button>
+        </label>
+        <textarea id="amDesc" rows="3" placeholder="Detalle la falla o avería presentada..."></textarea>
+      </div>
       <div class="fg" style="grid-column:1/-1"><label>Causa Raíz</label><select id="amCausaRaiz"><option value="">— Sin determinar —</option><option>Desgaste por uso</option><option>Operación inadecuada</option><option>Falta de mantenimiento preventivo</option><option>Material defectuoso</option><option>Condición del terreno</option><option>Falla eléctrica externa</option><option>Impacto / Golpe</option><option>Fuga / Derrame</option><option>Sobrecarga</option><option>Otros</option></select></div>
     </div>
     <!-- Tab 2: Atención -->
@@ -2471,7 +2477,13 @@
       <div class="fg"><label>Mecánico Responsable</label><select id="amMec"><option value="">— Seleccionar —</option></select></div>
       <div class="fg"><label>Mecánico 2</label><select id="amMec2"><option value="">— Seleccionar —</option></select></div>
       <div class="fg"><label>Ayudante Mecánico</label><select id="amNMec"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg" style="grid-column:1/-1"><label>Acciones Realizadas</label><textarea id="amAccion" rows="3" placeholder="Trabajos realizados para solucionar el problema..."></textarea></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Acciones Realizadas</span>
+          <button type="button" onclick="_amDescPicker(event,'accion','amAccion','Acciones ya registradas')" title="Ver acciones ya registradas" style="text-transform:none;letter-spacing:0;font-size:.68rem;font-weight:700;background:rgba(139,92,246,.15);border:1px solid #8b5cf660;color:#8b5cf6;border-radius:5px;padding:.15rem .55rem;cursor:pointer">📋 Lista</button>
+        </label>
+        <textarea id="amAccion" rows="3" placeholder="Trabajos realizados para solucionar el problema..."></textarea>
+      </div>
       <div class="fg"><label>T. Parada (horas)</label><input id="amParada" type="number" step="0.5" min="0" placeholder="0.0"></div>
       <div class="fg"><label>Requirió Traslado</label><select id="amTraslado" onchange="document.getElementById('amTrasladoDiv').style.display=this.value==='Sí'?'':'none'"><option value="No">No</option><option value="Sí">Sí</option></select></div>
       <div class="fg" style="grid-column:1/-1;display:none" id="amTrasladoDiv"><label>Destino del Traslado</label><input id="amTrasladoDest" placeholder="Taller de campo, Taller central..."></div>
@@ -2949,10 +2961,10 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=6"></script>
+<script src="js/mantenimiento.js?v=7"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=4"></script>
-<script src="js/auxmec.js?v=52"></script>
+<script src="js/auxmec.js?v=54"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=3"></script>

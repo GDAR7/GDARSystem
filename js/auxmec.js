@@ -22,6 +22,44 @@ function amGoTab(n){
   if(next)next.style.display=n<3?'':'none';
   if(save)save.style.display=n===3?'':'none';
 }
+// ── Lista de textos ya usados (Descripción del Problema / Acciones Realizadas), para reutilizar rápido ──
+let _amDescPickEl=null,_amDescPickAll=[],_amDescPickFiltered=[],_amDescPickTarget=null;
+function _amDescPicker(ev,campo,targetId,titulo){
+  if(_amDescPickEl){_amDescPickEl.remove();_amDescPickEl=null;}
+  _amDescPickTarget=targetId;
+  const vistos=new Set();
+  _amDescPickAll=(DB.auxiliosMecanicos||[]).map(r=>(r[campo]||'').trim()).filter(d=>{
+    if(!d||vistos.has(d.toLowerCase()))return false;
+    vistos.add(d.toLowerCase());return true;
+  }).sort((a,b)=>a.localeCompare(b,'es'));
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.6rem;box-shadow:0 6px 24px rgba(0,0,0,.4);width:360px;max-width:90vw;font-size:.75rem';
+  div.innerHTML=`<div style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">📋 ${titulo} · ${_amDescPickAll.length}</div>
+    <input id="amDescPickQ" placeholder="Buscar..." autocomplete="off" oninput="_amDescPickFilter()" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.35rem .5rem;color:var(--text);font-size:.75rem;margin-bottom:.4rem;box-sizing:border-box">
+    <div id="amDescPickList" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:.2rem"></div>`;
+  document.body.appendChild(div);
+  _amDescPickEl=div;
+  _amDescPickFilter();
+  const r=ev.currentTarget.getBoundingClientRect();
+  let top=r.bottom+4,left=r.left;
+  if(left+360>window.innerWidth)left=Math.max(8,window.innerWidth-365);
+  if(top+300>window.innerHeight)top=Math.max(8,r.top-305);
+  div.style.top=top+'px';div.style.left=left+'px';
+  document.getElementById('amDescPickQ').focus();
+  setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();_amDescPickEl=null;document.removeEventListener('click',h);}},{once:false}),10);
+}
+function _amDescPickFilter(){
+  const q=(document.getElementById('amDescPickQ')?.value||'').toLowerCase();
+  _amDescPickFiltered=_amDescPickAll.filter(d=>d.toLowerCase().includes(q));
+  const list=document.getElementById('amDescPickList');if(!list)return;
+  list.innerHTML=_amDescPickFiltered.length?_amDescPickFiltered.map((d,i)=>`<div onclick="_amDescPick(${i})" style="padding:.4rem .5rem;border-radius:5px;cursor:pointer;line-height:1.35" onmouseover="this.style.background='rgba(139,92,246,.15)'" onmouseout="this.style.background=''">${d}</div>`).join(''):'<div style="padding:.5rem;color:var(--muted2);text-align:center">Sin resultados</div>';
+}
+function _amDescPick(i){
+  const d=_amDescPickFiltered[i];if(d==null)return;
+  const ta=document.getElementById(_amDescPickTarget||'amDesc');
+  if(ta)ta.value=d;
+  if(_amDescPickEl){_amDescPickEl.remove();_amDescPickEl=null;}
+}
 function _amPopulateMatDatalist(){
   const dl=document.getElementById('dlAmMat');if(!dl)return;
   const vistos=new Set();
