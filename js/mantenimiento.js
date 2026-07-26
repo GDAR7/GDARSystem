@@ -629,16 +629,23 @@ function _genOT(){
   const seq=String(DB.mantenimientos.length+1).padStart(3,'0');
   return`OT-${seq}-${yy}`;
 }
+const _OT_TIPOS_STD=['PM1 – 250 horas','PM2 – 500 horas','PM3 – 1,000 horas','PM4 – 2,000 horas','Correctivo','Predictivo','Reparación Mayor'];
+function _otTiToggle(){
+  const ti=document.getElementById('otTi'),wrap=document.getElementById('otTiOtroWrap');
+  if(!ti||!wrap)return;
+  wrap.style.display=ti.value==='Otros'?'':'none';
+}
 function openMant(){
   _mantEditId=null;
   document.getElementById('mMantTtl').textContent='Programar Mantenimiento';
-  ['otDe','otFp','otFe'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['otDe','otFp','otFe','otTiOtro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('otN').value=_genOT();
   document.getElementById('otHs').value=0;
   const eq=document.getElementById('otEq');if(eq)eq.selectedIndex=0;
   const ti=document.getElementById('otTi');if(ti)ti.selectedIndex=0;
   const mc=document.getElementById('otMec');if(mc)mc.selectedIndex=0;
   const es=document.getElementById('otEs');if(es)es.value='Programado';
+  _otTiToggle();
   openM('mMant');
 }
 function rProg(){
@@ -705,7 +712,18 @@ function editMant(id){
   document.getElementById('mMantTtl').textContent='Editar OT';
   document.getElementById('otN').value=r.ot||'';
   const eq=document.getElementById('otEq');if(eq)eq.value=r.eqId||'';
-  const ti=document.getElementById('otTi');if(ti)ti.value=r.tipo||'';
+  const ti=document.getElementById('otTi');
+  const otOtro=document.getElementById('otTiOtro');
+  if(ti){
+    if(r.tipo&&!_OT_TIPOS_STD.includes(r.tipo)){
+      ti.value='Otros';
+      if(otOtro)otOtro.value=r.tipo;
+    }else{
+      ti.value=r.tipo||'';
+      if(otOtro)otOtro.value='';
+    }
+  }
+  _otTiToggle();
   document.getElementById('otDe').value=r.desc||'';
   const mc=document.getElementById('otMec');if(mc)mc.value=r.mec||'';
   document.getElementById('otFp').value=r.fp||'';
@@ -717,7 +735,9 @@ function editMant(id){
 function gMant(){
   const eqId=+document.getElementById('otEq').value;
   if(!eqId){toast('Seleccione equipo',true);return;}
-  const data={ot:document.getElementById('otN').value||_genOT(),eqId,tipo:document.getElementById('otTi').value,desc:document.getElementById('otDe').value,mec:document.getElementById('otMec').value,fp:document.getElementById('otFp').value||today(),fe:document.getElementById('otFe').value||null,hs:+document.getElementById('otHs').value||0,est:document.getElementById('otEs').value};
+  const _tiSel=document.getElementById('otTi').value;
+  const tipo=_tiSel==='Otros'?(document.getElementById('otTiOtro').value.trim()||'Otros'):_tiSel;
+  const data={ot:document.getElementById('otN').value||_genOT(),eqId,tipo,desc:document.getElementById('otDe').value,mec:document.getElementById('otMec').value,fp:document.getElementById('otFp').value||today(),fe:document.getElementById('otFe').value||null,hs:+document.getElementById('otHs').value||0,est:document.getElementById('otEs').value};
   if(_mantEditId!==null){
     const idx=DB.mantenimientos.findIndex(x=>x.id===_mantEditId);
     if(idx>-1){DB.mantenimientos[idx]={...DB.mantenimientos[idx],...data,id:_mantEditId};syncSheet('saveMantenimiento',DB.mantenimientos[idx]);}
