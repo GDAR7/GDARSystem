@@ -2436,7 +2436,7 @@
 <div class="mo" id="mAuxMecVer"><div class="modal" style="max-width:680px">
   <div class="mh"><span class="mttl" id="auxVerTtl">🔍 Detalle Auxilio</span><button class="mx" onclick="closeM('mAuxMecVer')">✕</button></div>
   <div class="mb" id="auxVerBody" style="font-size:.83rem"></div>
-  <div class="mf"><button class="btn btn-out" onclick="closeM('mAuxMecVer')">Cerrar</button></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mAuxMecVer')">Cerrar</button><button class="btn btn-a" style="--ba:#8b5cf6" onclick="imprimirAuxMec(_amVerId)">🖨 Imprimir Informe</button></div>
 </div></div>
 
 <!-- Modal Auxilio Mecánico (4 tabs) -->
@@ -2493,6 +2493,34 @@
         <div class="fg" style="display:flex;align-items:center;gap:.6rem;padding-top:1.5rem">
           <input type="checkbox" id="amConforme" style="width:16px;height:16px;accent-color:var(--mec);cursor:pointer">
           <label for="amConforme" style="cursor:pointer;text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--text)">Operador conforme con la atención</label>
+        </div>
+      </div>
+      <!-- Evidencia Fotográfica -->
+      <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:.8rem">
+        <div id="amMediaLock" style="text-align:center;padding:1.4rem 1rem;color:var(--muted2);font-size:.8rem">
+          💾 Guarda el auxilio primero para poder subir evidencias fotográficas.
+        </div>
+        <div id="amMediaContent" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div>
+              <div style="font-size:.7rem;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">📷 Evidencia — ANTES</div>
+              <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">
+                <input type="file" id="amFotoAntesInput" accept="image/*" multiple style="display:none" onchange="amUploadFoto(this,'antes')">
+                <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('amFotoAntesInput').click()">＋ Agregar Fotos</button>
+                <span id="amFotoAntesStatus" style="font-size:.7rem;color:var(--muted2)"></span>
+              </div>
+              <div id="amFotoAntesGallery" style="display:flex;flex-wrap:wrap;gap:.5rem;min-height:40px"></div>
+            </div>
+            <div>
+              <div style="font-size:.7rem;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">📷 Evidencia — DESPUÉS</div>
+              <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">
+                <input type="file" id="amFotoDespuesInput" accept="image/*" multiple style="display:none" onchange="amUploadFoto(this,'despues')">
+                <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('amFotoDespuesInput').click()">＋ Agregar Fotos</button>
+                <span id="amFotoDespuesStatus" style="font-size:.7rem;color:var(--muted2)"></span>
+              </div>
+              <div id="amFotoDespuesGallery" style="display:flex;flex-wrap:wrap;gap:.5rem;min-height:40px"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2923,7 +2951,7 @@
 <script src="js/mantenimiento.js?v=6"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=4"></script>
-<script src="js/auxmec.js?v=50"></script>
+<script src="js/auxmec.js?v=51"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=3"></script>

@@ -1,5 +1,6 @@
 ﻿// ══ AUXILIOS MECÁNICOS ══
 let _amTab=0,_amEditId=null;
+const _AM_BUCKET='AuxMec_Evidencias';
 // Eliminar solo disponible hasta 48h después de creado (mismo patrón que Máster de Equipos)
 function _amPuedeEliminar(id){
   try{
@@ -39,6 +40,59 @@ function amGetInsumos(){
     return{desc:inp[0].value.trim(),cod:inp[1].value.trim(),cant:+inp[2].value||0,und:inp[3].value.trim(),origen:inp[4].value};
   }).filter(r=>r.desc);
 }
+
+// ── Evidencia fotográfica (Antes / Después) ──
+function _amFotosArr(v){return Array.isArray(v)?v:(typeof v==='string'&&v?JSON.parse(v):[]);}
+function _renderAmMedia(fotosAntes,fotosDespues){
+  const lock=document.getElementById('amMediaLock'),content=document.getElementById('amMediaContent');
+  if(!_amEditId){if(lock)lock.style.display='block';if(content)content.style.display='none';return;}
+  if(lock)lock.style.display='none';if(content)content.style.display='block';
+  const gal=(id,fotos)=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=fotos.length?fotos.map((f,i)=>`
+      <div style="position:relative;width:84px;height:84px">
+        <img src="${f.url}" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${f.url}','_blank')" title="${f.nombre||''}">
+        <button onclick="amDelFoto('${id.includes('Antes')?'antes':'despues'}',${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
+      </div>`).join(''):'<span style="font-size:.7rem;color:var(--muted2);opacity:.6">Sin fotos</span>';
+  };
+  gal('amFotoAntesGallery',_amFotosArr(fotosAntes));
+  gal('amFotoDespuesGallery',_amFotosArr(fotosDespues));
+}
+async function amUploadFoto(input,tipo){
+  if(!_amEditId){toast('Guarda el auxilio primero',true);input.value='';return;}
+  const files=[...input.files];if(!files.length)return;
+  const stEl=document.getElementById(tipo==='antes'?'amFotoAntesStatus':'amFotoDespuesStatus');
+  if(stEl)stEl.textContent='Subiendo...';
+  const r=DB.auxiliosMecanicos.find(x=>x.id===_amEditId);if(!r)return;
+  const campo=tipo==='antes'?'fotosAntes':'fotosDespues';
+  const fotos=_amFotosArr(r[campo]);
+  for(const file of files){
+    const ext=(file.name.split('.').pop()||'jpg');
+    const path=`auxmec/${_amEditId}/${tipo}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const{error}=await supa.storage.from(_AM_BUCKET).upload(path,file,{upsert:false});
+    if(error){toast('Error: '+error.message,true);continue;}
+    const{data:{publicUrl}}=supa.storage.from(_AM_BUCKET).getPublicUrl(path);
+    fotos.push({url:publicUrl,path,nombre:file.name});
+  }
+  r[campo]=JSON.stringify(fotos);
+  syncSheet('saveAuxMec',r);
+  _renderAmMedia(r.fotosAntes,r.fotosDespues);
+  if(stEl)stEl.textContent='';input.value='';
+  toast(`${files.length} foto(s) subida(s)`);
+}
+async function amDelFoto(tipo,idx){
+  if(!_amEditId)return;
+  const r=DB.auxiliosMecanicos.find(x=>x.id===_amEditId);if(!r)return;
+  const campo=tipo==='antes'?'fotosAntes':'fotosDespues';
+  const fotos=_amFotosArr(r[campo]);
+  const f=fotos[idx];if(!f)return;
+  await supa.storage.from(_AM_BUCKET).remove([f.path]);
+  fotos.splice(idx,1);
+  r[campo]=JSON.stringify(fotos);
+  syncSheet('saveAuxMec',r);
+  _renderAmMedia(r.fotosAntes,r.fotosDespues);
+  toast('Foto eliminada');
+}
 function rAuxMec(){
   const tots=DB.auxiliosMecanicos.length;
   const pen=DB.auxiliosMecanicos.filter(r=>r.est==='Pendiente').length;
@@ -69,6 +123,7 @@ function rAuxMec(){
       <td style="display:flex;gap:.3rem;flex-wrap:nowrap">
         <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verAuxMec(${r.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
         <button class="btn btn-out btn-sm" title="Editar" onclick="intentarEditarAuxMec(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
+        <button class="btn btn-out btn-sm" title="Imprimir informe PDF" onclick="imprimirAuxMec(${r.id})" style="color:#8b5cf6;border-color:#8b5cf660">🖨</button>
         ${!anulado?`<button class="btn btn-out btn-sm" title="Anular" onclick="anularAuxMec(${r.id})" style="color:#ef4444;border-color:#ef444460">🚫</button>`:''}
         ${anulado?`<button class="btn btn-del btn-sm" title="Eliminar" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:(_amPuedeEliminar(r.id)?`<button class="btn btn-del btn-sm" title="Eliminar (disponible 48h desde la creación)" onclick="del('auxiliosMecanicos',${r.id})">🗑</button>`:'')}
       </td>
@@ -102,6 +157,7 @@ function openAuxMec(){
   document.getElementById('amEst').value='Pendiente';
   document.getElementById('amConforme').checked=false;
   document.getElementById('amInsumosBody').innerHTML='';
+  _renderAmMedia(null,null);
   openM('mAuxMec');
 }
 function gAuxMec(){
@@ -232,11 +288,16 @@ function editAuxMec(id){
   document.getElementById('amSupervisor').value=r.supervisor||'';
   document.getElementById('amConforme').checked=!!r.conforme;
   document.getElementById('amObs').value=r.obs||'';
+  _renderAmMedia(r.fotosAntes,r.fotosDespues);
 }
+let _amVerId=null;
 function verAuxMec(id){
   const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r)return;
+  _amVerId=id;
   const eq=DB.equipos.find(e=>e.id===r.eqId);
   const ins=DB.auxMecInsumos.filter(i=>i.auxilioId===id);
+  const fotosAntes=_amFotosArr(r.fotosAntes),fotosDespues=_amFotosArr(r.fotosDespues);
+  const galVer=fotos=>fotos.length?`<div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.3rem">${fotos.map(f=>`<img src="${f.url}" onclick="window.open('${f.url}','_blank')" style="width:78px;height:78px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer">`).join('')}</div>`:'<span style="color:var(--muted);font-size:.78rem">Sin fotos</span>';
   const row=(l,v)=>`<div style="display:flex;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted2);min-width:160px;font-size:.75rem">${l}</span><span style="font-weight:500">${v||'—'}</span></div>`;
   const sec=(t)=>`<div style="background:var(--mec);color:#fff;font-size:.7rem;font-weight:700;padding:.25rem .6rem;border-radius:4px;margin:.7rem 0 .3rem;letter-spacing:.05em">${t}</div>`;
   document.getElementById('auxVerTtl').textContent='🔍 '+r.cod;
@@ -266,6 +327,69 @@ function verAuxMec(id){
     ${row('Supervisor',r.supervisor)}
     ${row('Operador conforme',r.conforme?'✅ Sí':'❌ No')}
     ${row('Observaciones',r.obs)}
+    ${sec('EVIDENCIA FOTOGRÁFICA')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.3rem">
+      <div><span style="font-size:.68rem;font-weight:700;color:#ef4444;text-transform:uppercase">Antes</span>${galVer(fotosAntes)}</div>
+      <div><span style="font-size:.68rem;font-weight:700;color:#10b981;text-transform:uppercase">Después</span>${galVer(fotosDespues)}</div>
+    </div>
   `;
   openM('mAuxMecVer');
+}
+
+// ── Informe PDF del Auxilio (todos los datos + evidencia fotográfica) ──
+function imprimirAuxMec(id){
+  const r=DB.auxiliosMecanicos.find(x=>x.id===id);if(!r){toast('Auxilio no encontrado',true);return;}
+  const eq=DB.equipos.find(e=>e.id===r.eqId);
+  const ins=DB.auxMecInsumos.filter(i=>i.auxilioId===id);
+  const fotosAntes=_amFotosArr(r.fotosAntes),fotosDespues=_amFotosArr(r.fotosDespues);
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const row=(l,v)=>`<tr><td style="padding:3px 8px;color:#64748b;font-size:10px;font-weight:700;width:150px;vertical-align:top;white-space:nowrap">${l}</td><td style="padding:3px 8px;font-size:11px;color:#111">${v||'—'}</td></tr>`;
+  const sec=t=>`<div style="background:#1e293b;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;margin:10px 0 4px;letter-spacing:.05em">${t}</div>`;
+  const galeria=fotos=>fotos.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${fotos.map(f=>`<img src="${f.url}" style="width:130px;height:130px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1">`).join('')}</div>`:'<div style="font-size:10px;color:#94a3b8;padding:4px 0">Sin fotos registradas</div>';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Auxilio ${r.cod}</title>
+  <style>@page{size:A4 portrait;margin:1.2cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;color:#111;margin:0}
+  table{width:100%;border-collapse:collapse}
+  tr{page-break-inside:avoid}</style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e293b;padding-bottom:8px;margin-bottom:4px">
+    <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:15px;font-weight:900;color:#1e293b">INFORME DE AUXILIO MECÁNICO</div>
+      <div style="font-size:10px;color:#64748b">ECOSERMO – Sistema de Control de Mantenimiento – GDAR</div>
+    </div>
+    <div style="font-size:18px;font-weight:900;color:#ef4444;font-family:monospace;background:#fef2f2;border:2px solid #ef4444;padding:4px 10px;border-radius:6px">${r.cod}</div>
+  </div>
+  ${sec('IDENTIFICACIÓN')}
+  <table><tr>
+    <td style="width:50%;vertical-align:top"><table>${row('Fecha',r.fecha)}${row('Hora',r.hora)}${row('Equipo',eq?eq.codigo+' – '+eq.nombre:'—')}${row('Horómetro/Km',r.horometro!=null?fmtN(r.horometro)+' h':'—')}</table></td>
+    <td style="width:50%;vertical-align:top"><table>${row('Operador',r.operador)}${row('Frente',r.frente)}${row('Proyecto',eq?eq.proyecto||'—':'—')}${row('Estado',r.est)}</table></td>
+  </tr></table>
+  ${sec('DIAGNÓSTICO')}
+  <table>${row('Tipo de Falla',r.tipo)}${row('Tipo de Intervención',r.tipoInt)}${row('Descripción',r.desc)}${row('Causa Raíz',r.causaRaiz)}</table>
+  ${sec('ATENCIÓN')}
+  <table><tr>
+    <td style="width:50%;vertical-align:top"><table>${row('Mecánico',r.mec)}${row('Mecánico 2',r.mec2)}${row('Ayudante',r.ayudante)}</table></td>
+    <td style="width:50%;vertical-align:top"><table>${row('T. Parada',r.tiempoParada!=null?fmtN(r.tiempoParada)+' h':'—')}${row('Traslado',r.traslado+(r.trasladoDest?' → '+r.trasladoDest:''))}</table></td>
+  </tr></table>
+  <table>${row('Acciones Realizadas',r.accion)}</table>
+  ${sec('INSUMOS Y REPUESTOS')}
+  ${ins.length?`<table style="border:1px solid #cbd5e1;font-size:10px">
+    <thead><tr style="background:#f1f5f9"><th style="padding:4px 6px;text-align:left;border:1px solid #cbd5e1">Descripción</th><th style="padding:4px 6px;border:1px solid #cbd5e1">Cód.</th><th style="padding:4px 6px;border:1px solid #cbd5e1">Cant.</th><th style="padding:4px 6px;border:1px solid #cbd5e1">Und.</th><th style="padding:4px 6px;border:1px solid #cbd5e1">Origen</th></tr></thead>
+    <tbody>${ins.map(i=>`<tr><td style="padding:3px 6px;border:1px solid #cbd5e1">${i.desc}</td><td style="padding:3px 6px;border:1px solid #cbd5e1;text-align:center">${i.cod||'—'}</td><td style="padding:3px 6px;border:1px solid #cbd5e1;text-align:right">${i.cant}</td><td style="padding:3px 6px;border:1px solid #cbd5e1;text-align:center">${i.und||'—'}</td><td style="padding:3px 6px;border:1px solid #cbd5e1">${i.origen||'—'}</td></tr>`).join('')}</tbody>
+  </table>`:'<div style="font-size:10px;color:#94a3b8;padding:4px 0">Sin insumos registrados</div>'}
+  ${sec('CIERRE')}
+  <table>${row('Supervisor',r.supervisor)}${row('Operador conforme',r.conforme?'Sí':'No')}${row('Observaciones',r.obs)}</table>
+  ${r.est==='Anulado'?`<table>${row('Motivo de Anulación',r.motivoAnulacion)}</table>`:''}
+  ${sec('EVIDENCIA FOTOGRÁFICA — ANTES')}
+  ${galeria(fotosAntes)}
+  ${sec('EVIDENCIA FOTOGRÁFICA — DESPUÉS')}
+  ${galeria(fotosDespues)}
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:2rem;margin-top:2.2rem;border-top:1px solid #ddd;padding-top:1rem">
+    <div style="text-align:center"><div style="height:38px"></div><div style="border-top:1.5px solid #333;margin:0 8px 5px"></div><div style="font-size:9.5px;text-transform:uppercase;font-weight:700;color:#1e293b;letter-spacing:.06em">Mecánico</div></div>
+    <div style="text-align:center"><div style="height:38px"></div><div style="border-top:1.5px solid #333;margin:0 8px 5px"></div><div style="font-size:9.5px;text-transform:uppercase;font-weight:700;color:#1e293b;letter-spacing:.06em">Supervisor: ${r.supervisor||''}</div></div>
+  </div>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){toast('Active ventanas emergentes para imprimir',true);return;}
+  w.document.write(html);w.document.close();
 }
