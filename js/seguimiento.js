@@ -51,16 +51,30 @@ function _segTareas(){
 
 function _segRender(){
   const body=document.getElementById('segBody');if(!body)return;
+  const active=document.activeElement;
+  const wasSearch=!!(active&&active.id==='segSearchQ');
+  const selStart=wasSearch?active.selectionStart:null,selEnd=wasSearch?active.selectionEnd:null;
   if(_segTab===1)_segRenderBoard(body);
   else if(_segTab===2)_segRenderAnalisis(body);
   else _segRenderCarga(body);
+  if(wasSearch){
+    const el=document.getElementById('segSearchQ');
+    if(el){el.focus();if(selStart!=null)el.setSelectionRange(selStart,selEnd);}
+  }
+}
+// Debounce: evita reconstruir todo el tablero en cada tecla (perdía el foco del buscador y se sentía lento)
+let _segQTimer=null;
+function _segQInput(val){
+  _segQ=val;
+  clearTimeout(_segQTimer);
+  _segQTimer=setTimeout(_segRender,250);
 }
 
 // ── Barra de filtros ─────────────────────────────────────────────────────────
 function _segFiltroBar(){
   const resps=[...new Set((DB.seguimiento||[]).map(t=>t.responsable).filter(Boolean))].sort();
   return `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-    <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQ=this.value;_segRender()"></div>
+    <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input id="segSearchQ" class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQInput(this.value)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Responsable</span>
     <select onchange="_segFResp=this.value;_segRender()" style="width:auto;min-width:160px;font-size:.75rem;padding:.25rem .5rem">
       <option value="">— Todos —</option>
@@ -456,7 +470,7 @@ function _segRenderCarga(body){
   }).join(''):'<div style="padding:1.2rem;text-align:center;color:var(--muted2);font-size:.75rem;grid-column:1/-1">Sin tareas registradas</div>';
 
   body.innerHTML=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-    <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQ=this.value;_segRender()"></div>
+    <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input id="segSearchQ" class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQInput(this.value)"></div>
     <button class="btn btn-a" style="--ba:var(--ctl);margin-left:auto" onclick="_segNueva()">＋ Nueva Tarea</button>
   </div>
   ${kpis}
