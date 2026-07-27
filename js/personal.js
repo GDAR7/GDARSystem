@@ -611,7 +611,8 @@ async function procesarQR(texto){
 }
 // ── REGISTRO DE TAREO EN LOTE ──
 // Marca el tareo de todos los que tienen hora de entrada en la fecha:
-// TD si la entrada fue de 05:00 a 16:59, TN en otro horario · A5 si es su primer día trabajado
+// TD si la entrada fue de 05:00 a 16:59, TN en otro horario · A5 (Anexo 5) en sus primeros 4 días trabajados
+const AM_DIAS_A5=4;
 async function registrarTareoAsistencia(){
   const fecha=document.getElementById('asiDate')?.value||today();
   toast('Cargando asistencia de '+fecha+'...');
@@ -630,7 +631,7 @@ async function registrarTareoAsistencia(){
       r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
       ['TD','TN','DLT','A5'].includes(r.tipo)
     );
-    const tipo=prevDias.length===0?'A5':turno;
+    const tipo=prevDias.length<AM_DIAS_A5?'A5':turno;
     const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
     let e;
     if(existente){
