@@ -2,6 +2,21 @@
 const _HG_GRUPOS=['Equipos','Equipos Menores','Vehículos','Operadores','Personal Obrero','Staff','Conductores'];
 const _HG_COLOR={'Equipos':'#f59e0b','Equipos Menores':'#84cc16','Vehículos':'#8b5cf6','Operadores':'#06b6d4','Personal Obrero':'#10b981','Staff':'#3b82f6','Conductores':'#ec4899'};
 let _hgColsExtra=new Set();
+const _HG_CLAVE='eco2026plan';
+let _hgLocked=true;
+function _hgToggleLock(){
+  if(_hgLocked){
+    const pass=prompt('🔒 Ingrese la clave para desbloquear la edición del Plan:');
+    if(pass===null)return;
+    if(pass!==_HG_CLAVE){toast('Clave incorrecta',true);return;}
+    _hgLocked=false;
+    toast('🔓 Plan desbloqueado — ya puedes editarlo');
+  }else{
+    _hgLocked=true;
+    toast('🔒 Plan bloqueado');
+  }
+  rHistograma();
+}
 
 // Columnas = unión de todas las fechas presentes en los datos + las agregadas en la sesión
 function _hgCols(){
@@ -43,8 +58,7 @@ function _hgRenderPlan(){
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)';
 
   // Barra superior
-  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-    <button onclick="openM('mHgImport')" style="font-size:.72rem;padding:.3rem .8rem;border-radius:6px;border:none;background:#0e7490;color:#fff;cursor:pointer;font-weight:700">📋 Importar desde Excel</button>
+  const editHtml=`<button onclick="openM('mHgImport')" style="font-size:.72rem;padding:.3rem .8rem;border-radius:6px;border:none;background:#0e7490;color:#fff;cursor:pointer;font-weight:700">📋 Importar desde Excel</button>
     <div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">＋ Recurso</span>
     <select id="hgNewGrupo" style="${inpS}">${_HG_GRUPOS.map(g=>`<option>${g}</option>`).join('')}</select>
@@ -53,7 +67,12 @@ function _hgRenderPlan(){
     <div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">＋ Semana</span>
     <input id="hgNewCol" type="date" style="${inpS};width:135px">
-    <button onclick="_hgAddCol()" style="font-size:.72rem;padding:.28rem .6rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋</button>
+    <button onclick="_hgAddCol()" style="font-size:.72rem;padding:.28rem .6rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋</button>`;
+  const lockedMsg=`<span style="font-size:.72rem;color:var(--muted2)">🔒 Plan bloqueado — desbloquea con el candado para editar</span>`;
+  const lockBtn=`<button onclick="_hgToggleLock()" title="${_hgLocked?'Desbloquear edición del Plan':'Bloquear edición del Plan'}" style="font-size:.85rem;padding:.28rem .55rem;border-radius:6px;border:1px solid ${_hgLocked?'#ef444460':'#10b98160'};background:${_hgLocked?'rgba(239,68,68,.12)':'rgba(16,185,129,.12)'};color:${_hgLocked?'#ef4444':'#10b981'};cursor:pointer">${_hgLocked?'🔒':'🔓'}</button>`;
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    ${_hgLocked?lockedMsg:editHtml}
+    ${lockBtn}
     <button onclick="_hgPrint()" style="margin-left:auto;font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:1px solid #ef444460;background:transparent;color:#ef4444;cursor:pointer;font-weight:700;white-space:nowrap">🖨 PDF</button>
     <button onclick="_hgExport()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
   </div>`;
@@ -78,12 +97,14 @@ function _hgRenderPlan(){
       const pico=cols.reduce((m,c)=>Math.max(m,+((r.valores||{})[c])||0),0);
       body+=`<tr>
         <td style="${TD};white-space:nowrap;padding:.12rem .5rem;min-width:210px">
-          <span style="font-weight:600;cursor:pointer" ondblclick="_hgRenName(${r.id})" title="Doble click: renombrar">${r.recurso}</span>
-          <button onclick="_hgDelRec(${r.id})" style="background:none;border:none;color:#ef444455;cursor:pointer;font-size:.65rem;float:right" title="Eliminar recurso">🗑</button>
+          <span style="font-weight:600;${_hgLocked?'':'cursor:pointer'}" ${_hgLocked?'':`ondblclick="_hgRenName(${r.id})" title="Doble click: renombrar"`}>${r.recurso}</span>
+          ${_hgLocked?'':`<button onclick="_hgDelRec(${r.id})" style="background:none;border:none;color:#ef444455;cursor:pointer;font-size:.65rem;float:right" title="Eliminar recurso">🗑</button>`}
         </td>
         ${cols.map(c=>{
           const v=(r.valores||{})[c];
-          return`<td style="${TD};${c===colAct?'background:rgba(245,158,11,.08);':''}"><input value="${v!=null?v:''}" onchange="_hgSetVal(${r.id},'${c}',this.value)" style="width:42px;background:transparent;border:none;color:var(--text);font-family:monospace;font-size:.72rem;text-align:right;outline:none"></td>`;
+          return`<td style="${TD};${c===colAct?'background:rgba(245,158,11,.08);':''}">${_hgLocked
+            ?`<span style="display:block;width:42px;text-align:right;font-family:monospace;font-size:.72rem;color:var(--text)">${v!=null?v:''}</span>`
+            :`<input value="${v!=null?v:''}" onchange="_hgSetVal(${r.id},'${c}',this.value)" style="width:42px;background:transparent;border:none;color:var(--text);font-family:monospace;font-size:.72rem;text-align:right;outline:none">`}</td>`;
         }).join('')}
         <td style="${TD};text-align:right;font-family:monospace;font-weight:800;color:${col}">${pico||'—'}</td>
       </tr>`;
@@ -107,7 +128,7 @@ function _hgRenderPlan(){
     <table style="min-width:100%;border-collapse:collapse">
       <thead style="position:sticky;top:0;z-index:2"><tr style="background:var(--panel2)">
         <th style="${TH};text-align:left;min-width:210px">Recurso</th>
-        ${cols.map(c=>`<th style="${TH};${c===colAct?'color:#f59e0b;background:rgba(245,158,11,.12);':''}" title="${c}">${_hgLblCol(c)}<div><button onclick="_hgDelCol('${c}')" title="Eliminar esta columna (borra sus valores)" style="background:none;border:none;color:#ef444466;cursor:pointer;font-size:.6rem;padding:0;line-height:1">✕</button></div></th>`).join('')}
+        ${cols.map(c=>`<th style="${TH};${c===colAct?'color:#f59e0b;background:rgba(245,158,11,.12);':''}" title="${c}">${_hgLblCol(c)}${_hgLocked?'':`<div><button onclick="_hgDelCol('${c}')" title="Eliminar esta columna (borra sus valores)" style="background:none;border:none;color:#ef444466;cursor:pointer;font-size:.6rem;padding:0;line-height:1">✕</button></div>`}</th>`).join('')}
         <th style="${TH}" title="Valor máximo planificado">Pico</th>
       </tr></thead>
       <tbody>${body}</tbody>
@@ -123,6 +144,7 @@ function _hgRenderPlan(){
 }
 
 function _hgSetVal(id,iso,val){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
   r.valores=r.valores||{};
   const t=String(val).trim();
@@ -136,6 +158,7 @@ function _hgSetVal(id,iso,val){
   rHistograma();
 }
 function _hgDelCol(iso){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const conDatos=(DB.histogramaPlan||[]).filter(r=>r.valores&&r.valores[iso]!=null);
   const msg=conDatos.length
     ?`La columna ${_hgLblCol(iso)} (${iso}) tiene ${conDatos.length} valor(es) guardados.\n\n¿Eliminar la columna y BORRAR esos valores de forma permanente?`
@@ -147,6 +170,7 @@ function _hgDelCol(iso){
   toast('Columna '+_hgLblCol(iso)+' eliminada');
 }
 function _hgAddCol(){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const el=document.getElementById('hgNewCol');
   if(!el||!el.value){toast('Elige una fecha para la nueva semana',true);return;}
   _hgColsExtra.add(el.value);
@@ -154,6 +178,7 @@ function _hgAddCol(){
   toast('Columna '+_hgLblCol(el.value)+' agregada — se fija al guardar algún valor en ella');
 }
 function _hgAddRec(){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const grupo=document.getElementById('hgNewGrupo').value;
   const nom=(document.getElementById('hgNewRec').value||'').trim();
   if(!nom){toast('Escribe el nombre del recurso',true);return;}
@@ -164,6 +189,7 @@ function _hgAddRec(){
   toast('Recurso agregado a '+grupo);
 }
 function _hgDelRec(id){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
   if(!confirm('¿Eliminar "'+r.recurso+'" del histograma?'))return;
   DB.histogramaPlan=DB.histogramaPlan.filter(x=>x.id!==id);
@@ -171,6 +197,7 @@ function _hgDelRec(id){
   rHistograma();
 }
 function _hgRenName(id){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);return;}
   const r=(DB.histogramaPlan||[]).find(x=>x.id===id);if(!r)return;
   const n=prompt('Nombre del recurso:',r.recurso);
   if(n===null||!n.trim())return;
@@ -181,6 +208,7 @@ function _hgRenName(id){
 
 // ── IMPORTADOR: pegar el bloque copiado desde Excel (incluyendo la fila de fechas) ──
 function _hgImport(){
+  if(_hgLocked){toast('🔒 Desbloquea el Plan para editar',true);closeM('mHgImport');return;}
   const grupo=document.getElementById('hgImpGrupo').value;
   const anio=+document.getElementById('hgImpAnio').value||2026;
   const txt=document.getElementById('hgImpTxt').value;
