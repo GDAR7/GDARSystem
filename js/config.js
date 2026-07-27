@@ -14,8 +14,8 @@ const AREAS={
   mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
     modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'}]},
   controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
-  // Área compartida para accesos externos — reusa Seguimiento e Histograma (siguen también en Control de Proyecto)
+    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'}]},
+  // Área compartida para accesos externos — Seguimiento General e Histograma Recursos viven solo aquí
   general:{label:'General',icon:'📋',color:'#14b8a6',prefix:'ECOGEN',
     modules:[{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
     //-Menu para control de equipos.
@@ -39,7 +39,7 @@ const AREAS={
 // ══ USERS ══
 const USERS=[
   {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(AREAS)},
-  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros']},
+  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros','general']},
   {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion']},
   {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion']},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
