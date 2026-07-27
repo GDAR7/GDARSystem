@@ -40,20 +40,20 @@ const AREAS={
 const USERS=[
   {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(AREAS)},
   {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros']},
-  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['administracion','general']},
-  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['administracion','general']},
+  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion']},
+  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion']},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
-  {codigo:'FLOBEN',dni:'_10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['almacenLogistica','seguridad']},
+  {codigo:'FLOBEN',dni:'_10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['general','almacenLogistica','seguridad']},
   {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
-  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['administracion','general']},
-  {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica','general']},
-  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['operaciones','mantenimiento','controlEquipos','administracion'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje']}},
+  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion']},
+  {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
+  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['general','operaciones','mantenimiento','controlEquipos','administracion'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje']}},
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
-  {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['mantenimiento','controlEquipos','general'], areaModules:{controlEquipos:['reporteEquipos']}},
-  {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['administracion','controlProyecto','controlEquipos','general'],excludeModules:['planilla']},
+  {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
+  {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['general','administracion','controlProyecto','controlEquipos'],excludeModules:['planilla']},
   {codigo:'J_A_TA',dni:'73441348',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto','administracion'],areaModules:{controlProyecto:['pizarra','recrecimiento'],administracion:['asistencia','resumenTareaje']},pizarraTabs:[3,4,5]},
-  {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','general'],areaModules:{administracion:['asistencia','tareaje']},readOnlyModules:['tareaje']},
+  {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion'],areaModules:{administracion:['asistencia','tareaje']},readOnlyModules:['tareaje']},
   {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport']},readOnlyModules:['tareaje']},
   {codigo:'PIE_SA',dni:'72512691',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
 ];
@@ -71,6 +71,9 @@ function toSnake(obj){
   const r={};
   for(const [k,v] of Object.entries(obj)){
     if(k==='items'||k==='pdfData')continue;
+
+
+    
     const key=_RENAME_TO[k]||k.replace(/([A-Z])/g,m=>'_'+m.toLowerCase());
     r[key]=(v===''||v==='—')?null:v;
   }
@@ -86,7 +89,7 @@ function toCamel(obj){
 }
 
 const SUPA_TABLES={
-  personal:'personal',social:'social',viaticos:'reembolsables_bbss',residencia:'residencia',
+  personal:'personal',social:'social',residencia:'residencia',
   alimentacion:'alimentacion',hospedaje:'hospedaje',lavanderia:'lavanderia',
   almacen:'almacen',requerimientos:'requerimientos',facturasPago:'facturas_pago',
   combustible:'combustible',supervision:'supervision',incidentes:'incidentes',
@@ -122,7 +125,7 @@ const SUPA_TABLES={
 };
 
 const ACTION_MAP={
-  savePersonal:'personal',saveSocial:'social',saveViatico:'viaticos',saveResidencia:'residencia',
+  savePersonal:'personal',saveSocial:'social',saveResidencia:'residencia',
   saveAlimentacion:'alimentacion',saveHospedaje:'hospedaje',saveLavanderia:'lavanderia',
   saveAlmacen:'almacen',saveSupervision:'supervision',saveIncidente:'incidentes',
   savePetar:'petar',saveAmbiental:'ambiental',saveEquipo:'equipos',
@@ -263,7 +266,7 @@ async function loadSheetsData(){
       const data=await cargarPaginado(tabla);
       if(data.length>0)results.push({dbKey,data,error:null});
     }
-    const nxMap={personal:'personal',social:'social',viaticos:'via',residencia:'res',
+    const nxMap={personal:'personal',social:'social',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
@@ -387,13 +390,13 @@ async function seedSupabase(){
 
 // ══ DB ══
 const DB={
-  personal:[],social:[],viaticos:[],residencia:[],alimentacion:[],hospedaje:[],lavanderia:[],
+  personal:[],social:[],residencia:[],alimentacion:[],hospedaje:[],lavanderia:[],
   almacen:[],requerimientos:[],facturasPago:[],combustible:[],supervision:[],
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],histogramaPlan:[],planillaMes:[],
   lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],
-  nx:{personal:1,social:1,via:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1}
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1}
 };
 
 // ══ STATE ══
