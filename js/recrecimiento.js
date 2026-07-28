@@ -505,6 +505,9 @@ function _recRenderCapasSvg(){
   const svg=document.getElementById('recSvg');if(!svg)return;
   const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
   svg.querySelectorAll('.rec-static').forEach(el=>el.remove());
+  // Los polígonos (c.puntos) se dibujan solo en la vista Sección — sus coordenadas son relativas
+  // a la foto de Sección y no corresponden a la foto de Planta, por eso no se muestran ahí.
+  if(_recVista!=='seccion')return;
 
   const capas=(DB.capas||[]).filter(c=>c.dique===_recDique);
 
