@@ -1067,10 +1067,22 @@ function _recRenderHistorial(capaId){
   const today=new Date().toISOString().slice(0,10);
   panel.innerHTML=`
     <div style="font-size:.65rem;font-weight:700;color:#10b981;margin-bottom:.45rem">📈 Historial de Avance${_recHistEditId?' <span style="color:#f59e0b">· editando registro</span>':''}</div>
-    <div style="display:flex;gap:.3rem;margin-bottom:.45rem;align-items:flex-end">
+    <div style="display:flex;gap:.3rem;margin-bottom:.3rem;align-items:flex-end">
       <div style="flex:1.2">
         <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Fecha</div>
         <input id="rcHFecha" type="date" value="${today}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
+      </div>
+      <div style="flex:0.7">
+        <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Guardia</div>
+        <select id="rcHGuardia" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .2rem;color:var(--text);font-size:.72rem">
+          <option value="">—</option>${_ROSTER_GUARDIAS.map(g=>`<option>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:0.8">
+        <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Turno</div>
+        <select id="rcHTurno" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .2rem;color:var(--text);font-size:.72rem">
+          <option value="">—</option><option value="DIA">☀️ DIA</option><option value="NOCHE">🌙 NOCHE</option>
+        </select>
       </div>
       <div style="flex:0.7">
         <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">% Avance</div>
@@ -1080,7 +1092,9 @@ function _recRenderHistorial(capaId){
         <div style="font-size:.57rem;color:#38bdf8;margin-bottom:.1rem">Área m²</div>
         <input id="rcHArea" type="number" min="0" step="0.1" placeholder="0.0" oninput="_recHSync('area',${capaId})" title="Al escribir el área, el % se calcula solo (y viceversa)" style="width:100%;background:var(--panel2);border:1px solid #38bdf855;border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
       </div>
-      <div style="flex:1.1">
+    </div>
+    <div style="display:flex;gap:.3rem;margin-bottom:.45rem;align-items:flex-end">
+      <div style="flex:1">
         <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Notas (opcional)</div>
         <input id="rcHNotas" placeholder="..." style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem">
       </div>
@@ -1095,6 +1109,8 @@ function _recRenderHistorial(capaId){
             const editando=+e.id===+_recHistEditId;
             return`<div style="display:flex;align-items:center;gap:.35rem;padding:.18rem .3rem;background:${editando?'rgba(245,158,11,.1)':'var(--panel2)'};border-radius:5px;${editando?'border:1px solid #f59e0b60':''}">
               <span style="color:var(--muted2);font-size:.6rem;min-width:62px">${e.fecha}</span>
+              ${e.guardia?`<span style="color:#a78bfa;font-size:.56rem;font-weight:700;border:1px solid #a78bfa40;border-radius:3px;padding:0 3px">Grd.${e.guardia}</span>`:''}
+              ${e.turno?`<span style="font-size:.6rem" title="${e.turno}">${e.turno==='DIA'?'☀️':'🌙'}</span>`:''}
               <div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
                 <div style="height:100%;width:${e.pct}%;background:${col};border-radius:3px"></div>
               </div>
@@ -1136,6 +1152,8 @@ function _recEditAvance(id,capaId){
   const _a=document.getElementById('rcHArea');
   if(_a)_a.value=e.areaM2!=null?e.areaM2:(_recHAreaCapa(capaId)?+(_recHAreaCapa(capaId)*(+e.pct||0)/100).toFixed(1):'');
   document.getElementById('rcHNotas').value=e.notas||'';
+  const _g=document.getElementById('rcHGuardia');if(_g)_g.value=e.guardia||'';
+  const _t=document.getElementById('rcHTurno');if(_t)_t.value=e.turno||'';
   document.getElementById('rcHPct').focus();
 }
 function _recCancelEditAvance(capaId){
@@ -1147,26 +1165,28 @@ async function _recSaveAvance(capaId){
   const pct=+document.getElementById('rcHPct').value;
   const areaVal=+document.getElementById('rcHArea')?.value||null;
   const notas=(document.getElementById('rcHNotas').value||'').trim();
+  const guardia=document.getElementById('rcHGuardia')?.value||null;
+  const turno=document.getElementById('rcHTurno')?.value||null;
   if(!fecha){toast('Selecciona una fecha',true);return;}
   if(isNaN(pct)||pct<0||pct>100){toast('% debe ser entre 0 y 100',true);return;}
 
   if(_recHistEditId){
     // ── MODO EDICIÓN: actualizar el registro existente ──
-    const{error}=await supa.from('capas_avance').update({fecha,pct,notas:notas||null,area_m2:areaVal}).eq('id',_recHistEditId);
+    const{error}=await supa.from('capas_avance').update({fecha,pct,notas:notas||null,area_m2:areaVal,guardia,turno}).eq('id',_recHistEditId);
     if(error){toast('Error al guardar: '+error.message,true);return;}
     const e=(DB.capasAvance||[]).find(x=>+x.id===+_recHistEditId);
-    if(e){e.fecha=fecha;e.pct=pct;e.notas=notas||null;e.areaM2=areaVal;}
+    if(e){e.fecha=fecha;e.pct=pct;e.notas=notas||null;e.areaM2=areaVal;e.guardia=guardia;e.turno=turno;}
     _recHistEditId=null;
   }else{
     const id=DB.nx.cav++;
-    const{error}=await supa.from('capas_avance').insert({id,capa_id:+capaId,fecha,pct,notas:notas||null,area_m2:areaVal});
+    const{error}=await supa.from('capas_avance').insert({id,capa_id:+capaId,fecha,pct,notas:notas||null,area_m2:areaVal,guardia,turno});
     if(error){toast('Error al guardar: '+error.message,true);DB.nx.cav--;return;}
-    (DB.capasAvance=DB.capasAvance||[]).push({id,capaId:+capaId,fecha,pct,notas:notas||null,areaM2:areaVal});
+    (DB.capasAvance=DB.capasAvance||[]).push({id,capaId:+capaId,fecha,pct,notas:notas||null,areaM2:areaVal,guardia,turno});
   }
 
-  // Actualizar pct_avance de la capa al valor más reciente (mayor fecha)
-  const allE=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId).sort((a,b)=>a.fecha<b.fecha?1:-1);
-  const latestPct=allE[0]?.pct??pct;
+  // El % Avance de la capa es la SUMA de los avances por día/turno (cada registro es un aporte parcial, no una foto acumulada)
+  const allE=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId);
+  const latestPct=Math.min(100,+allE.reduce((s,e)=>s+(+e.pct||0),0).toFixed(2));
   const{error:e2}=await supa.from('capas').update({pct_avance:latestPct}).eq('id',+capaId);
   if(!e2){
     const c=(DB.capas||[]).find(x=>+x.id===+capaId);
@@ -1178,6 +1198,8 @@ async function _recSaveAvance(capaId){
   document.getElementById('rcHPct').value='';
   const _hA=document.getElementById('rcHArea');if(_hA)_hA.value='';
   document.getElementById('rcHNotas').value='';
+  const _hG=document.getElementById('rcHGuardia');if(_hG)_hG.value='';
+  const _hT=document.getElementById('rcHTurno');if(_hT)_hT.value='';
   _recRenderHistorial(capaId);
   toast('✓ Avance guardado');
 }
@@ -1188,13 +1210,15 @@ async function _recDelAvance(id,capaId){
   if(error){toast('Error: '+error.message,true);return;}
   DB.capasAvance=(DB.capasAvance||[]).filter(e=>+e.id!==+id);
 
-  // Actualizar pct_avance al registro más reciente restante
-  const remaining=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId).sort((a,b)=>a.fecha<b.fecha?1:-1);
-  const latestPct=remaining.length>0?remaining[0].pct:+document.getElementById('rcPct').value||0;
+  // % Avance = suma de los registros restantes
+  const remaining=(DB.capasAvance||[]).filter(e=>+e.capaId===+capaId);
+  const latestPct=remaining.length>0?Math.min(100,+remaining.reduce((s,e)=>s+(+e.pct||0),0).toFixed(2)):0;
   const{error:e2}=await supa.from('capas').update({pct_avance:latestPct}).eq('id',+capaId);
   if(!e2){
     const c=(DB.capas||[]).find(x=>+x.id===+capaId);
     if(c)c.pctAvance=latestPct;
+    const rcPct=document.getElementById('rcPct');
+    if(rcPct)rcPct.value=latestPct;
   }
 
   _recRenderHistorial(capaId);
