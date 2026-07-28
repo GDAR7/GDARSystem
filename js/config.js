@@ -20,7 +20,7 @@ const AREAS={
     modules:[{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
     //-Menu para control de equipos.
   controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
-    modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteMensual',label:'Mensual al Corte',icon:'📈'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{
+    modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteMensual',label:'Mensual al Corte',icon:'📈'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
               key:'dataIngresos', label:'Data de Ingresos', icon:'🗄️', isSubgroup: true,
               children:[
                 {key:'frentesTrabajo', label:'Frentes de Trabajo', icon:'📍'},
@@ -31,7 +31,7 @@ const AREAS={
   otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
     modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'}]},
+    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
     modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
