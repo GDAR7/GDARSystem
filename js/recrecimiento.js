@@ -465,7 +465,7 @@ function _recTempRender(){
   const svg=document.getElementById('recSvg');if(!svg)return;
   const W=svg.clientWidth,H=svg.clientHeight;
   svg.querySelectorAll('.rec-temp').forEach(el=>el.remove());
-  if(!_recAreaPuntos.length)return;
+  if(!_recDibujando||!_recAreaPuntos.length)return;
   const px=_recAreaPuntos.map(p=>({x:(p.x*W/100).toFixed(1),y:(p.y*H/100).toFixed(1)}));
   const d='M '+px.map(p=>`${p.x} ${p.y}`).join(' L ');
   const sw=(2/(_recZoom||1)).toFixed(2);
@@ -615,8 +615,10 @@ function _recShowCapaPopup(id,svgCx,svgCy){
 
 // ══ CRUD ══════════════════════════════════════════════════════════════════════
 
-function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;rRecrecimiento();}
-function _recSetVista(v){_recVista=v;rRecrecimiento();}
+// Los puntos en progreso (_recAreaPuntos) son coordenadas relativas a la imagen activa (Sección o Planta) —
+// al cambiar de dique o de vista hay que descartarlos, si no el trazo queda deformado sobre la otra imagen.
+function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;_recAreaPuntos=[];rRecrecimiento();}
+function _recSetVista(v){_recVista=v;_recDibujando=false;_recAreaPuntos=[];rRecrecimiento();}
 
 function _recAddCapa(dique){
   document.getElementById('rcId').value='';
