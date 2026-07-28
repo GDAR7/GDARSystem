@@ -245,7 +245,7 @@ function openEquipo(){
   ['eqCod','eqMa','eqMo','eqAn','eqPl',
    'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls',
    'eqSoatVenc','eqPtrVenc','eqRtecVenc','eqRicVenc','eqGpsVenc',
-   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqIco','eqTco',
+   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqCalent','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
   document.getElementById('eqKm').value=0;
@@ -399,6 +399,7 @@ function gEquipo(){
     hrsMinVenta:+document.getElementById('eqHminV').value||null,
     tarifaUn:document.getElementById('eqTarUn').value||'HM',
     tarifa:+document.getElementById('eqTar').value||null,
+    calentamientoH:+document.getElementById('eqCalent').value||0,
     inicioContrato:document.getElementById('eqIco').value||null,
     terminoContrato:document.getElementById('eqTco').value||null,
     ccGets:+document.getElementById('eqCcg').value||null,
@@ -612,6 +613,7 @@ function editEquipo(id){
   document.getElementById('eqHminV').value=e.hrsMinVenta||'';
   document.getElementById('eqTarUn').value=e.tarifaUn||'HM';
   document.getElementById('eqTar').value=e.tarifa||'';
+  document.getElementById('eqCalent').value=e.calentamientoH||'';
   document.getElementById('eqIco').value=e.inicioContrato||'';
   document.getElementById('eqTco').value=e.terminoContrato||'';
   // Tab 3

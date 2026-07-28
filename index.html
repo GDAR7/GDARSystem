@@ -1306,6 +1306,15 @@
   </div>
 </div>
 
+<!-- CONTROL DE EQUIPOS – PROVEEDORES (EDP) -->
+<div class="page" id="page-proveedores">
+  <div class="ph">
+    <div class="ph-title" style="color:var(--ceq)">Proveedores</div>
+    <div class="ph-sub">Estado de Pago (EDP) para proveedores de equipos — horas trabajadas, tarifa y descuentos de Auxilios Mecánicos</div>
+  </div>
+  <div id="edpBody"></div>
+</div>
+
 <!-- CONTROL PROYECTO – DAILY REPORT -->
 <div class="page" id="page-dailyReport">
   <div class="ph">
@@ -2354,6 +2363,7 @@
       <div class="fg"><label>Hrs Mín. Venta (cliente)</label><input id="eqHminV" type="number" placeholder="0" title="Horas mínimas acordadas con el cliente · meta del reporte mensual"></div>
       <div class="fg"><label>Unidad Tarifa</label><select id="eqTarUn"><option value="HM">HM — Hora Máquina</option><option value="DIA">DÍA — Por Día</option><option value="MES">MES — Mensual</option></select></div>
       <div class="fg"><label>Tarifa S/.</label><input id="eqTar" type="number" placeholder="0"></div>
+      <div class="fg"><label>Calentamiento Diario (h)</label><input id="eqCalent" type="number" step="0.01" placeholder="0" title="Horas de calentamiento a descontar de cada día trabajado, para el EDP de Proveedores"></div>
       <div class="fg"><label>Inicio Contrato</label><input id="eqIco" type="date"></div>
       <div class="fg"><label>Término Contrato</label><input id="eqTco" type="date"></div>
     </div>
@@ -2952,8 +2962,8 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=19"></script>
-<script src="js/utils.js?v=12"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/utils.js?v=13"></script>
 <script src="js/personal.js?v=11"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=3"></script>
@@ -2961,13 +2971,14 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=7"></script>
+<script src="js/mantenimiento.js?v=8"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=54"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=3"></script>
+<script src="js/edpProveedores.js?v=1"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=2"></script>
 <script src="js/pizarra.js"></script>
