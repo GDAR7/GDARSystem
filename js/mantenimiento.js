@@ -392,6 +392,7 @@ function gEquipo(){
     ricVenc:document.getElementById('eqRicVenc').value||null,
     gpsVenc:document.getElementById('eqGpsVenc').value||null,
     proveedor:document.getElementById('eqProv').value,
+    rucProveedor:document.getElementById('eqProvRuc').value.trim()||null,
     contacto:document.getElementById('eqCtc').value,
     celular:document.getElementById('eqCel').value,
     correo:document.getElementById('eqCor').value,
@@ -606,6 +607,7 @@ function editEquipo(id){
   document.getElementById('eqGpsVenc').value=e.gpsVenc||'';
   // Tab 2
   document.getElementById('eqProv').value=e.proveedor||'';
+  document.getElementById('eqProvRuc').value=e.rucProveedor||'';
   document.getElementById('eqCtc').value=e.contacto||'';
   document.getElementById('eqCel').value=e.celular||'';
   document.getElementById('eqCor').value=e.correo||'';

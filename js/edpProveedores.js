@@ -170,7 +170,8 @@ function _edpDocHtml(eq,H,D,F){
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
-      ${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Proveedor',eq.proveedor)}${infoCell('Moneda','SOLES')}${infoCell('Dirección',_edpDireccion)}
+      ${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Moneda','SOLES')}
+      ${infoCell('Dirección',_edpDireccion)}${infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
       <thead><tr><th style="${TH}">Ítem</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cant.</th><th style="${TH}">P. Unit S/</th><th style="${TH}">Total S/</th></tr></thead>
