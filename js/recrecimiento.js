@@ -7,6 +7,23 @@ let _recIsPanning=false, _recPanStart=null, _recDidPan=false;
 let _recDibujando=false, _recSelCapaId=null, _recAreaPuntos=[];
 // Detección de bordes
 let _recEdgeMap=null, _recEdgeThreshold=45, _recShowEdges=true, _recSnapEnabled=true, _recSnapRadius=14;
+// Elementos verticales (Piezómetros / Kenas) — se ubican en la vista Planta con un clic
+let _recColocando=null;   // 'piezometro' | 'kena' | null — modo activo de colocación
+let _recElemSelId=null;   // elemento actualmente abierto en el modal de Perfil
+let _recElemCapaEditId=null; // capa del elemento en edición (null = agregando)
+let _recElemCapaFocoId=null; // capa que se muestra en los diagramas Planta/Perfil dentro del modal
+
+const _REC_ELEM_TIPOS={
+  piezometro:{label:'Piezómetro',icon:'▢',color:'#eab308',tuboForma:'cuadrado',tuboLado:0.1016,tuboLabel:'Cuadrada 4"×4"',anilloDiam:1.60},
+  kena:{label:'Decantador (Kena)',icon:'◯',color:'#f97316',tuboForma:'circular',tuboDiam:0.6096,tuboLabel:'Corrugada Ø 24"',anilloDiam:3.00}
+};
+// Área liberada = anillo circular de relleno menos la sección de la tubería (cuadrada o circular)
+function _recElemArea(tipo){
+  const t=_REC_ELEM_TIPOS[tipo];if(!t)return 0;
+  const anillo=Math.PI*Math.pow(t.anilloDiam/2,2);
+  const tubo=t.tuboForma==='cuadrado'?t.tuboLado*t.tuboLado:Math.PI*Math.pow(t.tuboDiam/2,2);
+  return+(anillo-tubo).toFixed(2);
+}
 
 const _REC_DIQUES=[
   {key:'DA',label:'Dique Auxiliar',       color:'#06b6d4'},
@@ -37,6 +54,7 @@ function rRecrecimiento(){
 
   const selCapa=_recSelCapaId?(DB.capas||[]).find(c=>c.id===_recSelCapaId):null;
   const esSec=_recVista==='seccion';
+  const elems=(DB.recElementos||[]).filter(e=>e.dique===_recDique);
 
   pg.innerHTML=`
   <div style="padding:.8rem 1rem;height:calc(100vh - 52px);display:flex;flex-direction:column;gap:.6rem;overflow:hidden">
@@ -103,6 +121,18 @@ function rRecrecimiento(){
           <button onclick="_recAddCapa('${_recDique}')" style="font-size:.6rem;padding:.15rem .45rem;border-radius:5px;border:1px solid ${dq.color}50;background:${dq.color}15;color:${dq.color};cursor:pointer">＋ Agregar</button>
         </div>
 
+        ${!esSec?`
+        <div style="background:var(--panel);border:1px solid ${_recColocando?'#8b5cf660':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem;margin-bottom:.3rem">
+          <div style="font-size:.58rem;color:${_recColocando?'#8b5cf6':'var(--muted2)'};margin-bottom:.3rem;font-weight:${_recColocando?'700':'400'}">${_recColocando?'📍 Clic en el plano para ubicar':'Elementos verticales'}</div>
+          <div style="display:flex;gap:.3rem">
+            <button onclick="_recToggleColocar('piezometro')" style="flex:1;padding:.25rem .3rem;border-radius:5px;font-size:.58rem;font-weight:700;cursor:pointer;border:1px solid ${_recColocando==='piezometro'?'#eab308':'#eab30840'};background:${_recColocando==='piezometro'?'rgba(234,179,8,.2)':'rgba(234,179,8,.08)'};color:#eab308">▢ Piezómetro</button>
+            <button onclick="_recToggleColocar('kena')" style="flex:1;padding:.25rem .3rem;border-radius:5px;font-size:.58rem;font-weight:700;cursor:pointer;border:1px solid ${_recColocando==='kena'?'#f97316':'#f9731640'};background:${_recColocando==='kena'?'rgba(249,115,22,.2)':'rgba(249,115,22,.08)'};color:#f97316">◯ Kena</button>
+            ${_recColocando?`<button onclick="_recToggleColocar(null)" title="Cancelar" style="padding:.25rem .4rem;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted2);cursor:pointer;font-size:.6rem">✕</button>`:''}
+          </div>
+        </div>
+        ${elems.length?`<div style="display:flex;flex-direction:column;gap:.18rem;margin-bottom:.4rem;max-height:150px;overflow-y:auto">${elems.map(e=>_recElemRow(e)).join('')}</div>`:''}
+        `:''}
+
         ${esSec?`
         <div style="background:var(--panel);border:1px solid ${_recDibujando?'#f59e0b40':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem">
           ${selCapa
@@ -153,7 +183,7 @@ function rRecrecimiento(){
               style="display:block;width:100%;pointer-events:none;user-select:none" draggable="false"
               alt="${dq.label}" onload="_recFitView()">
             <canvas id="recEdgeCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;mix-blend-mode:screen;display:${_recEdgeMap&&_recShowEdges?'block':'none'}"></canvas>
-            <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:${_recDibujando?'all':'none'}" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="recSvg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:${(_recDibujando||_recColocando)?'all':'none'}" xmlns="http://www.w3.org/2000/svg"></svg>
             <div id="recCursor" style="display:none;position:absolute;width:10px;height:10px;background:#f59e0b;border:2px solid #fff;border-radius:2px;pointer-events:none;z-index:5"></div>
           </div>
           <!-- Controles zoom -->
@@ -247,6 +277,7 @@ function rRecrecimiento(){
     _recFitView();
     setTimeout(()=>{
       _recRenderCapasSvg();
+      _recRenderElementosSvg();
       if(_recDibujando){
         const canvas=document.getElementById('recCanvas');
         if(canvas)canvas.style.cursor='crosshair';
@@ -409,6 +440,15 @@ async function _recBorrarPuntos(){
 }
 
 function _recSvgClick(e){
+  if(_recColocando){
+    if(e.detail>1)return;
+    const canvas=document.getElementById('recCanvas');if(!canvas)return;
+    const r=canvas.getBoundingClientRect();
+    const xPct=(e.clientX-r.left)/r.width*100;
+    const yPct=(e.clientY-r.top)/r.height*100;
+    _recCrearElemento(_recColocando,xPct,yPct);
+    return;
+  }
   if(!_recDibujando||!_recSelCapaId)return;
   if(e.detail>1)return;
   const canvas=document.getElementById('recCanvas');if(!canvas)return;
@@ -550,6 +590,134 @@ function _recRenderCapasSvg(){
   });
 }
 
+// ══ ELEMENTOS VERTICALES (Piezómetros / Kenas) — se colocan con un clic en la vista Planta ══
+
+function _recToggleColocar(tipo){
+  _recColocando=(_recColocando===tipo)?null:tipo;
+  if(_recDibujando)_recCancelarDraw();
+  rRecrecimiento();
+}
+
+async function _recCrearElemento(tipo,xPct,yPct){
+  const t=_REC_ELEM_TIPOS[tipo];if(!t)return;
+  const n=(DB.recElementos||[]).filter(e=>e.dique===_recDique&&e.tipo===tipo).length+1;
+  const nombre=(tipo==='piezometro'?'PZ-':'K-')+String(n).padStart(2,'0');
+  const id=nid('relem');
+  const x=+xPct.toFixed(2),y=+yPct.toFixed(2);
+  const{error}=await supa.from('rec_elementos').insert({id,dique:_recDique,tipo,nombre,x,y,progresiva:'',notas:''});
+  if(error){toast('Error al crear: '+error.message,true);return;}
+  const rec={id,dique:_recDique,tipo,nombre,x,y,progresiva:'',notas:''};
+  (DB.recElementos=DB.recElementos||[]).push(rec);
+  _recColocando=null;
+  rRecrecimiento();
+  toast('✓ '+t.label+' agregado: '+nombre);
+  _recAbrirElemento(id);
+}
+
+function _recRenderElementosSvg(){
+  const svg=document.getElementById('recSvg');if(!svg)return;
+  svg.querySelectorAll('.rec-elem').forEach(el=>el.remove());
+  if(_recVista!=='planta')return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  const els=(DB.recElementos||[]).filter(e=>e.dique===_recDique);
+  els.forEach(e=>{
+    const t=_REC_ELEM_TIPOS[e.tipo];if(!t)return;
+    const cx=+e.x*W/100,cy=+e.y*H/100;
+    const rad=Math.max(6/(_recZoom||1),4);
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('rec-elem');
+    g.setAttribute('pointer-events','auto');
+    g.style.cursor='pointer';
+    const shape=t.tuboForma==='cuadrado'
+      ?document.createElementNS('http://www.w3.org/2000/svg','rect')
+      :document.createElementNS('http://www.w3.org/2000/svg','circle');
+    if(t.tuboForma==='cuadrado'){
+      shape.setAttribute('x',cx-rad);shape.setAttribute('y',cy-rad);
+      shape.setAttribute('width',rad*2);shape.setAttribute('height',rad*2);
+    }else{
+      shape.setAttribute('cx',cx);shape.setAttribute('cy',cy);shape.setAttribute('r',rad);
+    }
+    shape.setAttribute('fill',t.color);shape.setAttribute('fill-opacity','.88');
+    shape.setAttribute('stroke','#fff');shape.setAttribute('stroke-width',(1.5/(_recZoom||1)).toFixed(2));
+    g.appendChild(shape);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',cx);txt.setAttribute('y',cy-rad-4);
+    txt.setAttribute('font-size',Math.max(9/(_recZoom||1),7).toFixed(1));
+    txt.setAttribute('font-weight','800');txt.setAttribute('fill',t.color);
+    txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width','2.5');txt.setAttribute('paint-order','stroke');
+    txt.setAttribute('text-anchor','middle');txt.setAttribute('pointer-events','none');
+    txt.textContent=e.nombre;
+    g.appendChild(txt);
+    g.addEventListener('click',ev=>{ev.stopPropagation();if(!_recColocando)_recAbrirElemento(e.id);});
+    svg.appendChild(g);
+  });
+}
+
+function _recElemRow(e){
+  const t=_REC_ELEM_TIPOS[e.tipo];if(!t)return'';
+  const nCapas=(DB.recElemCapas||[]).filter(c=>+c.elementoId===+e.id).length;
+  const isSel=_recElemSelId===e.id;
+  return`<div style="padding:.28rem .45rem;background:${isSel?t.color+'18':'var(--panel)'};border:1px solid ${isSel?t.color:t.color+'30'};border-radius:6px;cursor:pointer" onclick="_recAbrirElemento(${e.id})">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:.68rem;font-weight:700;color:${t.color}">${t.icon} ${e.nombre}</span>
+      <span style="font-size:.55rem;color:var(--muted2)">${nCapas} capa${nCapas===1?'':'s'}</span>
+    </div>
+    <div style="font-size:.53rem;color:var(--muted2)">${t.label}${e.progresiva?' · PK '+e.progresiva:''}</div>
+  </div>`;
+}
+
+// ── Diagrama "Planta": anillo de relleno alrededor de la tubería (cuadrada o circular) ──
+function _recDiagramaPlanta(tipo){
+  const t=_REC_ELEM_TIPOS[tipo];if(!t)return'';
+  const area=_recElemArea(tipo);
+  const VB=200,C=100,Rout=78;
+  const scale=Rout/(t.anilloDiam/2);
+  const hid='hatch_'+tipo;
+  let tuboShape,tuboLbl;
+  if(t.tuboForma==='cuadrado'){
+    const s=t.tuboLado/2*scale;
+    tuboShape=`<rect x="${(C-s).toFixed(1)}" y="${(C-s).toFixed(1)}" width="${(s*2).toFixed(1)}" height="${(s*2).toFixed(1)}" fill="#fff" stroke="#334155" stroke-width="1.6"/>`;
+    tuboLbl=`${(t.tuboLado*100).toFixed(1)} cm`;
+  }else{
+    const rr=t.tuboDiam/2*scale;
+    tuboShape=`<circle cx="${C}" cy="${C}" r="${rr.toFixed(1)}" fill="#fff" stroke="#334155" stroke-width="1.6"/>`;
+    tuboLbl=`Ø ${t.tuboDiam.toFixed(2)} m`;
+  }
+  return`<svg viewBox="0 0 ${VB} ${VB}" style="width:100%;max-width:230px;display:block;margin:0 auto">
+    <defs><pattern id="${hid}" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="7" height="7" fill="#fef3c7"/><line x1="0" y1="0" x2="0" y2="7" stroke="#f59e0b" stroke-width="2"/>
+    </pattern></defs>
+    <circle cx="${C}" cy="${C}" r="${Rout}" fill="url(#${hid})" stroke="#f59e0b" stroke-width="1.6"/>
+    ${tuboShape}
+    <text x="${C}" y="16" text-anchor="middle" font-size="11" font-weight="800" fill="#1e293b" font-family="Arial,sans-serif">Ø ${t.anilloDiam.toFixed(2)} m</text>
+    <text x="${C}" y="${C+4}" text-anchor="middle" font-size="7.5" fill="#64748b" font-family="Arial,sans-serif">${tuboLbl}</text>
+    <line x1="${C}" y1="${C}" x2="${C}" y2="${C-Rout}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2"/>
+    <text x="${C}" y="${VB-8}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#1e293b" font-family="Arial,sans-serif">Área = ${area} m²</text>
+  </svg>`;
+}
+// ── Diagrama "Perfil": corte vertical de la tubería atravesando las capas registradas ──
+function _recDiagramaPerfil(elemento,focusCapaId){
+  const t=_REC_ELEM_TIPOS[elemento.tipo];if(!t)return'<div style="text-align:center;color:#94a3b8;font-size:.72rem;padding:1rem">Sin capas registradas</div>';
+  const capas=(DB.recElemCapas||[]).filter(c=>+c.elementoId===+elemento.id).sort((a,b)=>(+a.numero||0)-(+b.numero||0));
+  if(!capas.length)return'<div style="text-align:center;color:#94a3b8;font-size:.72rem;padding:1rem">Sin capas registradas</div>';
+  const selIdx=focusCapaId?Math.max(0,capas.findIndex(c=>+c.id===+focusCapaId)):capas.length-1;
+  const from=Math.max(0,selIdx-2),to=Math.min(capas.length-1,selIdx);
+  const visibles=capas.slice(from,to+1);
+  const W=280,bandH=36,pipeW=t.tuboForma==='cuadrado'?22:26;
+  const H=visibles.length*bandH+16;
+  let bands='';
+  visibles.forEach((c,i)=>{
+    const y=8+i*bandH;
+    const isSel=+c.id===+capas[selIdx].id;
+    bands+=`<rect x="8" y="${y}" width="${W-16}" height="${bandH-3}" fill="${isSel?'#fde68a':'#e2e8f0'}" stroke="#94a3b8" stroke-width="1"/>
+      <text x="${W-14}" y="${y+bandH/2+3}" text-anchor="end" font-size="9.5" font-weight="${isSel?800:500}" fill="#1e293b" font-family="Arial,sans-serif">Capa ${c.numero}${isSel?' · Cota '+c.cota:''}</text>
+      <text x="14" y="${y+bandH/2+3}" font-size="8" fill="#64748b" font-family="Arial,sans-serif">${c.material||''}</text>`;
+  });
+  bands+=`<rect x="${(W/2-pipeW/2).toFixed(1)}" y="0" width="${pipeW}" height="${H}" fill="#cbd5e1" stroke="#334155" stroke-width="1.6"/>`;
+  return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:300px;display:block;margin:0 auto;background:#fff">${bands}</svg>
+  <div style="text-align:center;font-size:.6rem;color:#64748b;margin-top:.2rem">${t.tuboLabel} — Perfil de recrecimiento por capas</div>`;
+}
+
 function _recShowCapaPopup(id,svgCx,svgCy){
   const c=(DB.capas||[]).find(x=>x.id===id);if(!c)return;
   const dq=_REC_DIQUES.find(d=>d.key===c.dique)||_REC_DIQUES[0];
@@ -620,8 +788,8 @@ function _recShowCapaPopup(id,svgCx,svgCy){
 
 // Los puntos en progreso (_recAreaPuntos) son coordenadas relativas a la imagen activa (Sección o Planta) —
 // al cambiar de dique o de vista hay que descartarlos, si no el trazo queda deformado sobre la otra imagen.
-function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;_recAreaPuntos=[];rRecrecimiento();}
-function _recSetVista(v){_recVista=v;_recDibujando=false;_recAreaPuntos=[];rRecrecimiento();}
+function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;_recAreaPuntos=[];_recColocando=null;rRecrecimiento();}
+function _recSetVista(v){_recVista=v;_recDibujando=false;_recAreaPuntos=[];_recColocando=null;rRecrecimiento();}
 
 function _recAddCapa(dique){
   document.getElementById('rcId').value='';
@@ -1222,4 +1390,181 @@ async function _recDelAvance(id,capaId){
   }
 
   _recRenderHistorial(capaId);
+}
+
+// ══ MODAL DE ELEMENTO (Piezómetro / Kena) — Planta + Perfil + capas de recrecimiento ══
+
+function _recAbrirElemento(id){
+  const e=(DB.recElementos||[]).find(x=>+x.id===+id);if(!e)return;
+  _recElemSelId=+id;
+  _recElemCapaEditId=null;
+  _recElemCapaFocoId=null;
+  const t=_REC_ELEM_TIPOS[e.tipo];
+  let modal=document.getElementById('mRecElem');
+  if(!modal){modal=document.createElement('div');modal.id='mRecElem';document.body.appendChild(modal);}
+  modal.style.cssText='display:flex;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML=`
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.3rem;width:760px;max-width:96vw;max-height:94vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+        <div style="font-weight:800;font-size:.92rem;color:${t.color}">${t.icon} ${e.nombre} — ${t.label}</div>
+        <div style="display:flex;gap:.4rem;align-items:center">
+          <button onclick="_recDelElemento(${e.id})" title="Eliminar" style="background:rgba(239,68,68,.1);border:1px solid #ef444440;border-radius:6px;color:#ef4444;cursor:pointer;padding:.25rem .5rem;font-size:.75rem">🗑</button>
+          <button onclick="document.getElementById('mRecElem').style.display='none'" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1.1rem">✕</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.7rem">
+        <div><label style="font-size:.62rem;color:var(--muted2)">Nombre</label>
+          <input id="reNombre" value="${e.nombre||''}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
+        <div><label style="font-size:.62rem;color:var(--muted2)">Progresiva (PK)</label>
+          <input id="reProgresiva" placeholder="0+220.48" value="${e.progresiva||''}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
+        <div style="grid-column:1/-1"><label style="font-size:.62rem;color:var(--muted2)">Notas</label>
+          <input id="reNotas" placeholder="Observaciones..." value="${(e.notas||'').replace(/"/g,'&quot;')}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;color:var(--text);font-size:.75rem"></div>
+      </div>
+      <button onclick="_recSaveElementoMeta(${e.id})" style="margin-bottom:.8rem;background:rgba(16,185,129,.12);border:1px solid #10b98140;border-radius:6px;color:#10b981;cursor:pointer;padding:.3rem .7rem;font-size:.72rem;font-weight:700">💾 Guardar datos</button>
+
+      <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:.9rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;margin-bottom:.8rem">
+        <div>
+          <div style="font-size:.6rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;text-align:center">Planta</div>
+          ${_recDiagramaPlanta(e.tipo)}
+        </div>
+        <div id="reInfoPanel"></div>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;margin-bottom:.8rem">
+        <div style="font-size:.6rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;text-align:center">Perfil — recrecimiento por capas</div>
+        <div id="rePerfilPanel"></div>
+      </div>
+
+      <div id="reCapasPanel"></div>
+    </div>`;
+  _recRenderElemCapas(e.id);
+}
+
+function _recElemInfoPanel(elemento,capaFoco){
+  const t=_REC_ELEM_TIPOS[elemento.tipo];
+  const area=_recElemArea(elemento.tipo);
+  const row=(l,v)=>`<div style="display:flex;justify-content:space-between;padding:.22rem 0;border-bottom:1px solid #e2e8f0;font-size:.74rem"><span style="color:#64748b">${l}</span><span style="font-weight:700;color:#1e293b">${v||'—'}</span></div>`;
+  return`${row('Elemento',elemento.nombre)}${row('Material',capaFoco?capaFoco.material:'—')}
+    ${row('Cota',capaFoco?capaFoco.cota+' msnm':'—')}${row('Progresiva',elemento.progresiva)}
+    ${row('Tubería',t.tuboLabel)}${row('Área liberada',area+' m²')}`;
+}
+
+async function _recSaveElementoMeta(id){
+  const e=(DB.recElementos||[]).find(x=>+x.id===+id);if(!e)return;
+  const nombre=(document.getElementById('reNombre').value||'').trim()||e.nombre;
+  const progresiva=(document.getElementById('reProgresiva').value||'').trim();
+  const notas=(document.getElementById('reNotas').value||'').trim();
+  const{error}=await supa.from('rec_elementos').update({nombre,progresiva:progresiva||null,notas:notas||null}).eq('id',+id);
+  if(error){toast('Error al guardar: '+error.message,true);return;}
+  e.nombre=nombre;e.progresiva=progresiva;e.notas=notas;
+  toast('✓ Datos guardados');
+  rRecrecimiento();
+}
+
+async function _recDelElemento(id){
+  if(!confirm('¿Eliminar este elemento y todas sus capas registradas?'))return;
+  const{error}=await supa.from('rec_elementos').delete().eq('id',+id);
+  if(error){toast('Error: '+error.message,true);return;}
+  DB.recElementos=(DB.recElementos||[]).filter(x=>+x.id!==+id);
+  DB.recElemCapas=(DB.recElemCapas||[]).filter(x=>+x.elementoId!==+id);
+  document.getElementById('mRecElem').style.display='none';
+  _recElemSelId=null;
+  rRecrecimiento();
+  toast('Elemento eliminado');
+}
+
+// ── Capas de recrecimiento propias del elemento (independientes de las capas generales del dique) ──
+function _recRenderElemCapas(elemId){
+  const e=(DB.recElementos||[]).find(x=>+x.id===+elemId);if(!e)return;
+  const panel=document.getElementById('reCapasPanel');if(!panel)return;
+  const capas=(DB.recElemCapas||[]).filter(c=>+c.elementoId===+elemId).sort((a,b)=>(+b.numero||0)-(+a.numero||0));
+  const focoId=_recElemCapaEditId||_recElemCapaFocoId||(capas[0]&&capas[0].id);
+  const capaFoco=capas.find(c=>+c.id===+focoId);
+
+  const info=document.getElementById('reInfoPanel');if(info)info.innerHTML=_recElemInfoPanel(e,capaFoco);
+  const perfil=document.getElementById('rePerfilPanel');if(perfil)perfil.innerHTML=_recDiagramaPerfil(e,focoId);
+
+  panel.innerHTML=`
+    <div style="font-size:.65rem;font-weight:700;color:${_REC_ELEM_TIPOS[e.tipo].color};margin-bottom:.4rem">📋 Capas de recrecimiento${_recElemCapaEditId?' <span style="color:#f59e0b">· editando</span>':''}</div>
+    <div style="display:flex;gap:.3rem;margin-bottom:.45rem;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:0.6"><div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">N° Capa</div>
+        <input id="reCNum" type="number" placeholder="14" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem"></div>
+      <div style="flex:0.8"><div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Cota (msnm)</div>
+        <input id="reCCota" type="number" step="0.01" placeholder="4388.55" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem"></div>
+      <div style="flex:1.1"><div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Material</div>
+        <input id="reCMaterial" placeholder="Relleno de transición" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem"></div>
+      <div style="flex:0.7"><div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">% Relleno</div>
+        <input id="reCPct" type="number" min="0" max="100" placeholder="0" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem"></div>
+      <div style="flex:0.9"><div style="font-size:.57rem;color:var(--muted2);margin-bottom:.1rem">Fecha</div>
+        <input id="reCFecha" type="date" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;color:var(--text);font-size:.72rem"></div>
+      <button onclick="_recSaveElemCapa(${elemId})" style="padding:.28rem .55rem;border-radius:5px;background:${_recElemCapaEditId?'rgba(245,158,11,.12)':'rgba(16,185,129,.12)'};border:1px solid ${_recElemCapaEditId?'#f59e0b40':'#10b98140'};color:${_recElemCapaEditId?'#f59e0b':'#10b981'};font-size:.65rem;font-weight:700;cursor:pointer;white-space:nowrap">${_recElemCapaEditId?'💾 Guardar':'＋ Agregar'}</button>
+      ${_recElemCapaEditId?`<button onclick="_recCancelEditElemCapa(${elemId})" style="padding:.28rem .45rem;border-radius:5px;background:none;border:1px solid var(--border);color:var(--muted2);font-size:.65rem;cursor:pointer">✕</button>`:''}
+    </div>
+    ${capas.length===0
+      ?`<div style="font-size:.6rem;color:var(--muted2);text-align:center;padding:.4rem 0">Sin capas aún — agrega la primera</div>`
+      :`<div style="display:flex;flex-direction:column;gap:.15rem;max-height:150px;overflow-y:auto">
+          ${capas.map(c=>{
+            const col=+c.pct>=100?'#10b981':+c.pct>0?'#f59e0b':'#6b7280';
+            const isFoco=+c.id===+focoId;
+            return`<div onclick="_recElemCapaFocoId=${c.id};_recRenderElemCapas(${elemId})" style="display:flex;align-items:center;gap:.35rem;padding:.18rem .3rem;background:${isFoco?'rgba(139,92,246,.12)':'var(--panel2)'};border-radius:5px;cursor:pointer;${isFoco?'border:1px solid #8b5cf660':''}">
+              <span style="color:${col};font-weight:800;font-size:.65rem;min-width:46px">Capa ${c.numero}</span>
+              <span style="color:var(--muted2);font-size:.6rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.material||''}</span>
+              <span style="color:var(--muted2);font-size:.58rem">${c.cota||''}m</span>
+              <span style="font-weight:700;color:${col};font-size:.62rem;min-width:30px;text-align:right">${c.pct||0}%</span>
+              <button onclick="event.stopPropagation();_recEditElemCapa(${c.id},${elemId})" style="background:none;border:none;color:#f59e0b99;cursor:pointer;font-size:.62rem;padding:0" title="Editar">✏</button>
+              <button onclick="event.stopPropagation();_recDelElemCapa(${c.id},${elemId})" style="background:none;border:none;color:#ef444455;cursor:pointer;font-size:.68rem;padding:0" title="Eliminar">✕</button>
+            </div>`;
+          }).join('')}
+        </div>`}`;
+}
+
+function _recEditElemCapa(id,elemId){
+  const c=(DB.recElemCapas||[]).find(x=>+x.id===+id);if(!c)return;
+  _recElemCapaEditId=+id;
+  _recRenderElemCapas(elemId);
+  document.getElementById('reCNum').value=c.numero||'';
+  document.getElementById('reCCota').value=c.cota||'';
+  document.getElementById('reCMaterial').value=c.material||'';
+  document.getElementById('reCPct').value=c.pct||0;
+  document.getElementById('reCFecha').value=c.fecha||'';
+}
+function _recCancelEditElemCapa(elemId){
+  _recElemCapaEditId=null;
+  _recRenderElemCapas(elemId);
+}
+async function _recSaveElemCapa(elemId){
+  const numero=+document.getElementById('reCNum').value||0;
+  const cota=+document.getElementById('reCCota').value||null;
+  const material=(document.getElementById('reCMaterial').value||'').trim();
+  const pct=+document.getElementById('reCPct').value||0;
+  const fecha=document.getElementById('reCFecha').value||null;
+  if(!numero){toast('Ingrese el número de capa',true);return;}
+  if(pct<0||pct>100){toast('% debe ser entre 0 y 100',true);return;}
+
+  if(_recElemCapaEditId){
+    const{error}=await supa.from('rec_elemento_capas').update({numero,cota,material:material||null,pct,fecha}).eq('id',_recElemCapaEditId);
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+    const c=(DB.recElemCapas||[]).find(x=>+x.id===+_recElemCapaEditId);
+    if(c){c.numero=numero;c.cota=cota;c.material=material;c.pct=pct;c.fecha=fecha;}
+    _recElemCapaEditId=null;
+  }else{
+    const id=nid('relc');
+    const{error}=await supa.from('rec_elemento_capas').insert({id,elemento_id:+elemId,numero,cota,material:material||null,pct,fecha});
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+    (DB.recElemCapas=DB.recElemCapas||[]).push({id,elementoId:+elemId,numero,cota,material,pct,fecha});
+    _recElemCapaFocoId=id;
+  }
+  ['reCNum','reCCota','reCMaterial','reCPct','reCFecha'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  _recRenderElemCapas(elemId);
+  rRecrecimiento();
+  toast('✓ Capa guardada');
+}
+async function _recDelElemCapa(id,elemId){
+  if(!confirm('¿Eliminar esta capa?'))return;
+  const{error}=await supa.from('rec_elemento_capas').delete().eq('id',+id);
+  if(error){toast('Error: '+error.message,true);return;}
+  DB.recElemCapas=(DB.recElemCapas||[]).filter(x=>+x.id!==+id);
+  _recRenderElemCapas(elemId);
+  rRecrecimiento();
 }
