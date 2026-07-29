@@ -702,7 +702,8 @@ function _recDiagramaPerfil(elemento,focusCapaId){
   if(!capas.length)return'<div style="text-align:center;color:#94a3b8;font-size:.72rem;padding:1rem">Sin capas registradas</div>';
   const selIdx=focusCapaId?Math.max(0,capas.findIndex(c=>+c.id===+focusCapaId)):capas.length-1;
   const from=Math.max(0,selIdx-2),to=Math.min(capas.length-1,selIdx);
-  const visibles=capas.slice(from,to+1);
+  // El recrecimiento avanza de abajo hacia arriba: la capa con menor número se dibuja al fondo
+  const visibles=capas.slice(from,to+1).reverse();
   const W=280,bandH=36,pipeW=t.tuboForma==='cuadrado'?22:26;
   const H=visibles.length*bandH+16;
   let bands='';
@@ -1423,12 +1424,9 @@ function _recAbrirElemento(id){
       </div>
       <button onclick="_recSaveElementoMeta(${e.id})" style="margin-bottom:.8rem;background:rgba(16,185,129,.12);border:1px solid #10b98140;border-radius:6px;color:#10b981;cursor:pointer;padding:.3rem .7rem;font-size:.72rem;font-weight:700">💾 Guardar datos</button>
 
-      <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:.9rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;margin-bottom:.8rem">
-        <div>
-          <div style="font-size:.6rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;text-align:center">Planta</div>
-          ${_recDiagramaPlanta(e.tipo)}
-        </div>
-        <div id="reInfoPanel"></div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.6rem;margin-bottom:.8rem;max-width:220px;margin-left:auto;margin-right:auto">
+        <div style="font-size:.6rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem;text-align:center">Planta</div>
+        ${_recDiagramaPlanta(e.tipo)}
       </div>
 
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;margin-bottom:.8rem">
@@ -1439,15 +1437,6 @@ function _recAbrirElemento(id){
       <div id="reCapasPanel"></div>
     </div>`;
   _recRenderElemCapas(e.id);
-}
-
-function _recElemInfoPanel(elemento,capaFoco){
-  const t=_REC_ELEM_TIPOS[elemento.tipo];
-  const area=_recElemArea(elemento.tipo);
-  const row=(l,v)=>`<div style="display:flex;justify-content:space-between;padding:.22rem 0;border-bottom:1px solid #e2e8f0;font-size:.74rem"><span style="color:#64748b">${l}</span><span style="font-weight:700;color:#1e293b">${v||'—'}</span></div>`;
-  return`${row('Elemento',elemento.nombre)}${row('Material',capaFoco?capaFoco.material:'—')}
-    ${row('Cota',capaFoco?capaFoco.cota+' msnm':'—')}${row('Progresiva',elemento.progresiva)}
-    ${row('Tubería',t.tuboLabel)}${row('Área liberada',area+' m²')}`;
 }
 
 async function _recSaveElementoMeta(id){
@@ -1480,9 +1469,7 @@ function _recRenderElemCapas(elemId){
   const panel=document.getElementById('reCapasPanel');if(!panel)return;
   const capas=(DB.recElemCapas||[]).filter(c=>+c.elementoId===+elemId).sort((a,b)=>(+b.numero||0)-(+a.numero||0));
   const focoId=_recElemCapaEditId||_recElemCapaFocoId||(capas[0]&&capas[0].id);
-  const capaFoco=capas.find(c=>+c.id===+focoId);
 
-  const info=document.getElementById('reInfoPanel');if(info)info.innerHTML=_recElemInfoPanel(e,capaFoco);
   const perfil=document.getElementById('rePerfilPanel');if(perfil)perfil.innerHTML=_recDiagramaPerfil(e,focoId);
 
   panel.innerHTML=`
