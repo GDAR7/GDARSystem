@@ -212,23 +212,23 @@ function _eqProvAc(val){
   const map={};
   DB.equipos.forEach(e=>{
     if(e.proveedor&&e.proveedor.trim()&&!map[e.proveedor]){
-      map[e.proveedor]={ctc:e.contacto||'',cel:e.celular||'',cor:e.correo||''};
+      map[e.proveedor]={ctc:e.contacto||'',cel:e.celular||'',cor:e.correo||'',ruc:e.rucProveedor||''};
     }
   });
   const matches=Object.entries(map).filter(([p])=>p.toLowerCase().includes(q));
   if(!matches.length){drop.style.display='none';return;}
   drop.innerHTML=matches.map(([p,d])=>`
-    <div onclick="_eqProvPick('${p.replace(/'/g,"\\'")}','${d.ctc.replace(/'/g,"\\'")}','${d.cel.replace(/'/g,"\\'")}','${d.cor.replace(/'/g,"\\'")}')
+    <div onclick="_eqProvPick('${p.replace(/'/g,"\\'")}','${d.ctc.replace(/'/g,"\\'")}','${d.cel.replace(/'/g,"\\'")}','${d.cor.replace(/'/g,"\\'")}','${d.ruc.replace(/'/g,"\\'")}')
     " style="padding:.38rem .6rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)"
        onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
       <div style="font-weight:600">${p}</div>
-      ${d.ctc?`<div style="font-size:.72rem;color:var(--muted2)">${d.ctc}${d.cel?' · '+d.cel:''}</div>`:''}
+      ${(d.ctc||d.ruc)?`<div style="font-size:.72rem;color:var(--muted2)">${d.ruc?'RUC '+d.ruc+' · ':''}${d.ctc}${d.cel?' · '+d.cel:''}</div>`:''}
     </div>`).join('');
   drop.style.display='block';
 }
-function _eqProvPick(prov,ctc,cel,cor){
+function _eqProvPick(prov,ctc,cel,cor,ruc){
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
-  set('eqProv',prov);set('eqCtc',ctc);set('eqCel',cel);set('eqCor',cor);
+  set('eqProv',prov);set('eqCtc',ctc);set('eqCel',cel);set('eqCor',cor);set('eqProvRuc',ruc||'');
   const drop=document.getElementById('eqProvDrop');if(drop)drop.style.display='none';
 }
 
@@ -245,7 +245,7 @@ function openEquipo(){
   ['eqCod','eqMa','eqMo','eqAn','eqPl',
    'eqNs','eqPhp','eqCm3','eqPkg','eqDim','eqUbi','eqFll','eqFls',
    'eqSoatVenc','eqPtrVenc','eqRtecVenc','eqRicVenc','eqGpsVenc',
-   'eqProv','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqCalent','eqIco','eqTco',
+   'eqProv','eqProvRuc','eqCtc','eqCel','eqCor','eqHmin','eqTarUn','eqTar','eqCalent','eqIco','eqTco',
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
   document.getElementById('eqKm').value=0;
