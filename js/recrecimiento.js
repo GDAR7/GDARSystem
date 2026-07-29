@@ -36,6 +36,43 @@ function _recImgBase(){
   return window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/recrecimiento/';
 }
 
+// ── Plano PDF de referencia por dique (solo consulta — no se usa como fondo clicable) ──
+const _REC_PLANO_BUCKET='Recrecimiento_Planos_pdf';
+function _recPlanoActivo(){return(DB.recPlanos||[]).find(p=>p.dique===_recDique);}
+function _recSubirPlano(){
+  let inp=document.getElementById('_recPlanoInput');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.id='_recPlanoInput';inp.type='file';inp.accept='.pdf';inp.style.display='none';
+    inp.addEventListener('change',_recPlanoOnFile);
+    document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.click();
+}
+async function _recPlanoOnFile(ev){
+  const file=ev.target.files[0];if(!file)return;
+  toast('Subiendo plano...');
+  const path=`${_recDique}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+  const{error:upErr}=await supa.storage.from(_REC_PLANO_BUCKET).upload(path,file,{upsert:true});
+  if(upErr){toast('Error al subir: '+upErr.message,true);return;}
+  const{data:urlData}=supa.storage.from(_REC_PLANO_BUCKET).getPublicUrl(path);
+  const prev=_recPlanoActivo();
+  if(prev){
+    if(prev.pdfPath)await supa.storage.from(_REC_PLANO_BUCKET).remove([prev.pdfPath]);
+    const{error}=await supa.from('rec_planos').update({pdf_url:urlData.publicUrl,pdf_name:file.name,pdf_path:path}).eq('id',prev.id);
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+    prev.pdfUrl=urlData.publicUrl;prev.pdfName=file.name;prev.pdfPath=path;
+  }else{
+    const id=nid('rpl');
+    const{error}=await supa.from('rec_planos').insert({id,dique:_recDique,pdf_url:urlData.publicUrl,pdf_name:file.name,pdf_path:path});
+    if(error){toast('Error al guardar: '+error.message,true);return;}
+    (DB.recPlanos=DB.recPlanos||[]).push({id,dique:_recDique,pdfUrl:urlData.publicUrl,pdfName:file.name,pdfPath:path});
+  }
+  toast('✓ Plano subido');
+  rRecrecimiento();
+}
+
 function rRecrecimiento(){
   const pg=document.getElementById('page-recrecimiento');
   if(!pg)return;
@@ -65,6 +102,14 @@ function rRecrecimiento(){
         <div style="font-size:1.1rem;font-weight:800;color:#10b981">🏔️ Recrecimiento R3</div>
         <div style="font-size:.68rem;color:var(--muted2)">Control visual de avance por capa · ${new Date().toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()}</div>
       </div>
+      ${(()=>{const pl=_recPlanoActivo();
+        return pl
+          ?`<div style="display:flex;gap:.25rem;align-items:center">
+              <a href="${pl.pdfUrl}" target="_blank" rel="noopener" title="${(pl.pdfName||'').replace(/"/g,'&quot;')}" style="padding:.3rem .7rem;border-radius:7px;border:1px solid #3b82f640;background:rgba(59,130,246,.1);color:#3b82f6;font-size:.7rem;text-decoration:none;font-weight:700;white-space:nowrap">📄 Ver Plano</a>
+              <button onclick="_recSubirPlano()" title="Reemplazar plano PDF" style="padding:.3rem .45rem;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;font-size:.7rem">🔄</button>
+            </div>`
+          :`<button onclick="_recSubirPlano()" style="padding:.3rem .7rem;border-radius:7px;border:1px solid #3b82f640;background:rgba(59,130,246,.1);color:#3b82f6;font-size:.7rem;cursor:pointer;font-weight:700;white-space:nowrap">⬆ Subir Plano PDF</button>`;
+      })()}
       <div style="display:flex;gap:.3rem;margin-left:auto">
         ${_REC_DIQUES.map(d=>`<button onclick="_recSetDique('${d.key}')"
           style="padding:.3rem .9rem;border-radius:8px;border:1px solid ${_recDique===d.key?d.color:'var(--border)'};background:${_recDique===d.key?d.color+'22':'transparent'};color:${_recDique===d.key?d.color:'var(--muted2)'};font-size:.72rem;font-weight:${_recDique===d.key?'700':'500'};cursor:pointer">${d.label}</button>`).join('')}
