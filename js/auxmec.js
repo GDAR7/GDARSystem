@@ -149,7 +149,7 @@ async function amDelFoto(tipo,idx){
   toast('Foto eliminada');
 }
 // ── Filtro de período 21→20 + chips por tipo/subtipo de equipo (mismo patrón que Combustible) ──
-let _amOffset=0,_amTodoPer=false,_amTipo=null,_amSub=null;
+let _amOffset=0,_amTodoPer=false,_amTipo=null,_amSub=null,_amEqId=null;
 function _amPeriodo(){
   const hoy=new Date();
   const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
@@ -167,29 +167,40 @@ function _amPeriodo(){
 function _amNav(dir){_amOffset+=dir;_amTodoPer=false;rAuxMec();}
 function _amTogglePeriodo(){_amTodoPer=!_amTodoPer;rAuxMec();}
 function _amSelTipo(t){
-  if(_amTipo===t){_amTipo=null;_amSub=null;}else{_amTipo=t;_amSub=null;}
+  if(_amTipo===t){_amTipo=null;_amSub=null;_amEqId=null;}else{_amTipo=t;_amSub=null;_amEqId=null;}
   rAuxMec();
 }
-function _amSelSub(s){_amSub=_amSub===s?null:s;rAuxMec();}
+function _amSelSub(s){
+  if(_amSub===s){_amSub=null;_amEqId=null;}else{_amSub=s;_amEqId=null;}
+  rAuxMec();
+}
+function _amSelEq(id){_amEqId=_amEqId===id?null:id;rAuxMec();}
 
 function rAuxMec(){
   const per=_amPeriodo();
   const eqById=id=>(DB.equipos||[]).find(e=>e.id===id);
   // 1) Filtro por período
   const enPer=(DB.auxiliosMecanicos||[]).filter(r=>_amTodoPer||(r.fecha&&r.fecha>=per.desde&&r.fecha<=per.hasta));
-  // 2) Chips tipo → subtipo (contados sobre lo que hay en el período)
+  // 2) Chips tipo → subtipo → código (contados sobre lo que hay en el período)
   const tiposMap={};
   enPer.forEach(r=>{
     const eq=eqById(r.eqId);
     const t=eq?(eq.tipo||'Otros'):'Otros',s=eq?(eq.sub||'Otros').toUpperCase():'OTROS';
     if(!tiposMap[t])tiposMap[t]={n:0,subs:{}};
     tiposMap[t].n++;
-    tiposMap[t].subs[s]=(tiposMap[t].subs[s]||0)+1;
+    if(!tiposMap[t].subs[s])tiposMap[t].subs[s]={n:0,eqs:{}};
+    tiposMap[t].subs[s].n++;
+    if(eq){
+      if(!tiposMap[t].subs[s].eqs[eq.id])tiposMap[t].subs[s].eqs[eq.id]={eq,n:0};
+      tiposMap[t].subs[s].eqs[eq.id].n++;
+    }
   });
-  if(_amTipo&&!tiposMap[_amTipo]){_amTipo=null;_amSub=null;}
-  if(_amSub&&(!_amTipo||!tiposMap[_amTipo].subs[_amSub]))_amSub=null;
-  // 3) Aplicar chips
+  if(_amTipo&&!tiposMap[_amTipo]){_amTipo=null;_amSub=null;_amEqId=null;}
+  if(_amSub&&(!_amTipo||!tiposMap[_amTipo].subs[_amSub])){_amSub=null;_amEqId=null;}
+  if(_amEqId&&_amSub&&!tiposMap[_amTipo].subs[_amSub].eqs[_amEqId])_amEqId=null;
+  // 3) Aplicar chips (cascada: código > subtipo > tipo)
   const lista=enPer.filter(r=>{
+    if(_amEqId)return r.eqId===_amEqId;
     if(!_amTipo)return true;
     const eq=eqById(r.eqId);
     const t=eq?(eq.tipo||'Otros'):'Otros',s=eq?(eq.sub||'Otros').toUpperCase():'OTROS';
@@ -226,7 +237,7 @@ function rAuxMec(){
   const cEl=document.getElementById('auxMecChips');
   if(cEl){
     const tiposSorted=Object.entries(tiposMap).sort((a,b)=>b[1].n-a[1].n);
-    const chipTodos=`<button onclick="_amTipo=null;_amSub=null;rAuxMec()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_amTipo?'#8b5cf6':'var(--border)'};background:${!_amTipo?'rgba(139,92,246,.15)':'var(--panel2)'};color:${!_amTipo?'#a78bfa':'var(--muted2)'}">Todos</button>`;
+    const chipTodos=`<button onclick="_amTipo=null;_amSub=null;_amEqId=null;rAuxMec()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_amTipo?'#8b5cf6':'var(--border)'};background:${!_amTipo?'rgba(139,92,246,.15)':'var(--panel2)'};color:${!_amTipo?'#a78bfa':'var(--muted2)'}">Todos</button>`;
     const chipTipos=tiposSorted.map(([t,d])=>{
       const act=_amTipo===t,tEsc=t.replace(/'/g,"\\'");
       return`<button onclick="_amSelTipo('${tEsc}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'var(--mec)':'var(--border)'};background:${act?'rgba(236,72,153,.18)':'var(--panel2)'};color:${act?'var(--mec)':'var(--text)'};transition:all .15s">
@@ -235,13 +246,26 @@ function rAuxMec(){
     }).join('');
     let chipSubs='';
     if(_amTipo&&tiposMap[_amTipo]){
-      const subsT=Object.entries(tiposMap[_amTipo].subs).sort((a,b)=>b[1]-a[1]);
+      const subsT=Object.entries(tiposMap[_amTipo].subs).sort((a,b)=>b[1].n-a[1].n);
       chipSubs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(139,92,246,.05);border:1px dashed rgba(139,92,246,.4);border-radius:9px">
         <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ Subtipo:</span>
-        ${subsT.map(([s,n])=>{
+        ${subsT.map(([s,d])=>{
           const act=_amSub===s,sEsc=s.replace(/'/g,"\\'");
           return`<button onclick="_amSelSub('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
-            ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${n}</span>${act?' ✕':''}
+            ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${d.n}</span>${act?' ✕':''}
+          </button>`;
+        }).join('')}
+      </div>`;
+    }
+    let chipEqs='';
+    if(_amTipo&&_amSub&&tiposMap[_amTipo]&&tiposMap[_amTipo].subs[_amSub]){
+      const eqsT=Object.values(tiposMap[_amTipo].subs[_amSub].eqs).sort((a,b)=>b.n-a.n);
+      chipEqs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(236,72,153,.05);border:1px dashed rgba(236,72,153,.35);border-radius:9px">
+        <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_amSub}:</span>
+        ${eqsT.map(({eq,n})=>{
+          const act=_amEqId===eq.id;
+          return`<button onclick="_amSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'var(--mec)':'var(--border)'};background:${act?'var(--mec)':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
+            ${eq.codigo} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${n}</span>${act?' ✕':''}
           </button>`;
         }).join('')}
       </div>`;
@@ -252,6 +276,7 @@ function rAuxMec(){
         ${chipTodos}${chipTipos}
       </div>
       ${chipSubs}
+      ${chipEqs}
     </div>`;
   }
 
@@ -280,7 +305,9 @@ function rAuxMec(){
       </td>
     </tr>`;
   }).join('');
-  document.getElementById('tbAuxMec').innerHTML=_tbAux||`<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin auxilios mecánicos ${_amTodoPer?'registrados':'en este período'}${_amTipo?' para '+_amTipo+(_amSub?' · '+_amSub:''):''}</td></tr>`;
+  const _selEq=_amEqId?eqById(_amEqId):null;
+  const _filtroTxt=_selEq?' para '+_selEq.codigo:(_amTipo?' para '+_amTipo+(_amSub?' · '+_amSub:''):'');
+  document.getElementById('tbAuxMec').innerHTML=_tbAux||`<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin auxilios mecánicos ${_amTodoPer?'registrados':'en este período'}${_filtroTxt}</td></tr>`;
 }
 function openAuxMec(){
   _amEditId=null;
