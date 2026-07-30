@@ -47,7 +47,7 @@ const USERS=[
   {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
   {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion']},
   {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
-  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['general','operaciones','mantenimiento','controlEquipos','administracion'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje']}},
+  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['mantenimiento','controlEquipos','administracion'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje']}},
   {codigo:'ECOSEG',dni:'12345678',nombre:'Pablo Quispe Mamani',cargo:'Jefe de Seguridad',areas:['seguridad']},
   {codigo:'ECOMEC',dni:'55556666',nombre:'Roberto Yauri Poma',cargo:'Jefe de Mantenimiento',areas:['mantenimiento']},
   {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},

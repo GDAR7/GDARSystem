@@ -2,7 +2,8 @@
 // Página 1: EDP (horas efectivas × tarifa − descuentos de Auxilios Mecánicos, IGV, detracción)
 // Página 2: Consolidado de Horas Trabajadas (Partes Diarios del equipo en el período)
 let _edpEqId='', _edpNum='', _edpDesde='', _edpHasta='';
-let _edpCliente='', _edpRuc='', _edpDireccion='';
+// Cliente fijo (abreviado): ECOSERMO · RUC 20571533180
+let _edpCliente='ECOSERMO', _edpRuc='20571533180', _edpDireccion='';
 let _edpTarifaOv=null, _edpHminOv=null, _edpTarifaAtencion=0;
 let _edpDescManual=[];
 
@@ -44,7 +45,11 @@ function _edpHoras(eq,desde,hasta){
     const motor=+p.ef||0;
     const cal=motor>0?calent:0;
     const efectiva=Math.max(0,+(motor-cal).toFixed(2));
-    return{fecha:p.fecha,turno:p.turno||'—',desc:p.act||'—',hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,obs:p.observaciones||'Operativo',im:Math.max(0,+p.im||0)};
+    const condicion=p.condicion||'OPERATIVO';
+    const inop=/^INOPERATIVO/i.test(condicion);
+    // Valorización por días: cada parte OPERATIVO cuenta 1.00 · INOPERATIVO cuenta 0
+    const trabajo=inop?0:1;
+    return{fecha:p.fecha,turno:p.turno||'—',desc:p.act||'—',hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
   });
   const horasMotor=dias.reduce((s,d)=>s+d.motor,0);
   const horasCal=dias.reduce((s,d)=>s+d.cal,0);
@@ -57,7 +62,8 @@ function _edpHoras(eq,desde,hasta){
   const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.hrsMinVenta||0);
   const horasMinimasAPagar=Math.max(0,+(horasMinimas-horasEfectivas).toFixed(2));
   const horasAPagar=Math.max(horasMinimas,horasEfectivas);
-  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar};
+  const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
+  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados};
 }
 
 // Descuentos: insumos de Almacén ECO usados en Auxilios Mecánicos del equipo + horas de atención mecánica (T. Parada)
@@ -106,7 +112,7 @@ function rEdpProveedores(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasConParte:1);
+  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasTrabajados:1);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
 
   const descRows=[
@@ -126,7 +132,7 @@ function rEdpProveedores(){
     <div class="card-head"><span class="card-title">⚙️ Ajustes antes de imprimir</span></div>
     <div class="card-body"><div class="fg-grid">
       <div class="fg"><label>Tarifa Equipo S/ (${tarifaUn})</label><input type="number" step="0.01" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>
+      ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
       <div class="fg"><label>Tarifa Atención Mecánica S//hh</label><input type="number" step="0.01" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
     </div>
     <div style="margin-top:.6rem">
@@ -150,8 +156,10 @@ function rEdpProveedores(){
 function _edpDocHtml(eq,H,D,F){
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const AZ='#1e3a5f';
+  const HDR='#0070C0'; // encabezados de tabla: RGB(0,112,192) con letras blancas
+  const esDia=F.tarifaUn!=='HM'; // DIA/MES: valorización por días — sin horómetros ni calentamiento
   const infoCell=(l,v)=>`<div><strong style="display:block;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.05em">${l}</strong><span style="font-size:11px;font-weight:600;color:#111">${v||'—'}</span></div>`;
-  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase;text-align:center`;
+  const TH=`background:${HDR};color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase;text-align:center`;
   const TD=`border:1px solid #cbd5e1;padding:3px 6px;font-size:10px;color:#111`;
 
   const filaEq=`<tr><td style="${TD}">1.01</td><td style="${TD};font-weight:700">${eq.codigo} — ${eq.nombre||''}</td><td style="${TD};text-align:center">${F.tarifaUn}</td><td style="${TD};text-align:right">${_edpN2(F.cantEquipo)}</td><td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td><td style="${TD};text-align:right;font-weight:700">S/ ${_edpN2(F.totEquipo)}</td></tr>`;
@@ -171,7 +179,7 @@ function _edpDocHtml(eq,H,D,F){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
       ${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Moneda','SOLES')}
-      ${infoCell('Dirección',_edpDireccion)}${infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
+      ${infoCell('Dirección',_edpDireccion)}${esDia?'':infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
       <thead><tr><th style="${TH}">Ítem</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cant.</th><th style="${TH}">P. Unit S/</th><th style="${TH}">Total S/</th></tr></thead>
@@ -195,28 +203,50 @@ function _edpDocHtml(eq,H,D,F){
     </div>
   </div>`;
 
-  const filasHoras=H.dias.map((d,i)=>`<tr>
-    <td style="${TD};text-align:center">${i+1}</td><td style="${TD}">${_edpFmtDMY(d.fecha)}</td><td style="${TD};text-align:center">${d.turno}</td>
-    <td style="${TD}">${d.desc}</td><td style="${TD};text-align:right">${_edpN2(d.hrIni)}</td><td style="${TD};text-align:right">${_edpN2(d.hrFin)}</td>
-    <td style="${TD};text-align:right">${_edpN2(d.motor)}</td><td style="${TD};text-align:right">${_edpN2(d.cal)}</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(d.efectiva)}</td>
-    <td style="${TD}">${d.obs}</td>
-  </tr>`).join('');
-
-  const pagina2=`<div style="font-family:Arial,sans-serif;color:#111">
-    <div style="text-align:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:900;color:${AZ}">CONSOLIDADO DE HORAS TRABAJADAS</div>
-      <div style="font-size:10px;color:#2563eb;font-weight:700">${eq.codigo} — ${eq.nombre||''} · ${eq.proveedor||''}</div>
-      <div style="font-size:9px;color:#64748b">Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}</div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+  let tablaPagina2,resumenPagina2;
+  if(esDia){
+    // Formato por DÍAS: cada parte diario = 1.00 de trabajo, sin horómetros ni calentamiento
+    const marcaModelo=[eq.marca,eq.modelo].filter(Boolean).join(' ')||'—';
+    const filasDias=H.dias.map((d,i)=>`<tr>
+      <td style="${TD};text-align:center">${i+1}</td><td style="${TD};text-align:center">${_edpFmtDMY(d.fecha)}</td>
+      <td style="${TD};text-align:center">${(eq.sub||eq.tipo||'').toUpperCase()}</td><td style="${TD};text-align:center">${marcaModelo.toUpperCase()}</td>
+      <td style="${TD};text-align:center">${eq.placa||'—'}</td><td style="${TD};text-align:center">${d.turno}</td>
+      <td style="${TD}">${d.desc}</td>
+      <td style="${TD};text-align:right;${d.trabajo?'':'color:#b91c1c;font-weight:700'}">${_edpN2(d.trabajo)}</td><td style="${TD};text-align:right;font-weight:700;${d.trabajo?'':'color:#b91c1c'}">${_edpN2(d.trabajo)}</td>
+      <td style="${TD};${d.trabajo?'':'color:#b91c1c;font-weight:700'}">${d.obs}</td>
+    </tr>`).join('');
+    tablaPagina2=`<table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <thead><tr>
+        <th style="${TH}">Ítem</th><th style="${TH}">Fecha</th><th style="${TH}">Equipo</th><th style="${TH}">Marca / Modelo</th>
+        <th style="${TH}">Placa</th><th style="${TH}">Turno</th><th style="${TH};text-align:left">Descripción</th>
+        <th style="${TH}">Trabajo Día</th><th style="${TH}">Parcial</th><th style="${TH};text-align:left">Observaciones</th>
+      </tr></thead>
+      <tbody>${filasDias||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
+      <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="7" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD}"></td></tr></tfoot>
+    </table>`;
+    resumenPagina2=`<div style="max-width:340px">
+      <table style="border:1px solid #cbd5e1;width:100%"><tbody>
+        <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>
+        <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.dias.length-H.diasTrabajados?'color:#b91c1c':''}">${H.dias.length-H.diasTrabajados}</td></tr>
+        <tr><td style="${TD};font-weight:800;background:#fde047">DÍAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.diasTrabajados)} días</td></tr>
+      </tbody></table>
+    </div>`;
+  }else{
+    const filasHoras=H.dias.map((d,i)=>`<tr>
+      <td style="${TD};text-align:center">${i+1}</td><td style="${TD}">${_edpFmtDMY(d.fecha)}</td><td style="${TD};text-align:center">${d.turno}</td>
+      <td style="${TD}">${d.desc}</td><td style="${TD};text-align:right">${_edpN2(d.hrIni)}</td><td style="${TD};text-align:right">${_edpN2(d.hrFin)}</td>
+      <td style="${TD};text-align:right">${_edpN2(d.motor)}</td><td style="${TD};text-align:right">${_edpN2(d.cal)}</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(d.efectiva)}</td>
+      <td style="${TD}">${d.obs}</td>
+    </tr>`).join('');
+    tablaPagina2=`<table style="width:100%;border-collapse:collapse;margin-bottom:8px">
       <thead><tr>
         <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">Turno</th><th style="${TH};text-align:left">Descripción</th>
         <th style="${TH}">H. Inicial</th><th style="${TH}">H. Final</th><th style="${TH}">H. Motor</th><th style="${TH}">Calent.</th><th style="${TH}">H. Efectiva</th><th style="${TH};text-align:left">Observaciones</th>
       </tr></thead>
       <tbody>${filasHoras||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
       <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.horasMotor)}</td><td style="${TD};text-align:right">${_edpN2(H.horasCal)}</td><td style="${TD};text-align:right">${_edpN2(H.horasEfectivas)}</td><td style="${TD}"></td></tr></tfoot>
-    </table>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:520px">
+    </table>`;
+    resumenPagina2=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:520px">
       <table style="border:1px solid #cbd5e1"><tbody>
         <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700">${H.dispMec.toFixed(1)}%</td></tr>
         <tr><td style="${TD}">HORAS MÍNIMAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimas)} hrs</td></tr>
@@ -226,7 +256,17 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td style="${TD}">HORAS MÍNIMAS A PAGAR</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimasAPagar)} hrs</td></tr>
         <tr><td style="${TD};font-weight:800;background:#fde047">HORAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.horasAPagar)} hrs</td></tr>
       </tbody></table>
+    </div>`;
+  }
+
+  const pagina2=`<div style="font-family:Arial,sans-serif;color:#111">
+    <div style="text-align:center;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:900;color:${AZ}">CONSOLIDADO DE ${esDia?'DÍAS':'HORAS'} TRABAJADOS</div>
+      <div style="font-size:10px;color:#2563eb;font-weight:700">${eq.codigo} — ${eq.nombre||''} · ${eq.proveedor||''}</div>
+      <div style="font-size:9px;color:#64748b">Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}</div>
     </div>
+    ${tablaPagina2}
+    ${resumenPagina2}
   </div>`;
 
   return`<div>${pagina1}</div><div style="page-break-before:always;margin-top:14px;border-top:2px dashed #cbd5e1;padding-top:14px">${pagina2}</div>`;
@@ -239,7 +279,7 @@ function _edpPrint(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasConParte:1);
+  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasTrabajados:1);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
