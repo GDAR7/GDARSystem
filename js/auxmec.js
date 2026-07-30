@@ -148,18 +148,114 @@ async function amDelFoto(tipo,idx){
   _renderAmMedia(r.fotosAntes,r.fotosDespues);
   toast('Foto eliminada');
 }
+// ── Filtro de período 21→20 + chips por tipo/subtipo de equipo (mismo patrón que Combustible) ──
+let _amOffset=0,_amTodoPer=false,_amTipo=null,_amSub=null;
+function _amPeriodo(){
+  const hoy=new Date();
+  const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
+  let baseY=y,baseM=m;
+  if(d<21){baseM=m-1;if(baseM<0){baseM=11;baseY=y-1;}}
+  let iniM=baseM+_amOffset,iniY=baseY;
+  while(iniM>11){iniM-=12;iniY++;}
+  while(iniM<0){iniM+=12;iniY--;}
+  const ini=new Date(iniY,iniM,21);
+  const fin=new Date(iniY,iniM+1,20);
+  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return{desde:fmtD(ini),hasta:fmtD(fin),label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,dias:Math.round((fin-ini)/86400000)+1};
+}
+function _amNav(dir){_amOffset+=dir;_amTodoPer=false;rAuxMec();}
+function _amTogglePeriodo(){_amTodoPer=!_amTodoPer;rAuxMec();}
+function _amSelTipo(t){
+  if(_amTipo===t){_amTipo=null;_amSub=null;}else{_amTipo=t;_amSub=null;}
+  rAuxMec();
+}
+function _amSelSub(s){_amSub=_amSub===s?null:s;rAuxMec();}
+
 function rAuxMec(){
-  const tots=DB.auxiliosMecanicos.length;
-  const pen=DB.auxiliosMecanicos.filter(r=>r.est==='Pendiente').length;
-  const proc=DB.auxiliosMecanicos.filter(r=>r.est==='En Proceso').length;
-  const aten=DB.auxiliosMecanicos.filter(r=>r.est==='Atendido').length;
+  const per=_amPeriodo();
+  const eqById=id=>(DB.equipos||[]).find(e=>e.id===id);
+  // 1) Filtro por período
+  const enPer=(DB.auxiliosMecanicos||[]).filter(r=>_amTodoPer||(r.fecha&&r.fecha>=per.desde&&r.fecha<=per.hasta));
+  // 2) Chips tipo → subtipo (contados sobre lo que hay en el período)
+  const tiposMap={};
+  enPer.forEach(r=>{
+    const eq=eqById(r.eqId);
+    const t=eq?(eq.tipo||'Otros'):'Otros',s=eq?(eq.sub||'Otros').toUpperCase():'OTROS';
+    if(!tiposMap[t])tiposMap[t]={n:0,subs:{}};
+    tiposMap[t].n++;
+    tiposMap[t].subs[s]=(tiposMap[t].subs[s]||0)+1;
+  });
+  if(_amTipo&&!tiposMap[_amTipo]){_amTipo=null;_amSub=null;}
+  if(_amSub&&(!_amTipo||!tiposMap[_amTipo].subs[_amSub]))_amSub=null;
+  // 3) Aplicar chips
+  const lista=enPer.filter(r=>{
+    if(!_amTipo)return true;
+    const eq=eqById(r.eqId);
+    const t=eq?(eq.tipo||'Otros'):'Otros',s=eq?(eq.sub||'Otros').toUpperCase():'OTROS';
+    if(_amSub)return t===_amTipo&&s===_amSub;
+    return t===_amTipo;
+  });
+
+  // Barra de período
+  const pEl=document.getElementById('auxMecPeriodo');
+  if(pEl)pEl.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem">
+    <div style="font-size:.78rem;color:var(--muted2)">${_amTodoPer?'Mostrando <strong style="color:var(--mec)">todo el historial</strong>':`Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días`}</div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <div style="display:flex;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden;${_amTodoPer?'opacity:.45':''}">
+        <button onclick="_amNav(-1)" style="background:none;border:none;border-right:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">‹</button>
+        <span style="font-weight:800;font-size:.88rem;color:var(--text);min-width:130px;text-align:center;padding:0 .5rem">${per.label}</span>
+        <button onclick="_amNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
+      </div>
+      <button onclick="_amTogglePeriodo()" style="padding:.35rem .8rem;border-radius:8px;cursor:pointer;font-size:.74rem;font-weight:700;border:1.5px solid ${_amTodoPer?'var(--mec)':'var(--border)'};background:${_amTodoPer?'rgba(236,72,153,.15)':'var(--panel2)'};color:${_amTodoPer?'var(--mec)':'var(--muted2)'}">${_amTodoPer?'✕ Ver por período':'📚 Todo el historial'}</button>
+    </div>
+  </div>`;
+
+  const tots=lista.length;
+  const pen=lista.filter(r=>r.est==='Pendiente').length;
+  const proc=lista.filter(r=>r.est==='En Proceso').length;
+  const aten=lista.filter(r=>r.est==='Atendido').length;
   document.getElementById('auxMecKpis').innerHTML=[
     {l:'Total Auxilios',v:tots,c:'#8b5cf6'},
     {l:'Pendientes',v:pen,c:'#ef4444'},
     {l:'En Proceso',v:proc,c:'#f59e0b'},
     {l:'Atendidos',v:aten,c:'#10b981'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
-  document.getElementById('tbAuxMec').innerHTML=DB.auxiliosMecanicos.slice().reverse().map(r=>{
+
+  // Chips de tipo → subtipo
+  const cEl=document.getElementById('auxMecChips');
+  if(cEl){
+    const tiposSorted=Object.entries(tiposMap).sort((a,b)=>b[1].n-a[1].n);
+    const chipTodos=`<button onclick="_amTipo=null;_amSub=null;rAuxMec()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_amTipo?'#8b5cf6':'var(--border)'};background:${!_amTipo?'rgba(139,92,246,.15)':'var(--panel2)'};color:${!_amTipo?'#a78bfa':'var(--muted2)'}">Todos</button>`;
+    const chipTipos=tiposSorted.map(([t,d])=>{
+      const act=_amTipo===t,tEsc=t.replace(/'/g,"\\'");
+      return`<button onclick="_amSelTipo('${tEsc}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'var(--mec)':'var(--border)'};background:${act?'rgba(236,72,153,.18)':'var(--panel2)'};color:${act?'var(--mec)':'var(--text)'};transition:all .15s">
+        ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'var(--mec)':'var(--muted2)'}">${d.n}</span>${act?' ✕':''}
+      </button>`;
+    }).join('');
+    let chipSubs='';
+    if(_amTipo&&tiposMap[_amTipo]){
+      const subsT=Object.entries(tiposMap[_amTipo].subs).sort((a,b)=>b[1]-a[1]);
+      chipSubs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(139,92,246,.05);border:1px dashed rgba(139,92,246,.4);border-radius:9px">
+        <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ Subtipo:</span>
+        ${subsT.map(([s,n])=>{
+          const act=_amSub===s,sEsc=s.replace(/'/g,"\\'");
+          return`<button onclick="_amSelSub('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
+            ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${n}</span>${act?' ✕':''}
+          </button>`;
+        }).join('')}
+      </div>`;
+    }
+    cEl.innerHTML=`<div style="margin-bottom:1rem">
+      <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>
+        ${chipTodos}${chipTipos}
+      </div>
+      ${chipSubs}
+    </div>`;
+  }
+
+  const _tbAux=lista.slice().reverse().map(r=>{
     const eq=DB.equipos.find(e=>e.id===r.eqId);
     const eqLabel=eq?`<span class="mono" style="font-size:.71rem;color:var(--mec)">${eq.codigo}</span> ${eq.nombre.split(' ').slice(0,2).join(' ')}`:'—';
     const anulado=r.est==='Anulado';
@@ -184,6 +280,7 @@ function rAuxMec(){
       </td>
     </tr>`;
   }).join('');
+  document.getElementById('tbAuxMec').innerHTML=_tbAux||`<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin auxilios mecánicos ${_amTodoPer?'registrados':'en este período'}${_amTipo?' para '+_amTipo+(_amSub?' · '+_amSub:''):''}</td></tr>`;
 }
 function openAuxMec(){
   _amEditId=null;
