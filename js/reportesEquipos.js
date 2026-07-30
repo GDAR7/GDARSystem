@@ -1,141 +1,249 @@
 // ══ DASHBOARD DE EQUIPOS + REPORTE DE EQUIPOS ══
 // (separado de auxmec.js — usa helpers globales de utils.js/config.js)
 
-// ══ DASHBOARD EQUIPOS ══
-function rDashEquipos(){
-  const el=document.getElementById('page-dashEquipos');
-  if(!el)return;
-  const S={tab:'Línea Amarilla',periodo:'mes',guardia:''};
-  window._deTab=t=>{S.tab=t;_deRender();};
-  window._dePeriod=v=>{S.periodo=v;_deRender();};
-  window._deGuardia=v=>{S.guardia=v;_deRender();};
-
-  function _inPeriodo(fecha){
-    if(!fecha)return false;
-    const d=new Date(fecha+'T12:00:00'),hoy=new Date();
-    if(S.periodo==='mes')return d.getFullYear()===hoy.getFullYear()&&d.getMonth()===hoy.getMonth();
-    if(S.periodo==='mesAnt'){const p=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);return d.getFullYear()===p.getFullYear()&&d.getMonth()===p.getMonth();}
-    if(S.periodo==='semana'){return(hoy-d)/86400000>=0&&(hoy-d)/86400000<7;}
-    return true;
-  }
-
-  function _deRender(){
-    const tipo=S.tab;
-    const color=tipo==='Línea Amarilla'?'#f59e0b':'#06b6d4';
-
-    const partes=DB.partes.filter(p=>{
-      const eq=DB.equipos.find(e=>e.id===p.eqId);
-      if(!eq||eq.tipo!==tipo)return false;
-      if(S.guardia&&p.guardia!==S.guardia)return false;
-      return _inPeriodo(p.fecha);
-    });
-
-    // Agrupar: subtipo → equipo
-    const bySubEq={};
-    partes.forEach(p=>{
-      const eq=DB.equipos.find(e=>e.id===p.eqId);if(!eq)return;
-      const sub=eq.sub||'Sin clasificar';
-      if(!bySubEq[sub])bySubEq[sub]={};
-      if(!bySubEq[sub][eq.id])bySubEq[sub][eq.id]={eqId:eq.id,nombre:eq.nombre,codigo:eq.codigo,ef:0,im:0};
-      bySubEq[sub][eq.id].ef+=+p.ef||0;
-      bySubEq[sub][eq.id].im+=+p.im||0;
-    });
-
-    const subtypes=Object.keys(bySubEq).sort();
-    const totEf=partes.reduce((s,p)=>s+(+p.ef||0),0);
-    const totIm=partes.reduce((s,p)=>s+(+p.im||0),0);
-    const disp=(totEf+totIm)>0?((totEf/(totEf+totIm))*100).toFixed(1):'—';
-
-    let html=`
-      <div class="ph">
-        <div class="ph-title" style="color:${color}">📊 Dashboard – Control de Equipos</div>
-        <div class="ph-sub">Horas efectivas e inoperativas por equipo</div>
-      </div>
-      <div class="card" style="margin-bottom:1rem">
-        <div class="card-head" style="gap:.7rem;flex-wrap:nowrap">
-          <div style="display:flex;gap:.4rem">
-            <button class="btn ${S.tab==='Línea Amarilla'?'btn-a':'btn-out'}" style="${S.tab==='Línea Amarilla'?'--ba:#f59e0b':''}" onclick="_deTab('Línea Amarilla')">🟡 Línea Amarilla</button>
-            <button class="btn ${S.tab==='Línea Blanca'?'btn-a':'btn-out'}" style="${S.tab==='Línea Blanca'?'--ba:#06b6d4':''}" onclick="_deTab('Línea Blanca')">⚪ Línea Blanca</button>
-          </div>
-          <div style="display:flex;gap:.5rem">
-            <select onchange="_dePeriod(this.value)" style="max-width:150px">
-              <option value="mes" ${S.periodo==='mes'?'selected':''}>Mes actual</option>
-              <option value="mesAnt" ${S.periodo==='mesAnt'?'selected':''}>Mes anterior</option>
-              <option value="semana" ${S.periodo==='semana'?'selected':''}>Última semana</option>
-              <option value="todo" ${S.periodo==='todo'?'selected':''}>Todo</option>
-            </select>
-            <select onchange="_deGuardia(this.value)" style="max-width:130px">
-              <option value="">Todas guardias</option>
-              <option value="A" ${S.guardia==='A'?'selected':''}>Guardia A</option>
-              <option value="B" ${S.guardia==='B'?'selected':''}>Guardia B</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.8rem;margin-bottom:1rem">
-        ${[
-          {l:'PARTES',v:partes.length,c:color,u:''},
-          {l:'HS EFECTIVAS',v:totEf.toFixed(1),c:color,u:'h'},
-          {l:'HS INOPERATIVAS',v:totIm.toFixed(1),c:'#ef4444',u:'h'},
-          {l:'DISPONIBILIDAD',v:disp,c:'#10b981',u:'%'}
-        ].map(k=>`<div class="card" style="text-align:center;padding:.9rem">
-          <div style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);margin-bottom:.4rem">${k.l}</div>
-          <div style="font-size:1.7rem;font-weight:800;color:${k.c};line-height:1">${k.v}<span style="font-size:.9rem">${k.u}</span></div>
-        </div>`).join('')}
-      </div>`;
-
-    if(!subtypes.length){
-      html+=`<div class="card"><div class="mb" style="text-align:center;color:var(--muted2);padding:2.5rem 1rem;font-size:.9rem">Sin datos para el período seleccionado</div></div>`;
-    } else {
-      subtypes.forEach(sub=>{
-        const items=Object.values(bySubEq[sub]).sort((a,b)=>b.ef-a.ef);
-        const maxVal=Math.max(...items.map(i=>i.ef+i.im),1);
-        const stEf=items.reduce((s,i)=>s+i.ef,0);
-        const stIm=items.reduce((s,i)=>s+i.im,0);
-        html+=`<div class="card" style="margin-bottom:1rem">
-          <div class="card-head">
-            <div class="card-title" style="color:${color}">${sub} <span style="font-weight:400;color:var(--muted2);font-size:.75rem">(${items.length} equipo${items.length!==1?'s':''})</span></div>
-            <div style="display:flex;gap:1.2rem;font-size:.75rem">
-              <span style="color:${color}">Ef total: <strong>${stEf.toFixed(1)}h</strong></span>
-              <span style="color:#ef4444">Inop total: <strong>${stIm.toFixed(1)}h</strong></span>
-            </div>
-          </div>
-          <div class="mb">${_deChart(items,maxVal,color,S.periodo)}</div>
-        </div>`;
-      });
-    }
-
-    el.innerHTML=html;
-  }
-
-  _deRender();
+// ══ DASHBOARD EQUIPOS (estilo Power BI, como el dashboard de Combustible) ══
+// Filtros en cascada por chips: Tipo → Subtipo → Código · período 21→20 navegable
+let _deqOffset=0,_deqTipo=null,_deqSub=null,_deqEqId=null,_deqChart=null;
+function _deqSelTipo(t){
+  if(_deqTipo===t){_deqTipo=null;_deqSub=null;_deqEqId=null;}
+  else{_deqTipo=t;_deqSub=null;_deqEqId=null;}
+  rDashEquipos();
+}
+function _deqSelSub(s){
+  if(_deqSub===s){_deqSub=null;_deqEqId=null;}
+  else{_deqSub=s;_deqEqId=null;}
+  rDashEquipos();
+}
+function _deqSelEq(id){
+  _deqEqId=_deqEqId===id?null:id;
+  rDashEquipos();
+}
+function _deqNav(dir){_deqOffset+=dir;rDashEquipos();}
+// Período 21→20 (mismo esquema que el dashboard de Combustible)
+function _deqPeriodo(){
+  const hoy=new Date();
+  const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
+  let baseY=y,baseM=m;
+  if(d<21){baseM=m-1;if(baseM<0){baseM=11;baseY=y-1;}}
+  let iniM=baseM+_deqOffset,iniY=baseY;
+  while(iniM>11){iniM-=12;iniY++;}
+  while(iniM<0){iniM+=12;iniY--;}
+  const ini=new Date(iniY,iniM,21);
+  const fin=new Date(iniY,iniM+1,20);
+  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return{desde:fmtD(ini),hasta:fmtD(fin),ini,fin,label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,dias:Math.round((fin-ini)/86400000)+1};
 }
 
-function _deChart(items,maxVal,color,periodo){
-  const H=170;
-  const bars=items.map(item=>{
-    const efH=maxVal>0?Math.max(item.ef>0?4:0,Math.round((item.ef/maxVal)*H)):0;
-    const imH=maxVal>0?Math.max(item.im>0?4:0,Math.round((item.im/maxVal)*H)):0;
-    const lbl=item.codigo||(item.nombre.split(' ').slice(0,2).join(' '));
-    const safeColor=color.replace(/'/g,"\\'");
-    return `<div style="flex:1;min-width:58px;max-width:96px;cursor:pointer;user-select:none" title="Doble clic para ver detalle diario de ${lbl}" ondblclick="openDrillDown('${item.eqId}','${lbl}','${safeColor}','${periodo||'mes'}')">
-      <div style="height:${H}px;display:flex;align-items:flex-end;justify-content:center;gap:3px;border-bottom:1px solid #1e2740">
-        <div style="width:22px;height:${efH}px;background:${color};border-radius:3px 3px 0 0;position:relative" title="Ef: ${item.ef.toFixed(1)}h">
-          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:${color};white-space:nowrap;padding-bottom:2px">${item.ef>0?item.ef.toFixed(1):''}</span>
-        </div>
-        <div style="width:22px;height:${imH}px;background:#ef4444;border-radius:3px 3px 0 0;position:relative" title="Inop: ${item.im.toFixed(1)}h">
-          <span style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.52rem;color:#ef4444;white-space:nowrap;padding-bottom:2px">${item.im>0?item.im.toFixed(1):''}</span>
-        </div>
-      </div>
-      <div style="font-size:.58rem;color:var(--muted2);text-align:center;padding:5px 2px;line-height:1.2">${lbl}</div>
+function rDashEquipos(){
+  const el=document.getElementById('page-dashEquipos');if(!el)return;
+  const per=_deqPeriodo();
+  const eqById=id=>(DB.equipos||[]).find(e=>e.id===id);
+  const fmt1=v=>Number(v||0).toLocaleString('es-PE',{maximumFractionDigits:1});
+
+  // Partes del período (base para chips)
+  const partesAll=(DB.partes||[]).filter(p=>p.fecha>=per.desde&&p.fecha<=per.hasta&&eqById(p.eqId));
+
+  // Chips: tipo → subtipo → equipo (métrica = horas efectivas)
+  const tiposMap={};
+  partesAll.forEach(p=>{
+    const eq=eqById(p.eqId);
+    const t=eq.tipo||'Otros',s=(eq.sub||'Otros').toUpperCase();
+    const ef=Math.max(0,+p.ef||0);
+    if(!tiposMap[t])tiposMap[t]={ef:0,subs:{}};
+    tiposMap[t].ef+=ef;
+    if(!tiposMap[t].subs[s])tiposMap[t].subs[s]={ef:0,eqs:{}};
+    tiposMap[t].subs[s].ef+=ef;
+    if(!tiposMap[t].subs[s].eqs[eq.id])tiposMap[t].subs[s].eqs[eq.id]={eq,ef:0};
+    tiposMap[t].subs[s].eqs[eq.id].ef+=ef;
+  });
+  if(_deqTipo&&!tiposMap[_deqTipo]){_deqTipo=null;_deqSub=null;_deqEqId=null;}
+  if(_deqSub&&(!_deqTipo||!tiposMap[_deqTipo].subs[_deqSub])){_deqSub=null;_deqEqId=null;}
+  if(_deqEqId&&_deqSub&&!tiposMap[_deqTipo].subs[_deqSub].eqs[_deqEqId])_deqEqId=null;
+
+  // Aplicar filtros en cascada
+  const partes=partesAll.filter(p=>{
+    if(_deqEqId)return p.eqId===_deqEqId;
+    const eq=eqById(p.eqId);
+    const t=eq.tipo||'Otros',s=(eq.sub||'Otros').toUpperCase();
+    if(_deqSub)return t===_deqTipo&&s===_deqSub;
+    if(_deqTipo)return t===_deqTipo;
+    return true;
+  });
+
+  const totEf=partes.reduce((s,p)=>s+Math.max(0,+p.ef||0),0);
+  const totIm=partes.reduce((s,p)=>s+Math.max(0,+p.im||0),0);
+  const disp=(totEf+totIm)>0?(totEf/(totEf+totIm)*100).toFixed(1)+'%':'—';
+  const eqsActivos=new Set(partes.map(p=>p.eqId)).size;
+
+  // Serie diaria: total ef · si hay equipo seleccionado, se divide en ☀ Día / 🌙 Noche
+  const labels=[],serieDia=[],serieNoche=[],serieTotal=[];
+  const porFecha={};
+  partes.forEach(p=>{
+    const f=p.fecha,ef=Math.max(0,+p.ef||0);
+    if(!porFecha[f])porFecha[f]={dia:0,noche:0};
+    if(/noche/i.test(p.turno||''))porFecha[f].noche+=ef;else porFecha[f].dia+=ef;
+  });
+  const cur=new Date(per.ini.getTime());
+  while(cur<=per.fin){
+    const f=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
+    labels.push(`${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}`);
+    const d=porFecha[f]||{dia:0,noche:0};
+    serieDia.push(+d.dia.toFixed(1));serieNoche.push(+d.noche.toFixed(1));serieTotal.push(+(d.dia+d.noche).toFixed(1));
+    cur.setDate(cur.getDate()+1);
+  }
+
+  // Tabla por equipo
+  const eqMap={};
+  partes.forEach(p=>{
+    if(!eqMap[p.eqId])eqMap[p.eqId]={eqId:p.eqId,n:0,ef:0,im:0,fechas:new Set(),ultima:''};
+    const r=eqMap[p.eqId];
+    r.n++;r.ef+=Math.max(0,+p.ef||0);r.im+=Math.max(0,+p.im||0);r.fechas.add(p.fecha);
+    if(p.fecha>r.ultima)r.ultima=p.fecha;
+  });
+  const rows=Object.values(eqMap).map(r=>({...r,eq:eqById(r.eqId),
+    disp:(r.ef+r.im)>0?r.ef/(r.ef+r.im)*100:null,
+    prom:r.fechas.size>0?r.ef/r.fechas.size:0})).sort((a,b)=>b.ef-a.ef);
+
+  const kpis=[
+    {l:'Partes del Período',v:partes.length,c:'#06b6d4'},
+    {l:'Hs Efectivas',v:fmt1(totEf)+' h',c:'#10b981'},
+    {l:'Hs Inoperativas',v:fmt1(totIm)+' h',c:'#ef4444'},
+    {l:'Disponibilidad',v:disp,c:'#8b5cf6'},
+    {l:'Equipos con Parte',v:eqsActivos,c:'#f59e0b'},
+  ];
+
+  // Chips
+  const tiposSorted=Object.entries(tiposMap).sort((a,b)=>b[1].ef-a[1].ef);
+  const chipTodos=`<button onclick="_deqTipo=null;_deqSub=null;_deqEqId=null;rDashEquipos()" style="display:inline-flex;align-items:center;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_deqTipo?'#06b6d4':'var(--border)'};background:${!_deqTipo?'rgba(6,182,212,.15)':'var(--panel2)'};color:${!_deqTipo?'#06b6d4':'var(--muted2)'}">Todos</button>`;
+  const chipTipos=tiposSorted.map(([t,d])=>{
+    const act=_deqTipo===t;
+    const tEsc=t.replace(/'/g,"\\'");
+    return`<button onclick="_deqSelTipo('${tEsc}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'#06b6d4':'var(--border)'};background:${act?'rgba(6,182,212,.18)':'var(--panel2)'};color:${act?'#06b6d4':'var(--text)'};transition:all .15s">
+      ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#06b6d4':'var(--muted2)'}">${fmt1(d.ef)} h</span>${act?' ✕':''}
+    </button>`;
+  }).join('');
+  let chipSubs='';
+  if(_deqTipo&&tiposMap[_deqTipo]){
+    const subsT=Object.entries(tiposMap[_deqTipo].subs).sort((a,b)=>b[1].ef-a[1].ef);
+    chipSubs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(139,92,246,.05);border:1px dashed rgba(139,92,246,.4);border-radius:9px">
+      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ Subtipo:</span>
+      ${subsT.map(([s,d])=>{
+        const act=_deqSub===s;
+        const sEsc=s.replace(/'/g,"\\'");
+        return`<button onclick="_deqSelSub('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
+          ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${fmt1(d.ef)} h</span>${act?' ✕':''}
+        </button>`;
+      }).join('')}
     </div>`;
+  }
+  let chipEquipos='';
+  if(_deqTipo&&_deqSub&&tiposMap[_deqTipo]&&tiposMap[_deqTipo].subs[_deqSub]){
+    const eqsT=Object.values(tiposMap[_deqTipo].subs[_deqSub].eqs).sort((a,b)=>b.ef-a.ef);
+    chipEquipos=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(6,182,212,.05);border:1px dashed rgba(6,182,212,.35);border-radius:9px">
+      <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_deqSub}:</span>
+      ${eqsT.map(({eq,ef})=>{
+        const act=_deqEqId===eq.id;
+        return`<button onclick="_deqSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#06b6d4':'var(--border)'};background:${act?'#06b6d4':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
+          ${eq.codigo} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${fmt1(ef)}h</span>${act?' ✕':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  const selEq=_deqEqId?eqById(_deqEqId):null;
+  const tituloSel=selEq?`${selEq.codigo} — ${selEq.nombre||''}`
+    :_deqSub?`${_deqTipo} · ${_deqSub}`
+    :_deqTipo?_deqTipo:'todos los equipos';
+
+  const TH=`background:var(--panel2);color:var(--muted2);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.5rem .7rem;white-space:nowrap`;
+  const TD=`padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.81rem;vertical-align:middle`;
+  const tbody=rows.map(r=>{
+    const cod=r.eq?r.eq.codigo:'(sin equipo)';
+    const dispCell=r.disp!=null
+      ?`<span style="font-family:monospace;font-weight:700;color:${r.disp>=85?'#10b981':r.disp>=70?'#f59e0b':'#ef4444'}">${r.disp.toFixed(1)}%</span>`
+      :'<span style="color:var(--muted2)">—</span>';
+    return`<tr style="cursor:pointer" title="Doble clic: detalle diario de ${cod}" ondblclick="openDrillDown('${r.eqId}','${cod}','#06b6d4','mes')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <td style="${TD}"><span class="mono" style="font-size:.74rem;font-weight:700;color:#06b6d4">${cod}</span></td>
+      <td style="${TD}"><div style="font-weight:600">${r.eq?(r.eq.nombre||''):'—'}</div><div style="font-size:.68rem;color:var(--muted2)">${r.eq?(r.eq.sub||''):''}</div></td>
+      <td style="${TD};text-align:center;font-family:monospace">${r.n}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${fmt1(r.ef)} h</td>
+      <td style="${TD};text-align:right;font-family:monospace;color:${r.im>0?'#ef4444':'var(--muted2)'}">${r.im>0?fmt1(r.im)+' h':'—'}</td>
+      <td style="${TD};text-align:right">${dispCell}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-size:.76rem">${fmt1(r.prom)} <span style="font-size:.62rem;color:var(--muted2)">h/día</span></td>
+      <td style="${TD};text-align:center;font-family:monospace;font-size:.74rem;color:var(--muted2)">${r.ultima||'—'}</td>
+    </tr>`;
   }).join('');
 
-  return `<div style="display:flex;gap:6px;overflow-x:auto;padding:1.4rem .5rem .2rem;min-height:${H+60}px">${bars}</div>
-    <div style="display:flex;gap:1.2rem;margin-top:.6rem">
-      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:${color};border-radius:2px"></span>Hs Efectivas</span>
-      <span style="font-size:.7rem;color:var(--muted2);display:flex;align-items:center;gap:.35rem"><span style="display:inline-block;width:11px;height:11px;background:#ef4444;border-radius:2px"></span>Hs Inoperativas</span>
+  el.innerHTML=`
+    <div class="ph">
+      <div class="ph-title" style="color:#06b6d4">📊 Dashboard – Control de Equipos</div>
+      <div class="ph-sub">Horas efectivas por tipo, subtipo y equipo · filtros dinámicos</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
+      <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
+      <div style="display:flex;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button onclick="_deqNav(-1)" style="background:none;border:none;border-right:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">‹</button>
+        <span style="font-weight:800;font-size:.88rem;color:var(--text);min-width:130px;text-align:center;padding:0 .5rem">${per.label}</span>
+        <button onclick="_deqNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
+      </div>
+    </div>
+    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>
+        ${chipTodos}${chipTipos}
+      </div>
+      ${chipSubs}
+      ${chipEquipos}
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-head"><span class="card-title">⏱️ Horas efectivas por día — <span style="color:#06b6d4">${tituloSel}</span>${selEq?' <span style="font-size:.68rem;color:var(--muted2)">(☀ Día / 🌙 Noche)</span>':''}</span></div>
+      <div class="card-body" style="height:260px;position:relative">
+        ${partes.length?'<canvas id="deqChart"></canvas>':'<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en este período</div>'}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Horas por Equipo</span><span style="font-size:.7rem;color:var(--muted2)">Doble clic en una fila para ver el detalle diario del equipo</span></div>
+      <div class="card-body"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:850px">
+        <thead><tr>
+          <th style="${TH}">Código</th><th style="${TH}">Equipo</th>
+          <th style="${TH};text-align:center">Partes</th>
+          <th style="${TH};text-align:right">Hs Efectivas</th>
+          <th style="${TH};text-align:right">Hs Inop.</th>
+          <th style="${TH};text-align:right">Disponibilidad</th>
+          <th style="${TH};text-align:right">Prom. Diario</th>
+          <th style="${TH};text-align:center">Últ. Parte</th>
+        </tr></thead>
+        <tbody>${tbody||`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en este período</td></tr>`}</tbody>
+      </table></div></div>
     </div>`;
+
+  // Gráfico diario: barras totales · con equipo seleccionado → dos barras ☀ Día / 🌙 Noche
+  if(partes.length&&typeof Chart!=='undefined'){
+    if(_deqChart){_deqChart.destroy();_deqChart=null;}
+    const ctx=document.getElementById('deqChart');
+    if(ctx){
+      const datasets=selEq
+        ?[
+          {label:'☀ Día',data:serieDia,backgroundColor:'rgba(245,158,11,.75)',borderColor:'#f59e0b',borderWidth:1,borderRadius:3},
+          {label:'🌙 Noche',data:serieNoche,backgroundColor:'rgba(99,102,241,.75)',borderColor:'#6366f1',borderWidth:1,borderRadius:3}
+        ]
+        :[{label:'Horas efectivas',data:serieTotal,backgroundColor:'rgba(6,182,212,.55)',borderColor:'#06b6d4',borderWidth:1,borderRadius:3}];
+      _deqChart=new Chart(ctx,{
+        type:'bar',
+        data:{labels,datasets},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:!!selEq,position:'bottom',labels:{color:'#8b93a7',font:{size:10},boxWidth:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+' h'}}},
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:9},maxRotation:60,minRotation:45},grid:{display:false}},
+            y:{ticks:{color:'#8b93a7',font:{size:10},callback:v=>v+' h'},grid:{color:'rgba(139,147,167,.12)'},beginAtZero:true}
+          }
+        }
+      });
+    }
+  }
 }
 
 // ══ DRILL-DOWN HORAS DIARIAS ══
