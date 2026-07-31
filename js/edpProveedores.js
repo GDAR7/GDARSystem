@@ -11,6 +11,18 @@ let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
 let _edpDescManual=[];
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
+
+// En el EDP solo va UNA actividad por día: se corta en el primer separador real
+// (punto seguido de espacio, o guion entre palabras). Las abreviaturas tipo "D.P." no cortan.
+function _edpDesc1(txt){
+  let s=String(txt||'').trim().replace(/^[-–—•\s]+/,''); // quita la viñeta inicial
+  if(!s)return'—';
+  const m=s.match(/^(.*?\.)\s+\S/);        // hasta el primer punto que separa frases
+  let out=m?m[1]:s;
+  const g=out.search(/\s[-–—]\s*\S/);      // guion que introduce otra actividad
+  if(g>0)out=out.slice(0,g);
+  return out.trim()||'—';
+}
 const _edpN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 // Al re-renderizar se recrea el panel completo, así que hay que devolver el foco y el cursor
@@ -73,7 +85,7 @@ function _edpHoras(eq,desde,hasta){
     const inop=/^INOPERATIVO/i.test(condicion);
     // Valorización por días: cada parte OPERATIVO cuenta 1.00 · INOPERATIVO cuenta 0
     const trabajo=inop?0:1;
-    return{fecha:p.fecha,turno:p.turno||'—',desc:p.act||'—',hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
+    return{fecha:p.fecha,turno:p.turno||'—',desc:_edpDesc1(p.act),hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
   });
   const horasMotor=dias.reduce((s,d)=>s+d.motor,0);
   const horasCal=dias.reduce((s,d)=>s+d.cal,0);
