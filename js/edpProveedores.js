@@ -13,7 +13,24 @@ let _edpDescManual=[];
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
 const _edpN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-function _edpSet(campo,val){
+// Al re-renderizar se recrea el panel completo, así que hay que devolver el foco y el cursor
+// al campo que se estaba escribiendo; el debounce evita reconstruir en cada tecla.
+let _edpTimer=null;
+function _edpRerender(inmediato){
+  clearTimeout(_edpTimer);
+  const run=()=>{
+    const a=document.activeElement;
+    const id=a&&a.id&&a.id.startsWith('edp_')?a.id:null;
+    const ss=id&&a.type!=='number'?a.selectionStart:null,se=id&&a.type!=='number'?a.selectionEnd:null;
+    rEdpProveedores();
+    if(id){
+      const el=document.getElementById(id);
+      if(el){el.focus();if(ss!=null&&el.setSelectionRange)try{el.setSelectionRange(ss,se);}catch(e){}}
+    }
+  };
+  if(inmediato)run();else _edpTimer=setTimeout(run,350);
+}
+function _edpSet(campo,val,inmediato){
   if(campo==='eq')_edpEqId=val;
   else if(campo==='num')_edpNum=val;
   else if(campo==='desde')_edpDesde=val;
@@ -28,7 +45,7 @@ function _edpSet(campo,val){
   else if(campo==='acumAnt')_edpAcumAnt=+val||0;
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
-  rEdpProveedores();
+  _edpRerender(inmediato);
 }
 function _edpAddDescManual(){
   _edpDescManual.push({desc:'',und:'und',cant:0,precio:0});
@@ -37,7 +54,7 @@ function _edpAddDescManual(){
 function _edpSetDescManual(i,campo,val){
   const r=_edpDescManual[i];if(!r)return;
   r[campo]=(campo==='cant'||campo==='precio')?(+val||0):val;
-  rEdpProveedores();
+  _edpRerender();
 }
 function _edpDelDescManual(i){
   _edpDescManual.splice(i,1);
@@ -104,15 +121,15 @@ function rEdpProveedores(){
   const filtroBar=`<div class="card" style="margin-bottom:.9rem">
     <div class="card-head"><span class="card-title">🧾 Datos del EDP</span></div>
     <div class="card-body"><div class="fg-grid">
-      <div class="fg"><label>Equipo</label><select onchange="_edpSet('eq',this.value)" style="${inpS}">
+      <div class="fg"><label>Equipo</label><select id="edp_eq" onchange="_edpSet('eq',this.value,1)" style="${inpS}">
         <option value="">— Seleccionar —</option>
         ${eqs.map(e=>`<option value="${e.id}" ${e.id===+_edpEqId?'selected':''}>${e.codigo} — ${(e.nombre||'').split(' ').slice(0,4).join(' ')}${e.proveedor?' · '+e.proveedor:''}</option>`).join('')}
       </select></div>
-      <div class="fg"><label>N° EDP</label><input value="${_edpNum}" placeholder="05" oninput="_edpSet('num',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Desde</label><input type="date" class="date-ic-azul" value="${_edpDesde}" onchange="_edpSet('desde',this.value)" style="${inpS};color-scheme:dark"></div>
-      <div class="fg"><label>Hasta</label><input type="date" class="date-ic-azul" value="${_edpHasta}" onchange="_edpSet('hasta',this.value)" style="${inpS};color-scheme:dark"></div>
-      <div class="fg"><label>Cliente</label><input value="${_edpCliente}" placeholder="Nombre del cliente final" oninput="_edpSet('cliente',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>RUC Cliente</label><input value="${_edpRuc}" placeholder="20xxxxxxxxx" oninput="_edpSet('ruc',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>N° EDP</label><input id="edp_num" value="${_edpNum}" placeholder="05" oninput="_edpSet('num',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Desde</label><input type="date" class="date-ic-azul" id="edp_desde" value="${_edpDesde}" onchange="_edpSet('desde',this.value,1)" style="${inpS};color-scheme:dark"></div>
+      <div class="fg"><label>Hasta</label><input type="date" class="date-ic-azul" id="edp_hasta" value="${_edpHasta}" onchange="_edpSet('hasta',this.value,1)" style="${inpS};color-scheme:dark"></div>
+      <div class="fg"><label>Cliente</label><input id="edp_cliente" value="${_edpCliente}" placeholder="Nombre del cliente final" oninput="_edpSet('cliente',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>RUC Cliente</label><input id="edp_ruc" value="${_edpRuc}" placeholder="20xxxxxxxxx" oninput="_edpSet('ruc',this.value)" style="${inpS}"></div>
     </div></div>
   </div>`;
 
@@ -146,21 +163,21 @@ function rEdpProveedores(){
   const editBar=`<div class="card" style="margin-bottom:.9rem">
     <div class="card-head"><span class="card-title">⚙️ Ajustes antes de imprimir</span></div>
     <div class="card-body"><div class="fg-grid">
-      <div class="fg"><label>Tarifa Equipo ${_sim} (${tarifaUn})</label><input type="number" step="0.01" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
-      ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
-      <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Acumulado Anterior ${_sim}</label><input type="number" step="0.01" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Tarifa Equipo ${_sim} (${tarifaUn})</label><input type="number" step="0.01" id="edp_tarifa" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
+      ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" id="edp_hmin" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
+      <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" id="edp_tatm" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" id="edp_cantpres" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Acumulado Anterior ${_sim}</label><input type="number" step="0.01" id="edp_acum" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaprov" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
     </div>
     <div style="margin-top:.6rem">
       <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Descuento manual</button>
       ${_edpDescManual.map((r,i)=>`<div style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem">
-        <input placeholder="Descripción" value="${r.desc}" oninput="_edpSetDescManual(${i},'desc',this.value)" style="${inpS};flex:1">
-        <input placeholder="und" value="${r.und}" oninput="_edpSetDescManual(${i},'und',this.value)" style="${inpS};width:70px">
-        <input type="number" placeholder="Cant." value="${r.cant}" oninput="_edpSetDescManual(${i},'cant',this.value)" style="${inpS};width:80px">
-        <input type="number" placeholder="Precio" value="${r.precio}" oninput="_edpSetDescManual(${i},'precio',this.value)" style="${inpS};width:90px">
+        <input id="edp_dmdesc_${i}" placeholder="Descripción" value="${r.desc}" oninput="_edpSetDescManual(${i},'desc',this.value)" style="${inpS};flex:1">
+        <input id="edp_dmund_${i}" placeholder="und" value="${r.und}" oninput="_edpSetDescManual(${i},'und',this.value)" style="${inpS};width:70px">
+        <input id="edp_dmcant_${i}" type="number" placeholder="Cant." value="${r.cant}" oninput="_edpSetDescManual(${i},'cant',this.value)" style="${inpS};width:80px">
+        <input id="edp_dmprecio_${i}" type="number" placeholder="Precio" value="${r.precio}" oninput="_edpSetDescManual(${i},'precio',this.value)" style="${inpS};width:90px">
         <button onclick="_edpDelDescManual(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.8rem">✕</button>
       </div>`).join('')}
     </div>
