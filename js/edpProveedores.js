@@ -168,7 +168,15 @@ function rEdpProveedores(){
       ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" id="edp_hmin" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
       <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" id="edp_tatm" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" id="edp_cantpres" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Acumulado Anterior ${_sim}</label><input type="number" step="0.01" id="edp_acum" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
+      ${(()=>{
+        // Sugerencia: suma de los EDP ya guardados de este equipo (excluyendo el que se está editando)
+        const prevGuardado=(DB.edpProveedores||[]).find(r=>+r.eqId===eq.id&&String(r.numEdp).trim()===_edpNum.trim());
+        const sug=_edpAcumDe(eq.id,prevGuardado?prevGuardado.id:null);
+        return`<div class="fg"><label>Acumulado Anterior ${_sim}</label>
+          <input type="number" step="0.01" id="edp_acum" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}">
+          ${sug>0&&Math.abs(sug-_edpAcumAnt)>0.01?`<button onclick="_edpSet('acumAnt',${sug},1)" style="margin-top:.2rem;font-size:.62rem;padding:.15rem .45rem;border-radius:5px;border:1px solid #10b98150;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;align-self:flex-start">↺ Usar ${_sim} ${_edpN2(sug)} (EDPs guardados)</button>`:''}
+        </div>`;
+      })()}
       <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaprov" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
     </div>
@@ -182,11 +190,154 @@ function rEdpProveedores(){
         <button onclick="_edpDelDescManual(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.8rem">✕</button>
       </div>`).join('')}
     </div>
-    <div style="margin-top:.7rem"><button onclick="_edpPrint()" style="font-size:.78rem;padding:.4rem .9rem;border-radius:6px;border:none;background:#8b5cf6;color:#fff;cursor:pointer;font-weight:700">🖨 Imprimir / PDF</button></div>
+    <div style="margin-top:.7rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button onclick="_edpPrint()" style="font-size:.78rem;padding:.4rem .9rem;border-radius:6px;border:none;background:#8b5cf6;color:#fff;cursor:pointer;font-weight:700">🖨 Imprimir / PDF</button>
+      <button onclick="_edpGuardar()" style="font-size:.78rem;padding:.4rem .9rem;border-radius:6px;border:none;background:#10b981;color:#fff;cursor:pointer;font-weight:700">💾 Guardar EDP</button>
+    </div>
     </div>
   </div>`;
 
-  pg.innerHTML=filtroBar+editBar+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+}
+
+// ══ EDPs GUARDADOS ══════════════════════════════════════════════════════════
+// Se guarda el resumen en columnas (para sumar/filtrar) + un snapshot JSON del detalle,
+// para que el documento emitido no cambie aunque después se corrijan partes o auxilios.
+
+// Suma de EDPs anteriores del mismo equipo (para la columna ACUMULADO ACTUAL)
+function _edpAcumDe(eqId,excluirId){
+  return +(DB.edpProveedores||[])
+    .filter(r=>+r.eqId===+eqId&&r.estado!=='Anulado'&&(!excluirId||+r.id!==+excluirId))
+    .reduce((s,r)=>s+(+r.subtotal||0),0).toFixed(2);
+}
+
+function _edpListaHtml(eq){
+  const rows=(DB.edpProveedores||[]).filter(r=>+r.eqId===+eq.id)
+    .sort((a,b)=>(b.desde||'').localeCompare(a.desde||''));
+  if(!rows.length)return'';
+  const TH='background:var(--panel2);color:var(--muted2);font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.4rem .55rem;white-space:nowrap';
+  const TD='padding:.4rem .55rem;border-bottom:1px solid var(--border);font-size:.76rem;white-space:nowrap';
+  const sim=r=>r.moneda==='DOLARES'?'US$':r.moneda==='EUROS'?'€':'S/';
+  return`<div class="card" style="margin-bottom:.9rem">
+    <div class="card-head"><span class="card-title">📚 EDPs guardados de ${eq.codigo}</span><span style="font-size:.7rem;color:var(--muted2)">${rows.length} registro${rows.length===1?'':'s'}</span></div>
+    <div class="card-body"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:820px">
+      <thead><tr>
+        <th style="${TH}">N° EDP</th><th style="${TH}">Período</th><th style="${TH};text-align:right">Cant.</th>
+        <th style="${TH};text-align:right">Equipo</th><th style="${TH};text-align:right">Descuentos</th>
+        <th style="${TH};text-align:right">Neto</th><th style="${TH};text-align:right">Total</th>
+        <th style="${TH};text-align:right">A Abonar</th><th style="${TH}">Estado</th><th style="${TH}"></th>
+      </tr></thead>
+      <tbody>${rows.map(r=>{
+        const anul=r.estado==='Anulado';
+        const col=anul?'#ef4444':r.estado==='Pagado'?'#10b981':r.estado==='Aprobado'?'#3b82f6':'#f59e0b';
+        return`<tr style="${anul?'opacity:.55':''}">
+          <td style="${TD};font-weight:800;color:var(--alm)">${r.numEdp||'—'}</td>
+          <td style="${TD};font-family:monospace;font-size:.7rem">${_edpFmtDMY(r.desde)} → ${_edpFmtDMY(r.hasta)}</td>
+          <td style="${TD};text-align:right;font-family:monospace">${_edpN2(r.cantEquipo)} ${r.tarifaUn==='HM'?'h':r.tarifaUn==='DIA'?'d':''}</td>
+          <td style="${TD};text-align:right;font-family:monospace">${sim(r)} ${_edpN2(r.montoEquipo)}</td>
+          <td style="${TD};text-align:right;font-family:monospace;color:${+r.montoDesc?'#ef4444':'var(--muted2)'}">${+r.montoDesc?sim(r)+' ('+_edpN2(r.montoDesc)+')':'—'}</td>
+          <td style="${TD};text-align:right;font-family:monospace">${sim(r)} ${_edpN2(r.subtotal)}</td>
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:700">${sim(r)} ${_edpN2(r.total)}</td>
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:800;color:#10b981">${sim(r)} ${_edpN2(r.aAbonar)}</td>
+          <td style="${TD}"><span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}55;font-size:.62rem">${r.estado||'Emitido'}</span></td>
+          <td style="${TD};white-space:nowrap">
+            <button onclick="_edpCargar(${r.id})" title="Cargar en el formulario" style="background:none;border:1px solid #3b82f650;border-radius:5px;color:#3b82f6;cursor:pointer;font-size:.72rem;padding:.15rem .4rem">↩ Cargar</button>
+            ${anul?'':`<button onclick="_edpEstado(${r.id})" title="Cambiar estado" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.72rem;padding:.15rem .4rem;margin-left:.2rem">⇄</button>`}
+            <button onclick="_edpDel(${r.id})" title="Eliminar" style="background:none;border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.72rem;padding:.15rem .4rem;margin-left:.2rem">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div></div>
+  </div>`;
+}
+
+async function _edpGuardar(){
+  const eq=(DB.equipos||[]).find(e=>e.id===+_edpEqId);
+  if(!eq||!_edpDesde||!_edpHasta){toast('Completa equipo y período primero',true);return;}
+  if(!_edpNum.trim()){toast('Ingresa el N° de EDP',true);return;}
+
+  const H=_edpHoras(eq,_edpDesde,_edpHasta);
+  const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
+  const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
+  const tarifaUn=eq.tarifaUn||'HM';
+  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  const montoEquipo=+(cantEquipo*tarifa).toFixed(2);
+  const descRows=[
+    ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
+    ...(D.horasAtencion>0?[{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:+D.horasAtencion.toFixed(2),precio:_edpTarifaAtencion,total:+(D.horasAtencion*_edpTarifaAtencion).toFixed(2)}]:[]),
+    ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
+  ];
+  const montoDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
+  const subtotal=+(montoEquipo-montoDesc).toFixed(2);
+  const igv=+(subtotal*0.18).toFixed(2);
+  const total=+(subtotal+igv).toFixed(2);
+  const detraccion=+(total*0.10).toFixed(2);
+  const aAbonar=+(total-detraccion).toFixed(2);
+
+  // ¿Ya existe un EDP con ese N° para este equipo? → se actualiza en vez de duplicar
+  const prev=(DB.edpProveedores||[]).find(r=>+r.eqId===eq.id&&String(r.numEdp).trim()===_edpNum.trim());
+  if(prev&&!confirm(`Ya existe el EDP N° ${_edpNum} de ${eq.codigo}.\n\n¿Reemplazarlo con los datos actuales?`))return;
+
+  const rec={
+    id:prev?prev.id:nid('edpp'),
+    eqId:eq.id,proveedor:eq.proveedor||'',numEdp:_edpNum.trim(),
+    desde:_edpDesde,hasta:_edpHasta,
+    moneda:eq.moneda||'SOLES',tarifaUn,tarifa,
+    cantEquipo,montoEquipo,montoDesc,subtotal,igv,total,detraccion,aAbonar,
+    estado:prev?prev.estado||'Emitido':'Emitido',
+    detalle:{dias:H.dias,horasMinimas:H.horasMinimas,horasEfectivas:H.horasEfectivas,
+      horasAPagar:H.horasAPagar,diasTrabajados:H.diasTrabajados,dispMec:H.dispMec,
+      descRows,insumos:D.insumos,atenciones:D.atenciones,
+      cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
+      firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,
+      cliente:_edpCliente,rucCliente:_edpRuc},
+    creadoPor:CU?CU.nombre:'',creadoEn:new Date().toISOString()
+  };
+  const e=await supaUpsert('edpProveedores',rec); // ya muestra su propio toast si falla
+  if(e)return;
+  if(prev)Object.assign(prev,rec);
+  else(DB.edpProveedores=DB.edpProveedores||[]).push(rec);
+  toast(`✓ EDP N° ${rec.numEdp} guardado`);
+  rEdpProveedores();
+}
+
+function _edpCargar(id){
+  const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);if(!r)return;
+  _edpEqId=String(r.eqId);_edpNum=r.numEdp||'';_edpDesde=r.desde||'';_edpHasta=r.hasta||'';
+  _edpTarifaOv=+r.tarifa||0;
+  const d=r.detalle||{};
+  _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
+  _edpCantPres=d.cantPres!=null?d.cantPres:null;
+  _edpAcumAnt=+d.acumAnt||0;
+  _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';
+  if(d.cliente)_edpCliente=d.cliente;
+  if(d.rucCliente)_edpRuc=d.rucCliente;
+  _edpDescManual=[];
+  rEdpProveedores();
+  toast('EDP N° '+r.numEdp+' cargado');
+}
+
+async function _edpEstado(id){
+  const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);if(!r)return;
+  const ESTADOS=['Emitido','Aprobado','Pagado','Anulado'];
+  const actual=r.estado||'Emitido';
+  const v=prompt(`Estado del EDP N° ${r.numEdp}:\n\n${ESTADOS.join(' · ')}`,actual);
+  if(v===null)return;
+  const nuevo=ESTADOS.find(x=>x.toLowerCase()===v.trim().toLowerCase());
+  if(!nuevo){toast('Estado no válido',true);return;}
+  r.estado=nuevo;
+  if(await supaUpsert('edpProveedores',r))return;
+  toast('Estado: '+nuevo);
+  rEdpProveedores();
+}
+
+async function _edpDel(id){
+  const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);if(!r)return;
+  if(!confirm(`¿Eliminar el EDP N° ${r.numEdp} de forma permanente?`))return;
+  await supaDelete('edpProveedores',id);
+  DB.edpProveedores=(DB.edpProveedores||[]).filter(x=>+x.id!==+id);
+  toast('EDP eliminado');
+  rEdpProveedores();
 }
 
 // HTML compartido entre la vista previa (in-app) y la impresión — página 1 (EDP) + página 2 (Consolidado de Horas)
@@ -290,7 +441,7 @@ function _edpDocHtml(eq,H,D,F){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
       ${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Moneda',MONLBL)}
-      ${esDia?'':infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
+      <div style="grid-column:1/-1"><strong style="display:block;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.05em">Equipo</strong><span style="font-size:11px;font-weight:700;color:#111">${eqDesc}</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
       ${theadP1}
