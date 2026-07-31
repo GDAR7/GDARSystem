@@ -198,6 +198,14 @@ function _edpDocHtml(eq,H,D,F){
   const MON=eq.moneda||'SOLES';
   const SIM=MON==='DOLARES'?'US$':MON==='EUROS'?'€':'S/';
   const MONLBL=MON==='DOLARES'?'DÓLARES (US$)':MON==='EUROS'?'EUROS (€)':'SOLES';
+  // Identificación del equipo: placa en vehículos con placa · serie adicional en Línea Amarilla
+  const _sub=String(eq.sub||eq.tipo||'').toUpperCase();
+  const _conPlaca=/CAMIONETA|COASTER|CISTERNA|VOLQUETE/.test(_sub);
+  const _esLA=String(eq.tipo||'').toUpperCase().includes('AMARILLA');
+  const idExtra=_esLA
+    ?(eq.numSerie?'Serie: '+eq.numSerie:'')            // Línea Amarilla: solo serie, no lleva placa
+    :(_conPlaca&&eq.placa?'Placa: '+eq.placa:'');
+  const eqDesc=`${eq.codigo} — ${eq.nombre||''}${idExtra?' · '+idExtra:''}`;
   const infoCell=(l,v)=>`<div><strong style="display:block;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.05em">${l}</strong><span style="font-size:11px;font-weight:600;color:#111">${v||'—'}</span></div>`;
   const TH=`background:${HDR};color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase;text-align:center`;
   const TD=`border:1px solid #cbd5e1;padding:3px 6px;font-size:10px;color:#111`;
@@ -235,7 +243,7 @@ function _edpDocHtml(eq,H,D,F){
 
   const filaEq=`<tr>
     <td style="${TD};text-align:center">1.01</td>
-    <td style="${TD};font-weight:700">${eq.codigo} — ${eq.nombre||''}</td>
+    <td style="${TD};font-weight:700">${eqDesc}</td>
     <td style="${TD};text-align:center">${F.tarifaUn}</td>
     <td style="${TD};text-align:right">${cantPres!=null?_edpN2(cantPres):''}</td>
     <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
@@ -384,7 +392,7 @@ function _edpDocHtml(eq,H,D,F){
   }
 
   const pagina2=`<div style="font-family:Arial,sans-serif;color:#111">
-    ${headerHoja(`CONSOLIDADO DE ${esDia?'DÍAS':'HORAS'} TRABAJADOS`,`${eq.codigo} — ${eq.nombre||''} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}`)}
+    ${headerHoja(`VALORIZACIÓN DE ${esDia?'DÍAS':'HORAS'} TRABAJADOS`,`${eqDesc} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}`)}
     ${tablaPagina2}
     ${resumenPagina2}
   </div>`;
@@ -454,7 +462,7 @@ function _edpDocHtml(eq,H,D,F){
       </table>`:'';
 
     pagina3=`<div style="font-family:Arial,sans-serif;color:#111">
-      ${headerHoja('DETALLE DE DESCUENTOS',`${eq.codigo} — ${eq.nombre||''} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)} · EDP N° ${_edpNum||'—'}`)}
+      ${headerHoja('DETALLE DE DESCUENTOS',`${eqDesc} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)} · EDP N° ${_edpNum||'—'}`)}
       ${secIns}${secAten}${secMan}
       <table style="width:100%;border-collapse:collapse;margin-top:8px;max-width:420px;margin-left:auto">
         <tbody>
