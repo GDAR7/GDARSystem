@@ -112,7 +112,6 @@ function rEdpProveedores(){
       <div class="fg"><label>Hasta</label><input type="date" class="date-ic-azul" value="${_edpHasta}" onchange="_edpSet('hasta',this.value)" style="${inpS};color-scheme:dark"></div>
       <div class="fg"><label>Cliente</label><input value="${_edpCliente}" placeholder="Nombre del cliente final" oninput="_edpSet('cliente',this.value)" style="${inpS}"></div>
       <div class="fg"><label>RUC Cliente</label><input value="${_edpRuc}" placeholder="20xxxxxxxxx" oninput="_edpSet('ruc',this.value)" style="${inpS}"></div>
-      <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input value="${_edpDireccion}" placeholder="Dirección del cliente" oninput="_edpSet('direccion',this.value)" style="${inpS}"></div>
     </div></div>
   </div>`;
 
@@ -257,8 +256,8 @@ function _edpDocHtml(eq,H,D,F){
     ${headerHoja(`EDP N° ${_edpNum||'—'}`,`CONTRATA: ${eq.proveedor||'—'}`)}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
-      ${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Moneda','SOLES')}
-      ${infoCell('Dirección',_edpDireccion)}${esDia?'':infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
+      ${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Moneda','SOLES')}
+      ${esDia?'':infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
       ${theadP1}
@@ -295,7 +294,7 @@ function _edpDocHtml(eq,H,D,F){
         {tit:'ECOSERMO',rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco}
       ].map(f=>`<div style="border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px 8px">
         <div style="font-size:10px;font-weight:800;color:${AZ};border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:2px">${f.tit}</div>
-        <div style="height:52px"></div>
+        <div style="height:88px"></div>
         <div style="border-top:1.2px solid #333;margin:0 14px 4px"></div>
         <div style="text-align:center;font-size:9.5px;font-weight:700;color:#111;min-height:12px">${f.nom||''}</div>
         <div style="text-align:center;font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">${f.rol}</div>
