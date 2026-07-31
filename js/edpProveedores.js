@@ -66,7 +66,8 @@ function _edpHoras(eq,desde,hasta){
   const diasPeriodo=Math.max(1,Math.round((new Date(hasta+'T12:00')-new Date(desde+'T12:00'))/864e5)+1);
   const horasDisp=diasPeriodo*24;
   const dispMec=horasDisp>0?Math.max(0,Math.min(100,(horasDisp-horasInop)/horasDisp*100)):100;
-  const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.hrsMinVenta||0);
+  // Horas mínimas del CONTRATO CON EL PROVEEDOR (campo "Horas Mínimas" del Máster), no las de venta al cliente
+  const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.horasMinimas||0);
   const horasMinimasAPagar=Math.max(0,+(horasMinimas-horasEfectivas).toFixed(2));
   const horasAPagar=Math.max(horasMinimas,horasEfectivas);
   const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
