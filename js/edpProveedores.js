@@ -142,7 +142,8 @@ function rEdpProveedores(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
+  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const _mon=eq.moneda||'SOLES';
   const _sim=_mon==='DOLARES'?'US$':_mon==='EUROS'?'€':'S/';
@@ -488,7 +489,8 @@ function _edpPrint(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
+  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
