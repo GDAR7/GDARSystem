@@ -249,6 +249,7 @@ function openEquipo(){
    'eqCcg','eqCce','eqCcrn','eqCcmp','eqCcmc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('eqHr').value=0;
   document.getElementById('eqKm').value=0;
+  _eqLogoProvUrl='';_eqLogoProvRender();
   document.getElementById('eqTi').value='Línea Amarilla';
   document.getElementById('eqEst').value='Operativo';
   const sts=document.getElementById('eqSts');if(sts)sts.value='Operativo';
@@ -274,6 +275,33 @@ function eqGoTab(n){
   if(save)save.style.display=n===3||n===4?'':'none';
 }
 const _EQ_BUCKET='Equip_eco26';
+
+// ── Logo del proveedor (se usa en el EDP de Proveedores) ──
+let _eqLogoProvUrl='';
+function _eqLogoProvRender(){
+  const prev=document.getElementById('eqLogoProvPrev');
+  const del=document.getElementById('eqLogoProvDel');
+  if(!prev)return;
+  prev.innerHTML=_eqLogoProvUrl?`<img src="${_eqLogoProvUrl}" style="max-width:100%;max-height:100%;object-fit:contain">`:'—';
+  if(del)del.style.display=_eqLogoProvUrl?'':'none';
+}
+async function eqUploadLogoProv(input){
+  const file=input.files[0];if(!file)return;
+  toast('Subiendo logo...');
+  const ext=(file.name.split('.').pop()||'png').toLowerCase();
+  const path=`proveedores/logos/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const{error}=await supa.storage.from(_EQ_BUCKET).upload(path,file,{upsert:false});
+  if(error){toast('Error al subir: '+error.message,true);input.value='';return;}
+  const{data:{publicUrl}}=supa.storage.from(_EQ_BUCKET).getPublicUrl(path);
+  _eqLogoProvUrl=publicUrl;
+  _eqLogoProvRender();
+  input.value='';
+  toast('✓ Logo cargado — guarda el equipo para conservarlo');
+}
+function eqDelLogoProv(){
+  _eqLogoProvUrl='';
+  _eqLogoProvRender();
+}
 function _renderEqMedia(imagenes,documentos){
   const lock=document.getElementById('eqMediaLock'),content=document.getElementById('eqMediaContent');
   if(!_eqEditId){if(lock)lock.style.display='block';if(content)content.style.display='none';return;}
@@ -393,6 +421,7 @@ function gEquipo(){
     gpsVenc:document.getElementById('eqGpsVenc').value||null,
     proveedor:document.getElementById('eqProv').value,
     rucProveedor:document.getElementById('eqProvRuc').value.trim()||null,
+    logoProveedor:_eqLogoProvUrl||null,
     contacto:document.getElementById('eqCtc').value,
     celular:document.getElementById('eqCel').value,
     correo:document.getElementById('eqCor').value,
@@ -608,6 +637,7 @@ function editEquipo(id){
   // Tab 2
   document.getElementById('eqProv').value=e.proveedor||'';
   document.getElementById('eqProvRuc').value=e.rucProveedor||'';
+  _eqLogoProvUrl=e.logoProveedor||'';_eqLogoProvRender();
   document.getElementById('eqCtc').value=e.contacto||'';
   document.getElementById('eqCel').value=e.celular||'';
   document.getElementById('eqCor').value=e.correo||'';

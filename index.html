@@ -2359,6 +2359,15 @@
         <div id="eqProvDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--mec);border-radius:6px;z-index:999;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px #0006"></div>
       </div>
       <div class="fg"><label>RUC Proveedor</label><input id="eqProvRuc" placeholder="20xxxxxxxxx"></div>
+      <div class="fg">
+        <label>Logo Proveedor</label>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <div id="eqLogoProvPrev" style="width:64px;height:34px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:.55rem;color:var(--muted2)">—</div>
+          <input type="file" id="eqLogoProvInput" accept="image/*" style="display:none" onchange="eqUploadLogoProv(this)">
+          <button type="button" class="btn btn-out btn-sm" style="font-size:.65rem;padding:.25rem .5rem" onclick="document.getElementById('eqLogoProvInput').click()">⬆ Subir</button>
+          <button type="button" id="eqLogoProvDel" class="btn btn-del btn-sm" style="display:none;font-size:.65rem;padding:.25rem .45rem" onclick="eqDelLogoProv()">✕</button>
+        </div>
+      </div>
       <div class="fg"><label>Contacto</label><input id="eqCtc"></div>
       <div class="fg"><label>Celular</label><input id="eqCel"></div>
       <div class="fg"><label>Correo</label><input id="eqCor" type="email"></div>
@@ -2974,14 +2983,14 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=9"></script>
+<script src="js/mantenimiento.js?v=10"></script>
 <script src="js/tareaje.js?v=3"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
 <script src="js/partesDiarios.js?v=1"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=4"></script>
-<script src="js/edpProveedores.js?v=6"></script>
+<script src="js/edpProveedores.js?v=7"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=2"></script>
 <script src="js/pizarra.js"></script>

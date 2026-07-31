@@ -240,15 +240,21 @@ function _edpDocHtml(eq,H,D,F){
 
   const resumen=(l,v,bg)=>`<tr><td style="padding:3px 8px;font-size:10px;color:#334155">${l}</td><td style="padding:3px 8px;text-align:right;font-weight:700;font-size:10px;${bg?'background:'+bg:''}">S/ ${_edpN2(v)}</td></tr>`;
 
-  const pagina1=`<div style="font-family:Arial,sans-serif;color:#111">
-    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:8px;margin-bottom:8px">
-      <img src="${_logoUrl}" style="height:44px;object-fit:contain">
-      <div style="text-align:center;flex:1">
-        <div style="font-size:16px;font-weight:900;color:${AZ}">EDP N° ${_edpNum||'—'}</div>
-        <div style="font-size:10px;color:#64748b">CONTRATA: ${eq.proveedor||'—'}</div>
-      </div>
-      <div style="text-align:right;font-size:9px;color:#64748b">${new Date().toLocaleDateString('es-PE')}</div>
+  // Esquina superior derecha de cada hoja: logo del proveedor (del Máster) o, si no tiene, su nombre
+  const provCorner=eq.logoProveedor
+    ?`<img src="${eq.logoProveedor}" style="height:40px;max-width:150px;object-fit:contain">`
+    :`<div style="font-size:10px;font-weight:800;color:${AZ};max-width:160px;text-align:right">${eq.proveedor||''}</div>`;
+  const headerHoja=(titulo,sub)=>`<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:8px;margin-bottom:8px">
+    <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:16px;font-weight:900;color:${AZ}">${titulo}</div>
+      <div style="font-size:10px;color:#64748b">${sub}</div>
     </div>
+    ${provCorner}
+  </div>`;
+
+  const pagina1=`<div style="font-family:Arial,sans-serif;color:#111">
+    ${headerHoja(`EDP N° ${_edpNum||'—'}`,`CONTRATA: ${eq.proveedor||'—'}`)}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
       ${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Moneda','SOLES')}
@@ -286,7 +292,7 @@ function _edpDocHtml(eq,H,D,F){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:26px;page-break-inside:avoid">
       ${[
         {tit:eq.proveedor||'PROVEEDOR',rol:'REPRESENTANTE DEL PROVEEDOR',nom:_edpFirmaProv},
-        {tit:'ECOSERMO',rol:'REPRESENTANTE DE ECOSERMO',nom:_edpFirmaEco}
+        {tit:'ECOSERMO',rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco}
       ].map(f=>`<div style="border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px 8px">
         <div style="font-size:10px;font-weight:800;color:${AZ};border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:2px">${f.tit}</div>
         <div style="height:52px"></div>
@@ -355,11 +361,7 @@ function _edpDocHtml(eq,H,D,F){
   }
 
   const pagina2=`<div style="font-family:Arial,sans-serif;color:#111">
-    <div style="text-align:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:900;color:${AZ}">CONSOLIDADO DE ${esDia?'DÍAS':'HORAS'} TRABAJADOS</div>
-      <div style="font-size:10px;color:#2563eb;font-weight:700">${eq.codigo} — ${eq.nombre||''} · ${eq.proveedor||''}</div>
-      <div style="font-size:9px;color:#64748b">Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}</div>
-    </div>
+    ${headerHoja(`CONSOLIDADO DE ${esDia?'DÍAS':'HORAS'} TRABAJADOS`,`${eq.codigo} — ${eq.nombre||''} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)}`)}
     ${tablaPagina2}
     ${resumenPagina2}
   </div>`;
@@ -429,11 +431,7 @@ function _edpDocHtml(eq,H,D,F){
       </table>`:'';
 
     pagina3=`<div style="font-family:Arial,sans-serif;color:#111">
-      <div style="text-align:center;margin-bottom:6px">
-        <div style="font-size:13px;font-weight:900;color:${AZ}">DETALLE DE DESCUENTOS</div>
-        <div style="font-size:10px;color:#2563eb;font-weight:700">${eq.codigo} — ${eq.nombre||''} · ${eq.proveedor||''}</div>
-        <div style="font-size:9px;color:#64748b">Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)} · EDP N° ${_edpNum||'—'}</div>
-      </div>
+      ${headerHoja('DETALLE DE DESCUENTOS',`${eq.codigo} — ${eq.nombre||''} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)} · EDP N° ${_edpNum||'—'}`)}
       ${secIns}${secAten}${secMan}
       <table style="width:100%;border-collapse:collapse;margin-top:8px;max-width:420px;margin-left:auto">
         <tbody>
