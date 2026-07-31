@@ -8,6 +8,8 @@ let _edpTarifaOv=null, _edpHminOv=null, _edpTarifaAtencion=0;
 let _edpCantPres=null;   // Cantidad contractual (columna PRESUPUESTO) — opcional
 let _edpAcumAnt=0;       // Total valorizado en EDP anteriores (para ACUMULADO ACTUAL)
 let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
+let _edpFirmaEcoId=null;               // Firma virtual (imagen) del residente para el cajetín ECOSERMO
+const _EDP_FIRMA_BUCKET='Equip_eco26'; // se reusa el bucket público de equipos, carpeta firmas/
 let _edpDescManual=[];
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
@@ -57,7 +59,52 @@ function _edpSet(campo,val,inmediato){
   else if(campo==='acumAnt')_edpAcumAnt=+val||0;
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
+  else if(campo==='firmaEcoId'){
+    _edpFirmaEcoId=val?+val:null;
+    const f=(DB.firmas||[]).find(x=>+x.id===+val);
+    if(f&&f.nombre)_edpFirmaEco=f.nombre; // al elegir la firma se autocompleta el nombre
+  }
   _edpRerender(inmediato);
+}
+
+// ── Firmas virtuales (imagen) reutilizables ──
+function _edpFirmaSel(){return _edpFirmaEcoId?(DB.firmas||[]).find(f=>+f.id===+_edpFirmaEcoId):null;}
+function _edpSubirFirma(){
+  let inp=document.getElementById('_edpFirmaInput');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.id='_edpFirmaInput';inp.type='file';inp.accept='image/*';inp.style.display='none';
+    inp.addEventListener('change',_edpFirmaOnFile);
+    document.body.appendChild(inp);
+  }
+  inp.value='';inp.click();
+}
+async function _edpFirmaOnFile(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const nombre=(prompt('Nombre del firmante (aparecerá bajo la línea):',_edpFirmaEco||'')||'').trim();
+  if(!nombre){toast('Se necesita el nombre del firmante',true);return;}
+  toast('Subiendo firma...');
+  const ext=(file.name.split('.').pop()||'png').toLowerCase();
+  const path=`firmas/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const{error}=await supa.storage.from(_EDP_FIRMA_BUCKET).upload(path,file,{upsert:false});
+  if(error){toast('Error al subir: '+error.message,true);return;}
+  const{data:{publicUrl}}=supa.storage.from(_EDP_FIRMA_BUCKET).getPublicUrl(path);
+  const rec={id:nid('frm'),rol:'RESIDENTE',nombre,imgUrl:publicUrl,imgPath:path,creadoEn:new Date().toISOString()};
+  if(await supaUpsert('firmas',rec))return;
+  (DB.firmas=DB.firmas||[]).push(rec);
+  _edpFirmaEcoId=rec.id;_edpFirmaEco=nombre;
+  toast('✓ Firma guardada');
+  rEdpProveedores();
+}
+async function _edpDelFirma(){
+  const f=_edpFirmaSel();if(!f)return;
+  if(!confirm(`¿Eliminar la firma de ${f.nombre}?`))return;
+  if(f.imgPath)await supa.storage.from(_EDP_FIRMA_BUCKET).remove([f.imgPath]);
+  await supaDelete('firmas',f.id);
+  DB.firmas=(DB.firmas||[]).filter(x=>+x.id!==+f.id);
+  _edpFirmaEcoId=null;
+  toast('Firma eliminada');
+  rEdpProveedores();
 }
 function _edpAddDescManual(){
   _edpDescManual.push({desc:'',und:'und',cant:0,precio:0});
@@ -191,6 +238,18 @@ function rEdpProveedores(){
       })()}
       <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaprov" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Firma virtual del Residente (se imprime en el cajetín de ECOSERMO)</label>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <select id="edp_firmaimg" onchange="_edpSet('firmaEcoId',this.value,1)" style="${inpS};min-width:200px">
+            <option value="">— Sin firma virtual —</option>
+            ${(DB.firmas||[]).map(f=>`<option value="${f.id}" ${+_edpFirmaEcoId===+f.id?'selected':''}>${f.nombre}</option>`).join('')}
+          </select>
+          <button onclick="_edpSubirFirma()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid #3b82f650;background:rgba(59,130,246,.1);color:#3b82f6;cursor:pointer;font-weight:700">⬆ Subir firma</button>
+          ${_edpFirmaSel()?`<img src="${_edpFirmaSel().imgUrl}" style="height:38px;max-width:150px;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:5px;padding:2px">
+            <button onclick="_edpDelFirma()" title="Eliminar firma" style="font-size:.72rem;padding:.3rem .5rem;border-radius:6px;border:1px solid #ef444450;background:transparent;color:#ef4444;cursor:pointer">🗑</button>`:''}
+        </div>
+      </div>
     </div>
     <div style="margin-top:.6rem">
       <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Descuento manual</button>
@@ -301,7 +360,7 @@ async function _edpGuardar(){
       horasAPagar:H.horasAPagar,diasTrabajados:H.diasTrabajados,dispMec:H.dispMec,
       descRows,insumos:D.insumos,atenciones:D.atenciones,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
-      firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,
+      firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
       cliente:_edpCliente,rucCliente:_edpRuc},
     creadoPor:CU?CU.nombre:'',creadoEn:new Date().toISOString()
   };
@@ -321,7 +380,7 @@ function _edpCargar(id){
   _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
   _edpCantPres=d.cantPres!=null?d.cantPres:null;
   _edpAcumAnt=+d.acumAnt||0;
-  _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';
+  _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';_edpFirmaEcoId=d.firmaEcoId||null;
   if(d.cliente)_edpCliente=d.cliente;
   if(d.rucCliente)_edpRuc=d.rucCliente;
   _edpDescManual=[];
@@ -486,11 +545,11 @@ function _edpDocHtml(eq,H,D,F){
     <!-- Firmas: Representante del Proveedor · Representante de ECOSERMO -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:26px;page-break-inside:avoid">
       ${[
-        {tit:eq.proveedor||'PROVEEDOR',rol:'REPRESENTANTE DEL PROVEEDOR',nom:_edpFirmaProv},
-        {tit:'ECOSERMO',rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco}
+        {tit:eq.proveedor||'PROVEEDOR',rol:'REPRESENTANTE DEL PROVEEDOR',nom:_edpFirmaProv,img:''},
+        {tit:'ECOSERMO',rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco,img:(_edpFirmaSel()||{}).imgUrl||''}
       ].map(f=>`<div style="border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px 8px">
         <div style="font-size:10px;font-weight:800;color:${AZ};border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:2px">${f.tit}</div>
-        <div style="height:88px"></div>
+        <div style="height:88px;display:flex;align-items:flex-end;justify-content:center">${f.img?`<img src="${f.img}" style="max-height:86px;max-width:100%;object-fit:contain">`:''}</div>
         <div style="border-top:1.2px solid #333;margin:0 14px 4px"></div>
         <div style="text-align:center;font-size:9.5px;font-weight:700;color:#111;min-height:12px">${f.nom||''}</div>
         <div style="text-align:center;font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">${f.rol}</div>
