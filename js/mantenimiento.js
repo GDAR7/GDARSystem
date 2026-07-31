@@ -252,6 +252,7 @@ function openEquipo(){
   _eqLogoProvUrl='';_eqLogoProvRender();
   document.getElementById('eqTi').value='Línea Amarilla';
   document.getElementById('eqEst').value='Operativo';
+  document.getElementById('eqMoneda').value='SOLES';
   const sts=document.getElementById('eqSts');if(sts)sts.value='Operativo';
   _buildEqSubOpts('');
   const ps=document.getElementById('eqProy');
@@ -428,6 +429,7 @@ function gEquipo(){
     horasMinimas:+document.getElementById('eqHmin').value||null,
     hrsMinVenta:+document.getElementById('eqHminV').value||null,
     tarifaUn:document.getElementById('eqTarUn').value||'HM',
+    moneda:document.getElementById('eqMoneda').value||'SOLES',
     tarifa:+document.getElementById('eqTar').value||null,
     calentamientoH:+document.getElementById('eqCalent').value||0,
     inicioContrato:document.getElementById('eqIco').value||null,
@@ -644,6 +646,7 @@ function editEquipo(id){
   document.getElementById('eqHmin').value=e.horasMinimas||'';
   document.getElementById('eqHminV').value=e.hrsMinVenta||'';
   document.getElementById('eqTarUn').value=e.tarifaUn||'HM';
+  document.getElementById('eqMoneda').value=e.moneda||'SOLES';
   document.getElementById('eqTar').value=e.tarifa||'';
   document.getElementById('eqCalent').value=e.calentamientoH||'';
   document.getElementById('eqIco').value=e.inicioContrato||'';

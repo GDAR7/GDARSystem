@@ -126,6 +126,8 @@ function rEdpProveedores(){
   const tarifaUn=eq.tarifaUn||'HM';
   const cantEquipo=tarifaUn==='HM'?H.horasEfectivas:(tarifaUn==='DIA'?H.diasTrabajados:1);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
+  const _mon=eq.moneda||'SOLES';
+  const _sim=_mon==='DOLARES'?'US$':_mon==='EUROS'?'€':'S/';
 
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
@@ -143,11 +145,11 @@ function rEdpProveedores(){
   const editBar=`<div class="card" style="margin-bottom:.9rem">
     <div class="card-head"><span class="card-title">⚙️ Ajustes antes de imprimir</span></div>
     <div class="card-body"><div class="fg-grid">
-      <div class="fg"><label>Tarifa Equipo S/ (${tarifaUn})</label><input type="number" step="0.01" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Tarifa Equipo ${_sim} (${tarifaUn})</label><input type="number" step="0.01" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
       ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
-      <div class="fg"><label>Tarifa Atención Mecánica S//hh</label><input type="number" step="0.01" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Acumulado Anterior S/</label><input type="number" step="0.01" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Acumulado Anterior ${_sim}</label><input type="number" step="0.01" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
     </div>
@@ -174,6 +176,10 @@ function _edpDocHtml(eq,H,D,F){
   const AZ='#1e3a5f';
   const HDR='#0070C0'; // encabezados de tabla: RGB(0,112,192) con letras blancas
   const esDia=F.tarifaUn!=='HM'; // DIA/MES: valorización por días — sin horómetros ni calentamiento
+  // Moneda del contrato (Máster de Equipos) — por defecto Soles
+  const MON=eq.moneda||'SOLES';
+  const SIM=MON==='DOLARES'?'US$':MON==='EUROS'?'€':'S/';
+  const MONLBL=MON==='DOLARES'?'DÓLARES (US$)':MON==='EUROS'?'EUROS (€)':'SOLES';
   const infoCell=(l,v)=>`<div><strong style="display:block;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.05em">${l}</strong><span style="font-size:11px;font-weight:600;color:#111">${v||'—'}</span></div>`;
   const TH=`background:${HDR};color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase;text-align:center`;
   const TD=`border:1px solid #cbd5e1;padding:3px 6px;font-size:10px;color:#111`;
@@ -203,9 +209,9 @@ function _edpDocHtml(eq,H,D,F){
       <th style="${THG}" colspan="3">Acumulado Actual</th>
     </tr>
     <tr>
-      <th style="${THS}">Unid.</th><th style="${THS}">Cant.</th><th style="${THS}">P. Unit S/.</th><th style="${THS}">Total S/.</th>
-      <th style="${THS_AM}">Cant.</th><th style="${THS_AM}">Total S/.</th><th style="${THS_AM}">% Avance</th>
-      <th style="${THS}">Cant.</th><th style="${THS}">Total S/.</th><th style="${THS}">% Avance</th>
+      <th style="${THS}">Unid.</th><th style="${THS}">Cant.</th><th style="${THS}">P. Unit ${SIM}</th><th style="${THS}">Total ${SIM}</th>
+      <th style="${THS_AM}">Cant.</th><th style="${THS_AM}">Total ${SIM}</th><th style="${THS_AM}">% Avance</th>
+      <th style="${THS}">Cant.</th><th style="${THS}">Total ${SIM}</th><th style="${THS}">% Avance</th>
     </tr>
   </thead>`;
 
@@ -217,10 +223,10 @@ function _edpDocHtml(eq,H,D,F){
     <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
     <td style="${TD};text-align:right">${totPres!=null?_edpN2(totPres):''}</td>
     <td style="${TD};text-align:right;${AM}">${_edpN2(F.cantEquipo)}</td>
-    <td style="${TD};text-align:right;font-weight:700;${AM}">S/ ${_edpN2(F.totEquipo)}</td>
+    <td style="${TD};text-align:right;font-weight:700;${AM}">${SIM} ${_edpN2(F.totEquipo)}</td>
     <td style="${TD};text-align:right;${AM}">${pctFmt(pctEq)}</td>
     <td style="${TD};text-align:right"></td>
-    <td style="${TD};text-align:right;font-weight:700">S/ ${_edpN2(acumTotEq)}</td>
+    <td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(acumTotEq)}</td>
     <td style="${TD};text-align:right">${pctFmt(pctAcumEq)}</td>
   </tr>`;
 
@@ -231,13 +237,13 @@ function _edpDocHtml(eq,H,D,F){
       <td style="${TD};text-align:center">${r.und}</td>
       <td style="${TD}"></td><td style="${TD};text-align:right">${_edpN2(r.precio)}</td><td style="${TD}"></td>
       <td style="${TD};text-align:right;${AM}">(${_edpN2(r.cant)})</td>
-      <td style="${TD};text-align:right;color:#b91c1c;${AM}">S/ (${_edpN2(r.total)})</td>
+      <td style="${TD};text-align:right;color:#b91c1c;${AM}">${SIM} (${_edpN2(r.total)})</td>
       <td style="${TD};${AM}"></td>
-      <td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">S/ (${_edpN2(r.total)})</td><td style="${TD}"></td>
+      <td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">${SIM} (${_edpN2(r.total)})</td><td style="${TD}"></td>
     </tr>`).join('')
     :`<tr><td colspan="12" style="${TD};text-align:center;color:#94a3b8">Sin descuentos registrados en Auxilios Mecánicos para este período</td></tr>`;
 
-  const resumen=(l,v,bg)=>`<tr><td style="padding:3px 8px;font-size:10px;color:#334155">${l}</td><td style="padding:3px 8px;text-align:right;font-weight:700;font-size:10px;${bg?'background:'+bg:''}">S/ ${_edpN2(v)}</td></tr>`;
+  const resumen=(l,v,bg)=>`<tr><td style="padding:3px 8px;font-size:10px;color:#334155">${l}</td><td style="padding:3px 8px;text-align:right;font-weight:700;font-size:10px;${bg?'background:'+bg:''}">${SIM} ${_edpN2(v)}</td></tr>`;
 
   // Esquina superior derecha de cada hoja: logo del proveedor (del Máster) o, si no tiene, su nombre
   const provCorner=eq.logoProveedor
@@ -256,7 +262,7 @@ function _edpDocHtml(eq,H,D,F){
     ${headerHoja(`EDP N° ${_edpNum||'—'}`,`CONTRATA: ${eq.proveedor||'—'}`)}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem 1rem;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px">
       ${infoCell('Cliente',_edpCliente)}${infoCell('RUC Cliente',_edpRuc)}${infoCell('Proyecto',eq.proyecto)}${infoCell('Estado de Pago N°',_edpNum)}
-      ${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Moneda','SOLES')}
+      ${infoCell('Proveedor',eq.proveedor)}${infoCell('RUC Proveedor',eq.rucProveedor)}${infoCell('Período',_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta))}${infoCell('Moneda',MONLBL)}
       ${esDia?'':infoCell('Horas Mínimas',H.horasMinimas?_edpN2(H.horasMinimas)+' hrs':'—')}
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
@@ -267,12 +273,12 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td colspan="12" style="${TD};font-weight:800;background:#e2e8f0">2.00 DESCUENTO</td></tr>
         ${filasDesc}
         <tr>
-          <td colspan="6" style="${TD};text-align:right;font-weight:900;background:#dbeafe">PRESUPUESTO TOTAL (S/.)</td>
+          <td colspan="6" style="${TD};text-align:right;font-weight:900;background:#dbeafe">PRESUPUESTO TOTAL (${SIM})</td>
           <td style="${TD};${AM}"></td>
-          <td style="${TD};text-align:right;font-weight:900;background:#FFFF00">S/ ${_edpN2(F.presupuestoTotal)}</td>
+          <td style="${TD};text-align:right;font-weight:900;background:#FFFF00">${SIM} ${_edpN2(F.presupuestoTotal)}</td>
           <td style="${TD};${AM}"></td>
           <td style="${TD};background:#dbeafe"></td>
-          <td style="${TD};text-align:right;font-weight:900;background:#dbeafe">S/ ${_edpN2(+(_edpAcumAnt+F.presupuestoTotal).toFixed(2))}</td>
+          <td style="${TD};text-align:right;font-weight:900;background:#dbeafe">${SIM} ${_edpN2(+(_edpAcumAnt+F.presupuestoTotal).toFixed(2))}</td>
           <td style="${TD};background:#dbeafe"></td>
         </tr>
       </tbody>
@@ -280,7 +286,7 @@ function _edpDocHtml(eq,H,D,F){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
       <table style="border:1px solid #cbd5e1"><tbody>
         <tr><td colspan="2" style="${TD};font-weight:800;background:#f1f5f9">${eq.proveedor||'PROVEEDOR'}</td></tr>
-        ${resumen('NETO (S/.)',F.subTotal)}${resumen('SUB TOTAL (S/.)',F.subTotal)}${resumen('IGV 18%',F.igv)}${resumen('TOTAL (S/.)',F.total,'#fde047')}
+        ${resumen(`NETO (${SIM})`,F.subTotal)}${resumen(`SUB TOTAL (${SIM})`,F.subTotal)}${resumen('IGV 18%',F.igv)}${resumen(`TOTAL (${SIM})`,F.total,'#fde047')}
       </tbody></table>
       <table style="border:1px solid #cbd5e1"><tbody>
         <tr><td colspan="2" style="${TD};font-weight:800;background:#f1f5f9">ECOSERMO</td></tr>
@@ -379,7 +385,7 @@ function _edpDocHtml(eq,H,D,F){
         <thead><tr>
           <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Código</th>
           <th style="${TH};text-align:left">Descripción del Insumo</th><th style="${TH}">Unid.</th>
-          <th style="${TH}">Cant.</th><th style="${TH}">P. Unit S/.</th><th style="${TH}">Total S/.</th>
+          <th style="${TH}">Cant.</th><th style="${TH}">P. Unit ${SIM}</th><th style="${TH}">Total ${SIM}</th>
         </tr></thead>
         <tbody>${D.insumos.map((i,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td>
@@ -392,7 +398,7 @@ function _edpDocHtml(eq,H,D,F){
           <td style="${TD};text-align:right">${_edpN2(i.precio)}${i.precio?'':' <span style="color:#b91c1c;font-size:8px">(sin P.U.R.)</span>'}</td>
           <td style="${TD};text-align:right;font-weight:700;color:#b91c1c">${_edpN2(i.total)}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="8" style="${TD};text-align:right">SUBTOTAL INSUMOS</td><td style="${TD};text-align:right;color:#b91c1c">S/ ${_edpN2(totIns)}</td></tr></tfoot>
+        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="8" style="${TD};text-align:right">SUBTOTAL INSUMOS</td><td style="${TD};text-align:right;color:#b91c1c">${SIM} ${_edpN2(totIns)}</td></tr></tfoot>
       </table>`:'';
 
     const secAten=D.atenciones.length?`
@@ -401,7 +407,7 @@ function _edpDocHtml(eq,H,D,F){
         <thead><tr>
           <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Tipo Falla</th>
           <th style="${TH};text-align:left">Descripción del Problema</th><th style="${TH};text-align:left">Mecánico(s)</th>
-          <th style="${TH}">T. Parada (h)</th><th style="${TH}">Tarifa S//hh</th><th style="${TH}">Total S/.</th>
+          <th style="${TH}">T. Parada (h)</th><th style="${TH}">Tarifa ${SIM}/hh</th><th style="${TH}">Total ${SIM}</th>
         </tr></thead>
         <tbody>${D.atenciones.map((a,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td>
@@ -414,19 +420,19 @@ function _edpDocHtml(eq,H,D,F){
           <td style="${TD};text-align:right">${_edpN2(a.precio)}${a.precio?'':' <span style="color:#b91c1c;font-size:8px">(sin tarifa)</span>'}</td>
           <td style="${TD};text-align:right;font-weight:700;color:#b91c1c">${_edpN2(a.total)}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(D.horasAtencion)}</td><td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">S/ ${_edpN2(totAten)}</td></tr></tfoot>
+        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(D.horasAtencion)}</td><td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">${SIM} ${_edpN2(totAten)}</td></tr></tfoot>
       </table>`:'';
 
     const secMan=_edpDescManual.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">C. OTROS DESCUENTOS</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
-        <thead><tr><th style="${TH}">#</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cant.</th><th style="${TH}">P. Unit S/.</th><th style="${TH}">Total S/.</th></tr></thead>
+        <thead><tr><th style="${TH}">#</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cant.</th><th style="${TH}">P. Unit ${SIM}</th><th style="${TH}">Total ${SIM}</th></tr></thead>
         <tbody>${_edpDescManual.map((r,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td><td style="${TD}">${r.desc||'—'}</td><td style="${TD};text-align:center">${r.und||''}</td>
           <td style="${TD};text-align:right">${_edpN2(r.cant)}</td><td style="${TD};text-align:right">${_edpN2(r.precio)}</td>
           <td style="${TD};text-align:right;font-weight:700;color:#b91c1c">${_edpN2((+r.cant||0)*(+r.precio||0))}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="5" style="${TD};text-align:right">SUBTOTAL OTROS</td><td style="${TD};text-align:right;color:#b91c1c">S/ ${_edpN2(totManual)}</td></tr></tfoot>
+        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="5" style="${TD};text-align:right">SUBTOTAL OTROS</td><td style="${TD};text-align:right;color:#b91c1c">${SIM} ${_edpN2(totManual)}</td></tr></tfoot>
       </table>`:'';
 
     pagina3=`<div style="font-family:Arial,sans-serif;color:#111">
@@ -434,10 +440,10 @@ function _edpDocHtml(eq,H,D,F){
       ${secIns}${secAten}${secMan}
       <table style="width:100%;border-collapse:collapse;margin-top:8px;max-width:420px;margin-left:auto">
         <tbody>
-          ${D.insumos.length?`<tr><td style="${TD}">Consumo de insumos (Almacén)</td><td style="${TD};text-align:right;font-weight:700">S/ ${_edpN2(totIns)}</td></tr>`:''}
-          ${D.atenciones.length?`<tr><td style="${TD}">Atención mecánica</td><td style="${TD};text-align:right;font-weight:700">S/ ${_edpN2(totAten)}</td></tr>`:''}
-          ${_edpDescManual.length?`<tr><td style="${TD}">Otros descuentos</td><td style="${TD};text-align:right;font-weight:700">S/ ${_edpN2(totManual)}</td></tr>`:''}
-          <tr><td style="${TD};font-weight:900;background:#fde047">TOTAL DESCUENTOS (S/.)</td><td style="${TD};text-align:right;font-weight:900;background:#fde047;color:#b91c1c">S/ ${_edpN2(F.totDesc)}</td></tr>
+          ${D.insumos.length?`<tr><td style="${TD}">Consumo de insumos (Almacén)</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totIns)}</td></tr>`:''}
+          ${D.atenciones.length?`<tr><td style="${TD}">Atención mecánica</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totAten)}</td></tr>`:''}
+          ${_edpDescManual.length?`<tr><td style="${TD}">Otros descuentos</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totManual)}</td></tr>`:''}
+          <tr><td style="${TD};font-weight:900;background:#fde047">TOTAL DESCUENTOS (${SIM})</td><td style="${TD};text-align:right;font-weight:900;background:#fde047;color:#b91c1c">${SIM} ${_edpN2(F.totDesc)}</td></tr>
         </tbody>
       </table>
     </div>`;
