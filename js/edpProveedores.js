@@ -467,8 +467,10 @@ function _edpDocHtml(eq,H,D,F){
     </div>`;
   }
 
-  const sep='page-break-before:always;margin-top:14px;border-top:2px dashed #cbd5e1;padding-top:14px';
-  return`<div>${pagina1}</div><div style="${sep}">${pagina2}</div>${pagina3?`<div style="${sep}">${pagina3}</div>`:''}`;
+  // La línea punteada solo separa páginas en la vista previa; al imprimir se oculta (ver @media print)
+  const sepStyle=`<style>.edp-sep{page-break-before:always;margin-top:14px;border-top:2px dashed #cbd5e1;padding-top:14px}
+@media print{.edp-sep{border-top:none!important;margin-top:0!important;padding-top:0!important}}</style>`;
+  return`${sepStyle}<div>${pagina1}</div><div class="edp-sep">${pagina2}</div>${pagina3?`<div class="edp-sep">${pagina3}</div>`:''}`;
 }
 
 function _edpPrint(){
