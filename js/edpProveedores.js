@@ -7,6 +7,7 @@ let _edpCliente='ECOSERMO', _edpRuc='20571533180', _edpDireccion='';
 let _edpTarifaOv=null, _edpHminOv=null, _edpTarifaAtencion=0;
 let _edpCantPres=null;   // Cantidad contractual (columna PRESUPUESTO) — opcional
 let _edpAcumAnt=0;       // Total valorizado en EDP anteriores (para ACUMULADO ACTUAL)
+let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
 let _edpDescManual=[];
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
@@ -25,6 +26,8 @@ function _edpSet(campo,val){
   else if(campo==='tarifaAtencion')_edpTarifaAtencion=+val||0;
   else if(campo==='cantPres')_edpCantPres=val===''?null:+val;
   else if(campo==='acumAnt')_edpAcumAnt=+val||0;
+  else if(campo==='firmaProv')_edpFirmaProv=val;
+  else if(campo==='firmaEco')_edpFirmaEco=val;
   rEdpProveedores();
 }
 function _edpAddDescManual(){
@@ -146,6 +149,8 @@ function rEdpProveedores(){
       <div class="fg"><label>Tarifa Atención Mecánica S//hh</label><input type="number" step="0.01" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Acumulado Anterior S/</label><input type="number" step="0.01" value="${_edpAcumAnt}" title="Total valorizado en EDP anteriores" oninput="_edpSet('acumAnt',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
     </div>
     <div style="margin-top:.6rem">
       <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Descuento manual</button>
@@ -276,6 +281,20 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td colspan="2" style="${TD};font-weight:800;background:#f1f5f9">ECOSERMO</td></tr>
         ${resumen('DETRACCIÓN 10%',F.detraccion)}${resumen('A ABONAR',F.aAbonar,'#fde047')}
       </tbody></table>
+    </div>
+    <!-- Firmas: Representante del Proveedor · Representante de ECOSERMO -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:26px;page-break-inside:avoid">
+      ${[
+        {tit:eq.proveedor||'PROVEEDOR',rol:'REPRESENTANTE DEL PROVEEDOR',nom:_edpFirmaProv},
+        {tit:'ECOSERMO',rol:'REPRESENTANTE DE ECOSERMO',nom:_edpFirmaEco}
+      ].map(f=>`<div style="border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px 8px">
+        <div style="font-size:10px;font-weight:800;color:${AZ};border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:2px">${f.tit}</div>
+        <div style="height:52px"></div>
+        <div style="border-top:1.2px solid #333;margin:0 14px 4px"></div>
+        <div style="text-align:center;font-size:9.5px;font-weight:700;color:#111;min-height:12px">${f.nom||''}</div>
+        <div style="text-align:center;font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">${f.rol}</div>
+        <div style="text-align:center;font-size:7.5px;color:#94a3b8;margin-top:1px">Firma y sello</div>
+      </div>`).join('')}
     </div>
   </div>`;
 
