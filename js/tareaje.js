@@ -61,19 +61,25 @@ function _tarColsPanel(ev){
   tit.style.cssText='font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem';
   div.appendChild(tit);
   _TAR_COLS.forEach(c=>{
-    const on=c.get();
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;padding:.32rem .45rem;border-radius:6px;cursor:pointer';
-    if(on)row.style.background=c.c+'1f';
     const cb=document.createElement('input');
-    cb.type='checkbox';cb.checked=on;
+    cb.type='checkbox';
     cb.style.cssText='flex:0 0 15px;width:15px;height:15px;margin:0;cursor:pointer;accent-color:'+c.c;
     const lbl=document.createElement('span');
     lbl.textContent=c.l;
-    lbl.style.cssText='flex:1;margin-left:9px;font-size:.75rem;font-weight:'+(on?'700':'500')+';color:'+(on?c.c:'var(--text)');
+    lbl.style.marginLeft='9px';lbl.style.flex='1';lbl.style.fontSize='.75rem';
+    // Refresca el aspecto de la fila según el estado actual (el panel NO se cierra al marcar)
+    const pinta=()=>{
+      const on=c.get();
+      cb.checked=on;
+      row.style.background=on?c.c+'1f':'';
+      lbl.style.fontWeight=on?'700':'500';
+      lbl.style.color=on?c.c:'var(--text)';
+    };
+    pinta();
     row.appendChild(cb);row.appendChild(lbl);
-    const aplicar=()=>{_tarColsDropEl&&_tarColsDropEl.remove();_tarColsDropEl=null;_tarToggleCol(c.k);};
-    cb.onchange=aplicar;
+    cb.onchange=()=>{_tarToggleCol(c.k);pinta();};
     row.onclick=e=>{if(e.target!==cb)cb.click();};
     div.appendChild(row);
   });
