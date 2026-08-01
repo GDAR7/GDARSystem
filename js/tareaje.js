@@ -21,12 +21,72 @@ let _tarPickerCb=null;
 let _tarShowCargo=localStorage.getItem('_tarShowCargo')!=='0';
 let _tarShowProc=localStorage.getItem('_tarShowProc')!=='0';
 let _tarShowDni=localStorage.getItem('_tarShowDni')==='1';
+let _tarShowGrd=localStorage.getItem('_tarShowGrd')==='1';
+let _tarShowCat=localStorage.getItem('_tarShowCat')==='1';
+let _tarShowTipo=localStorage.getItem('_tarShowTipo')==='1';
+let _tarShowIng=localStorage.getItem('_tarShowIng')==='1';
+let _tarShowAsig=localStorage.getItem('_tarShowAsig')==='1';
 
 function _tarToggleCol(col){
   if(col==='cargo'){_tarShowCargo=!_tarShowCargo;localStorage.setItem('_tarShowCargo',_tarShowCargo?'1':'0');}
   else if(col==='dni'){_tarShowDni=!_tarShowDni;localStorage.setItem('_tarShowDni',_tarShowDni?'1':'0');}
+  else if(col==='grd'){_tarShowGrd=!_tarShowGrd;localStorage.setItem('_tarShowGrd',_tarShowGrd?'1':'0');}
+  else if(col==='cat'){_tarShowCat=!_tarShowCat;localStorage.setItem('_tarShowCat',_tarShowCat?'1':'0');}
+  else if(col==='tipo'){_tarShowTipo=!_tarShowTipo;localStorage.setItem('_tarShowTipo',_tarShowTipo?'1':'0');}
+  else if(col==='ing'){_tarShowIng=!_tarShowIng;localStorage.setItem('_tarShowIng',_tarShowIng?'1':'0');}
+  else if(col==='asig'){_tarShowAsig=!_tarShowAsig;localStorage.setItem('_tarShowAsig',_tarShowAsig?'1':'0');}
   else{_tarShowProc=!_tarShowProc;localStorage.setItem('_tarShowProc',_tarShowProc?'1':'0');}
   rTareaje();
+}
+
+// ── Selector de columnas visibles (multi-check en un solo botón) ──
+// Procedencia va siempre al final de la lista de columnas informativas
+const _TAR_COLS=[
+  {k:'dni',  l:'DNI',            c:'#22d3ee', get:()=>_tarShowDni},
+  {k:'cargo',l:'Cargo',          c:'#94a3b8', get:()=>_tarShowCargo},
+  {k:'cat',  l:'Categoría',      c:'#38bdf8', get:()=>_tarShowCat},
+  {k:'tipo', l:'Tipo',           c:'#f472b6', get:()=>_tarShowTipo},
+  {k:'ing',  l:'F. Ingreso',     c:'#34d399', get:()=>_tarShowIng},
+  {k:'asig', l:'Asig. Familiar', c:'#fbbf24', get:()=>_tarShowAsig},
+  {k:'grd',  l:'Guardia',        c:'#f59e0b', get:()=>_tarShowGrd},
+  {k:'proc', l:'Procedencia',    c:'#a78bfa', get:()=>_tarShowProc},
+];
+let _tarColsDropEl=null;
+function _tarColsPanel(ev){
+  if(_tarColsDropEl){_tarColsDropEl.remove();_tarColsDropEl=null;return;}
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.45rem .4rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:200px;font-family:inherit';
+  const tit=document.createElement('div');
+  tit.textContent='Columnas visibles';
+  tit.style.cssText='font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem';
+  div.appendChild(tit);
+  _TAR_COLS.forEach(c=>{
+    const on=c.get();
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;padding:.32rem .45rem;border-radius:6px;cursor:pointer';
+    if(on)row.style.background=c.c+'1f';
+    const cb=document.createElement('input');
+    cb.type='checkbox';cb.checked=on;
+    cb.style.cssText='flex:0 0 15px;width:15px;height:15px;margin:0;cursor:pointer;accent-color:'+c.c;
+    const lbl=document.createElement('span');
+    lbl.textContent=c.l;
+    lbl.style.cssText='flex:1;margin-left:9px;font-size:.75rem;font-weight:'+(on?'700':'500')+';color:'+(on?c.c:'var(--text)');
+    row.appendChild(cb);row.appendChild(lbl);
+    const aplicar=()=>{_tarColsDropEl&&_tarColsDropEl.remove();_tarColsDropEl=null;_tarToggleCol(c.k);};
+    cb.onchange=aplicar;
+    row.onclick=e=>{if(e.target!==cb)cb.click();};
+    div.appendChild(row);
+  });
+  document.body.appendChild(div);
+  _tarColsDropEl=div;
+  const r=ev.currentTarget.getBoundingClientRect();
+  let top=r.bottom+4,left=r.left;
+  if(left+205>window.innerWidth)left=Math.max(8,window.innerWidth-210);
+  if(top+200>window.innerHeight)top=Math.max(8,r.top-205);
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){
+    if(_tarColsDropEl&&!_tarColsDropEl.contains(e.target)){_tarColsDropEl.remove();_tarColsDropEl=null;document.removeEventListener('click',h);}
+  }),10);
 }
 let _tarMultiMode=false;
 let _tarHoverMode=false;
@@ -214,16 +274,22 @@ function rTareaje(){
       <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
       ${_tarShowDni?`<td style="padding:3px 5px;white-space:nowrap;font-size:.72rem;font-family:monospace;color:#22d3ee;min-width:80px">${p.dni||'—'}</td>`:''}
       ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
+      ${_tarShowCat?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#38bdf8;min-width:100px">${p.cat||'—'}</td>`:''}
+      ${_tarShowTipo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#f472b6;min-width:80px">${p.tipo||'—'}</td>`:''}
+      ${_tarShowIng?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.68rem;font-family:monospace;color:#34d399;min-width:82px">${p.ing||'—'}</td>`:''}
+      ${_tarShowAsig?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.68rem;min-width:60px;color:${+p.asig?'#fbbf24':'var(--muted)'}">${+p.asig?'Sí':'No'}</td>`:''}
+      ${_tarShowGrd?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.7rem;min-width:56px">${p.guardia?`<span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b50;border-radius:4px;padding:1px 6px;font-weight:700">${p.guardia}</span>`:'<span style="color:var(--muted)">—</span>'}</td>`:''}
       ${_tarShowProc?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#a78bfa;min-width:90px">${p.proc||'—'}</td>`:''}
       ${cells}
       <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span>${_dlthtml}${_a5html}</td>
     </tr>`;
   }).join('');
   // Actualizar apariencia de botones toggle y modo solo lectura
-  const _btnC=document.getElementById('tarBtnCargo'),_btnP=document.getElementById('tarBtnProc'),_btnD=document.getElementById('tarBtnDni');
-  if(_btnC){_btnC.style.opacity=_tarShowCargo?'1':'.45';_btnC.style.textDecoration=_tarShowCargo?'none':'line-through';}
-  if(_btnP){_btnP.style.opacity=_tarShowProc?'1':'.45';_btnP.style.textDecoration=_tarShowProc?'none':'line-through';}
-  if(_btnD){_btnD.style.opacity=_tarShowDni?'1':'.45';_btnD.style.textDecoration=_tarShowDni?'none':'line-through';}
+  const _btnCols=document.getElementById('tarBtnCols');
+  if(_btnCols){
+    const n=_TAR_COLS.filter(c=>c.get()).length;
+    _btnCols.innerHTML=`🧩 Columnas${n?` <span style="font-size:.62rem;background:rgba(34,211,238,.2);border-radius:8px;padding:0 5px">${n}</span>`:''} ▾`;
+  }
   const _mBtn=document.getElementById('tarMultBtn'),_hBtn=document.getElementById('tarHoverBtn');
   if(_mBtn)_mBtn.style.display=_tarRO?'none':'';
   if(_hBtn)_hBtn.style.display=_tarRO?'none':'';
@@ -236,11 +302,16 @@ function rTareaje(){
         <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
         ${_tarShowDni?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#22d3ee">DNI</th>`:''}
         ${_tarShowCargo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px">Cargo</th>`:''}
+        ${_tarShowCat?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px;color:#38bdf8">Categoría</th>`:''}
+        ${_tarShowTipo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#f472b6">Tipo</th>`:''}
+        ${_tarShowIng?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:82px;text-align:center;color:#34d399">F. Ingreso</th>`:''}
+        ${_tarShowAsig?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:60px;text-align:center;color:#fbbf24">Asig. Fam.</th>`:''}
+        ${_tarShowGrd?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:56px;text-align:center;color:#f59e0b">Guardia</th>`:''}
         ${_tarShowProc?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:90px;color:#a78bfa">Procedencia</th>`:''}
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
-      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowCat?'<th></th>':''}${_tarShowTipo?'<th></th>':''}${_tarShowIng?'<th></th>':''}${_tarShowAsig?'<th></th>':''}${_tarShowGrd?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
 }

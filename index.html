@@ -747,9 +747,7 @@
         <select id="tareProc" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Toda procedencia —</option></select>
         <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
-        <button id="tarBtnDni" class="btn btn-out btn-sm" onclick="_tarToggleCol('dni')" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Mostrar/ocultar columna DNI">🪪 DNI</button>
-        <button id="tarBtnCargo" class="btn btn-out btn-sm" onclick="_tarToggleCol('cargo')" style="font-size:.75rem;color:#94a3b8;border-color:#94a3b840" title="Mostrar/ocultar columna Cargo">👔 Cargo</button>
-        <button id="tarBtnProc" class="btn btn-out btn-sm" onclick="_tarToggleCol('proc')" style="font-size:.75rem;color:#a78bfa;border-color:#a78bfa40" title="Mostrar/ocultar columna Procedencia">📍 Proced.</button>
+        <button id="tarBtnCols" class="btn btn-out btn-sm" onclick="_tarColsPanel(event)" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Elegir qué columnas mostrar">🧩 Columnas ▾</button>
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
@@ -2987,7 +2985,7 @@
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=11"></script>
-<script src="js/tareaje.js?v=5"></script>
+<script src="js/tareaje.js?v=7"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
 <script src="js/partesDiarios.js?v=1"></script>
