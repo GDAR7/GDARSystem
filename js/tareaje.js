@@ -39,6 +39,9 @@ function _tarToggleCol(col){
   rTareaje();
 }
 
+// Color por guardia: A ámbar · B morado · C verde
+const _TAR_GRD_COL={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
+
 // ── Selector de columnas visibles (multi-check en un solo botón) ──
 // Procedencia va siempre al final de la lista de columnas informativas
 const _TAR_COLS=[
@@ -284,7 +287,10 @@ function rTareaje(){
       ${_tarShowTipo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#f472b6;min-width:80px">${p.tipo||'—'}</td>`:''}
       ${_tarShowIng?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.68rem;font-family:monospace;color:#34d399;min-width:82px">${p.ing||'—'}</td>`:''}
       ${_tarShowAsig?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.68rem;min-width:60px;color:${+p.asig?'#fbbf24':'var(--muted)'}">${+p.asig?'Sí':'No'}</td>`:''}
-      ${_tarShowGrd?`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.7rem;min-width:56px">${p.guardia?`<span style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b50;border-radius:4px;padding:1px 6px;font-weight:700">${p.guardia}</span>`:'<span style="color:var(--muted)">—</span>'}</td>`:''}
+      ${_tarShowGrd?(()=>{
+        const gc=_TAR_GRD_COL[p.guardia]||'#94a3b8';
+        return`<td style="padding:3px 5px;text-align:center;white-space:nowrap;font-size:.7rem;min-width:56px">${p.guardia?`<span style="background:${gc}26;color:${gc};border:1px solid ${gc}70;border-radius:4px;padding:1px 7px;font-weight:800">${p.guardia}</span>`:'<span style="color:var(--muted)">—</span>'}</td>`;
+      })():''}
       ${_tarShowProc?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#a78bfa;min-width:90px">${p.proc||'—'}</td>`:''}
       ${cells}
       <td style="text-align:center;font-size:.68rem;padding:3px 4px;white-space:nowrap;background:rgba(4,78,100,.08);line-height:1.5"><span style="color:#10b981;font-weight:700">${totD}</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">${totN}</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">${totDL}</span><span style="color:var(--muted2);font-size:.6rem">DL</span>${_dlthtml}${_a5html}</td>
