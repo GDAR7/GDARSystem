@@ -170,7 +170,7 @@ function rTareaje(){
     {l:'Trabajo Noche',v:monthRecs.filter(r=>r.tipo==='TN').length,c:'#3b82f6',ic:'🌙',sub:'jornadas TN'},
     {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,c:'#ef4444',ic:'❌',sub:'del mes'},
     {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'}
-  ].map(k=>`<div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid ${k.c};border-radius:10px;padding:.85rem 1.1rem;flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem"><span style="font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:600">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div style="font-size:2.4rem;font-weight:800;color:${k.c};line-height:1;margin-bottom:.25rem">${k.v}</div><div style="font-size:.68rem;color:var(--muted2)">${k.sub}</div></div>`).join('');
+  ].map(k=>`<div class="kpi" style="--kc:${k.c};flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>`<span style="background:${v.bg};color:${v.tx};font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap">${k} – ${v.l}</span>`).join('');
   const _tarRO=isModuleReadOnly('tareaje');
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
@@ -481,9 +481,9 @@ function _buildTareResumen(ids,colFilter){
     {l:'Total Personal',v:totalPersonas,c:'var(--mec)',ic:'👷'},
     {l:'Total en Obra',v:totalEnObra,c:'#10b981',ic:'🏗️'},
     ...tiposPresentes.map(t=>({l:_TARE_T[t]?.l||t,v:totalGral[t]||0,c:_TARE_T[t]?.bg||'#666',ic:t}))
-  ].map(k=>`<div style="background:var(--panel2);border:1px solid var(--border);border-bottom:3px solid ${k.c};border-radius:8px;padding:.5rem .9rem;flex:1;min-width:90px">
-    <div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.2rem">${k.ic} ${k.l}</div>
-    <div style="font-size:1.5rem;font-weight:700;color:${k.c}">${k.v}</div>
+  ].map(k=>`<div class="kpi" style="--kc:${k.c};padding:.5rem .9rem;flex:1;min-width:90px">
+    <div class="kpi-lbl" style="margin-bottom:.2rem">${k.ic} ${k.l}</div>
+    <div class="kpi-val" style="font-size:1.5rem">${k.v}</div>
   </div>`).join('');
   // Tabla
   const tablaEl=document.getElementById(ids.tabla);
