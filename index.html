@@ -743,6 +743,8 @@
       <div class="card-head-right" style="gap:.5rem;flex-wrap:wrap;align-items:center">
         <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
         <select id="tareGuardia" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;color-scheme:dark"><option value="">— Todas las guardias —</option><option value="A">Guardia A</option><option value="B">Guardia B</option><option value="C">Guardia C</option></select>
+        <select id="tareCargo" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los cargos —</option></select>
+        <select id="tareProc" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Toda procedencia —</option></select>
         <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
         <button id="tarBtnDni" class="btn btn-out btn-sm" onclick="_tarToggleCol('dni')" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Mostrar/ocultar columna DNI">🪪 DNI</button>
@@ -2985,7 +2987,7 @@
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=11"></script>
-<script src="js/tareaje.js?v=4"></script>
+<script src="js/tareaje.js?v=5"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
 <script src="js/partesDiarios.js?v=1"></script>

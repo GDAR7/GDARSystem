@@ -156,12 +156,25 @@ function rTareaje(){
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
   const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
+  // Opciones de Cargo y Procedencia tomadas del personal registrado
+  const _llenaSel=(id,campo,vacio)=>{
+    const el=document.getElementById(id);if(!el)return el?el.value:'';
+    const cur=el.value;
+    const vals=[...new Set((DB.personal||[]).map(p=>(p[campo]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    el.innerHTML=`<option value="">${vacio}</option>`+vals.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    if(cur&&vals.includes(cur))el.value=cur;
+    return el.value;
+  };
+  const cargoFiltro=_llenaSel('tareCargo','cargo','— Todos los cargos —');
+  const procFiltro=_llenaSel('tareProc','proc','— Toda procedencia —');
   let persF;
   if(proyFiltro){
     const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
   if(guardiaFiltro) persF=persF.filter(p=>p.guardia===guardiaFiltro);
+  if(cargoFiltro) persF=persF.filter(p=>(p.cargo||'').trim()===cargoFiltro);
+  if(procFiltro) persF=persF.filter(p=>(p.proc||'').trim()===procFiltro);
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
@@ -289,10 +302,12 @@ function setTareaje(personalId,fecha,tipo){
     if(row){const last=row.querySelector('td:last-child');if(last)last.innerHTML='<span style="color:#10b981;font-weight:700">'+totD+'</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">'+totN+'</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">'+totDL+'</span><span style="color:var(--muted2);font-size:.6rem">DL</span>'+_qdlt+_qa5;}
   }
 }
-// Personal filtrado EXACTAMENTE igual que la grilla: proyecto + guardia + texto del buscador
+// Personal filtrado EXACTAMENTE igual que la grilla: proyecto + guardia + cargo + procedencia + buscador
 function _tarPersFiltrados(monthStr){
   const proyFiltro=document.getElementById('tareProy')?.value||'';
   const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
+  const cargoFiltro=document.getElementById('tareCargo')?.value||'';
+  const procFiltro=document.getElementById('tareProc')?.value||'';
   const buscar=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
   let persF;
   if(proyFiltro){
@@ -300,13 +315,17 @@ function _tarPersFiltrados(monthStr){
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
   if(guardiaFiltro)persF=persF.filter(p=>p.guardia===guardiaFiltro);
+  if(cargoFiltro)persF=persF.filter(p=>(p.cargo||'').trim()===cargoFiltro);
+  if(procFiltro)persF=persF.filter(p=>(p.proc||'').trim()===procFiltro);
   if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
   return persF;
 }
 function _tarFiltroTxt(){
   const g=document.getElementById('tareGuardia')?.value||'';
+  const c=document.getElementById('tareCargo')?.value||'';
+  const pr=document.getElementById('tareProc')?.value||'';
   const b=(document.getElementById('tareBuscar')?.value||'').trim();
-  return(g?' · Guardia '+g:'')+(b?' · Filtro: "'+b+'"':'');
+  return(g?' · Guardia '+g:'')+(c?' · Cargo: '+c:'')+(pr?' · Proc.: '+pr:'')+(b?' · Filtro: "'+b+'"':'');
 }
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
