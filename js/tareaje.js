@@ -42,6 +42,85 @@ function _tarToggleCol(col){
 // Color por guardia: A ámbar · B morado · C verde
 const _TAR_GRD_COL={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
 
+// ══ FILTROS POR COLUMNA (en el encabezado de cada columna informativa) ══
+const _TAR_CAMPO={dni:'dni',cargo:'cargo',cat:'cat',tipo:'tipo',ing:'ing',asig:'asig',grd:'guardia',proc:'proc'};
+let _tarColFilt={};   // {claveColumna: valorSeleccionado}
+// Valor mostrado/filtrable de una persona en una columna
+function _tarVal(p,k){
+  if(k==='asig')return +p.asig?'Sí':'No';
+  return String(p[_TAR_CAMPO[k]]||'').trim();
+}
+function _tarColFiltSet(k,v){
+  if(v)_tarColFilt[k]=v;else delete _tarColFilt[k];
+  if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}
+  rTareaje();
+}
+function _tarAplicaColFilt(lista){
+  Object.entries(_tarColFilt).forEach(([k,v])=>{if(v)lista=lista.filter(p=>_tarVal(p,k)===v);});
+  return lista;
+}
+// <th> con su botón de filtro
+function _tarTh(k,label,color,minw,center){
+  const act=_tarColFilt[k];
+  const c=color||'#22d3ee';
+  return`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:${minw}px;${center?'text-align:center;':''}${color?`color:${color};`:''}">
+    <span style="display:inline-flex;align-items:center;gap:.25rem">${label}
+      <button onclick="event.stopPropagation();_tarColFiltPanel(event,'${k}')" title="${act?'Filtrado: '+act:'Filtrar esta columna'}"
+        style="background:${act?c+'33':'transparent'};border:1px solid ${act?c:'transparent'};border-radius:4px;color:${act?c:'var(--muted2)'};cursor:pointer;font-size:.6rem;padding:0 3px;line-height:1.5">▾</button>
+      ${act?`<span onclick="event.stopPropagation();_tarColFiltSet('${k}','')" title="Quitar filtro" style="cursor:pointer;color:#ef4444;font-size:.62rem;font-weight:700">✕</span>`:''}
+    </span>
+  </th>`;
+}
+let _tarColFiltEl=null;
+function _tarColFiltPanel(ev,k){
+  if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}
+  const col=_TAR_COLS.find(c=>c.k===k)||{l:k,c:'#22d3ee'};
+  // Valores disponibles según los demás filtros activos (no el de esta misma columna)
+  const otros=Object.entries(_tarColFilt).filter(([kk])=>kk!==k);
+  const base=(DB.personal||[]).filter(p=>otros.every(([kk,vv])=>_tarVal(p,kk)===vv));
+  const cnt={};
+  base.forEach(p=>{const v=_tarVal(p,k)||'(sin dato)';cnt[v]=(cnt[v]||0)+1;});
+  const vals=Object.keys(cnt).sort((a,b)=>a.localeCompare(b,'es'));
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.45rem .4rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:235px;max-height:330px;overflow-y:auto;font-family:inherit';
+  const tit=document.createElement('div');
+  tit.textContent='Filtrar por '+col.l;
+  tit.style.cssText=`font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:${col.c};font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem`;
+  div.appendChild(tit);
+  const mkRow=(label,valor,n,sel)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;padding:.3rem .45rem;border-radius:6px;cursor:pointer;font-size:.73rem';
+    if(sel)row.style.background=col.c+'1f';
+    const lbl=document.createElement('span');
+    lbl.textContent=label;
+    lbl.style.cssText=`flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${sel?'700':'500'};color:${sel?col.c:'var(--text)'}`;
+    row.appendChild(lbl);
+    if(n!==null){
+      const b=document.createElement('span');
+      b.textContent=n;
+      b.style.cssText='margin-left:6px;font-size:.6rem;color:var(--muted2);background:rgba(255,255,255,.08);border-radius:9px;padding:1px 7px;min-width:22px;text-align:center';
+      row.appendChild(b);
+    }
+    row.onmouseenter=()=>{if(!sel)row.style.background='rgba(255,255,255,.05)';};
+    row.onmouseleave=()=>{if(!sel)row.style.background='';};
+    row.onclick=()=>_tarColFiltSet(k,valor);
+    return row;
+  };
+  div.appendChild(mkRow('— Todos —','',base.length,!_tarColFilt[k]));
+  vals.forEach(v=>div.appendChild(mkRow(v,v==='(sin dato)'?'':v,cnt[v],_tarColFilt[k]===v)));
+  document.body.appendChild(div);
+  _tarColFiltEl=div;
+  const r=ev.currentTarget.getBoundingClientRect();
+  let top=r.bottom+4,left=r.left-60;
+  if(left+240>window.innerWidth)left=Math.max(8,window.innerWidth-245);
+  if(left<8)left=8;
+  if(top+340>window.innerHeight)top=Math.max(8,r.top-345);
+  div.style.top=top+'px';div.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('click',function h(e){
+    if(_tarColFiltEl&&!_tarColFiltEl.contains(e.target)){_tarColFiltEl.remove();_tarColFiltEl=null;document.removeEventListener('click',h);}
+  }),10);
+}
+
 // ── Selector de columnas visibles (multi-check en un solo botón) ──
 // Procedencia va siempre al final de la lista de columnas informativas
 const _TAR_COLS=[
@@ -224,26 +303,12 @@ function rTareaje(){
   const proyEl=document.getElementById('tareProy');
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
-  const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
-  // Opciones de Cargo y Procedencia tomadas del personal registrado
-  const _llenaSel=(id,campo,vacio)=>{
-    const el=document.getElementById(id);if(!el)return el?el.value:'';
-    const cur=el.value;
-    const vals=[...new Set((DB.personal||[]).map(p=>(p[campo]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-    el.innerHTML=`<option value="">${vacio}</option>`+vals.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
-    if(cur&&vals.includes(cur))el.value=cur;
-    return el.value;
-  };
-  const cargoFiltro=_llenaSel('tareCargo','cargo','— Todos los cargos —');
-  const procFiltro=_llenaSel('tareProc','proc','— Toda procedencia —');
   let persF;
   if(proyFiltro){
     const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
-  if(guardiaFiltro) persF=persF.filter(p=>p.guardia===guardiaFiltro);
-  if(cargoFiltro) persF=persF.filter(p=>(p.cargo||'').trim()===cargoFiltro);
-  if(procFiltro) persF=persF.filter(p=>(p.proc||'').trim()===procFiltro);
+  persF=_tarAplicaColFilt(persF); // filtros elegidos en los encabezados de columna
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
@@ -312,14 +377,14 @@ function rTareaje(){
       <tr style="background:var(--panel2)">
         <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:30px">N°</th>
         <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
-        ${_tarShowDni?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#22d3ee">DNI</th>`:''}
-        ${_tarShowCargo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px">Cargo</th>`:''}
-        ${_tarShowCat?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:100px;color:#38bdf8">Categoría</th>`:''}
-        ${_tarShowTipo?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:80px;color:#f472b6">Tipo</th>`:''}
-        ${_tarShowIng?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:82px;text-align:center;color:#34d399">F. Ingreso</th>`:''}
-        ${_tarShowAsig?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:60px;text-align:center;color:#fbbf24">Asig. Fam.</th>`:''}
-        ${_tarShowGrd?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:56px;text-align:center;color:#f59e0b">Guardia</th>`:''}
-        ${_tarShowProc?`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:90px;color:#a78bfa">Procedencia</th>`:''}
+        ${_tarShowDni?_tarTh('dni','DNI','#22d3ee',80):''}
+        ${_tarShowCargo?_tarTh('cargo','Cargo','',110):''}
+        ${_tarShowCat?_tarTh('cat','Categoría','#38bdf8',110):''}
+        ${_tarShowTipo?_tarTh('tipo','Tipo','#f472b6',90):''}
+        ${_tarShowIng?_tarTh('ing','F. Ingreso','#34d399',92,1):''}
+        ${_tarShowAsig?_tarTh('asig','Asig. Fam.','#fbbf24',72,1):''}
+        ${_tarShowGrd?_tarTh('grd','Guardia','#f59e0b',70,1):''}
+        ${_tarShowProc?_tarTh('proc','Procedencia','#a78bfa',100):''}
         <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
@@ -385,30 +450,26 @@ function setTareaje(personalId,fecha,tipo){
     if(row){const last=row.querySelector('td:last-child');if(last)last.innerHTML='<span style="color:#10b981;font-weight:700">'+totD+'</span><span style="color:var(--muted2);font-size:.6rem">TD</span> <span style="color:#3b82f6;font-weight:700">'+totN+'</span><span style="color:var(--muted2);font-size:.6rem">TN</span><br><span style="color:#6b7280;font-weight:700">'+totDL+'</span><span style="color:var(--muted2);font-size:.6rem">DL</span>'+_qdlt+_qa5;}
   }
 }
-// Personal filtrado EXACTAMENTE igual que la grilla: proyecto + guardia + cargo + procedencia + buscador
+// Personal filtrado EXACTAMENTE igual que la grilla: proyecto + filtros de columna + buscador
 function _tarPersFiltrados(monthStr){
   const proyFiltro=document.getElementById('tareProy')?.value||'';
-  const guardiaFiltro=document.getElementById('tareGuardia')?.value||'';
-  const cargoFiltro=document.getElementById('tareCargo')?.value||'';
-  const procFiltro=document.getElementById('tareProc')?.value||'';
   const buscar=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
   let persF;
   if(proyFiltro){
     const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
-  if(guardiaFiltro)persF=persF.filter(p=>p.guardia===guardiaFiltro);
-  if(cargoFiltro)persF=persF.filter(p=>(p.cargo||'').trim()===cargoFiltro);
-  if(procFiltro)persF=persF.filter(p=>(p.proc||'').trim()===procFiltro);
+  persF=_tarAplicaColFilt(persF);
   if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
   return persF;
 }
 function _tarFiltroTxt(){
-  const g=document.getElementById('tareGuardia')?.value||'';
-  const c=document.getElementById('tareCargo')?.value||'';
-  const pr=document.getElementById('tareProc')?.value||'';
   const b=(document.getElementById('tareBuscar')?.value||'').trim();
-  return(g?' · Guardia '+g:'')+(c?' · Cargo: '+c:'')+(pr?' · Proc.: '+pr:'')+(b?' · Filtro: "'+b+'"':'');
+  const cols=Object.entries(_tarColFilt).map(([k,v])=>{
+    const c=_TAR_COLS.find(x=>x.k===k);
+    return ' · '+((c&&c.l)||k)+': '+v;
+  }).join('');
+  return cols+(b?' · Filtro: "'+b+'"':'');
 }
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
