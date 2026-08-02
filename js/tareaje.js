@@ -566,19 +566,23 @@ function _doExportTareaje(){
   const _emptyS=(even)=>({fill:{patternType:'solid',fgColor:{rgb:even?'F8FAFC':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'}});
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
   const dayNums=Array.from({length:days},(_,i)=>i+1);
-  const headers=['N°','DNI','APELLIDOS Y NOMBRES','CARGO',...dayNums,'TD','TN','DL','F','P','DM','OTROS'];
+  // Se exportan exactamente las columnas informativas visibles en la grilla
+  const colsVis=_TAR_COLS.filter(c=>c.get());
+  const nFix=2+colsVis.length; // N° + Trabajador + columnas visibles
+  const headers=['N°','APELLIDOS Y NOMBRES',...colsVis.map(c=>c.l.toUpperCase()),...dayNums,'TD','TN','DL','F','P','DM','OTROS'];
   const dataRows=persF.map((p,idx)=>{
     const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
     const dayCells=dayNums.map(d=>{const fecha=`${y}-${pad(m)}-${pad(d)}`;const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));return rec?rec.tipo:'';});
     const ct=t=>new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo===t&&_mp(r)).map(r=>r.fecha)).size;
     const otros=['DM','LP','LM','LF','V','DLT','A5','R'].reduce((s,t)=>s+ct(t),0);
-    return[idx+1,p.dni||'',`${p.ape}, ${p.nom}`,p.cargo||'',...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
+    return[idx+1,`${p.ape}, ${p.nom}`,...colsVis.map(c=>_tarVal(p,c.k)||''),...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
   });
   const titulo=[`TAREAJE DE PERSONAL – ${mesNombre} ${y}  |  Proyecto: ${proyNombre}  |  Generado: ${new Date().toLocaleString('es-PE')}`];
   const wsData=[titulo,[],headers,...dataRows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}}];
-  ws['!cols']=[{wch:4},{wch:12},{wch:32},{wch:22},...Array(days).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
+  const _wCol={dni:12,cargo:22,cat:16,tipo:12,ing:12,asig:8,grd:8,proc:14};
+  ws['!cols']=[{wch:4},{wch:32},...colsVis.map(c=>({wch:_wCol[c.k]||14})),...Array(days).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
   ws['!rows']=[{hpt:20},{hpt:4},...Array(dataRows.length+1).fill({hpt:14})];
   // Estilo título (fila 0)
   const tc=ws[addr(0,0)];
@@ -588,11 +592,11 @@ function _doExportTareaje(){
   // Filas de datos (desde fila 3)
   dataRows.forEach((row,ri)=>{
     const er=3+ri,even=ri%2===0;
-    // columnas fijas
-    for(let ci=0;ci<4;ci++){const c=ws[addr(er,ci)];if(c){c.s=_fixS(even);if(ci===2||ci===3)c.s.alignment={...c.s.alignment,horizontal:'left'};}}
+    // columnas fijas (N° + Trabajador + informativas visibles)
+    for(let ci=0;ci<nFix;ci++){const c=ws[addr(er,ci)];if(c){c.s=_fixS(even);if(ci>=1)c.s.alignment={...c.s.alignment,horizontal:'left'};}}
     // celdas de días
     dayNums.forEach((_,di)=>{
-      const ci=4+di;
+      const ci=nFix+di;
       let c=ws[addr(er,ci)];
       const tipo=c?c.v:'';
       if(!c){ws[addr(er,ci)]=c={t:'s',v:''};}
@@ -600,7 +604,7 @@ function _doExportTareaje(){
       else{c.s=_emptyS(even);}
     });
     // columnas de totales
-    for(let ci=4+days;ci<4+days+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
+    for(let ci=nFix+days;ci<nFix+days+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
   });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${mesNombre} ${y}`.substring(0,31));
