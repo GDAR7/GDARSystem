@@ -685,6 +685,61 @@
   </div>
 </div>
 
+<!-- CONTROL DE SALIDA DE EQUIPOS A MANTENIMIENTO -->
+<div class="page" id="page-salidaEquipos">
+  <div class="ph"><div class="ph-title" style="color:var(--mec)">🚚 Control de Salida EQ</div><div class="ph-sub">Salida de equipos a mantenimiento y control de su retorno a obra</div></div>
+  <div id="seqBody"></div>
+</div>
+
+<!-- Modal: Salida de Equipo -->
+<div class="mo" id="mSalidaEq"><div class="modal" style="max-width:820px">
+  <div class="mh"><span class="mttl">🚚 Registrar Salida de Equipo</span><button class="mx" onclick="closeM('mSalidaEq')">✕</button></div>
+  <div class="mb">
+    <div class="eq-sec">Equipo</div>
+    <div class="fg-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Equipo (Máster) 🔍</label><select id="seqEq" onchange="_seqEqPick()"><option value="">— Seleccionar del Máster —</option></select></div>
+      <div class="fg"><label>Placa</label><input id="seqPlaca" placeholder="ABC-123"></div>
+      <div class="fg"><label>Código Interno</label><input id="seqCodigo" placeholder="VOL ECOP-000"></div>
+      <div class="fg"><label>Tipo de Equipo</label><input id="seqTipoEq" placeholder="Volquete"></div>
+      <div class="fg"><label>Tipo de Mantto.</label><select id="seqTipoMantto"><option>Preventivo</option><option>Correctivo</option><option>Predictivo</option><option>Reparación Mayor</option><option>Otro</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Motivo / Frecuencia</label><input id="seqMotivo" placeholder="PM-3 (cada 500 h)"></div>
+    </div>
+    <div class="eq-sec">Salida de obra</div>
+    <div class="fg-grid">
+      <div class="fg"><label>Fecha Salida</label><input id="seqFechaSal" type="date" style="color-scheme:dark"></div>
+      <div class="fg"><label>Hora Salida</label><input id="seqHoraSal" type="time" style="color-scheme:dark"></div>
+      <div class="fg"><label>Horómetro Salida (h)</label><input id="seqHoromSal" type="number" step="0.1" placeholder="0"></div>
+      <div class="fg"><label>Kilometraje Salida (km)</label><input id="seqKmSal" type="number" step="0.1" placeholder="0"></div>
+      <div class="fg"><label>Cant. Comb. Salida (GLN)</label><input id="seqCombSal" type="number" step="0.01" placeholder="0"></div>
+    </div>
+    <div class="eq-sec">Retorno a obra <span style="font-weight:400;font-size:.68rem;color:var(--muted2);text-transform:none;letter-spacing:0">(dejar vacío si el equipo aún no retorna)</span></div>
+    <div class="fg-grid">
+      <div class="fg"><label>Fecha Retorno</label><input id="seqFechaRet" type="date" style="color-scheme:dark"></div>
+      <div class="fg"><label>Horómetro Retorno (h)</label><input id="seqHoromRet" type="number" step="0.1" placeholder="0"></div>
+      <div class="fg"><label>Kilometraje Retorno (km)</label><input id="seqKmRet" type="number" step="0.1" placeholder="0"></div>
+      <div class="fg"><label>Cant. Comb. Llegada (GLN)</label><input id="seqCombRet" type="number" step="0.01" placeholder="0"></div>
+    </div>
+    <div class="eq-sec">Responsable y evidencia</div>
+    <div class="fg-grid">
+      <div class="fg"><label>Operador Responsable</label><input id="seqOperador" placeholder="Juan Pérez Q."></div>
+      <div class="fg">
+        <label>Imagen Referencial</label>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <div id="seqImgPrev" style="width:70px;height:44px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:.6rem;color:var(--muted2)">—</div>
+          <input type="file" id="seqImgInput" accept="image/*" style="display:none" onchange="_seqUploadImg(this)">
+          <button type="button" class="btn btn-out btn-sm" style="font-size:.68rem;padding:.25rem .5rem" onclick="document.getElementById('seqImgInput').click()">⬆ Subir</button>
+          <button type="button" id="seqImgDel" class="btn btn-del btn-sm" style="display:none;font-size:.68rem;padding:.25rem .45rem" onclick="_seqDelImg()">✕</button>
+        </div>
+      </div>
+      <div class="fg" style="grid-column:1/-1"><label>Observaciones</label><input id="seqObs" placeholder="Observaciones..."></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mSalidaEq')">Cancelar</button>
+    <button class="btn btn-a" style="--ba:var(--mec)" onclick="_seqSave()">💾 Guardar</button>
+  </div>
+</div></div>
+
 <!-- ENGRASE MENSUAL -->
 <div class="page" id="page-engraseEquipos">
   <div class="ph"><div class="ph-title" style="color:var(--mec)">🛢️ Engrase Mensual</div><div class="ph-sub">Programación mensual de engrase por equipo</div></div>
@@ -2972,8 +3027,8 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=25"></script>
-<script src="js/utils.js?v=13"></script>
+<script src="js/config.js?v=26"></script>
+<script src="js/utils.js?v=14"></script>
 <script src="js/personal.js?v=11"></script>
 <script src="js/planilla.js"></script>
 <script src="js/almacen.js?v=3"></script>
@@ -2982,6 +3037,7 @@
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=11"></script>
+<script src="js/salidaEquipos.js?v=1"></script>
 <script src="js/tareaje.js?v=10"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
