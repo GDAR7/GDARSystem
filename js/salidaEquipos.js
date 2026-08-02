@@ -35,7 +35,7 @@ function _seqLista(){
   else if(_seqFiltEst==='ret')l=l.filter(r=>r.fechaRetorno);
   if(_seqFiltTipo)l=l.filter(r=>(r.tipoMantto||'')===_seqFiltTipo);
   const q=(_seqBuscar||'').toLowerCase().trim();
-  if(q)l=l.filter(r=>[r.placa,r.codigo,r.tipoEquipo,r.motivo,r.operador,r.obs].join(' ').toLowerCase().includes(q));
+  if(q)l=l.filter(r=>[r.placa,r.codigo,r.tipoEquipo,r.motivo,r.operadorResp,r.obs].join(' ').toLowerCase().includes(q));
   return l.sort((a,b)=>(b.fechaSalida||'').localeCompare(a.fechaSalida||'')||b.id-a.id);
 }
 
@@ -74,7 +74,7 @@ function rSalidaEquipos(){
       <td style="${TD};text-align:right;font-family:monospace">${r.combSalida!=null&&r.combSalida!==''?_seqN1(r.combSalida):'—'}</td>
       <td style="${TD};font-family:monospace">${r.fechaRetorno?_seqDMY(r.fechaRetorno):'<span style="color:#ef4444;font-weight:700">— pendiente —</span>'}</td>
       <td style="${TD};text-align:center;font-weight:800;color:${d==null?'var(--muted2)':d>7?'#ef4444':d>3?'#f59e0b':'#10b981'}">${d==null?'—':d}</td>
-      <td style="${TD};max-width:150px;overflow:hidden;text-overflow:ellipsis">${r.operador||'—'}</td>
+      <td style="${TD};max-width:150px;overflow:hidden;text-overflow:ellipsis">${r.operadorResp||'—'}</td>
       <td style="${TD};text-align:center">${r.imgUrl?`<img src="${r.imgUrl}" onclick="window.open('${r.imgUrl}','_blank')" style="width:34px;height:26px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer">`:'<span style="color:var(--muted)">—</span>'}</td>
       <td style="${TD};white-space:nowrap">
         ${enObra?`<button onclick="_seqRetorno(${r.id})" title="Registrar retorno a obra" style="background:rgba(16,185,129,.12);border:1px solid #10b98150;border-radius:5px;color:#10b981;cursor:pointer;font-size:.72rem;padding:.15rem .45rem;font-weight:700">↩ Retorno</button>`:''}
@@ -161,7 +161,7 @@ function _seqFill(r){
   set('seqFechaSal',r.fechaSalida);set('seqHoraSal',r.horaSalida);
   set('seqHoromSal',r.horomSalida);set('seqKmSal',r.kmSalida);set('seqCombSal',r.combSalida);
   set('seqFechaRet',r.fechaRetorno);set('seqHoromRet',r.horomRetorno);set('seqKmRet',r.kmRetorno);set('seqCombRet',r.combRetorno);
-  set('seqOperador',r.operador);set('seqObs',r.obs);
+  set('seqOperador',r.operadorResp);set('seqObs',r.obs);
   _seqImgRender();
 }
 // Al elegir un equipo del Máster se autocompletan placa, código y tipo
@@ -210,7 +210,7 @@ async function _seqSave(){
     fechaSalida,horaSalida:v('seqHoraSal')||null,
     horomSalida:n('seqHoromSal'),kmSalida:n('seqKmSal'),combSalida:n('seqCombSal'),
     fechaRetorno,horomRetorno:n('seqHoromRet'),kmRetorno:n('seqKmRet'),combRetorno:n('seqCombRet'),
-    operador:v('seqOperador')||null,obs:v('seqObs')||null,
+    operadorResp:v('seqOperador')||null,obs:v('seqObs')||null,
     imgUrl:_seqImgUrl||null,imgPath:_seqImgPath||null,
     proyecto:(DB.equipos||[]).find(e=>e.id===(+document.getElementById('seqEq').value||0))?.proyecto||null,
     creadoPor:CU?CU.nombre:''
@@ -278,7 +278,7 @@ function _seqDocHtml(){
           <td style="${TD}">${nn(r.horomRetorno)}</td><td style="${TD}">${nn(r.kmRetorno)}</td><td style="${TD}">${nn(r.combRetorno)}</td>
           <td style="${TD}">${r.fechaRetorno?_seqDMY(r.fechaRetorno):''}</td>
           <td style="${TD};background:#eef2f7;font-weight:700">${d==null?'':d}</td>
-          <td style="${TD};text-align:left">${r.operador||''}</td>
+          <td style="${TD};text-align:left">${r.operadorResp||''}</td>
           <td style="${TD};text-align:left">${r.obs||''}</td>
           <td style="${TD}">${r.imgUrl?`<img src="${r.imgUrl}" style="width:52px;height:38px;object-fit:cover">`:''}</td>
         </tr>`;
@@ -312,7 +312,7 @@ function _seqExportXls(){
      'Cant. Comb. Llegada (GLN)','Fecha Retorno','Días Fuera de Obra','Operador Responsable','Observaciones'],
     ...rows.map((r,i)=>[i+1,r.placa||'',r.codigo||'',r.tipoEquipo||'',r.tipoMantto||'',r.motivo||'',r.fechaSalida||'',r.horaSalida||'',
       r.horomSalida??'',r.kmSalida??'',r.combSalida??'',r.horomRetorno??'',r.kmRetorno??'',r.combRetorno??'',
-      r.fechaRetorno||'',_seqDias(r)??'',r.operador||'',r.obs||''])
+      r.fechaRetorno||'',_seqDias(r)??'',r.operadorResp||'',r.obs||''])
   ];
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:6},{wch:12},{wch:14},{wch:16},{wch:14},{wch:28},{wch:12},{wch:11},{wch:14},{wch:15},{wch:15},{wch:14},{wch:15},{wch:15},{wch:12},{wch:12},{wch:22},{wch:30}];
