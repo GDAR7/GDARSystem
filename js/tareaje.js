@@ -324,7 +324,7 @@ function rTareaje(){
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th ${_tarRO?'':` onclick="_tarColClick('${fecha}')"`} style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${_tarRO?'':'cursor:pointer;'}${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
+    return`<th ${_tarRO?'':` onclick="_tarColClick('${fecha}')"`} style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${_tarRO?'':'cursor:pointer;'}${isSun?'color:#f59e0b;background-image:linear-gradient(rgba(245,158,11,.12),rgba(245,158,11,.12))':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
     const _matchProy=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
@@ -344,8 +344,8 @@ function rTareaje(){
     const _a5html=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
     const _dlthtml=totDLT>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
     return`<tr style="border-bottom:1px solid var(--border)" data-search="${((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase()}">
-      <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
-      <td style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px"><strong>${p.ape}, ${p.nom}</strong></td>
+      <td class="tar-fx" style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 4px;white-space:nowrap;min-width:52px">${idx+1} <button class="tar-edit-btn" onclick="event.stopPropagation();_tarEditPersona(${p.id})" title="Editar datos del trabajador">✏️</button></td>
+      <td class="tar-fx tar-fx-end" ondblclick="_tarEditPersona(${p.id})" title="Doble clic para editar los datos del trabajador" style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px;cursor:pointer"><strong>${p.ape}, ${p.nom}</strong></td>
       ${_tarShowDni?`<td style="padding:3px 5px;white-space:nowrap;font-size:.72rem;font-family:monospace;color:#22d3ee;min-width:80px">${p.dni||'—'}</td>`:''}
       ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
       ${_tarShowCat?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#38bdf8;min-width:100px">${p.cat||'—'}</td>`:''}
@@ -375,8 +375,8 @@ function rTareaje(){
   document.getElementById('tbTareaje').innerHTML=`
     <thead>
       <tr style="background:var(--panel2)">
-        <th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:30px">N°</th>
-        <th style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
+        <th class="tar-fx" style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:52px">N°</th>
+        <th class="tar-fx tar-fx-end" style="padding:5px 8px;font-size:.68rem;white-space:nowrap;min-width:180px">Trabajador</th>
         ${_tarShowDni?_tarTh('dni','DNI','#22d3ee',80):''}
         ${_tarShowCargo?_tarTh('cargo','Cargo','',110):''}
         ${_tarShowCat?_tarTh('cat','Categoría','#38bdf8',110):''}
@@ -385,10 +385,10 @@ function rTareaje(){
         ${_tarShowAsig?_tarTh('asig','Asig. Fam.','#fbbf24',72,1):''}
         ${_tarShowGrd?_tarTh('grd','Guardia','#f59e0b',70,1):''}
         ${_tarShowProc?_tarTh('proc','Procedencia','#a78bfa',100):''}
-        <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background:rgba(4,78,100,.2);color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
-        <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background:rgba(4,78,100,.12);line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
+        <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background-image:linear-gradient(rgba(4,78,100,.2),rgba(4,78,100,.2));color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
+        <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background-image:linear-gradient(rgba(4,78,100,.12),rgba(4,78,100,.12));line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
-      <tr style="background:var(--panel2)"><th></th><th></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowCat?'<th></th>':''}${_tarShowTipo?'<th></th>':''}${_tarShowIng?'<th></th>':''}${_tarShowAsig?'<th></th>':''}${_tarShowGrd?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
+      <tr style="background:var(--panel2)"><th class="tar-fx"></th><th class="tar-fx tar-fx-end"></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowCat?'<th></th>':''}${_tarShowTipo?'<th></th>':''}${_tarShowIng?'<th></th>':''}${_tarShowAsig?'<th></th>':''}${_tarShowGrd?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
 }

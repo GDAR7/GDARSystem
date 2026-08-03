@@ -800,6 +800,7 @@
         <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
         <button id="tarBtnCols" class="btn btn-out btn-sm" onclick="_tarColsPanel(event)" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Elegir qué columnas mostrar">🧩 Columnas ▾</button>
+        <button id="tarBtnFijar" class="btn btn-out btn-sm" onclick="_tarToggleFijar()" style="font-size:.75rem" title="Fijar encabezado (mes y fechas) y las columnas N° / Trabajador al desplazarse">📌 Fijar encabezado</button>
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>

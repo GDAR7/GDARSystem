@@ -1402,6 +1402,7 @@ function _rosterDoExport(){
   _rosterCloseExport();
   _rosterExportXLSX(desde,hasta);
 }
+
 function _rosterExportXLSX(desde,hasta){
   // Construir rango de días
   const dias=[];let cur=desde;
