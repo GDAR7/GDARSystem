@@ -11,9 +11,9 @@ const KEP_CFG={
   titulo2:"CARDEX DE EQUIPO DE PROTECCION PERSONAL EPP´S",
   proyecto:'PROYECTO CONTRAFUERTE R3',
   codigo:'PU-AL-001',
-  version:'2',
+  version:'0',
   aprobado:'16/03/2025',
-  empresa:'ECOSERMO'
+  empresa:'ECOSERMO' 
 };
 const _KEP_MIN_FILAS=14;   // filas en blanco mínimas al imprimir
 
@@ -73,6 +73,7 @@ function _kepDatos(p,idx,completo){
   }else{
     cods=[...new Set(movs.map(r=>String(r.codigo).trim()))];
   }
+
   const cols=cods.map(cod=>{
     const c=_kepCat(cod),mv=nomDe(cod);
     return{cod,nom:(c?c.desc:mv.nombre)||cod,und:(c?c.und:mv.unidad)||'',cat:((c&&c.categoria)?String(c.categoria).trim():'')||'8. Otros'};
@@ -91,7 +92,7 @@ function _kepDatos(p,idx,completo){
   return{movs,fechas,cols,grupos,celda,vales,tot};
 }
 
-// ── Render principal ──
+// ── Render principal.
 function rKardexEpp(){
   if(_kepPersId)_kepRenderCardex();else _kepRenderLista();
 }
@@ -141,7 +142,7 @@ function _kepBarra(){
   </div>`;
 }
 
-// ── Vista 1: lista de trabajadores ──
+// ── Vista 1: lista de trabajadores.
 function _kepRenderLista(){
   const idx=_kepIndex();
   const pers=(DB.personal||[])
@@ -198,7 +199,7 @@ function _kepRenderLista(){
   if(_kepBuscar)_kepBuscarInput(_kepBuscar);
 }
 
-// ── Vista 2: cardex del trabajador ──
+// ── Vista 2: cardex del trabajador.
 function _kepRenderCardex(){
   const p=(DB.personal||[]).find(x=>x.id===_kepPersId);
   if(!p){_kepPersId=null;return _kepRenderLista();}
@@ -259,7 +260,7 @@ function _kepRenderCardex(){
     </div>`;
 }
 
-// ── Impresión: réplica del formato controlado (A4 apaisado) ──
+// ── Impresión: réplica del formato controlado (A4 apaisado).
 function _kepImprimir(){
   const p=(DB.personal||[]).find(x=>x.id===_kepPersId);if(!p)return;
   const idx=_kepIndex(),d=_kepDatos(p,idx);
@@ -343,7 +344,7 @@ function _kepImprimir(){
   w.document.close();
 }
 
-// ── Exportar a Excel ──
+// ── Exportar a Excel.
 function _kepExcel(){
   const p=(DB.personal||[]).find(x=>x.id===_kepPersId);if(!p)return;
   const idx=_kepIndex(),d=_kepDatos(p,idx);
