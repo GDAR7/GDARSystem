@@ -42,6 +42,51 @@ function _tarToggleCol(col){
 // Color por guardia: A ámbar · B morado · C verde
 const _TAR_GRD_COL={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
 
+// ══ ENCABEZADO / COLUMNAS FIJAS ══
+let _tarFijar=localStorage.getItem('_tarFijar')!=='0';   // activo por defecto
+function _tarToggleFijar(){
+  _tarFijar=!_tarFijar;
+  localStorage.setItem('_tarFijar',_tarFijar?'1':'0');
+  _tarAplicarFijado();
+}
+function _tarAplicarFijado(){
+  const tb=document.getElementById('tbTareaje');if(!tb)return;
+  const wrap=tb.parentElement;
+  const btn=document.getElementById('tarBtnFijar');
+  if(btn){
+    btn.innerHTML=_tarFijar?'📌 Encabezado fijo':'📌 Fijar encabezado';
+    btn.style.color=_tarFijar?'#f59e0b':'';
+    btn.style.borderColor=_tarFijar?'#f59e0b':'';
+    btn.style.background=_tarFijar?'rgba(245,158,11,.12)':'';
+  }
+  const limpiar=el=>{el.style.top='';el.style.left='';};
+  if(!_tarFijar){
+    tb.classList.remove('tar-fixed');
+    wrap.style.maxHeight='';wrap.style.overflowY='';
+    tb.querySelectorAll('th,td.tar-fx').forEach(limpiar);
+    return;
+  }
+  tb.classList.add('tar-fixed');
+  wrap.style.maxHeight='calc(100vh - 250px)';
+  wrap.style.overflowY='auto';
+  const head=tb.tHead;if(!head||!head.rows.length)return;
+  const h0=head.rows[0].offsetHeight;
+  Array.from(head.rows[0].cells).forEach(c=>c.style.top='0px');
+  if(head.rows[1])Array.from(head.rows[1].cells).forEach(c=>c.style.top=h0+'px');
+  const w0=head.rows[0].cells[0].offsetWidth;
+  const fijaIzq=cells=>{if(cells[0])cells[0].style.left='0px';if(cells[1])cells[1].style.left=w0+'px';};
+  Array.from(head.rows).forEach(r=>fijaIzq(r.cells));
+  if(tb.tBodies[0])Array.from(tb.tBodies[0].rows).forEach(r=>fijaIzq(r.cells));
+}
+// Abre el formulario de Personal para corregir DNI, procedencia, cargo, etc.
+function _tarEditPersona(id){
+  if(typeof openPersonalEdit!=='function'){toast('Formulario de personal no disponible',true);return;}
+  if(isModuleReadOnly('personal')){toast('No tiene permiso para editar personal',true);return;}
+  const p=DB.personal.find(x=>x.id===id);
+  if(!p){toast('Trabajador no encontrado',true);return;}
+  openPersonalEdit(id);
+}
+
 // ══ FILTROS POR COLUMNA (en el encabezado de cada columna informativa) ══
 const _TAR_CAMPO={dni:'dni',cargo:'cargo',cat:'cat',tipo:'tipo',ing:'ing',asig:'asig',grd:'guardia',proc:'proc'};
 let _tarColFilt={};   // {claveColumna: valorSeleccionado}
@@ -391,6 +436,7 @@ function rTareaje(){
       <tr style="background:var(--panel2)"><th class="tar-fx"></th><th class="tar-fx tar-fx-end"></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowCat?'<th></th>':''}${_tarShowTipo?'<th></th>':''}${_tarShowIng?'<th></th>':''}${_tarShowAsig?'<th></th>':''}${_tarShowGrd?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
+  _tarAplicarFijado();
 }
 function openTarePicker(personalId,fecha,cellEl){
   if(_tarPickerCb)document.removeEventListener('click',_tarPickerCb);

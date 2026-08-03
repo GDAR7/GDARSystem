@@ -298,6 +298,10 @@ function openPersonalEdit(id){
   perGoTab(0);
   openM('mPersonal');
 }
+// Si el formulario se abrió desde la grilla de Tareaje, refrescarla al guardar
+function _refrescarTareajeSiActivo(){
+  if(document.getElementById('page-tareaje')?.classList.contains('active')&&typeof rTareaje==='function')rTareaje();
+}
 function gPersonal(){
   const dni=document.getElementById('wDni').value.trim(),nom=document.getElementById('wNom').value.trim();
   if(!dni||!nom){toast('Ingrese DNI y nombre',true);return;}
@@ -312,7 +316,7 @@ function gPersonal(){
       Object.assign(DB.personal[idx],rec);syncSheet('savePersonal',DB.personal[idx]);
     }
     _editPersonalId=null;
-    closeM('mPersonal');rPersonal();toast('Trabajador actualizado');
+    closeM('mPersonal');rPersonal();_refrescarTareajeSiActivo();toast('Trabajador actualizado');
   }else{
     rec.id=nid('personal');
     DB.personal.push(rec);
