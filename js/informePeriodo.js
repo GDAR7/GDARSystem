@@ -12,6 +12,14 @@ const _IP_HH_DIA=10;   // horas hombre por jornada (mismo criterio que el Tareaj
 function _ipN(n,d){return Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:d==null?1:d,maximumFractionDigits:d==null?1:d});}
 function _ipEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _ipDMY(f){const p=String(f||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:(f||'');}
+// Equipos medidos por kilometraje (sin horómetro): vehículos menores y los que
+// el Máster valoriza por DÍA. Para estos, hrIni/hrFin no son horas de motor.
+const _IP_TIPOS_KM=['Vehículo Menor','Vehiculo Menor'];
+function _ipEsKm(eq){
+  if(!eq)return false;
+  if(_IP_TIPOS_KM.includes(String(eq.tipo||'').trim()))return true;
+  return String(eq.tarifaUn||'').toUpperCase()==='DIA';
+}
 
 // Período 21 → 20
 function _ipPeriodo(off){
@@ -30,7 +38,6 @@ function _ipInit(){
 }
 function _ipNav(dir){_ipOffset+=dir;const p=_ipPeriodo(_ipOffset);_ipDesde=p.desde;_ipHasta=p.hasta;rInformePeriodo();}
 function _ipSetFecha(campo,v){if(campo==='desde')_ipDesde=v;else _ipHasta=v;rInformePeriodo();}
-function _ipSetNotas(v){_ipNotas=v;}
 
 // ══ CÁLCULO DE TODOS LOS BLOQUES ══
 function _ipDatos(){
@@ -40,16 +47,25 @@ function _ipDatos(){
   const dias=Math.max(1,Math.round((new Date(H+'T12:00')-new Date(D+'T12:00'))/864e5)+1);
 
   // ── 1. EQUIPOS (partes diarios) ──
+  // Los vehículos menores y los equipos con tarifa por DÍA no llevan horómetro:
+  // su avance se mide en kilómetros. Mezclar ambos daba horas negativas enormes
+  // (el odómetro se restaba contra un horómetro en cero).
   const partes=(DB.partes||[]).filter(p=>enRango(p.fecha));
   const eqMap={};
   partes.forEach(p=>{
     const eq=(DB.equipos||[]).find(e=>e.id===p.eqId);
     if(!eqMap[p.eqId])eqMap[p.eqId]={id:p.eqId,cod:eq?eq.codigo:'—',nom:eq?(eq.nombre||''):'',tipo:eq?(eq.tipo||'Otros'):'Otros',
-      calent:eq?(+eq.calentamientoH||0):0,motor:0,cal:0,efec:0,inop:0,partes:0,turnos:{D:0,N:0}};
+      esKm:_ipEsKm(eq),calent:eq?(+eq.calentamientoH||0):0,
+      motor:0,cal:0,efec:0,inop:0,km:0,partes:0,errores:0,turnos:{D:0,N:0}};
     const x=eqMap[p.eqId];
-    const motor=+p.ef||0;
-    const cal=motor>0?x.calent:0;
-    x.motor+=motor;x.cal+=cal;x.efec+=Math.max(0,motor-cal);
+    if(x.esKm){
+      const ki=+p.kmIni||0,kf=+p.kmFin||0;
+      x.km+=kf>ki?kf-ki:0;
+    }else{
+      const motor=+p.ef||0;
+      if(motor<0){x.errores++;}                    // horómetro inconsistente: se ignora, no se resta
+      else{const cal=motor>0?x.calent:0;x.motor+=motor;x.cal+=cal;x.efec+=Math.max(0,motor-cal);}
+    }
     x.inop+=Math.max(0,+p.im||0);
     x.partes++;
     const t=String(p.turno||'').toUpperCase();
@@ -57,13 +73,18 @@ function _ipDatos(){
   });
   const equipos=Object.values(eqMap).map(x=>{
     const disp=dias*24;
-    return{...x,motor:+x.motor.toFixed(1),cal:+x.cal.toFixed(1),efec:+x.efec.toFixed(1),inop:+x.inop.toFixed(1),
+    return{...x,motor:+x.motor.toFixed(1),cal:+x.cal.toFixed(1),efec:+x.efec.toFixed(1),inop:+x.inop.toFixed(1),km:+x.km.toFixed(1),
       dispMec:disp>0?Math.max(0,Math.min(100,(disp-x.inop)/disp*100)):100};
-  }).sort((a,b)=>b.motor-a.motor);
+  }).sort((a,b)=>(b.motor-a.motor)||(b.km-a.km));
   const eqTot={motor:equipos.reduce((s,e)=>s+e.motor,0),efec:equipos.reduce((s,e)=>s+e.efec,0),
-    inop:equipos.reduce((s,e)=>s+e.inop,0),partes:equipos.reduce((s,e)=>s+e.partes,0)};
+    inop:equipos.reduce((s,e)=>s+e.inop,0),partes:equipos.reduce((s,e)=>s+e.partes,0),
+    km:equipos.reduce((s,e)=>s+e.km,0),errores:equipos.reduce((s,e)=>s+e.errores,0),
+    nHr:equipos.filter(e=>!e.esKm).length,nKm:equipos.filter(e=>e.esKm).length};
   const porTipoEq={};
-  equipos.forEach(e=>{if(!porTipoEq[e.tipo])porTipoEq[e.tipo]={n:0,motor:0};porTipoEq[e.tipo].n++;porTipoEq[e.tipo].motor+=e.motor;});
+  equipos.forEach(e=>{
+    if(!porTipoEq[e.tipo])porTipoEq[e.tipo]={n:0,motor:0,km:0};
+    porTipoEq[e.tipo].n++;porTipoEq[e.tipo].motor+=e.motor;porTipoEq[e.tipo].km+=e.km;
+  });
 
   // ── 2. PERSONAL (tareaje) ──
   const tar=(DB.tareaje||[]).filter(r=>enRango(r.fecha));
@@ -126,22 +147,28 @@ function _ipDatos(){
   const ing=comb.filter(r=>r.tipoMov==='Ingreso');
   const des=comb.filter(r=>r.tipoMov!=='Ingreso');
   const porEqComb={};
+  let galHr=0,galKm=0;   // galones de equipos con horómetro vs. de vehículos por km
   des.forEach(r=>{
     const eq=(DB.equipos||[]).find(e=>e.id===r.eqId);
     const k=eq?eq.codigo:'—';
-    if(!porEqComb[k])porEqComb[k]={gal:0,soles:0,n:0,eqId:r.eqId};
-    porEqComb[k].gal+=+r.gal||0;
-    porEqComb[k].soles+=(+r.gal||0)*(+r.precio||0);
+    const g=+r.gal||0;
+    if(!porEqComb[k])porEqComb[k]={gal:0,soles:0,n:0,eqId:r.eqId,esKm:_ipEsKm(eq)};
+    porEqComb[k].gal+=g;
+    porEqComb[k].soles+=g*(+r.precio||0);
     porEqComb[k].n++;
+    if(_ipEsKm(eq))galKm+=g;else galHr+=g;
   });
   const galDes=des.reduce((s,r)=>s+(+r.gal||0),0);
   const combustible={
     galIng:ing.reduce((s,r)=>s+(+r.gal||0),0),
-    galDes,
+    galDes,galHr,galKm,
     solesDes:des.reduce((s,r)=>s+(+r.gal||0)*(+r.precio||0),0),
     nDes:des.length,nIng:ing.length,
     equipos:new Set(des.map(r=>r.eqId)).size,
-    rend:eqTot.motor>0?galDes/eqTot.motor:0,
+    // Rendimiento por horómetro: solo galones y horas de equipos con horómetro
+    rend:eqTot.motor>0?galHr/eqTot.motor:0,
+    // Rendimiento de vehículos: km recorridos por galón
+    rendKm:galKm>0?eqTot.km/galKm:0,
     topEq:Object.entries(porEqComb).sort((a,b)=>b[1].gal-a[1].gal).slice(0,10)
   };
 
@@ -178,194 +205,114 @@ function _ipDatos(){
   return{desde:D,hasta:H,dias,equipos,eqTot,porTipoEq,personal,mecanica,combustible,almacen};
 }
 
-// ══ RENDER EN PANTALLA ══
-function rInformePeriodo(){
-  const cont=document.getElementById('ipBody');if(!cont)return;
-  const d=_ipDatos();
-  const per=_ipPeriodo(_ipOffset);
-  const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;color:var(--text);font-size:.78rem;color-scheme:dark;width:auto';
-
-  const kpi=(l,v,sub,c,ic)=>`<div class="kpi" style="--kc:${c};flex:1;min-width:145px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${l}</span><span style="font-size:1.2rem;line-height:1;opacity:.75">${ic}</span></div><div class="kpi-val" style="font-size:1.75rem">${v}</div><div class="kpi-sub">${sub}</div></div>`;
-
-  const TH='background:var(--panel2);color:var(--muted2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.38rem .5rem;white-space:nowrap';
-  const TD='padding:.32rem .5rem;border-bottom:1px solid var(--border);font-size:.74rem';
-  const seccion=(icono,titulo,color,contenido,extra)=>`
-    <div class="card" style="margin-bottom:.9rem">
-      <div class="card-head"><span class="card-title" style="color:${color}">${icono} ${titulo}</span>${extra||''}</div>
-      <div class="card-body" style="padding:0;overflow-x:auto">${contenido}</div>
-    </div>`;
-  const mini=(arr,c1,c2)=>`<div style="display:flex;flex-wrap:wrap;gap:.4rem;padding:.6rem">${arr.map(([k,v])=>`<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.35rem .7rem;font-size:.72rem"><span style="color:var(--muted2)">${_ipEsc(k)}</span> <strong style="color:${c1}">${v.n}</strong>${v.jor!=null?` <span style="color:${c2};font-size:.68rem">${v.jor} jor.</span>`:''}${v.horas!=null?` <span style="color:${c2};font-size:.68rem">${_ipN(v.horas)} h</span>`:''}${v.motor!=null?` <span style="color:${c2};font-size:.68rem">${_ipN(v.motor)} h</span>`:''}${v.soles!=null?` <span style="color:${c2};font-size:.68rem">S/ ${_ipN(v.soles,2)}</span>`:''}</div>`).join('')}</div>`;
-
-  // Equipos
-  const tEq=d.equipos.length?`<table style="width:100%;border-collapse:collapse;min-width:760px">
-    <thead><tr><th style="${TH}">#</th><th style="${TH}">Equipo</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Tipo</th>
-      <th style="${TH};text-align:right">H. Motor</th><th style="${TH};text-align:right">Calent.</th><th style="${TH};text-align:right">H. Efectiva</th>
-      <th style="${TH};text-align:right">H. Inop.</th><th style="${TH};text-align:center">Partes</th><th style="${TH};text-align:right">Disp. Mec.</th></tr></thead>
-    <tbody>${d.equipos.map((e,i)=>`<tr style="border-bottom:1px solid var(--border)">
-      <td style="${TD};text-align:center;color:var(--muted2);font-size:.7rem">${i+1}</td>
-      <td style="${TD};font-family:monospace;font-weight:700;color:#22d3ee">${_ipEsc(e.cod)}</td>
-      <td style="${TD};font-size:.72rem;color:var(--muted2)">${_ipEsc(e.nom).slice(0,42)}</td>
-      <td style="${TD};font-size:.7rem">${_ipEsc(e.tipo)}</td>
-      <td style="${TD};text-align:right;font-weight:700">${_ipN(e.motor)}</td>
-      <td style="${TD};text-align:right;color:var(--muted2)">${_ipN(e.cal)}</td>
-      <td style="${TD};text-align:right;font-weight:800;color:#10b981">${_ipN(e.efec)}</td>
-      <td style="${TD};text-align:right;color:${e.inop?'#ef4444':'var(--muted)'}">${_ipN(e.inop)}</td>
-      <td style="${TD};text-align:center;font-size:.72rem">${e.partes}</td>
-      <td style="${TD};text-align:right;font-weight:700;color:${e.dispMec>=90?'#10b981':e.dispMec>=75?'#f59e0b':'#ef4444'}">${e.dispMec.toFixed(1)}%</td>
-    </tr>`).join('')}</tbody>
-    <tfoot><tr style="background:rgba(4,78,100,.14);border-top:2px solid var(--border)">
-      <td colspan="4" style="${TD};text-align:right;font-weight:800;font-size:.72rem;color:var(--muted2)">TOTALES</td>
-      <td style="${TD};text-align:right;font-weight:900">${_ipN(d.eqTot.motor)}</td><td></td>
-      <td style="${TD};text-align:right;font-weight:900;color:#10b981">${_ipN(d.eqTot.efec)}</td>
-      <td style="${TD};text-align:right;font-weight:900;color:#ef4444">${_ipN(d.eqTot.inop)}</td>
-      <td style="${TD};text-align:center;font-weight:900">${d.eqTot.partes}</td><td></td>
-    </tr></tfoot></table>`:'<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.8rem">Sin partes diarios en el período.</div>';
-
-  // Personal
-  const tPer=`<div style="padding:.7rem">
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
-      ${[['Trabajo Día',d.personal.td,'#10b981'],['Trabajo Noche',d.personal.tn,'#3b82f6'],['Día Libre',d.personal.dl,'#6b7280'],
-         ['Anexo 5',d.personal.a5,'#f97316'],['DL Trabajado',d.personal.dlt,'#84cc16'],['Faltas',d.personal.faltas,'#ef4444'],
-         ['Permisos',d.personal.permisos,'#f59e0b'],['Desc. Médico',d.personal.dm,'#8b5cf6'],['Vacaciones',d.personal.vac,'#0ea5e9']]
-        .map(([l,v,c])=>`<div style="background:${c}1a;border:1px solid ${c}55;border-radius:8px;padding:.35rem .75rem;font-size:.72rem"><span style="color:var(--muted2)">${l}</span> <strong style="color:${c};font-size:.85rem">${v}</strong></div>`).join('')}
-    </div>
-    <div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.5rem 0 .2rem">Por guardia</div>
-    ${mini(d.personal.porGuardia,'#f59e0b','#10b981').replace('padding:.6rem','padding:0')}
-    <div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.7rem 0 .2rem">Top cargos por jornadas</div>
-    ${mini(d.personal.porCargo,'#22d3ee','#10b981').replace('padding:.6rem','padding:0')}
-  </div>`;
-
-  // Mecánica
-  const tMec=`<div style="padding:.7rem">
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
-      ${[['Atendidos',d.mecanica.aten,'#10b981'],['En Proceso',d.mecanica.proc,'#f59e0b'],['Pendientes',d.mecanica.pend,'#ef4444'],
-         ['Horas de parada',_ipN(d.mecanica.horasParada)+' h','#8b5cf6'],['Equipos atendidos',d.mecanica.equipos,'#22d3ee'],
-         ['Insumos (Almacén)','S/ '+_ipN(d.mecanica.insumosVal,2),'#f97316']]
-        .map(([l,v,c])=>`<div style="background:${c}1a;border:1px solid ${c}55;border-radius:8px;padding:.35rem .75rem;font-size:.72rem"><span style="color:var(--muted2)">${l}</span> <strong style="color:${c};font-size:.85rem">${v}</strong></div>`).join('')}
-    </div>
-    <div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.5rem 0 .2rem">Por tipo de falla</div>
-    ${mini(d.mecanica.porFalla,'#ec4899','#8b5cf6').replace('padding:.6rem','padding:0')}
-    <div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.7rem 0 .2rem">Equipos con más atenciones</div>
-    ${mini(d.mecanica.topEq,'#22d3ee','#ef4444').replace('padding:.6rem','padding:0')}
-  </div>`;
-
-  // Combustible
-  const tComb=`<div style="padding:.7rem">
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
-      ${[['Ingresos',_ipN(d.combustible.galIng)+' gal','#3b82f6'],['Despachos',_ipN(d.combustible.galDes)+' gal','#f59e0b'],
-         ['Valorizado','S/ '+_ipN(d.combustible.solesDes,2),'#10b981'],['Atenciones',d.combustible.nDes,'#8b5cf6'],
-         ['Rendimiento',_ipN(d.combustible.rend,2)+' gal/h','#22d3ee']]
-        .map(([l,v,c])=>`<div style="background:${c}1a;border:1px solid ${c}55;border-radius:8px;padding:.35rem .75rem;font-size:.72rem"><span style="color:var(--muted2)">${l}</span> <strong style="color:${c};font-size:.85rem">${v}</strong></div>`).join('')}
-    </div>
-    ${d.combustible.topEq.length?`<table style="width:100%;border-collapse:collapse">
-      <thead><tr><th style="${TH}">#</th><th style="${TH}">Equipo</th><th style="${TH};text-align:center">Atenciones</th><th style="${TH};text-align:right">Galones</th><th style="${TH};text-align:right">S/</th><th style="${TH};text-align:right">% del total</th></tr></thead>
-      <tbody>${d.combustible.topEq.map(([k,v],i)=>`<tr style="border-bottom:1px solid var(--border)">
-        <td style="${TD};text-align:center;color:var(--muted2);font-size:.7rem">${i+1}</td>
-        <td style="${TD};font-family:monospace;font-weight:700;color:#22d3ee">${_ipEsc(k)}</td>
-        <td style="${TD};text-align:center;font-size:.72rem">${v.n}</td>
-        <td style="${TD};text-align:right;font-weight:700;color:#f59e0b">${_ipN(v.gal)}</td>
-        <td style="${TD};text-align:right;color:#10b981">${_ipN(v.soles,2)}</td>
-        <td style="${TD};text-align:right;font-size:.72rem;color:var(--muted2)">${d.combustible.galDes?(v.gal/d.combustible.galDes*100).toFixed(1):'0.0'}%</td>
-      </tr>`).join('')}</tbody></table>`:''}
-  </div>`;
-
-  // Almacén
-  const tAlm=`<div style="padding:.7rem">
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
-      ${[['Entradas',d.almacen.nEnt,'#10b981'],['Salidas',d.almacen.nSal,'#ef4444'],['Vales emitidos',d.almacen.vales,'#f97316'],
-         ['Ítems distintos',d.almacen.items,'#22d3ee'],['Valor entradas','S/ '+_ipN(d.almacen.valEnt,2),'#10b981'],
-         ['Valor salidas','S/ '+_ipN(d.almacen.valSal,2),'#ef4444']]
-        .map(([l,v,c])=>`<div style="background:${c}1a;border:1px solid ${c}55;border-radius:8px;padding:.35rem .75rem;font-size:.72rem"><span style="color:var(--muted2)">${l}</span> <strong style="color:${c};font-size:.85rem">${v}</strong></div>`).join('')}
-    </div>
-    <div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.5rem 0 .2rem">Salidas por tipo de material</div>
-    ${mini(d.almacen.porTipo,'#f97316','#10b981').replace('padding:.6rem','padding:0')}
-    ${d.almacen.topItems.length?`<div style="font-size:.66rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:.7rem 0 .2rem">Ítems más despachados</div>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr><th style="${TH}">#</th><th style="${TH}">Código</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH};text-align:right">Cantidad</th><th style="${TH};text-align:right">S/</th></tr></thead>
-      <tbody>${d.almacen.topItems.map((it,i)=>`<tr style="border-bottom:1px solid var(--border)">
-        <td style="${TD};text-align:center;color:var(--muted2);font-size:.7rem">${i+1}</td>
-        <td style="${TD};font-family:monospace;font-size:.7rem;color:var(--alm)">${_ipEsc(it.cod)||'—'}</td>
-        <td style="${TD}"><strong>${_ipEsc(it.nom)}</strong></td>
-        <td style="${TD};text-align:center;font-size:.7rem;color:var(--muted2)">${_ipEsc(it.und)}</td>
-        <td style="${TD};text-align:right;font-weight:700">${_ipN(it.cant)}</td>
-        <td style="${TD};text-align:right;font-weight:800;color:#10b981">${_ipN(it.soles,2)}</td>
-      </tr>`).join('')}</tbody></table>`:''}
-  </div>`;
-
-  cont.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
-      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-          <button onclick="_ipNav(-1)" style="background:none;border:none;border-right:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.3rem .7rem;line-height:1">‹</button>
-          <span style="font-weight:800;font-size:.85rem;min-width:125px;text-align:center;padding:0 .5rem">${per.label}</span>
-          <button onclick="_ipNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.3rem .7rem;line-height:1">›</button>
-        </div>
-        <span style="font-size:.7rem;color:var(--muted2)">Desde</span>
-        <input type="date" class="date-ic-azul" value="${d.desde}" onchange="_ipSetFecha('desde',this.value)" style="${inpS}">
-        <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
-        <input type="date" class="date-ic-azul" value="${d.hasta}" onchange="_ipSetFecha('hasta',this.value)" style="${inpS}">
-        <span style="font-size:.72rem;color:var(--muted2)">· ${d.dias} días</span>
-      </div>
-      <div style="display:flex;gap:.4rem">
-        <button class="btn btn-out btn-sm" onclick="_ipPrint()" style="color:#10b981;border-color:#10b981;font-size:.78rem">🖨️ Informe PDF</button>
-        <button class="btn btn-out btn-sm" onclick="_ipExcel()" style="color:#22d3ee;border-color:#22d3ee60;font-size:.78rem">📥 Excel</button>
-      </div>
-    </div>
-
-    <div class="kpi-row">
-      ${kpi('Horas Máquina',_ipN(d.eqTot.motor),`${d.equipos.length} equipos con parte`,'#06b6d4','⏱️')}
-      ${kpi('Horas Hombre',_ipN(d.personal.hh,0),`${d.personal.total} trabajadores`,'#3b82f6','👷')}
-      ${kpi('Atenciones Mec.',d.mecanica.total,`${_ipN(d.mecanica.horasParada)} h de parada`,'#8b5cf6','🚨')}
-      ${kpi('Combustible',_ipN(d.combustible.galDes,0)+' gal','S/ '+_ipN(d.combustible.solesDes,2),'#f59e0b','⛽')}
-      ${kpi('Consumo Almacén','S/ '+_ipN(d.almacen.valSal,2),`${d.almacen.nSal} salidas · ${d.almacen.vales} vales`,'#f97316','📦')}
-    </div>
-
-    ${seccion('🚜','Equipos — Horas del Período','#06b6d4',tEq,`<span style="font-size:.7rem;color:var(--muted2)">${d.equipos.length} equipos</span>`)}
-    ${Object.keys(d.porTipoEq).length?seccion('🗂️','Horas por Tipo de Equipo','#0ea5e9',mini(Object.entries(d.porTipoEq),'#22d3ee','#10b981')):''}
-    ${seccion('👷','Personal — Jornadas del Período','#3b82f6',tPer,`<span style="font-size:.7rem;color:var(--muted2)">${_ipN(d.personal.hh,0)} HH</span>`)}
-    ${seccion('🚨','Atenciones Mecánicas','#8b5cf6',tMec,`<span style="font-size:.7rem;color:var(--muted2)">${d.mecanica.total} auxilios</span>`)}
-    ${seccion('⛽','Consumo de Combustible','#f59e0b',tComb,`<span style="font-size:.7rem;color:var(--muted2)">${_ipN(d.combustible.galDes)} gal</span>`)}
-    ${seccion('📦','Consumo de Almacén','#f97316',tAlm,`<span style="font-size:.7rem;color:var(--muted2)">S/ ${_ipN(d.almacen.valSal,2)}</span>`)}
-
-    <div class="card">
-      <div class="card-head"><span class="card-title">📝 Observaciones del Informe</span><span style="font-size:.68rem;color:var(--muted2)">se imprime al final del PDF</span></div>
-      <div class="card-body"><textarea oninput="_ipSetNotas(this.value)" placeholder="Comentarios, incidencias relevantes, conclusiones del período..." style="width:100%;min-height:80px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.6rem;color:var(--text);font-size:.8rem;font-family:inherit;resize:vertical">${_ipEsc(_ipNotas)}</textarea></div>
-    </div>`;
+// ══ TEXTO NARRATIVO DEL INFORME ══
+function _ipTextos(d){
+  const eqTop=d.equipos.filter(e=>!e.esKm)[0];
+  const kmTop=d.equipos.filter(e=>e.esKm).sort((a,b)=>b.km-a.km)[0];
+  const dispProm=d.equipos.length?d.equipos.reduce((s,e)=>s+e.dispMec,0)/d.equipos.length:100;
+  const fallaTop=d.mecanica.porFalla[0];
+  const combTop=d.combustible.topEq[0];
+  const almTop=d.almacen.topItems[0];
+  const gTop=d.personal.porGuardia[0];
+  return{
+    intro:`El presente informe consolida la información operativa registrada en el sistema durante el período comprendido entre el <strong>${_ipDMY(d.desde)}</strong> y el <strong>${_ipDMY(d.hasta)}</strong>, equivalente a <strong>${d.dias} días calendario</strong>. Reúne el desempeño de los equipos, la asistencia del personal, las atenciones mecánicas de campo, el consumo de combustible y el movimiento de almacén, con el fin de dar una visión integral de lo ejecutado en el período.`,
+    equipos:!d.equipos.length?'No se registraron partes diarios en el período.':
+      `Se procesaron <strong>${d.eqTot.partes} partes diarios</strong> correspondientes a <strong>${d.equipos.length} equipos</strong>. `+
+      (d.eqTot.nHr?`Los ${d.eqTot.nHr} equipos con horómetro acumularon <strong>${_ipN(d.eqTot.motor)} horas de motor</strong>, de las cuales ${_ipN(d.eqTot.motor-d.eqTot.efec)} h corresponden a calentamiento, resultando en <strong>${_ipN(d.eqTot.efec)} horas efectivas</strong> de trabajo. `:'')+
+      (d.eqTot.nKm?`Los ${d.eqTot.nKm} vehículos medidos por kilometraje recorrieron <strong>${_ipN(d.eqTot.km,0)} km</strong>. `:'')+
+      `Se acumularon ${_ipN(d.eqTot.inop)} horas de inoperatividad, con una disponibilidad mecánica promedio de <strong>${dispProm.toFixed(1)}%</strong>. `+
+      (eqTop?`El equipo de mayor utilización fue <strong>${_ipEsc(eqTop.cod)}</strong> con ${_ipN(eqTop.motor)} horas de motor. `:'')+
+      (kmTop&&kmTop.km?`El vehículo con mayor recorrido fue <strong>${_ipEsc(kmTop.cod)}</strong> con ${_ipN(kmTop.km,0)} km. `:'')+
+      (d.eqTot.errores?`<span style="color:#b45309">Se detectaron ${d.eqTot.errores} parte(s) con horómetro final menor al inicial; fueron excluidos del cómputo y requieren revisión.</span>`:''),
+    personal:!d.personal.total?'No se registraron marcaciones de tareaje en el período.':
+      `Participaron <strong>${d.personal.total} trabajadores</strong>, quienes acumularon <strong>${d.personal.jornadas} jornadas</strong> `+
+      `(${d.personal.td} en turno día y ${d.personal.tn} en turno noche), equivalentes a <strong>${_ipN(d.personal.hh,0)} horas hombre</strong> `+
+      `bajo el criterio de ${_IP_HH_DIA} horas por jornada. `+
+      `Se registraron ${d.personal.dl} días libres, ${d.personal.faltas} faltas, ${d.personal.permisos} permisos, ${d.personal.dm} descansos médicos y ${d.personal.vac} días de vacaciones. `+
+      (d.personal.a5?`Adicionalmente se contabilizaron ${d.personal.a5} jornadas bajo Anexo 5 correspondientes a personal de ingreso reciente. `:'')+
+      (gTop?`La guardia con mayor carga de trabajo fue la <strong>${_ipEsc(gTop[0])}</strong>, con ${gTop[1].n} trabajadores y ${gTop[1].jor} jornadas.`:''),
+    mecanica:!d.mecanica.total?'No se registraron atenciones mecánicas en el período.':
+      `Se atendieron <strong>${d.mecanica.total} auxilios mecánicos</strong> sobre <strong>${d.mecanica.equipos} equipos</strong>, `+
+      `acumulando <strong>${_ipN(d.mecanica.horasParada)} horas de parada</strong>. `+
+      `Del total, ${d.mecanica.aten} fueron atendidos, ${d.mecanica.proc} se encuentran en proceso y ${d.mecanica.pend} quedan pendientes de atención. `+
+      (fallaTop?`La falla más recurrente correspondió a <strong>${_ipEsc(fallaTop[0])}</strong>, con ${fallaTop[1].n} casos (${(fallaTop[1].n/d.mecanica.total*100).toFixed(1)}% del total). `:'')+
+      (d.mecanica.insumosVal?`El consumo de insumos de almacén asociado a estas atenciones asciende a <strong>S/ ${_ipN(d.mecanica.insumosVal,2)}</strong>.`:'No se registró consumo valorizado de insumos de almacén en estas atenciones.'),
+    combustible:!d.combustible.nDes&&!d.combustible.nIng?'No se registraron movimientos de combustible en el período.':
+      `Ingresaron <strong>${_ipN(d.combustible.galIng)} galones</strong> y se despacharon <strong>${_ipN(d.combustible.galDes)} galones</strong> `+
+      `en ${d.combustible.nDes} atenciones a ${d.combustible.equipos} equipos, por un valor de <strong>S/ ${_ipN(d.combustible.solesDes,2)}</strong>. `+
+      (d.combustible.rend?`El rendimiento promedio de los equipos con horómetro fue de <strong>${_ipN(d.combustible.rend,2)} gal/h</strong>. `:'')+
+      (d.combustible.rendKm?`Los vehículos medidos por kilometraje promediaron <strong>${_ipN(d.combustible.rendKm,2)} km/gal</strong>. `:'')+
+      (combTop?`El mayor consumidor fue <strong>${_ipEsc(combTop[0])}</strong> con ${_ipN(combTop[1].gal)} galones, el ${(combTop[1].gal/d.combustible.galDes*100).toFixed(1)}% del total despachado.`:''),
+    almacen:!d.almacen.nEnt&&!d.almacen.nSal?'No se registraron movimientos de almacén en el período.':
+      `Se procesaron <strong>${d.almacen.nEnt} entradas</strong> y <strong>${d.almacen.nSal} salidas</strong> mediante ${d.almacen.vales} vales, `+
+      `involucrando ${d.almacen.items} ítems distintos. `+
+      `El valor de las salidas asciende a <strong>S/ ${_ipN(d.almacen.valSal,2)}</strong>, frente a S/ ${_ipN(d.almacen.valEnt,2)} de ingresos al almacén. `+
+      (almTop?`El material de mayor consumo fue <strong>${_ipEsc(almTop.nom)}</strong>, con ${_ipN(almTop.cant)} ${_ipEsc(almTop.und)} por un valor de S/ ${_ipN(almTop.soles,2)}.`:'')
+  };
 }
 
-// ══ INFORME PDF ══
-function _ipPrint(){
+// ══ DOCUMENTO (hoja blanca, mismo HTML en pantalla y al imprimir) ══
+function _ipDoc(){
   const d=_ipDatos();
+  const T=_ipTextos(d);
   const AZ='#0070C0';
   const logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
-  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;text-align:center;border:1px solid #fff`;
-  const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:9px;color:#111';
-  const sec=t=>`<div class="sec">${t}</div>`;
-  const cajas=arr=>`<div class="cajas">${arr.map(([l,v])=>`<div class="caja"><span>${l}</span><strong>${v}</strong></div>`).join('')}</div>`;
+  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;text-align:center;border:1px solid #fff;font-weight:700`;
+  const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:9.5px;color:#111';
+  const sec=(n,t)=>`<div class="ip-sec">${n}. ${t}</div>`;
+  const parr=t=>`<p class="ip-p">${t}</p>`;
+  const cajas=arr=>`<div class="ip-cajas">${arr.map(([l,v])=>`<div class="ip-caja"><span>${l}</span><strong>${v}</strong></div>`).join('')}</div>`;
 
-  const tblEq=d.equipos.length?`<table>
+  const tblEq=d.equipos.length?`<table class="ip-t">
     <thead><tr><th style="${TH}">#</th><th style="${TH}">Equipo</th><th style="${TH};text-align:left">Descripción</th>
-      <th style="${TH}">H. Motor</th><th style="${TH}">Calent.</th><th style="${TH}">H. Efectiva</th>
-      <th style="${TH}">H. Inop.</th><th style="${TH}">Partes</th><th style="${TH}">Disp. Mec.</th></tr></thead>
+      <th style="${TH}">Medición</th><th style="${TH}">H. Motor</th><th style="${TH}">Calent.</th><th style="${TH}">H. Efectiva</th>
+      <th style="${TH}">Km Rec.</th><th style="${TH}">H. Inop.</th><th style="${TH}">Partes</th><th style="${TH}">Disp. Mec.</th></tr></thead>
     <tbody>${d.equipos.map((e,i)=>`<tr>
       <td style="${TD};text-align:center">${i+1}</td>
-      <td style="${TD};text-align:center;font-family:monospace;font-weight:700">${_ipEsc(e.cod)}</td>
+      <td style="${TD};text-align:center;font-family:monospace;font-weight:700">${_ipEsc(e.cod)}${e.errores?' <span style="color:#b45309" title="Partes con horómetro inconsistente">⚠</span>':''}</td>
       <td style="${TD}">${_ipEsc(e.nom).slice(0,46)}</td>
-      <td style="${TD};text-align:right">${_ipN(e.motor)}</td>
-      <td style="${TD};text-align:right">${_ipN(e.cal)}</td>
-      <td style="${TD};text-align:right;font-weight:700">${_ipN(e.efec)}</td>
+      <td style="${TD};text-align:center;font-size:8.5px;color:#64748b">${e.esKm?'Kilometraje':'Horómetro'}</td>
+      <td style="${TD};text-align:right">${e.esKm?'—':_ipN(e.motor)}</td>
+      <td style="${TD};text-align:right">${e.esKm?'—':_ipN(e.cal)}</td>
+      <td style="${TD};text-align:right;font-weight:700">${e.esKm?'—':_ipN(e.efec)}</td>
+      <td style="${TD};text-align:right;font-weight:700">${e.esKm?_ipN(e.km,0):'—'}</td>
       <td style="${TD};text-align:right">${_ipN(e.inop)}</td>
       <td style="${TD};text-align:center">${e.partes}</td>
       <td style="${TD};text-align:right;font-weight:700">${e.dispMec.toFixed(1)}%</td></tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="3" style="${TD};text-align:right;font-weight:800;background:#e2e8f0">TOTALES</td>
+    <tfoot><tr><td colspan="4" style="${TD};text-align:right;font-weight:800;background:#e2e8f0">TOTALES</td>
       <td style="${TD};text-align:right;font-weight:800;background:#e2e8f0">${_ipN(d.eqTot.motor)}</td>
       <td style="${TD};background:#e2e8f0"></td>
       <td style="${TD};text-align:right;font-weight:800;background:#e2e8f0">${_ipN(d.eqTot.efec)}</td>
+      <td style="${TD};text-align:right;font-weight:800;background:#e2e8f0">${_ipN(d.eqTot.km,0)}</td>
       <td style="${TD};text-align:right;font-weight:800;background:#e2e8f0">${_ipN(d.eqTot.inop)}</td>
       <td style="${TD};text-align:center;font-weight:800;background:#e2e8f0">${d.eqTot.partes}</td>
-      <td style="${TD};background:#e2e8f0"></td></tr></tfoot></table>`:'<p class="vacio">Sin partes diarios en el período.</p>';
+      <td style="${TD};background:#e2e8f0"></td></tr></tfoot></table>`:'';
 
-  const tblComb=d.combustible.topEq.length?`<table>
+  const tblGuardia=d.personal.porGuardia.length?`<table class="ip-t">
+    <thead><tr><th style="${TH};text-align:left">Guardia</th><th style="${TH}">Trabajadores</th><th style="${TH}">Jornadas</th><th style="${TH}">Horas Hombre</th><th style="${TH}">% de jornadas</th></tr></thead>
+    <tbody>${d.personal.porGuardia.map(([g,v])=>`<tr>
+      <td style="${TD}"><strong>${_ipEsc(g)}</strong></td>
+      <td style="${TD};text-align:center">${v.n}</td>
+      <td style="${TD};text-align:center">${v.jor}</td>
+      <td style="${TD};text-align:right">${_ipN(v.jor*_IP_HH_DIA,0)}</td>
+      <td style="${TD};text-align:right">${d.personal.jornadas?(v.jor/d.personal.jornadas*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'';
+
+  const tblFalla=d.mecanica.porFalla.length?`<table class="ip-t">
+    <thead><tr><th style="${TH};text-align:left">Tipo de Falla</th><th style="${TH}">Cantidad</th><th style="${TH}">Horas de Parada</th><th style="${TH}">% del total</th></tr></thead>
+    <tbody>${d.mecanica.porFalla.map(([t,v])=>`<tr>
+      <td style="${TD}">${_ipEsc(t)}</td><td style="${TD};text-align:center">${v.n}</td>
+      <td style="${TD};text-align:right">${_ipN(v.horas)}</td>
+      <td style="${TD};text-align:right">${d.mecanica.total?(v.n/d.mecanica.total*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'';
+
+  const tblEqAux=d.mecanica.topEq.length?`<p class="ip-sub">Equipos con mayor número de atenciones</p><table class="ip-t">
+    <thead><tr><th style="${TH}">#</th><th style="${TH}">Equipo</th><th style="${TH}">Atenciones</th><th style="${TH}">Horas de Parada</th></tr></thead>
+    <tbody>${d.mecanica.topEq.map(([k,v],i)=>`<tr>
+      <td style="${TD};text-align:center">${i+1}</td>
+      <td style="${TD};text-align:center;font-family:monospace;font-weight:700">${_ipEsc(k)}</td>
+      <td style="${TD};text-align:center">${v.n}</td>
+      <td style="${TD};text-align:right">${_ipN(v.horas)}</td></tr>`).join('')}</tbody></table>`:'';
+
+  const tblComb=d.combustible.topEq.length?`<p class="ip-sub">Equipos con mayor consumo</p><table class="ip-t">
     <thead><tr><th style="${TH}">#</th><th style="${TH}">Equipo</th><th style="${TH}">Atenciones</th><th style="${TH}">Galones</th><th style="${TH}">S/</th><th style="${TH}">% del total</th></tr></thead>
     <tbody>${d.combustible.topEq.map(([k,v],i)=>`<tr>
       <td style="${TD};text-align:center">${i+1}</td>
@@ -375,8 +322,15 @@ function _ipPrint(){
       <td style="${TD};text-align:right">${_ipN(v.soles,2)}</td>
       <td style="${TD};text-align:right">${d.combustible.galDes?(v.gal/d.combustible.galDes*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'';
 
-  const tblAlm=d.almacen.topItems.length?`<table>
-    <thead><tr><th style="${TH}">#</th><th style="${TH}">Código</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cantidad</th><th style="${TH}">S/</th></tr></thead>
+  const tblTipoMat=d.almacen.porTipo.length?`<table class="ip-t">
+    <thead><tr><th style="${TH};text-align:left">Tipo de Material</th><th style="${TH}">Ítems</th><th style="${TH}">Valor S/</th><th style="${TH}">% del total</th></tr></thead>
+    <tbody>${d.almacen.porTipo.map(([t,v])=>`<tr>
+      <td style="${TD}">${_ipEsc(t)}</td><td style="${TD};text-align:center">${v.n}</td>
+      <td style="${TD};text-align:right;font-weight:700">${_ipN(v.soles,2)}</td>
+      <td style="${TD};text-align:right">${d.almacen.valSal?(v.soles/d.almacen.valSal*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'';
+
+  const tblAlm=d.almacen.topItems.length?`<p class="ip-sub">Ítems más despachados</p><table class="ip-t">
+    <thead><tr><th style="${TH}">#</th><th style="${TH}">Código</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cantidad</th><th style="${TH}">Valor S/</th></tr></thead>
     <tbody>${d.almacen.topItems.map((it,i)=>`<tr>
       <td style="${TD};text-align:center">${i+1}</td>
       <td style="${TD};text-align:center;font-family:monospace">${_ipEsc(it.cod)||'—'}</td>
@@ -385,85 +339,147 @@ function _ipPrint(){
       <td style="${TD};text-align:right;font-weight:700">${_ipN(it.cant)}</td>
       <td style="${TD};text-align:right;font-weight:700">${_ipN(it.soles,2)}</td></tr>`).join('')}</tbody></table>`:'';
 
-  const w=window.open('','_blank','width=1000,height=760');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe de Período ${_ipDMY(d.desde)} – ${_ipDMY(d.hasta)}</title><style>
-    @page{size:A4 portrait;margin:1cm}
-    *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10px}
-    .hdr{display:flex;align-items:center;gap:14px;border-bottom:3px solid ${AZ};padding-bottom:8px;margin-bottom:12px}
-    .hdr img{height:48px;object-fit:contain}
-    .hdr .t{flex:1;text-align:center}
-    .hdr h1{font-size:18px;color:${AZ};letter-spacing:.05em}
-    .hdr p{font-size:10px;color:#475569;margin-top:3px}
-    .hdr .r{text-align:right;font-size:8.5px;color:#475569}
-    .sec{font-size:11px;font-weight:800;color:#fff;background:${AZ};padding:4px 8px;margin:14px 0 6px;letter-spacing:.04em}
-    table{width:100%;border-collapse:collapse;margin-bottom:4px}
-    .cajas{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
-    .caja{border:1px solid #cbd5e1;border-left:3px solid ${AZ};border-radius:3px;padding:4px 9px;font-size:9px;background:#f8fafc}
-    .caja span{color:#64748b;display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em}
-    .caja strong{font-size:12px;color:#0f172a}
-    .res{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-    .res .k{flex:1;min-width:110px;border:1.5px solid ${AZ};border-radius:5px;padding:6px 9px;text-align:center;background:#f0f9ff}
-    .res .k span{display:block;font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em}
-    .res .k strong{font-size:16px;color:${AZ}}
-    .res .k em{display:block;font-size:8px;color:#64748b;font-style:normal;margin-top:1px}
-    .vacio{font-size:9px;color:#94a3b8;padding:6px 0;font-style:italic}
-    .notas{border:1px solid #cbd5e1;border-radius:4px;padding:8px;font-size:9.5px;min-height:50px;white-space:pre-wrap;background:#fffbeb}
-    .firmas{display:flex;gap:30px;margin-top:34px}
-    .firmas div{flex:1;text-align:center;font-size:8.5px}
-    .firmas .ln{border-top:1.2px solid #333;margin:0 12px 4px}
-    .pie{margin-top:10px;padding-top:5px;border-top:1px solid #e2e8f0;font-size:7.5px;color:#94a3b8;display:flex;justify-content:space-between}
-  </style></head><body>
-  <div class="hdr">
+  return`
+  <div class="ip-hdr">
     <img src="${logo}" alt="">
-    <div class="t"><h1>INFORME DE PERÍODO</h1><p>ECOSERMO · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
-    <div class="r">Emitido<br><strong>${new Date().toLocaleDateString('es-PE')}</strong></div>
+    <div class="ip-t1"><h1>INFORME DE PERÍODO</h1><p>ECOSERMO · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
+    <div class="ip-r">Emitido<br><strong>${new Date().toLocaleDateString('es-PE')}</strong></div>
   </div>
 
-  <div class="res">
-    <div class="k"><span>Horas Máquina</span><strong>${_ipN(d.eqTot.motor)}</strong><em>${d.equipos.length} equipos</em></div>
-    <div class="k"><span>Horas Hombre</span><strong>${_ipN(d.personal.hh,0)}</strong><em>${d.personal.total} trabajadores</em></div>
-    <div class="k"><span>Atenciones Mec.</span><strong>${d.mecanica.total}</strong><em>${_ipN(d.mecanica.horasParada)} h parada</em></div>
-    <div class="k"><span>Combustible</span><strong>${_ipN(d.combustible.galDes,0)}</strong><em>gal · S/ ${_ipN(d.combustible.solesDes,2)}</em></div>
-    <div class="k"><span>Almacén</span><strong>S/ ${_ipN(d.almacen.valSal,2)}</strong><em>${d.almacen.nSal} salidas</em></div>
+  ${parr(T.intro)}
+
+  <div class="ip-res">
+    <div class="ip-k"><span>Horas Máquina</span><strong>${_ipN(d.eqTot.motor)}</strong><em>${d.eqTot.nHr} con horómetro</em></div>
+    <div class="ip-k"><span>Km Recorridos</span><strong>${_ipN(d.eqTot.km,0)}</strong><em>${d.eqTot.nKm} vehículos</em></div>
+    <div class="ip-k"><span>Horas Hombre</span><strong>${_ipN(d.personal.hh,0)}</strong><em>${d.personal.total} trabajadores</em></div>
+    <div class="ip-k"><span>Atenciones Mec.</span><strong>${d.mecanica.total}</strong><em>${_ipN(d.mecanica.horasParada)} h parada</em></div>
+    <div class="ip-k"><span>Combustible</span><strong>${_ipN(d.combustible.galDes,0)}</strong><em>gal · S/ ${_ipN(d.combustible.solesDes,2)}</em></div>
+    <div class="ip-k"><span>Almacén</span><strong>S/ ${_ipN(d.almacen.valSal,2)}</strong><em>${d.almacen.nSal} salidas</em></div>
   </div>
 
-  ${sec('1. EQUIPOS — HORAS DEL PERÍODO')}
-  ${tblEq}
+  ${sec(1,'EQUIPOS — HORAS Y KILÓMETROS DEL PERÍODO')}
+  ${parr(T.equipos)}
+  ${tblEq||'<p class="ip-vacio">Sin partes diarios registrados.</p>'}
+  <p class="ip-nota">Horas efectivas = horas de motor menos el calentamiento definido en el Máster de Equipos. Los vehículos menores y los equipos con tarifa por día se miden en kilómetros, no en horas de motor.</p>
 
-  ${sec('2. PERSONAL — JORNADAS DEL PERÍODO')}
+  ${sec(2,'PERSONAL — JORNADAS DEL PERÍODO')}
+  ${parr(T.personal)}
   ${cajas([['Trabajadores',d.personal.total],['Jornadas',d.personal.jornadas],['Horas Hombre',_ipN(d.personal.hh,0)],
     ['Trabajo Día',d.personal.td],['Trabajo Noche',d.personal.tn],['Día Libre',d.personal.dl],
     ['Anexo 5',d.personal.a5],['DL Trabajado',d.personal.dlt],['Faltas',d.personal.faltas],
     ['Permisos',d.personal.permisos],['Desc. Médico',d.personal.dm],['Vacaciones',d.personal.vac]])}
-  ${d.personal.porGuardia.length?`<table><thead><tr><th style="${TH};text-align:left">Guardia</th><th style="${TH}">Trabajadores</th><th style="${TH}">Jornadas</th><th style="${TH}">Horas Hombre</th></tr></thead>
-    <tbody>${d.personal.porGuardia.map(([g,v])=>`<tr><td style="${TD}">${_ipEsc(g)}</td><td style="${TD};text-align:center">${v.n}</td><td style="${TD};text-align:center">${v.jor}</td><td style="${TD};text-align:right">${_ipN(v.jor*_IP_HH_DIA,0)}</td></tr>`).join('')}</tbody></table>`:''}
+  ${tblGuardia}
+  <p class="ip-nota">Horas hombre = jornadas efectivas (TD + TN + DL Trabajado + Anexo 5) × ${_IP_HH_DIA} horas.</p>
 
-  ${sec('3. ATENCIONES MECÁNICAS')}
+  ${sec(3,'ATENCIONES MECÁNICAS')}
+  ${parr(T.mecanica)}
   ${cajas([['Total auxilios',d.mecanica.total],['Atendidos',d.mecanica.aten],['En proceso',d.mecanica.proc],['Pendientes',d.mecanica.pend],
     ['Horas de parada',_ipN(d.mecanica.horasParada)],['Equipos atendidos',d.mecanica.equipos],['Insumos de almacén','S/ '+_ipN(d.mecanica.insumosVal,2)]])}
-  ${d.mecanica.porFalla.length?`<table><thead><tr><th style="${TH};text-align:left">Tipo de Falla</th><th style="${TH}">Cantidad</th><th style="${TH}">Horas de Parada</th><th style="${TH}">% del total</th></tr></thead>
-    <tbody>${d.mecanica.porFalla.map(([t,v])=>`<tr><td style="${TD}">${_ipEsc(t)}</td><td style="${TD};text-align:center">${v.n}</td><td style="${TD};text-align:right">${_ipN(v.horas)}</td><td style="${TD};text-align:right">${d.mecanica.total?(v.n/d.mecanica.total*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:''}
+  ${tblFalla}${tblEqAux}
 
-  ${sec('4. CONSUMO DE COMBUSTIBLE')}
+  ${sec(4,'CONSUMO DE COMBUSTIBLE')}
+  ${parr(T.combustible)}
   ${cajas([['Ingresos',_ipN(d.combustible.galIng)+' gal'],['Despachos',_ipN(d.combustible.galDes)+' gal'],
     ['Valorizado','S/ '+_ipN(d.combustible.solesDes,2)],['N° de atenciones',d.combustible.nDes],
-    ['Equipos atendidos',d.combustible.equipos],['Rendimiento',_ipN(d.combustible.rend,2)+' gal/h']])}
+    ['Equipos atendidos',d.combustible.equipos],['Rend. horómetro',_ipN(d.combustible.rend,2)+' gal/h'],
+    ['Rend. vehículos',_ipN(d.combustible.rendKm,2)+' km/gal']])}
   ${tblComb}
 
-  ${sec('5. CONSUMO DE ALMACÉN')}
+  ${sec(5,'CONSUMO DE ALMACÉN')}
+  ${parr(T.almacen)}
   ${cajas([['Entradas',d.almacen.nEnt],['Salidas',d.almacen.nSal],['Vales emitidos',d.almacen.vales],
     ['Ítems distintos',d.almacen.items],['Valor entradas','S/ '+_ipN(d.almacen.valEnt,2)],['Valor salidas','S/ '+_ipN(d.almacen.valSal,2)]])}
-  ${tblAlm}
+  ${tblTipoMat}${tblAlm}
+  <p class="ip-nota">Valorización según el Precio Unitario Referencial (P.U.R.) del catálogo de Materiales. Los ítems sin P.U.R. cargado valorizan en cero.</p>
 
-  ${_ipNotas.trim()?`${sec('6. OBSERVACIONES')}<div class="notas">${_ipEsc(_ipNotas)}</div>`:''}
+  ${sec(6,'OBSERVACIONES Y CONCLUSIONES')}
+  <div class="ip-notas">${_ipNotas.trim()?_ipEsc(_ipNotas):'<span style="color:#94a3b8;font-style:italic">Sin observaciones registradas para este período.</span>'}</div>
 
-  <div class="firmas">
-    <div><div style="height:32px"></div><div class="ln"></div><strong>ELABORADO POR</strong><br>Control de Proyecto</div>
-    <div><div style="height:32px"></div><div class="ln"></div><strong>REVISADO POR</strong><br>Residente de Proyecto</div>
-    <div><div style="height:32px"></div><div class="ln"></div><strong>APROBADO POR</strong><br>Gerencia de Operaciones</div>
+  <div class="ip-firmas">
+    <div><div class="sp"></div><div class="ln"></div><strong>ELABORADO POR</strong><br>Control de Proyecto</div>
+    <div><div class="sp"></div><div class="ln"></div><strong>REVISADO POR</strong><br>Residente de Proyecto</div>
+    <div><div class="sp"></div><div class="ln"></div><strong>APROBADO POR</strong><br>Gerencia de Operaciones</div>
   </div>
-  <div class="pie"><span>ECOSERMO · Informe generado por GDAR</span><span>Horas Hombre = jornadas (TD+TN+DLT+A5) × ${_IP_HH_DIA} h · Valorización según P.U.R. del catálogo</span></div>
+  <div class="ip-pie"><span>ECOSERMO · Informe generado por el sistema GDAR</span><span>Período ${_ipDMY(d.desde)} — ${_ipDMY(d.hasta)}</span></div>`;
+}
+
+// Estilos del documento — compartidos por la vista previa y la impresión
+const _IP_CSS=`
+  .ip-doc{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:11px;line-height:1.45}
+  .ip-doc h1{font-size:19px;color:#0070C0;letter-spacing:.05em;margin:0}
+  .ip-hdr{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0070C0;padding-bottom:8px;margin-bottom:12px}
+  .ip-hdr img{height:48px;object-fit:contain}
+  .ip-t1{flex:1;text-align:center}
+  .ip-t1 p{font-size:10.5px;color:#475569;margin-top:3px}
+  .ip-r{text-align:right;font-size:9px;color:#475569}
+  .ip-sec{font-size:11.5px;font-weight:800;color:#fff;background:#0070C0;padding:4px 9px;margin:16px 0 7px;letter-spacing:.04em}
+  .ip-p{font-size:10.5px;text-align:justify;margin:0 0 8px;color:#1e293b}
+  .ip-sub{font-size:10px;font-weight:700;color:#334155;margin:9px 0 3px}
+  .ip-t{width:100%;border-collapse:collapse;margin-bottom:6px}
+  .ip-cajas{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+  .ip-caja{border:1px solid #cbd5e1;border-left:3px solid #0070C0;border-radius:3px;padding:4px 10px;font-size:9px;background:#f8fafc}
+  .ip-caja span{color:#64748b;display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em}
+  .ip-caja strong{font-size:12.5px;color:#0f172a}
+  .ip-res{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .ip-k{flex:1;min-width:105px;border:1.5px solid #0070C0;border-radius:5px;padding:7px 9px;text-align:center;background:#f0f9ff}
+  .ip-k span{display:block;font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em}
+  .ip-k strong{font-size:17px;color:#0070C0}
+  .ip-k em{display:block;font-size:8px;color:#64748b;font-style:normal;margin-top:1px}
+  .ip-vacio{font-size:9.5px;color:#94a3b8;padding:6px 0;font-style:italic}
+  .ip-nota{font-size:8px;color:#64748b;font-style:italic;margin:0 0 6px}
+  .ip-notas{border:1px solid #cbd5e1;border-radius:4px;padding:9px;font-size:10px;min-height:52px;white-space:pre-wrap;background:#fffbeb}
+  .ip-firmas{display:flex;gap:30px;margin-top:34px}
+  .ip-firmas div{flex:1;text-align:center;font-size:8.5px}
+  .ip-firmas .sp{height:32px}
+  .ip-firmas .ln{border-top:1.2px solid #333;margin:0 12px 4px}
+  .ip-pie{margin-top:12px;padding-top:5px;border-top:1px solid #e2e8f0;font-size:7.5px;color:#94a3b8;display:flex;justify-content:space-between}`;
+
+// ══ VISTA EN PANTALLA: barra de control + hoja blanca ══
+function rInformePeriodo(){
+  const cont=document.getElementById('ipBody');if(!cont)return;
+  _ipInit();
+  const per=_ipPeriodo(_ipOffset);
+  const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text);font-size:.75rem;color-scheme:dark;width:auto';
+  const dias=Math.max(1,Math.round((new Date(_ipHasta+'T12:00')-new Date(_ipDesde+'T12:00'))/864e5)+1);
+
+  const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período</span>
+    <button onclick="_ipNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Período anterior">‹</button>
+    <span style="font-weight:800;font-size:.8rem;min-width:112px;text-align:center">${per.label}</span>
+    <button onclick="_ipNav(1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Período siguiente">›</button>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.7rem;color:var(--muted2)">Desde</span>
+    <input type="date" class="date-ic-azul" value="${_ipDesde}" onchange="_ipSetFecha('desde',this.value)" style="${inpS}">
+    <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
+    <input type="date" class="date-ic-azul" value="${_ipHasta}" onchange="_ipSetFecha('hasta',this.value)" style="${inpS}">
+    <span style="font-size:.7rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.15rem .5rem">${dias} días</span>
+    <button onclick="_ipPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
+    <button onclick="_ipExcel()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
+  </div>
+  <div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-top:.3rem;white-space:nowrap">📝 Observaciones</span>
+    <textarea onchange="_ipSetNotas(this.value)" placeholder="Comentarios, incidencias relevantes y conclusiones del período — se imprimen en la sección 6 del informe." style="flex:1;min-height:44px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.76rem;font-family:inherit;resize:vertical">${_ipEsc(_ipNotas)}</textarea>
+  </div>`;
+
+  cont.innerHTML=bar+`<style>${_IP_CSS}</style>
+    <div class="ip-doc" style="background:#fff;border-radius:8px;padding:1.4rem 1.6rem;max-width:1080px;margin:0 auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_ipDoc()}</div>`;
+}
+function _ipSetNotas(v){_ipNotas=v;rInformePeriodo();}
+
+// ══ IMPRESIÓN ══
+function _ipPrint(){
+  const doc=_ipDoc();
+  const w=window.open('','_blank','width=1000,height=760');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe de Período ${_ipDMY(_ipDesde)} – ${_ipDMY(_ipHasta)}</title><style>
+    @page{size:A4 portrait;margin:1cm}
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    body{background:#fff}
+    ${_IP_CSS}
+    .ip-sec{page-break-after:avoid}
+    .ip-t{page-break-inside:auto}
+    .ip-t tr{page-break-inside:avoid}
+    .ip-firmas{page-break-inside:avoid}
+  </style></head><body><div class="ip-doc">${doc}</div>
   <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
@@ -476,24 +492,28 @@ function _ipExcel(){
 
   const hResumen=[[tit],[],
     ['INDICADOR','VALOR','DETALLE'],
-    ['Horas máquina (motor)',+d.eqTot.motor.toFixed(1),`${d.equipos.length} equipos con parte`],
+    ['Horas máquina (motor)',+d.eqTot.motor.toFixed(1),`${d.eqTot.nHr} equipos con horómetro`],
     ['Horas máquina efectivas',+d.eqTot.efec.toFixed(1),'motor − calentamiento'],
+    ['Kilómetros recorridos',+d.eqTot.km.toFixed(1),`${d.eqTot.nKm} vehículos medidos por km`],
     ['Horas inoperativas',+d.eqTot.inop.toFixed(1),''],
     ['Horas hombre',d.personal.hh,`${d.personal.total} trabajadores`],
     ['Jornadas trabajadas',d.personal.jornadas,'TD + TN + DLT + A5'],
     ['Faltas',d.personal.faltas,''],
     ['Atenciones mecánicas',d.mecanica.total,`${d.mecanica.horasParada.toFixed(1)} h de parada`],
     ['Combustible despachado (gal)',+d.combustible.galDes.toFixed(1),'S/ '+d.combustible.solesDes.toFixed(2)],
-    ['Rendimiento (gal/h)',+d.combustible.rend.toFixed(2),''],
+    ['Rendimiento horómetro (gal/h)',+d.combustible.rend.toFixed(2),'solo equipos con horómetro'],
+    ['Rendimiento vehículos (km/gal)',+d.combustible.rendKm.toFixed(2),'solo vehículos medidos por km'],
     ['Consumo de almacén (S/)',+d.almacen.valSal.toFixed(2),`${d.almacen.nSal} salidas · ${d.almacen.vales} vales`]];
   const wsR=XLSX.utils.aoa_to_sheet(hResumen);
   wsR['!cols']=[{wch:32},{wch:16},{wch:34}];
   XLSX.utils.book_append_sheet(wb,wsR,'Resumen');
 
   const wsE=XLSX.utils.aoa_to_sheet([[tit],[],
-    ['#','EQUIPO','DESCRIPCIÓN','TIPO','H. MOTOR','CALENT.','H. EFECTIVA','H. INOP.','PARTES','DISP. MEC. %'],
-    ...d.equipos.map((e,i)=>[i+1,e.cod,e.nom,e.tipo,+e.motor.toFixed(1),+e.cal.toFixed(1),+e.efec.toFixed(1),+e.inop.toFixed(1),e.partes,+e.dispMec.toFixed(1)])]);
-  wsE['!cols']=[{wch:4},{wch:14},{wch:34},{wch:16},{wch:10},{wch:9},{wch:11},{wch:10},{wch:8},{wch:12}];
+    ['#','EQUIPO','DESCRIPCIÓN','TIPO','MEDICIÓN','H. MOTOR','CALENT.','H. EFECTIVA','KM REC.','H. INOP.','PARTES','DISP. MEC. %'],
+    ...d.equipos.map((e,i)=>[i+1,e.cod,e.nom,e.tipo,e.esKm?'Kilometraje':'Horómetro',
+      e.esKm?'':+e.motor.toFixed(1),e.esKm?'':+e.cal.toFixed(1),e.esKm?'':+e.efec.toFixed(1),
+      e.esKm?+e.km.toFixed(1):'',+e.inop.toFixed(1),e.partes,+e.dispMec.toFixed(1)])]);
+  wsE['!cols']=[{wch:4},{wch:14},{wch:34},{wch:16},{wch:12},{wch:10},{wch:9},{wch:11},{wch:11},{wch:10},{wch:8},{wch:12}];
   XLSX.utils.book_append_sheet(wb,wsE,'Equipos');
 
   const wsP=XLSX.utils.aoa_to_sheet([[tit],[],
