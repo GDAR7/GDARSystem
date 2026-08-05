@@ -305,6 +305,7 @@ function _cistRiegosGet(){
 function _recalcViajes(){
   let totalViajes=0, totalMins=0;
   for(let i=1;i<=viajeCount;i++){
+    if(!document.getElementById('viaje-'+i))continue;   // viaje eliminado
     const cant=+document.getElementById('vCant'+i)?.value||0;
     const mat=(document.getElementById('vMat'+i)?.value||'').trim().toUpperCase();
     const sinMat=!mat||mat==='SIN MATERIAL';
@@ -354,7 +355,10 @@ function addViaje(){
   const _trOpts=(DB.tramos||[]).map(t=>`<option value="${t.id}">${t.codigo} (${t.inicio||''} → ${t.fin||''})${t.anotacion?` · ${t.anotacion}`:''}</option>`).join('');
   const _matOpts=DB.tipoMaterial.map(m=>`<option value="${m.nombre}">`).join('');
   const vi=viajeCount;
-  div.innerHTML=`<div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
+  div.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="viaje-title">${nombres[n-1]} TRANSPORTE</div>
+      <button onclick="removeViaje(${vi})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;padding:0 .2rem" title="Quitar viaje">✕</button>
+    </div>
     <div class="fg-grid" style="grid-template-columns:1fr">
       <div class="fg"><label>Tramo</label>
         <select id="vTramo${vi}" onchange="_vTramoChange(${vi})">
@@ -376,6 +380,22 @@ function addViaje(){
       </div>
     </div>`;
   c.appendChild(div);
+}
+
+// Quita un viaje y renumera los títulos de los que quedan (PRIMER, SEGUNDO, ...)
+function removeViaje(vi){
+  const div=document.getElementById('viaje-'+vi);
+  if(div)div.remove();
+  _renumerarViajes();
+  _recalcViajes();
+}
+function _renumerarViajes(){
+  const nombres=['PRIMER','SEGUNDO','TERCER','CUARTO','QUINTO'];
+  const c=document.getElementById('viajesContainer');if(!c)return;
+  [...c.querySelectorAll('.viaje-block')].forEach((d,i)=>{
+    const t=d.querySelector('.viaje-title');
+    if(t)t.textContent=`${nombres[Math.min(i,4)]} TRANSPORTE`;
+  });
 }
 
 function openReporte(tipo){
@@ -540,13 +560,16 @@ async function gReporte(){
   // VIAJES
   const viajes=[];
   for(let i=1;i<=viajeCount;i++){
-    viajes.push({
+    if(!document.getElementById('viaje-'+i))continue;   // viaje eliminado por el usuario
+    const v={
       tramoId: +document.getElementById('vTramo'+i)?.value||0,
       origen:  document.getElementById('vOrigen'+i)?.value||'',
       destino: document.getElementById('vDestino'+i)?.value||'',
       cant:   +document.getElementById('vCant'+i)?.value||0,
       material:document.getElementById('vMat'+i)?.value||''
-    });
+    };
+    if(!v.tramoId&&!v.cant&&!v.material.trim())continue; // bloque en blanco: no se guarda
+    viajes.push(v);
   }
 
   const parte = {
