@@ -40,8 +40,8 @@ const AREAS={
 const USERS=[
   {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(AREAS)},
   {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros','general']},
-  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion']},
-  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion']},
+  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion','almacenLogistica'],areaModules:{almacenLogistica:['kardexEpp']}},
+  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica'],areaModules:{almacenLogistica:['kardexEpp']}},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
   {codigo:'FLOBEN',dni:'_10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['general','almacenLogistica','seguridad']},
   {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
