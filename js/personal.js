@@ -39,14 +39,7 @@ function rDash(){
       <div class="stat-row"><span>Costo Total</span><strong style="margin-left:auto;color:var(--alm)">${fmt(totComb)}</strong></div>
     </div></div>`;
   }
-  // ── Panel usuarios en línea (solo Administrador General) ──
-  if(CU.codigo==='ECOADMIN'){
-    cards+=`<div class="card"><div class="card-head"><span class="card-title">🟢 Usuarios en Línea</span>
-      <button class="btn btn-out btn-sm" onclick="cargarUsuariosOnline()" style="font-size:.63rem;padding:.18rem .5rem">↻ Actualizar</button>
-    </div><div class="card-body" id="bodyOnline"><div style="color:var(--muted2);font-size:.78rem">Cargando...</div></div></div>`;
-  }
   document.getElementById('dashCards').innerHTML=cards;
-  if(CU.codigo==='ECOADMIN')cargarUsuariosOnline();
 }
 
 // ══ PERSONAL ══

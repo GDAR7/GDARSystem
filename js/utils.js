@@ -125,54 +125,12 @@ function doLogin(){
   CU=u;launchApp();
 }
 function doLogout(){
-  cerrarSesion();
   CU=null;
   document.getElementById('appShell').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginCodigo').value='';
 }
 
-// ══ SESIONES EN LÍNEA ══
-let _sesionId=null,_heartbeatIv=null;
-async function registrarSesion(){
-  if(!supa||!CU)return;
-  try{
-    const{data,error}=await supa.from('sesiones').insert({
-      usuario:CU.nombre,cargo:CU.cargo,codigo:CU.codigo,
-      online:true,login_at:new Date().toISOString(),last_seen:new Date().toISOString()
-    }).select();
-    if(!error&&data&&data[0]){_sesionId=data[0].id;}
-    _heartbeatIv=setInterval(async()=>{
-      if(!supa||!_sesionId)return;
-      await supa.from('sesiones').update({last_seen:new Date().toISOString()}).eq('id',_sesionId);
-    },120000);
-  }catch(e){console.warn('[Sesión]',e);}
-}
-async function cerrarSesion(){
-  if(_heartbeatIv){clearInterval(_heartbeatIv);_heartbeatIv=null;}
-  if(!supa||!_sesionId)return;
-  try{await supa.from('sesiones').update({online:false,last_seen:new Date().toISOString()}).eq('id',_sesionId);}catch(e){}
-  _sesionId=null;
-}
-async function cargarUsuariosOnline(){
-  const body=document.getElementById('bodyOnline');if(!body||!supa)return;
-  body.innerHTML='<div style="color:var(--muted2);font-size:.78rem;padding:.3rem 0">Cargando...</div>';
-  try{
-    const corte=new Date(Date.now()-4*60*1000).toISOString();
-    const{data,error}=await supa.from('sesiones').select('usuario,cargo,login_at,last_seen,online').eq('online',true).gte('last_seen',corte).order('last_seen',{ascending:false});
-    if(error||!data){body.innerHTML='<div style="color:var(--seg);font-size:.75rem">Error al cargar sesiones.</div>';return;}
-    const ahora=new Date();
-    const rows=data.map(s=>{
-      const hora=new Date(s.login_at).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
-      return`<div style="display:flex;align-items:center;gap:.6rem;padding:.42rem .6rem;background:var(--panel2);border-radius:6px;margin-bottom:.3rem;border-left:4px solid #10b981">
-        <span style="font-size:.85rem">🟢</span>
-        <div style="flex:1"><div style="font-size:.78rem;font-weight:600">${s.usuario}</div><div style="font-size:.63rem;color:var(--muted2)">${s.cargo}</div></div>
-        <div style="font-size:.65rem;color:#10b981;text-align:right">desde las ${hora}</div>
-      </div>`;
-    });
-    body.innerHTML=rows.length?rows.join(''):'<div style="color:var(--muted2);font-size:.78rem;padding:.3rem 0">Sin sesiones registradas aún.</div>';
-  }catch(e){body.innerHTML='<div style="color:var(--seg);font-size:.75rem">Error de conexión.</div>';}
-}
 
 // ══ LAUNCH ══
 function launchApp(){
@@ -193,7 +151,6 @@ function launchApp(){
   startClock();
   setPage('dashboard');
   loadSheetsData();
-  registrarSesion();
 }
 
 // ══ SIDEBAR ══
