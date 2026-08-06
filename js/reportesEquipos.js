@@ -433,7 +433,13 @@ function rReporteEquipos(){
   }
 
   // Totales en tfoot
-  const totKmRec=_esVMFilt?partes.reduce((s,p)=>{const ki=+p.kmIni||0,kf=+p.kmFin||0;return s+(kf>ki?kf-ki:0);},0):0;
+  // Km de los vehículos menores: se suman siempre, aunque la vista tenga tipos mezclados
+  const totKmRec=partes.reduce((s,p)=>{
+    const eq=DB.equipos.find(e=>e.id===p.eqId);
+    if(eq?.tipo!=='Vehículo Menor')return s;
+    const ki=+p.kmIni||0,kf=+p.kmFin||0;
+    return s+(kf>ki?kf-ki:0);
+  },0);
   const tf=document.getElementById('tfReporteEquipos');
   if(tf&&partes.length){
     tf.innerHTML=`
@@ -442,6 +448,11 @@ function rReporteEquipos(){
         <td class="mono" style="color:#10b981;font-weight:800">${_esVMFilt?fmtN(totKmRec)+' km':parseFloat(totEf.toFixed(2))+'h'}</td>
         <td colspan="4"></td>
       </tr>
+      ${!_esVMFilt&&totKmRec>0?`<tr style="background:rgba(30,58,95,.15)">
+        <td colspan="6" style="text-align:right;padding:.3rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Km Recorridos Total <span style="font-size:.62rem;opacity:.8">(vehículos menores)</span></td>
+        <td class="mono" style="color:#a78bfa;font-weight:800">${fmtN(totKmRec)} km</td>
+        <td colspan="4"></td>
+      </tr>`:''}
       ${hMinMes>0&&!_esVMFilt?`<tr style="background:rgba(30,58,95,.15)">
         <td colspan="6" style="text-align:right;padding:.3rem .6rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)">Hs Stanby a Pagar</td>
         <td class="mono" style="color:#8b5cf6;font-weight:700">${stanby}h</td>
@@ -467,6 +478,11 @@ function exportReporteEquiposXLSX(){
   const fHasta=(document.getElementById('reqFiltHasta')||{}).value||'';
   const eqNom=fEq?(DB.equipos.find(e=>e.id===fEq)||{}).codigo||'':' (Todos)';
   const periodo=(fDesde||'—')+' al '+(fHasta||'—');
+  // Los vehículos menores no llevan horómetro: se miden por kilometraje.
+  // Sin esta distinción el Excel restaba km contra horas en cero y salían negativos.
+  const fTipoX=(document.getElementById('reqFiltTipo')||{}).value||'';
+  const _esVMX=fTipoX==='Vehículo Menor';
+  const _mixto=!fTipoX;   // exportación con tipos mezclados
 
   const S=(v,bold,bg,color,align,border)=>({v,t:'s',s:{
     font:{bold:!!bold,color:{rgb:color||'111111'},sz:9},
@@ -484,32 +500,51 @@ function exportReporteEquiposXLSX(){
   const HBOR={top:{style:'thin',color:{rgb:'94a3b8'}},bottom:{style:'thin',color:{rgb:'94a3b8'}},left:{style:'thin',color:{rgb:'94a3b8'}},right:{style:'thin',color:{rgb:'94a3b8'}}};
   const HDR='1E3A5F',HDRT='FFFFFF',SUBBG='EFF6FF',TOTBG='DBEAFE';
 
+  const NC=12;              // total de columnas (se agregó UNID.)
+  const R=n=>Array(n).fill(S(''));
   const wsData=[];
   // Header info rows
-  wsData.push([S('REPORTE DE EQUIPOS – VALORIZACIÓN',true,HDR,HDRT,'center'),...Array(10).fill(S('',false,HDR,HDRT))]);
-  wsData.push([S(`Equipo: ${eqNom}`,true),...Array(10).fill(S(''))]);
-  wsData.push([S(`Período: ${periodo}`),...Array(10).fill(S(''))]);
-  wsData.push([S(`Hs Mínimas/día: ${hMinDia}h   |   Hmin Mes: ${hMinMes}h`),...Array(10).fill(S(''))]);
-  wsData.push(Array(11).fill(S('')));
+  wsData.push([S('REPORTE DE EQUIPOS – VALORIZACIÓN',true,HDR,HDRT,'center'),...Array(NC-1).fill(S('',false,HDR,HDRT))]);
+  wsData.push([S(`Equipo: ${eqNom}`,true),...R(NC-1)]);
+  wsData.push([S(`Período: ${periodo}`),...R(NC-1)]);
+  wsData.push([S(`Hs Mínimas/día: ${hMinDia}h   |   Hmin Mes: ${hMinMes}h`),...R(NC-1)]);
+  wsData.push(R(NC));
 
-  // Column headers
-  const cols=['FECHA','TURNO','TIPO DE EQUIPO','CÓDIGO','HR INICIAL','HR FINAL','HS TRABAJADAS','HS MÍNIMAS','ÁREA DE TRABAJO','DESCRIPCIÓN DEL TRABAJO','OBSERVACIONES'];
-  wsData.push(cols.map(c=>({v:c,t:'s',s:{font:{bold:true,color:{rgb:HDRT},sz:8},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'center',vertical:'center'},border:HBOR}})));
+  // Encabezados: cambian según el tipo filtrado (horómetro vs. kilometraje)
+  const lblIni=_esVMX?'KM INICIAL':(_mixto?'HR / KM INICIAL':'HR INICIAL');
+  const lblFin=_esVMX?'KM FINAL':(_mixto?'HR / KM FINAL':'HR FINAL');
+  const lblTrab=_esVMX?'KM RECORRIDOS':(_mixto?'HS TRAB. / KM REC.':'HS TRABAJADAS');
+  const cols=['FECHA','TURNO','TIPO DE EQUIPO','CÓDIGO',lblIni,lblFin,lblTrab,'UNID.','MÍNIMO','ÁREA DE TRABAJO','DESCRIPCIÓN DEL TRABAJO','OBSERVACIONES'];
+  wsData.push(cols.map(c=>({v:c,t:'s',s:{font:{bold:true,color:{rgb:HDRT},sz:8},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:HBOR}})));
 
-  let totEf=0;
+  let totEf=0,totKm=0,nErr=0;
   _reqCache.forEach(p=>{
     const eq=DB.equipos.find(e=>e.id===p.eqId);
-    const ef=+p.ef||0;
-    totEf+=ef;
-    const cumple=hMinDia>0?ef>=hMinDia:null;
+    const esVM=eq?.tipo==='Vehículo Menor';
+    let ini,fin,trab,unid,cumple;
+    if(esVM){
+      // Kilometraje: nunca se resta al revés
+      ini=+p.kmIni||0;fin=+p.kmFin||0;
+      trab=fin>ini?fin-ini:0;
+      unid='km';totKm+=trab;
+      cumple=hMinDia>0?trab>=hMinDia:null;
+    }else{
+      ini=+p.hrIni||0;fin=+p.hrFin||0;
+      const ef=+p.ef||0;
+      trab=ef>0?ef:0;                       // horómetro inconsistente no resta
+      if(ef<0)nErr++;
+      unid='h';totEf+=trab;
+      cumple=hMinDia>0?trab>=hMinDia:null;
+    }
     wsData.push([
       S(p.fecha,false,SUBBG,'334155','center',true),
       S(p.turno||'',false,'','334155','center',true),
       S(eq?eq.tipo||eq.sub||'':'',false,'','334155','center',true),
       S(eq?eq.codigo:'',true,'','1e6196','center',true),
-      N(+p.hrIni||0,false,SUBBG,'334155','right'),
-      N(+p.hrFin||0,false,SUBBG,'334155','right'),
-      ({v:parseFloat(ef.toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:ef>0?'0f6b3d':'ef4444'},sz:9,name:'Consolas'},fill:{fgColor:{rgb:'f0fdf4'}},alignment:{horizontal:'right',vertical:'center'},border:HBOR}}),
+      N(ini,false,SUBBG,'334155','right'),
+      N(fin,false,SUBBG,'334155','right'),
+      ({v:parseFloat(trab.toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:trab>0?'0f6b3d':'94a3b8'},sz:9,name:'Consolas'},fill:{fgColor:{rgb:'f0fdf4'}},alignment:{horizontal:'right',vertical:'center'},border:HBOR}}),
+      S(unid,false,'','64748b','center',true),
       S(cumple===null?'—':cumple?'SI':'NO',true,'',cumple===null?'64748b':cumple?'0f6b3d':'dc2626','center',true),
       S(p.areaT||'—',false,'','334155','left',true),
       S(p.act||'—',false,'','334155','left',true),
@@ -517,28 +552,32 @@ function exportReporteEquiposXLSX(){
     ]);
   });
 
-  // Footer totals
-  wsData.push(Array(11).fill(S('')));
+  // Footer totals — una fila por unidad de medida
+  wsData.push(R(NC));
+  const filaTot=(etiqueta,valor,color)=>[S(etiqueta,true,TOTBG,'1e3a5f','right',true),...Array(5).fill(S('',false,TOTBG)),
+    ({v:parseFloat(Number(valor).toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:color},sz:10,name:'Consolas'},fill:{fgColor:{rgb:TOTBG}},alignment:{horizontal:'right'},border:HBOR}}),
+    ...Array(NC-7).fill(S('',false,TOTBG))];
   const stanby=hMinMes>0?parseFloat(Math.max(0,hMinMes-totEf).toFixed(2)):0;
-  wsData.push([S('Hs Efectivas Total',true,TOTBG,'1e3a5f','right',true),...Array(5).fill(S('',false,TOTBG)),
-    ({v:parseFloat(totEf.toFixed(2)),t:'n',s:{font:{bold:true,color:{rgb:'0f6b3d'},sz:10,name:'Consolas'},fill:{fgColor:{rgb:TOTBG}},alignment:{horizontal:'right'},border:HBOR}}),
-    ...Array(4).fill(S('',false,TOTBG))]);
-  if(hMinMes>0){
-    wsData.push([S('Hs Stanby a Pagar',true,TOTBG,'5b21b6','right',true),...Array(5).fill(S('',false,TOTBG)),
-      ({v:stanby,t:'n',s:{font:{bold:true,color:{rgb:'5b21b6'},sz:10,name:'Consolas'},fill:{fgColor:{rgb:TOTBG}},alignment:{horizontal:'right'},border:HBOR}}),
-      ...Array(4).fill(S('',false,TOTBG))]);
+  if(totEf>0||!totKm)wsData.push(filaTot('Hs Efectivas Total',totEf,'0f6b3d'));
+  if(totKm>0)wsData.push(filaTot('Km Recorridos Total',totKm,'7c3aed'));
+  if(hMinMes>0&&totEf>0){
+    wsData.push(filaTot('Hs Stanby a Pagar',stanby,'5b21b6'));
     wsData.push([S('Total = Hmin Mes',true,HDR,HDRT,'right',true),...Array(5).fill(S('',false,HDR,HDRT)),
       ({v:hMinMes,t:'n',s:{font:{bold:true,color:{rgb:HDRT},sz:10,name:'Consolas'},fill:{fgColor:{rgb:HDR}},alignment:{horizontal:'right'},border:HBOR}}),
-      ...Array(4).fill(S('',false,HDR,HDRT))]);
+      ...Array(NC-7).fill(S('',false,HDR,HDRT))]);
+  }
+  if(nErr){
+    wsData.push(R(NC));
+    wsData.push([S(`⚠ ${nErr} parte(s) con horómetro final menor al inicial: se excluyeron del total en vez de restar horas.`,true,'','b45309','left'),...R(NC-1)]);
   }
 
   const ws=XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols']=[{wch:12},{wch:9},{wch:18},{wch:12},{wch:11},{wch:11},{wch:14},{wch:11},{wch:18},{wch:32},{wch:22}];
+  ws['!cols']=[{wch:12},{wch:9},{wch:18},{wch:12},{wch:12},{wch:12},{wch:15},{wch:7},{wch:9},{wch:18},{wch:32},{wch:22}];
   ws['!merges']=[
-    {s:{r:0,c:0},e:{r:0,c:10}},
-    {s:{r:1,c:0},e:{r:1,c:10}},
-    {s:{r:2,c:0},e:{r:2,c:10}},
-    {s:{r:3,c:0},e:{r:3,c:10}},
+    {s:{r:0,c:0},e:{r:0,c:NC-1}},
+    {s:{r:1,c:0},e:{r:1,c:NC-1}},
+    {s:{r:2,c:0},e:{r:2,c:NC-1}},
+    {s:{r:3,c:0},e:{r:3,c:NC-1}},
   ];
   ws['!rows']=[{hpt:18},{hpt:14},{hpt:14},{hpt:14},{hpt:6},{hpt:20}];
 

@@ -125,10 +125,15 @@ function _checkStandby(){
   const eqId=+document.getElementById('rpCodigo').value;
   if(!eqId){calcHoras();return;}
 
+  // Los vehículos menores no tienen horómetro: en ellos eq.hr guarda el ODÓMETRO.
+  // Sin este guard, hrIni se autocompletaba con los kilómetros y el parte
+  // terminaba con horas trabajadas negativas.
+  const _sinHorometro=currentReporteTipo==='Vehículo Menor';
+
   // Obtener último hrFin y kmFin registrados para este equipo
   const partesEq=DB.partes.filter(p=>p.eqId===eqId&&+p.hrFin>0);
-  let lastHr=partesEq.length?Math.max(...partesEq.map(p=>+p.hrFin||0)):0;
-  if(!lastHr){const eq=DB.equipos.find(e=>e.id===eqId);lastHr=+eq?.hr||0;}
+  let lastHr=_sinHorometro?0:(partesEq.length?Math.max(...partesEq.map(p=>+p.hrFin||0)):0);
+  if(!_sinHorometro&&!lastHr){const eq=DB.equipos.find(e=>e.id===eqId);lastHr=+eq?.hr||0;}
 
   const _esKm=['Línea Blanca','Vehículo Menor'].includes(currentReporteTipo);
   const partesKm=_esKm?DB.partes.filter(p=>p.eqId===eqId&&+p.kmFin>0):[];
@@ -602,11 +607,16 @@ async function gReporte(){
 
   toast('Guardando en data...');
 
+  // Los vehículos menores no llevan horómetro: su avance se mide en kilómetros.
+  // Si se calculara ef = hrFin − hrIni saldría el odómetro en negativo.
+  const _esVehMenor = currentReporteTipo==='Vehículo Menor' || eq?.tipo==='Vehículo Menor';
+  const _efCalc = _esVehMenor ? 0 : Math.max(0, parseFloat((parte.hrFin - parte.hrIni).toFixed(2)));
+
   const parteDB = {
     fecha:        parte.fecha,
     eq_id:        eqId,
     op:           parte.operador,
-    ef:           parseFloat((parte.hrFin - parte.hrIni).toFixed(2)),
+    ef:           _efCalc,
     im:           parte.hrsInop,
     comb:         0,
     act:          parte.actividades,
@@ -641,7 +651,7 @@ async function gReporte(){
     if(updErr){alert('Error Supabase:\n'+updErr.message);toast('Error: '+updErr.message,true);return;}
     parteId=_editingParteId;
     const idx=DB.partes.findIndex(x=>x.id===parteId);
-    if(idx>=0)DB.partes[idx]={...DB.partes[idx],...parte,id:parteId,ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)),im:parte.hrsInop,comb:0,act:parte.actividades,eqId};
+    if(idx>=0)DB.partes[idx]={...DB.partes[idx],...parte,id:parteId,ef:_efCalc,im:parte.hrsInop,comb:0,act:parte.actividades,kmRec:parteDB.km_rec,eqId};
     _editingParteId=null;
   } else {
     // INSERTAR parte nuevo
@@ -650,9 +660,12 @@ async function gReporte(){
     console.log('[Partes] Respuesta:', parteRet, parteErr);
     if(parteErr){alert('Error Supabase:\n'+parteErr.message+'\n\nCódigo: '+parteErr.code);toast('Error: '+parteErr.message,true);return;}
     parteId=parteRet.id;
-    // Actualizar horómetro local
-    if(eq && parte.hrFin > eq.hr) eq.hr = parte.hrFin;
-    DB.partes.push({...parte,id:parteId,ef:parseFloat((parte.hrFin-parte.hrIni).toFixed(2)),im:parte.hrsInop,comb:0,act:parte.actividades,eqId});
+    // Actualizar lectura local del equipo: odómetro en vehículos menores, horómetro en el resto
+    if(eq){
+      const _lect=_esVehMenor?parte.kmFin:parte.hrFin;
+      if(_lect>(+eq.hr||0)) eq.hr=_lect;
+    }
+    DB.partes.push({...parte,id:parteId,ef:_efCalc,im:parte.hrsInop,comb:0,act:parte.actividades,kmRec:parteDB.km_rec,eqId});
   }
 
   closeM('mReporte');
