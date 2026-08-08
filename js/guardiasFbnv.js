@@ -16,13 +16,15 @@ const _GD_TXT_GRUPO={obra:'0000FF',libre:'595959',aus:'C00000'};
 function _gdColor(tipo,grupo){return _GD_TXT_TIPO[tipo]||_GD_TXT_GRUPO[grupo]||'111111';}
 // Colores del encabezado de cada guardia (los mismos del formato original)
 const _GD_COL={A:{bg:'#FCE4D6',xls:'FCE4D6'},B:{bg:'#E4DFEC',xls:'E4DFEC'},C:{bg:'#D9D9D9',xls:'D9D9D9'}};
-// Orden en que aparecen los puestos; lo que no esté listado va al final alfabéticamente
+// Orden en que aparecen los puestos; lo que no esté listado va al final alfabéticamente.
+// Se puede escribir con puntos, comas o tildes: la lista se normaliza igual que el cargo.
 const _GD_ORDEN=['ING. RESIDENTE','ING. SUPERVISOR DE CAMPO','SUP. TECNICO',
-  'INGENIERO DE SEGURIDAD, SALUD Y MEDIO AMBIENTE','ADMINISTRADOR','ASISTENTE ADMINISTRATIVO',
-  'MECANICO','AYUDANTE MECANICO','OP EXCAVADORA','OP TRACTOR','OP MOTONIVELADORA','OP RODILLO',
-  'OP RETROEXCAVADORA','OP CARGADOR FRONTAL','OP VOLQUETE','OP CISTERNA DE COMBUSTIBLE',
-  'AYUDANTE COMBUSTIBLE','AYUDANTE DE CISTERNA','OP CISTERNA DE AGUA','COND DE CAMIONETA',
-  'COND DE COASTER','OFICIAL DE MOVIMIENTO DE TIERRAS','TOPOGRAFO','PEON'];
+  'INGENIERO DE SEGURIDAD, SALUD Y MEDIO AMBIENTE','SUP. SEGURIDAD','SUPERVISOR DE SEGURIDAD',
+  'ADMINISTRADOR','ASISTENTE ADMINISTRATIVO',
+  'MECANICO','AYUDANTE MECANICO','OP. EXCAVADORA','OP. TRACTOR','OP. MOTONIVELADORA','OP. RODILLO',
+  'OP. RETROEXCAVADORA','OP. CARGADOR FRONTAL','OP. VOLQUETE','OP. CISTERNA DE COMBUSTIBLE',
+  'AYUDANTE COMBUSTIBLE','AYUDANTE DE CISTERNA','OP. CISTERNA DE AGUA','COND. DE CAMIONETA',
+  'COND. DE COASTER','OFICIAL DE MOVIMIENTO DE TIERRAS','TOPOGRAFO','PEON'].map(c=>_gdNorm(c));
 
 let _gdAusentes=true;   // mostrar a quienes tienen falta, DM, permiso, etc.
 let _gdLibres=true;     // mostrar a quienes están de día libre

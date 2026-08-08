@@ -736,7 +736,7 @@ function _amtRenderSemEquipos(body){
     return`<tr ${i===rows.length-1&&rows.length>3?'style="background:rgba(239,68,68,.04)"':''}>
       <td style="${TD};text-align:center;font-size:.8rem">${medalla(i)}</td>
       <td style="${TD};white-space:nowrap">
-        <span class="mono" style="font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" ondblclick="editEquipo(${r.id})" title="Doble click: editar en Master">${r.eq?r.eq.codigo:'#'+r.id}</span>
+        <span class="mono" style="font-weight:700;color:#06b6d4">${r.eq?r.eq.codigo:'#'+r.id}</span>
         <div style="font-size:.62rem;color:var(--muted2)">${r.eq?((r.eq.marca||'')+' '+(r.eq.sub||'')):''}</div>
       </td>
       ${celdas}
