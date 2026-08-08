@@ -1109,5 +1109,5 @@ function _amtRenderSemOrigen(body){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Agrupado por frente de origen del viaje (si el viaje no tiene origen, se toma el inicio del tramo) · Cada fila = ruta destino + material · % = participación dentro de su origen</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)"> fila = ruta destino + material · % = participación dentro de su origen</div>`;
 }
