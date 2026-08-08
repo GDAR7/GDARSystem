@@ -7,7 +7,13 @@
 
 const _GD_GUARDIAS=['A','B','C'];
 const _GD_EN_OBRA=['TD','TN','DLT','A5'];
+const _GD_LIBRE=['DL'];
 const _GD_AUSENTES=['F','DM','P','V','LP','LM','LF'];
+// Color del nombre: azul puro para turno día, azul noche para turno noche,
+// plomo oscuro para día libre y rojo para faltas / licencias.
+const _GD_TXT_TIPO={TD:'0000FF',DLT:'0000FF',A5:'0000FF',TN:'002060',DL:'595959'};
+const _GD_TXT_GRUPO={obra:'0000FF',libre:'595959',aus:'C00000'};
+function _gdColor(tipo,grupo){return _GD_TXT_TIPO[tipo]||_GD_TXT_GRUPO[grupo]||'111111';}
 // Colores del encabezado de cada guardia (los mismos del formato original)
 const _GD_COL={A:{bg:'#FCE4D6',xls:'FCE4D6'},B:{bg:'#E4DFEC',xls:'E4DFEC'},C:{bg:'#D9D9D9',xls:'D9D9D9'}};
 // Orden en que aparecen los puestos; lo que no esté listado va al final alfabéticamente
@@ -19,6 +25,7 @@ const _GD_ORDEN=['SUPERVISOR DE CAMPO','ING SUPERVISOR DE CAMPO','SUPERVISOR TEC
   'COND DE COASTER','OFICIAL DE MOVIMIENTO DE TIERRAS','TOPOGRAFO','PEON'];
 
 let _gdAusentes=true;   // mostrar a quienes tienen falta, DM, permiso, etc.
+let _gdLibres=true;     // mostrar a quienes están de día libre
 let _tarPgTabAct='resumen';
 
 // Tabs de la página de Resumen Diario: Resumen ↔ Guardias FBNV
@@ -45,6 +52,14 @@ function _gdNorm(s){return String(s||'').toUpperCase().normalize('NFD').replace(
 function _gdOrdenIdx(cargo){const i=_GD_ORDEN.indexOf(_gdNorm(cargo));return i<0?900:i;}
 function _gdDMY(f){const p=String(f||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:(f||'');}
 function _gdToggleAusentes(v){_gdAusentes=v;rGuardiasFbnv();}
+function _gdToggleLibres(v){_gdLibres=v;rGuardiasFbnv();}
+// Situación de la persona ese día: en obra, día libre o ausencia justificada/falta
+function _gdGrupo(t){
+  if(_GD_EN_OBRA.includes(t))return'obra';
+  if(_GD_LIBRE.includes(t))return'libre';
+  if(_GD_AUSENTES.includes(t))return'aus';
+  return null;
+}
 
 // ── Armado de la matriz ──
 function _gdDatos(){
@@ -55,23 +70,25 @@ function _gdDatos(){
     .forEach(r=>{tipoDe[r.personalId]=r.tipo;});
 
   const porG={};_GD_GUARDIAS.forEach(g=>porG[g]={});
-  const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,aus:0});
+  const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,libre:0,aus:0});
   (DB.personal||[]).forEach(p=>{
     if((p.est||'Activo')!=='Activo')return;
     const g=String(p.guardia||'').trim().toUpperCase();
     if(!_GD_GUARDIAS.includes(g))return;
     const t=tipoDe[p.id];
     if(!t)return;                                  // sin marcación ese día
-    const enObra=_GD_EN_OBRA.includes(t);
-    const ausente=_GD_AUSENTES.includes(t);
-    if(!enObra&&!ausente)return;                   // DL, R y demás no ocupan puesto
-    if(ausente&&!_gdAusentes)return;
-    if(enObra)conteo[g].obra++;else conteo[g].aus++;
+    const grupo=_gdGrupo(t);
+    if(!grupo)return;                              // R y otros estados no ocupan puesto
+    if(grupo==='aus'&&!_gdAusentes)return;
+    if(grupo==='libre'&&!_gdLibres)return;
+    conteo[g][grupo]++;
     const cargo=(p.cargo||'SIN CARGO').toUpperCase().trim();
-    (porG[g][cargo]=porG[g][cargo]||[]).push({p,tipo:t,enObra});
+    (porG[g][cargo]=porG[g][cargo]||[]).push({p,tipo:t,grupo});
   });
+  // Primero los que están en obra, luego días libres y al final las ausencias
+  const _ord={obra:0,libre:1,aus:2};
   _GD_GUARDIAS.forEach(g=>Object.values(porG[g]).forEach(a=>
-    a.sort((x,y)=>`${x.p.ape} ${x.p.nom}`.localeCompare(`${y.p.ape} ${y.p.nom}`,'es'))));
+    a.sort((x,y)=>_ord[x.grupo]-_ord[y.grupo]||`${x.p.ape} ${x.p.nom}`.localeCompare(`${y.p.ape} ${y.p.nom}`,'es'))));
 
   // Puestos: unión de cargos, con tantas filas como la guardia más numerosa
   const cargos=[...new Set(_GD_GUARDIAS.flatMap(g=>Object.keys(porG[g])))]
@@ -94,12 +111,13 @@ function rGuardiasFbnv(){
       return Array.from({length:b.n},(_,i)=>{
         fila++;
         const it=lista[i];
-        const nom=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase():'';
-        const rojo=it&&!it.enObra;
+        // Todos llevan su tipo de jornada al costado: (TD), (TN), (DL), (F), (P)…
+        const txt=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase()+` (${it.tipo})`:'';
+        const col=it?'#'+_gdColor(it.tipo,it.grupo):'';
         return`<tr>
           <td class="gd-n">${fila}</td>
           ${i===0?`<td class="gd-c" rowspan="${b.n}">${_gdEsc(b.cargo)}</td>`:''}
-          <td class="gd-p${rojo?' gd-aus':''}">${_gdEsc(nom)}${rojo?` (${it.tipo})`:''}</td>
+          <td class="gd-p" style="color:${col}">${_gdEsc(txt)}</td>
         </tr>`;
       }).join('');
     }).join('');
@@ -113,7 +131,8 @@ function rGuardiasFbnv(){
               <th class="gd-h" style="background:${c.bg}">PERSONAL</th></tr>
         </thead>
         <tbody>${filas||'<tr><td colspan="3" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
-        <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA</td><td class="gd-tot" style="text-align:center">${d.conteo[g].obra}${d.conteo[g].aus?` <span style="color:#c00000;font-weight:400">(+${d.conteo[g].aus} aus.)</span>`:''}</td></tr></tfoot>
+        <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA</td>
+          <td class="gd-tot" style="text-align:left">${d.conteo[g].obra}${d.conteo[g].libre?` <span style="color:#595959;font-weight:400">· ${d.conteo[g].libre} DL</span>`:''}${d.conteo[g].aus?` <span style="color:#C00000;font-weight:400">· ${d.conteo[g].aus} aus.</span>`:''}</td></tr></tfoot>
       </table>
     </div>`;
   };
@@ -122,7 +141,10 @@ function rGuardiasFbnv(){
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
       <span style="font-size:.72rem;color:var(--muted2)">Fecha: <strong style="color:var(--text)">${_gdDMY(d.fecha)}</strong> · ${_gdEsc(proyNom)}</span>
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
-        <input type="checkbox" ${_gdAusentes?'checked':''} onchange="_gdToggleAusentes(this.checked)" style="width:auto;margin:0;cursor:pointer"> Mostrar ausentes (F, DM, P, V…)
+        <input type="checkbox" ${_gdLibres?'checked':''} onchange="_gdToggleLibres(this.checked)" style="width:auto;margin:0;cursor:pointer"> Días libres (DL)
+      </label>
+      <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
+        <input type="checkbox" ${_gdAusentes?'checked':''} onchange="_gdToggleAusentes(this.checked)" style="width:auto;margin:0;cursor:pointer"> Ausentes (F, DM, P, V…)
       </label>
       <span style="font-size:.68rem;color:var(--muted)">Se usa la fecha y el proyecto de la barra superior</span>
       <button onclick="_gdExcel()" style="margin-left:auto;background:#166534;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Exportar Excel</button>
@@ -133,6 +155,13 @@ function rGuardiasFbnv(){
       <div class="gd-tit">GUARDIAS FBNV</div>
       <div class="gd-sub">PERSONAL DIRECTO · ${_gdDMY(d.fecha)} · ${_gdEsc(proyNom)}</div>
       <div class="gd-grid">${_GD_GUARDIAS.map(bloqueHtml).join('')}</div>
+      <div class="gd-ley">
+        <strong>Leyenda:</strong>
+        <span style="color:#0000FF">TD — Trabajo Día</span>
+        <span style="color:#002060">TN — Trabajo Noche</span>
+        <span style="color:#595959">DL — Día Libre</span>
+        <span style="color:#C00000">F / DM / P / V — Falta, descanso médico, permiso o licencia</span>
+      </div>
     </div>`;
 }
 
@@ -148,8 +177,9 @@ const _GD_CSS=`
   .gd-h{font-size:8px;font-weight:800;text-align:center;line-height:1.15}
   .gd-n{font-size:8.5px;text-align:center;color:#111;width:52px}
   .gd-c{font-size:8px;text-align:center;font-weight:600;vertical-align:middle;line-height:1.2}
-  .gd-p{font-size:8.5px;color:#1F4E79;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
-  .gd-p.gd-aus{color:#c00000}
+  .gd-p{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+  .gd-ley{margin-top:9px;font-size:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;color:#475569}
+  .gd-ley span{font-weight:700}
   .gd-vacio{font-size:9px;text-align:center;color:#94a3b8;font-style:italic;padding:8px}
   .gd-tot{font-size:8.5px;font-weight:800;background:#f1f5f9;text-align:right}
   @media (max-width:1100px){.gd-grid{grid-template-columns:1fr}}`;
@@ -202,7 +232,7 @@ function _gdExcel(){
         const it=lista[i];
         row[COLS[gi]]=fila+1;
         if(i===0)row[COLS[gi]+1]=b.cargo;
-        row[COLS[gi]+2]=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase()+(it.enObra?'':` (${it.tipo})`):'';
+        row[COLS[gi]+2]=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase()+` (${it.tipo})`:'';
       });
       aoa.push(row);
       fila++;
@@ -214,7 +244,11 @@ function _gdExcel(){
   });
 
   const fT=vacia();
-  _GD_GUARDIAS.forEach((g,gi)=>{fT[COLS[gi]+1]='EN OBRA';fT[COLS[gi]+2]=d.conteo[g].obra+(d.conteo[g].aus?` (+${d.conteo[g].aus} aus.)`:'');});
+  _GD_GUARDIAS.forEach((g,gi)=>{
+    const c=d.conteo[g];
+    fT[COLS[gi]+1]='EN OBRA';
+    fT[COLS[gi]+2]=c.obra+(c.libre?` · ${c.libre} DL`:'')+(c.aus?` · ${c.aus} aus.`:'');
+  });
   aoa.push(fT);
 
   const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -241,8 +275,11 @@ function _gdExcel(){
       if(cc)cc.s={font:{sz:8,bold:true},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOR};
       let cp=ws[addr(r,COLS[gi]+2)];
       if(!cp){ws[addr(r,COLS[gi]+2)]=cp={t:'s',v:''};}
-      const aus=/\((F|DM|P|V|LP|LM|LF)\)\s*$/.test(String(cp.v||''));
-      cp.s={font:{sz:9,color:{rgb:aus?'C00000':'1F4E79'}},alignment:{vertical:'center'},border:BOR};
+      // El color sale del tipo que quedó escrito entre paréntesis al final del nombre
+      const m=String(cp.v||'').match(/\(([A-Z0-9]+)\)\s*$/);
+      const tipo=m?m[1]:'';
+      const grupo=_gdGrupo(tipo)||'obra';
+      cp.s={font:{sz:9,color:{rgb:_gdColor(tipo,grupo)}},alignment:{vertical:'center'},border:BOR};
     });
   }
   const rT=R0+d.totalFilas;
