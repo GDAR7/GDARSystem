@@ -43,7 +43,7 @@ const USERS=[
   {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
   {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion','seguridad'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
-  {codigo:'FLOBEN',dni:'_10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['general','almacenLogistica','seguridad']},
+  {codigo:'FLOBEN',dni:'10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['general','almacenLogistica','seguridad']},
   {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
   {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
   {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
@@ -56,6 +56,7 @@ const USERS=[
   {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad']},readOnlyModules:['tareaje']},
   {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
   {codigo:'PIE_SA',dni:'72512691',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
+  {codigo:'FRANSU',dni:'76322407',nombre:'Frans Urbano',cargo:'Auxiliar de Seguridad',areas:['seguridad']},
 ];
 
 // ══ SUPABASE CONFIG ══
