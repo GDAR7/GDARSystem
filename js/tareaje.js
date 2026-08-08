@@ -975,6 +975,8 @@ function _onTarColChange(){
 }
 // Página completa
 function rTareResumenPg(){
+  // La página comparte fecha y proyecto con el tab de Guardias FBNV
+  if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='guardias'){rGuardiasFbnv();return;}
   _tarPgColVis=null;
   const fEl=document.getElementById('tarPgFecha');
   if(fEl&&!fEl.value)fEl.value=today();

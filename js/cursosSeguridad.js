@@ -324,7 +324,7 @@ function rCursosSeguridad(){
     <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.6rem">
       ${CS_ORDEN.map(e=>{const s=CS_ESTADOS[e];return`<span style="background:${s.bg};color:${s.c};border:1px solid ${s.c}66;border-radius:5px;padding:2px 9px;font-size:.66rem;font-weight:700">${s.ic} ${e}</span>`;}).join('')}
       <span style="color:var(--muted);font-size:.68rem;padding:2px 4px">— Sin registro</span>
-      ${RO?'':'<span style="color:var(--muted2);font-size:.68rem;padding:2px 8px">· Haz clic en cualquier celda para asignar estado y fecha</span>'}
+      ${RO?'':'<span style="color:var(--muted2);font-size:.68rem;padding:2px 8px">'}
     </div>`;
 }
 function _csLimpiar(){_csBuscar='';_csGuardia='';_csCargo='';_csProy='';_csCursoFoco='';_csSoloPend=false;rCursosSeguridad();}

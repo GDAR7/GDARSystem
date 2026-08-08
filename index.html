@@ -887,6 +887,10 @@
 <!-- RESUMEN DIARIO TAREAJE – página completa -->
 <div class="page" id="page-resumenTareaje">
   <div class="ph"><div class="ph-title" style="color:var(--adm)">📊 Resumen Diario de Tareaje</div><div class="ph-sub">Vista consolidada del control de asistencia por fecha, categoría y tipo de jornada</div></div>
+  <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    <button id="tarPgTabBtn-resumen" onclick="_tarPgTab('resumen')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--adm);color:#fff">📊 Resumen</button>
+    <button id="tarPgTabBtn-guardias" onclick="_tarPgTab('guardias')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🛡️ Guardias FBNV</button>
+  </div>
   <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
     <div><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Fecha</label>
       <input type="date" id="tarPgFecha" oninput="rTareResumenPg()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem;color-scheme:dark"></div>
@@ -896,19 +900,22 @@
       <select id="tarPgGuardia" onchange="rTareResumenPg()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem">
         <option value="">— Todas —</option><option>A</option><option>B</option><option>C</option>
       </select></div>
-    <div style="position:relative">
+    <div style="position:relative" id="tarPgColWrap">
       <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Columnas</label>
       <button id="tarPgColBtn" onclick="_toggleTarColMenu(event)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .75rem;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;white-space:nowrap"><span id="tarPgColBtnLbl">Todas las columnas</span> <span style="opacity:.5;font-size:.7rem">▾</span></button>
       <div id="tarPgColMenu" style="display:none;position:absolute;top:calc(100% + 3px);left:0;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:210px"></div>
     </div>
-    <button onclick="exportTareResumenXLSX()" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;margin-left:auto">📊 Exportar Excel</button>
-    <button onclick="printTareResumenPg()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
+    <button id="tarPgBtnXls" onclick="exportTareResumenXLSX()" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;margin-left:auto">📊 Exportar Excel</button>
+    <button id="tarPgBtnPdf" onclick="printTareResumenPg()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
   </div>
-  <div id="tarPgKpis" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
-  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:1.4rem;align-items:start">
-    <div class="card" style="padding:0"><div id="tarPgTabla" style="overflow-x:auto;padding:.8rem"></div></div>
-    <div class="card" style="padding:1rem"><div id="tarPgChart"></div></div>
+  <div id="tarPgPanelResumen">
+    <div id="tarPgKpis" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:1.4rem;align-items:start">
+      <div class="card" style="padding:0"><div id="tarPgTabla" style="overflow-x:auto;padding:.8rem"></div></div>
+      <div class="card" style="padding:1rem"><div id="tarPgChart"></div></div>
+    </div>
   </div>
+  <div id="tarPgPanelGuardias" style="display:none"><div id="gdBody"></div></div>
 </div>
 
 <!-- LPS – LAST PLANNER SYSTEM -->
@@ -3083,13 +3090,14 @@
 <script src="js/kardexEpp.js?v=1"></script>
 <script src="js/insumosAux.js?v=1"></script>
 <script src="js/informePeriodo.js?v=3"></script>
-<script src="js/cursosSeguridad.js?v=2"></script>
+<script src="js/cursosSeguridad.js?v=3"></script>
+<script src="js/guardiasFbnv.js?v=1"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=11"></script>
 <script src="js/salidaEquipos.js?v=2"></script>
-<script src="js/tareaje.js?v=12"></script>
+<script src="js/tareaje.js?v=13"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
 <script src="js/partesDiarios.js?v=3"></script>
