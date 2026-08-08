@@ -268,7 +268,7 @@ function _gdExcel(){
   const aoa=[];
   const f0=vacia();f0[0]=`GUARDIAS FBNV — PERSONAL DIRECTO · ${_gdDMY(d.fecha)} · ${proyNom}`;aoa.push(f0);
   const f1=vacia();_GD_GUARDIAS.forEach((g,i)=>{f1[COLS[i]]='GUARDIA '+g;});aoa.push(f1);
-  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='N° PERSONAS';f2[COLS[i]+1]='EQUIPO / CARGO';f2[COLS[i]+2]='PERSONAL';});aoa.push(f2);
+  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES - Turno';});aoa.push(f2);
 
   const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}},
     ..._GD_GUARDIAS.map((_,i)=>({s:{r:1,c:COLS[i]},e:{r:1,c:COLS[i]+2}}))];
