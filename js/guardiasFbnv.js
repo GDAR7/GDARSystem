@@ -179,7 +179,7 @@ function rGuardiasFbnv(){
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
         <input type="checkbox" ${_gdAusentes?'checked':''} onchange="_gdToggleAusentes(this.checked)" style="width:auto;margin:0;cursor:pointer"> Ausentes (F, DM, P, V…)
       </label>
-      <span style="font-size:.68rem;color:var(--muted)">Se usa la fecha y el proyecto de la barra superior</span>
+      <span style="font-size:.68rem;color:var(--muted)">Fecha y proyecto seleccionado</span>
       <button onclick="_gdExcel()" style="margin-left:auto;background:#166534;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Exportar Excel</button>
       <button onclick="_gdPrint()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
     </div>
