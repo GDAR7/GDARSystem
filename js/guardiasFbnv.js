@@ -70,7 +70,7 @@ function _gdDatos(){
     .forEach(r=>{tipoDe[r.personalId]=r.tipo;});
 
   const porG={};_GD_GUARDIAS.forEach(g=>porG[g]={});
-  const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,libre:0,aus:0});
+  const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,libre:0,aus:0,td:0,tn:0,total:0});
   (DB.personal||[]).forEach(p=>{
     if((p.est||'Activo')!=='Activo')return;
     const g=String(p.guardia||'').trim().toUpperCase();
@@ -82,6 +82,8 @@ function _gdDatos(){
     if(grupo==='aus'&&!_gdAusentes)return;
     if(grupo==='libre'&&!_gdLibres)return;
     conteo[g][grupo]++;
+    conteo[g].total++;
+    if(t==='TN')conteo[g].tn++;else if(grupo==='obra')conteo[g].td++;
     const cargo=(p.cargo||'SIN CARGO').toUpperCase().trim();
     (porG[g][cargo]=porG[g][cargo]||[]).push({p,tipo:t,grupo});
   });
@@ -96,6 +98,17 @@ function _gdDatos(){
   const bloques=cargos.map(c=>({cargo:c,n:Math.max(..._GD_GUARDIAS.map(g=>(porG[g][c]||[]).length))}));
   const totalFilas=bloques.reduce((s,b)=>s+b.n,0);
   return{fecha,proy,porG,cargos,bloques,totalFilas,conteo};
+}
+
+// Desglose del pie de cada guardia: día // noche // libres // ausentes
+function _gdResumenTxt(c,plano){
+  const p=[[c.td,'TD',_GD_TXT_TIPO.TD],[c.tn,'TN',_GD_TXT_TIPO.TN],
+           [c.libre,'DL',_GD_TXT_TIPO.DL],[c.aus,'AUS',_GD_TXT_GRUPO.aus]]
+    .filter(([n])=>n>0);
+  if(!p.length)return plano?'0':'<span style="color:#94a3b8;font-weight:400">0</span>';
+  if(plano)return p.map(([n,l])=>`${n} ${l}`).join(' // ');
+  return p.map(([n,l,col])=>`<span style="color:#${col}">${n} ${l}</span>`)
+          .join('<span style="color:#94a3b8;font-weight:400"> // </span>');
 }
 
 // ── Render (hoja blanca, igual al formato impreso) ──
@@ -131,13 +144,31 @@ function rGuardiasFbnv(){
               <th class="gd-h" style="background:${c.bg}">PERSONAL</th></tr>
         </thead>
         <tbody>${filas||'<tr><td colspan="3" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
-        <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA</td>
-          <td class="gd-tot" style="text-align:left">${d.conteo[g].obra}${d.conteo[g].libre?` <span style="color:#595959;font-weight:400">· ${d.conteo[g].libre} DL</span>`:''}${d.conteo[g].aus?` <span style="color:#C00000;font-weight:400">· ${d.conteo[g].aus} aus.</span>`:''}</td></tr></tfoot>
+        <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA ${d.conteo[g].obra}</td>
+          <td class="gd-tot" style="text-align:left">${_gdResumenTxt(d.conteo[g])}</td></tr></tfoot>
       </table>
     </div>`;
   };
 
+  // Totales por guardia + total general (respetan el proyecto filtrado)
+  const GC={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
+  const tot={obra:0,libre:0,aus:0,td:0,tn:0,total:0};
+  _GD_GUARDIAS.forEach(g=>Object.keys(tot).forEach(k=>tot[k]+=d.conteo[g][k]));
+  const tarjeta=(lbl,c,col,ic)=>`<div class="kpi" style="--kc:${col};flex:1;min-width:170px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${lbl}</span><span style="font-size:1.1rem;line-height:1;opacity:.75">${ic}</span></div>
+      <div class="kpi-val" style="font-size:1.8rem">${c.obra}<span style="font-size:.8rem;color:var(--muted2);font-weight:600"> en obra</span></div>
+      <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.25rem">
+        ${[[c.td,'TD','#3b82f6'],[c.tn,'TN','#1e3a8a'],[c.libre,'DL','#6b7280'],[c.aus,'AUS','#ef4444']]
+          .map(([n,l,cc])=>`<span style="background:${cc}26;color:${cc};border:1px solid ${cc}66;border-radius:4px;padding:0 6px;font-size:.63rem;font-weight:800">${n} ${l}</span>`).join('')}
+      </div>
+      <div class="kpi-sub" style="margin-top:.25rem">${c.total} personas asignadas</div>
+    </div>`;
+
   cont.innerHTML=`
+    <div class="kpi-row">
+      ${_GD_GUARDIAS.map(g=>tarjeta('Guardia '+g,d.conteo[g],GC[g],'🛡️')).join('')}
+      ${tarjeta('Total General',tot,'#06b6d4','📋')}
+    </div>
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
       <span style="font-size:.72rem;color:var(--muted2)">Fecha: <strong style="color:var(--text)">${_gdDMY(d.fecha)}</strong> · ${_gdEsc(proyNom)}</span>
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
@@ -155,6 +186,18 @@ function rGuardiasFbnv(){
       <div class="gd-tit">GUARDIAS FBNV</div>
       <div class="gd-sub">PERSONAL DIRECTO · ${_gdDMY(d.fecha)} · ${_gdEsc(proyNom)}</div>
       <div class="gd-grid">${_GD_GUARDIAS.map(bloqueHtml).join('')}</div>
+      <table class="gd-res">
+        <thead><tr><th>RESUMEN</th>${_GD_GUARDIAS.map(g=>`<th>GUARDIA ${g}</th>`).join('')}<th class="gd-res-tg">TOTAL GENERAL</th></tr></thead>
+        <tbody>
+          ${[['EN OBRA','obra','#0000FF'],['TURNO DÍA (TD)','td','#0000FF'],['TURNO NOCHE (TN)','tn','#002060'],
+             ['DÍAS LIBRES (DL)','libre','#595959'],['AUSENTES (F, DM, P, V…)','aus','#C00000'],['TOTAL ASIGNADO','total','#111']]
+            .map(([lbl,k,col])=>`<tr>
+              <td class="gd-res-l">${lbl}</td>
+              ${_GD_GUARDIAS.map(g=>`<td style="color:${col};font-weight:700">${d.conteo[g][k]}</td>`).join('')}
+              <td class="gd-res-tg" style="color:${col}">${tot[k]}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
       <div class="gd-ley">
         <strong>Leyenda:</strong>
         <span style="color:#0000FF">TD — Trabajo Día</span>
@@ -178,6 +221,12 @@ const _GD_CSS=`
   .gd-n{font-size:8.5px;text-align:center;color:#111;width:52px}
   .gd-c{font-size:8px;text-align:center;font-weight:600;vertical-align:middle;line-height:1.2}
   .gd-p{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+  .gd-res{margin:12px auto 0;border-collapse:collapse;max-width:640px}
+  .gd-res th,.gd-res td{border:1px solid #000;padding:2px 8px;font-size:8.5px;text-align:center}
+  .gd-res th{background:#1F4E79;color:#fff;font-weight:800;font-size:8px;letter-spacing:.03em}
+  .gd-res .gd-res-l{text-align:left;font-weight:700;background:#f8fafc}
+  .gd-res td.gd-res-tg{background:#EAF3FB;font-weight:800}
+  .gd-res th.gd-res-tg{background:#0F2D4A}
   .gd-ley{margin-top:9px;font-size:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;color:#475569}
   .gd-ley span{font-weight:700}
   .gd-vacio{font-size:9px;text-align:center;color:#94a3b8;font-style:italic;padding:8px}
@@ -245,11 +294,26 @@ function _gdExcel(){
 
   const fT=vacia();
   _GD_GUARDIAS.forEach((g,gi)=>{
-    const c=d.conteo[g];
-    fT[COLS[gi]+1]='EN OBRA';
-    fT[COLS[gi]+2]=c.obra+(c.libre?` · ${c.libre} DL`:'')+(c.aus?` · ${c.aus} aus.`:'');
+    fT[COLS[gi]+1]='EN OBRA '+d.conteo[g].obra;
+    fT[COLS[gi]+2]=_gdResumenTxt(d.conteo[g],true);
   });
   aoa.push(fT);
+
+  // Cuadro de totales por guardia y total general
+  const tot={obra:0,libre:0,aus:0,td:0,tn:0,total:0};
+  _GD_GUARDIAS.forEach(g=>Object.keys(tot).forEach(k=>tot[k]+=d.conteo[g][k]));
+  aoa.push(vacia());
+  const rRes=aoa.length;
+  const fH=vacia();fH[0]='RESUMEN';_GD_GUARDIAS.forEach((g,i)=>{fH[1+i]='GUARDIA '+g;});fH[4]='TOTAL GENERAL';
+  aoa.push(fH);
+  [['EN OBRA','obra'],['TURNO DÍA (TD)','td'],['TURNO NOCHE (TN)','tn'],
+   ['DÍAS LIBRES (DL)','libre'],['AUSENTES (F, DM, P, V…)','aus'],['TOTAL ASIGNADO','total']]
+    .forEach(([lbl,k])=>{
+      const f=vacia();f[0]=lbl;
+      _GD_GUARDIAS.forEach((g,i)=>{f[1+i]=d.conteo[g][k];});
+      f[4]=tot[k];
+      aoa.push(f);
+    });
 
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
@@ -289,6 +353,21 @@ function _gdExcel(){
       if(cel)cel.s={fill:{patternType:'solid',fgColor:{rgb:'F1F5F9'}},font:{bold:true,sz:9},alignment:{horizontal:c===COLS[gi]+1?'right':'center'},border:BOR};
     }
   });
+  // Estilo del cuadro de resumen
+  for(let c=0;c<5;c++){
+    const h=ws[addr(rRes,c)];
+    if(h)h.s={fill:{patternType:'solid',fgColor:{rgb:c===4?'0F2D4A':'1F4E79'}},font:{bold:true,sz:8,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+  }
+  const _colRes=['0000FF','0000FF','002060','595959','C00000','111111'];
+  for(let i=0;i<6;i++){
+    const r=rRes+1+i;
+    const cl=ws[addr(r,0)];
+    if(cl)cl.s={fill:{patternType:'solid',fgColor:{rgb:'F8FAFC'}},font:{bold:true,sz:8},alignment:{vertical:'center'},border:BOR};
+    for(let c=1;c<5;c++){
+      const cel=ws[addr(r,c)];
+      if(cel)cel.s={fill:c===4?{patternType:'solid',fgColor:{rgb:'EAF3FB'}}:{},font:{bold:true,sz:9,color:{rgb:_colRes[i]}},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+    }
+  }
   ws['!rows']=[{hpt:20},{hpt:16},{hpt:22},...Array(d.totalFilas+1).fill({hpt:13})];
 
   const wb=XLSX.utils.book_new();
