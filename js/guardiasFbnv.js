@@ -17,7 +17,8 @@ function _gdColor(tipo,grupo){return _GD_TXT_TIPO[tipo]||_GD_TXT_GRUPO[grupo]||'
 // Colores del encabezado de cada guardia (los mismos del formato original)
 const _GD_COL={A:{bg:'#FCE4D6',xls:'FCE4D6'},B:{bg:'#E4DFEC',xls:'E4DFEC'},C:{bg:'#D9D9D9',xls:'D9D9D9'}};
 // Orden en que aparecen los puestos; lo que no esté listado va al final alfabéticamente
-const _GD_ORDEN=['SUPERVISOR DE CAMPO','ING SUPERVISOR DE CAMPO','SUPERVISOR TECNICO','SUP TECNICO',
+const _GD_ORDEN=['ING RESIDENTE','INGENIERO RESIDENTE','RESIDENTE DE OBRA','RESIDENTE DE PROYECTO','RESIDENTE',
+  'SUPERVISOR DE CAMPO','ING SUPERVISOR DE CAMPO','SUPERVISOR TECNICO','SUP TECNICO',
   'SUPERVISOR DE SEGURIDAD','SUP SEGURIDAD','ADMINISTRADOR','ASISTENTE ADMINISTRATIVO',
   'MECANICO','AYUDANTE MECANICO','OP EXCAVADORA','OP TRACTOR','OP MOTONIVELADORA','OP RODILLO',
   'OP RETROEXCAVADORA','OP CARGADOR FRONTAL','OP VOLQUETE','OP CISTERNA DE COMBUSTIBLE',
@@ -114,6 +115,7 @@ function _gdResumenTxt(c,plano){
 // ── Render (hoja blanca, igual al formato impreso) ──
 function rGuardiasFbnv(){
   const cont=document.getElementById('gdBody');if(!cont)return;
+  if(typeof _tarPgInitFiltros==='function')_tarPgInitFiltros();
   const d=_gdDatos();
   const proyNom=d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos';
 

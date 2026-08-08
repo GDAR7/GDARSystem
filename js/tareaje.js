@@ -974,14 +974,18 @@ function _onTarColChange(){
   _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
 }
 // Página completa
-function rTareResumenPg(){
-  // La página comparte fecha y proyecto con el tab de Guardias FBNV
-  if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='guardias'){rGuardiasFbnv();return;}
-  _tarPgColVis=null;
+// Fecha y lista de proyectos: son de la página, las comparten ambos tabs
+function _tarPgInitFiltros(){
   const fEl=document.getElementById('tarPgFecha');
   if(fEl&&!fEl.value)fEl.value=today();
   const ps=document.getElementById('tarPgProy');
   if(ps){const cur=ps.value;ps.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)ps.value=cur;}
+}
+function rTareResumenPg(){
+  _tarPgInitFiltros();
+  // La página comparte fecha y proyecto con el tab de Guardias FBNV
+  if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='guardias'){rGuardiasFbnv();return;}
+  _tarPgColVis=null;
   const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
   _buildTarColMenu(_st.tiposAll||[]);
 }
