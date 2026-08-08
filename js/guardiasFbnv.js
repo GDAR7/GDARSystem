@@ -17,9 +17,8 @@ function _gdColor(tipo,grupo){return _GD_TXT_TIPO[tipo]||_GD_TXT_GRUPO[grupo]||'
 // Colores del encabezado de cada guardia (los mismos del formato original)
 const _GD_COL={A:{bg:'#FCE4D6',xls:'FCE4D6'},B:{bg:'#E4DFEC',xls:'E4DFEC'},C:{bg:'#D9D9D9',xls:'D9D9D9'}};
 // Orden en que aparecen los puestos; lo que no esté listado va al final alfabéticamente
-const _GD_ORDEN=['ING RESIDENTE','INGENIERO RESIDENTE','RESIDENTE DE OBRA','RESIDENTE DE PROYECTO','RESIDENTE',
-  'SUPERVISOR DE CAMPO','ING SUPERVISOR DE CAMPO','SUPERVISOR TECNICO','SUP TECNICO',
-  'SUPERVISOR DE SEGURIDAD','SUP SEGURIDAD','ADMINISTRADOR','ASISTENTE ADMINISTRATIVO',
+const _GD_ORDEN=['ING. RESIDENTE','ING. SUPERVISOR DE CAMPO','SUP. TECNICO',
+  'INGENIERO DE SEGURIDAD, SALUD Y MEDIO AMBIENTE','ADMINISTRADOR','ASISTENTE ADMINISTRATIVO',
   'MECANICO','AYUDANTE MECANICO','OP EXCAVADORA','OP TRACTOR','OP MOTONIVELADORA','OP RODILLO',
   'OP RETROEXCAVADORA','OP CARGADOR FRONTAL','OP VOLQUETE','OP CISTERNA DE COMBUSTIBLE',
   'AYUDANTE COMBUSTIBLE','AYUDANTE DE CISTERNA','OP CISTERNA DE AGUA','COND DE CAMIONETA',
@@ -141,9 +140,9 @@ function rGuardiasFbnv(){
       <table class="gd-t">
         <thead>
           <tr><th colspan="3" class="gd-g" style="background:${c.bg}">GUARDIA ${g}</th></tr>
-          <tr><th class="gd-h" style="background:${c.bg};width:52px">N°<br>PERSONAS</th>
-              <th class="gd-h" style="background:${c.bg};width:150px">EQUIPO / CARGO</th>
-              <th class="gd-h" style="background:${c.bg}">PERSONAL</th></tr>
+          <tr><th class="gd-h" style="background:${c.bg};width:52px">ITEM</th>
+              <th class="gd-h" style="background:${c.bg};width:150px">CARGO</th>
+              <th class="gd-h" style="background:${c.bg}">APELLIDOS Y NOMBRES - Turno </th></tr>
         </thead>
         <tbody>${filas||'<tr><td colspan="3" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
         <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA ${d.conteo[g].obra}</td>
