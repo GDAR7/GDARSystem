@@ -70,9 +70,10 @@ function _calcPlanRow(p,det){
   const totalDM       =r2(jornal*diasDM);
   const totalLicPat   =r2(jornal*(diasLP+diasLM+diasLF));
 
-  // Subtotal 2
+  // Subtotal 2 — la MOVILIDAD no entra: es concepto no remunerativo, no afecta
+  // a leyes sociales. Se suma recién en el neto (igual que en la planilla oficial).
   const subtotal2=r2(tareaOrdinaria+remunDL+impHE25+impHE35+impHE100+
-    asigFam+movilidad+bAltura+bCv+bNocturnas+refrigerio+reintegro+
+    asigFam+bAltura+bCv+bNocturnas+refrigerio+reintegro+
     totalDM+totalLicPat+licSindical);
 
   // Gratificaciones y extras
@@ -119,8 +120,8 @@ function _calcPlanRow(p,det){
   const quintaCat  =det?.quintaCat  ||0;
   const totalDeduccion=r2(totalPensiones+fondoMina+masVida+adelanto+vacDesc+cts+sindicato+rimac+otrosDesc+retJudicial+quintaCat);
 
-  // Neto
-  const neto=r2(subtotal2+vacaciones+bono+totalGratif+totalGratifTrunca+heAdicional-totalDeduccion);
+  // Neto — aquí sí se suma la movilidad, después de calcular aportes y descuentos
+  const neto=r2(subtotal2+vacaciones+bono+totalGratif+totalGratifTrunca+heAdicional+movilidad-totalDeduccion);
 
   // Aportes empleador
   const essalud      =r2(baseLeySociales*0.09);
