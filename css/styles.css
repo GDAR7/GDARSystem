@@ -283,6 +283,13 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 /* Ícono de calendario resaltado (azul) para filtros de período */
 input[type="date"].date-ic-azul::-webkit-calendar-picker-indicator{filter:invert(39%) sepia(94%) saturate(1352%) hue-rotate(202deg) brightness(101%) contrast(101%);opacity:1;}
 
+/* ══ PLANILLA · COLUMNAS FIJAS (N°, DNI, Nombre) ══ */
+#tbPlanilla .pl-fx{position:sticky;z-index:3;background-color:var(--panel);}
+#tbPlanilla thead .pl-fx{z-index:6;background-color:#1e293b;}
+#tbPlanilla thead tr:first-child .pl-fx{background-color:#1e3a8a;}
+#tbPlanilla tfoot .pl-fx{z-index:6;background-color:var(--panel2);}
+#tbPlanilla .pl-fx-end{box-shadow:inset -2px 0 0 var(--border);}
+
 /* ══ TAREAJE · ENCABEZADO Y COLUMNAS FIJAS ══ */
 #tbTareaje thead th{background-color:var(--panel2);}
 #tbTareaje.tar-fixed thead th{position:sticky;z-index:6;}

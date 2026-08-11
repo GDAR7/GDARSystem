@@ -147,6 +147,183 @@ function _calcPlanRow(p,det){
     banco:p.banco||'',cuenta:p.cuenta||'',cuspp:p.cuspp||''
   };
 }
+// ── Formato de celdas ──
+const _plS =n=>(n&&n!==0)?'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+const _plHs=(n,cls='')=>n?`<td class="tr mono ${cls}" style="padding:2px 5px">${_plS(n)}</td>`:`<td style="padding:2px 5px;opacity:.25;text-align:right">—</td>`;
+const _plHd=n=>n?`<td class="tc mono" style="padding:2px 4px">${n}</td>`:`<td style="padding:2px 4px;opacity:.25;text-align:center">0</td>`;
+const _plVacio='<td style="padding:2px 5px;opacity:.2;text-align:right">—</td>';
+
+// ── Grupos del encabezado ──
+const PL_GRUPOS={
+  datos :{l:'DATOS',              bg:'#1e3a8a'},
+  he    :{l:'HORAS EXTRAS',       bg:'#1d4ed8'},
+  remun :{l:'REMUNERACIONES',     bg:'#2563eb'},
+  dias  :{l:'DÍAS',               bg:'rgba(180,83,9,.7)'},
+  tarea :{l:'TAREA / DL / DM / LIC.',bg:'#374151'},
+  bonif :{l:'BONIFICACIONES',     bg:'#374151'},
+  sub2  :{l:'SUB TOTAL 2',        bg:'#044e64'},
+  gratif:{l:'GRATIFICACIONES',    bg:'#374151'},
+  bases :{l:'AFECTOS BASE',       bg:'#1e3a8a'},
+  ded   :{l:'DEDUCCIONES',        bg:'#1f2937'},
+  neto  :{l:'NETO / PAGO',        bg:'#065f46'},
+  aport :{l:'APORTES EMPLEADOR',  bg:'#1e3a8a'},
+  acc   :{l:'',                   bg:'#111827'}
+};
+
+// ── Definición de las 75 columnas ──
+// k = clave · g = grupo · l = rótulo · th = estilo extra del encabezado
+// c = función que devuelve el <td> · tot = acumulador que se totaliza al pie
+const PL_COLS=[
+  {k:'n',    g:'datos',l:'#',        fx:1,c:(c,p,i)=>`<td style="padding:2px 5px;font-size:.68rem;color:var(--muted2);text-align:center">${i+1}</td>`},
+  {k:'dni',  g:'datos',l:'DNI',      fx:1,c:(c,p)=>`<td class="mono" style="padding:2px 5px;font-size:.68rem">${p.dni||''}</td>`},
+  {k:'nom',  g:'datos',l:'Apellidos y Nombres',fx:1,c:(c,p)=>`<td style="padding:2px 6px;min-width:150px"><strong style="font-size:.72rem">${p.ape}, ${p.nom}</strong></td>`},
+  {k:'cargo',g:'datos',l:'Cargo',    c:(c,p)=>`<td style="padding:2px 5px;font-size:.65rem;color:var(--muted2);min-width:90px">${p.cargo||'—'}</td>`},
+  {k:'ing',  g:'datos',l:'F.Ingreso',c:(c,p)=>`<td class="mono" style="padding:2px 5px;font-size:.62rem">${p.ing||'—'}</td>`},
+  {k:'cat',  g:'datos',l:'Categoría',c:(c,p)=>`<td style="padding:2px 5px;font-size:.62rem">${p.cat||'—'}</td>`},
+  {k:'afp',  g:'datos',l:'AFP/SNP',  c:(c,p,i,x)=>`<td style="padding:2px 5px;text-align:center">${x.afpBadge}</td>`},
+  {k:'mes',  g:'datos',l:'Mes',      c:(c,p,i,x)=>`<td style="padding:2px 5px;font-size:.62rem;text-align:center">${x.mes}</td>`},
+
+  {k:'he25', g:'he',l:'HE 25%', c:c=>_plHd(c.he25)},
+  {k:'he35', g:'he',l:'HE 35%', c:c=>_plHd(c.he35)},
+  {k:'he100',g:'he',l:'HE 100%',c:c=>_plHd(c.he100)},
+
+  {k:'jornal',   g:'remun',l:'Jornal Básico',c:c=>_plHs(c.jornal)},
+  {k:'impHE100', g:'remun',l:'Imp.HE100%',   c:c=>_plHs(c.impHE100)},
+  {k:'impHE25',  g:'remun',l:'Imp.HE25%',    c:c=>_plHs(c.impHE25)},
+  {k:'impHE35',  g:'remun',l:'Imp.HE35%',    c:c=>_plHs(c.impHE35)},
+  {k:'reintegro',g:'remun',l:'Reintegro',    c:c=>_plHs(c.reintegro)},
+  {k:'asigFam',  g:'remun',l:'Asig.Fam.',    c:c=>_plHs(c.asigFam)},
+
+  {k:'diasSub',  g:'dias',l:'Días SubTot.',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18);color:#f59e0b">${c.diasSubTotal||0}</td>`},
+  {k:'otrosDias',g:'dias',l:'Otros Días',c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)">${c.otrosDias||0}</td>`},
+  {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
+  {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)">${c.diasTotal||0}</td>`},
+
+  {k:'tareaOrd',g:'tarea',l:'Tarea Ord.', c:c=>_plHs(c.tareaOrdinaria,'text-acc')},
+  {k:'diasDL',  g:'tarea',l:'Días Lib.',  c:c=>_plHd(c.diasDL)},
+  {k:'remunDL', g:'tarea',l:'Remun.DL',   c:c=>_plHs(c.remunDL)},
+  {k:'totalDM', g:'tarea',l:'Total DM',   c:c=>_plHs(c.totalDM)},
+  {k:'licPat',  g:'tarea',l:'Lic.Pat/Mat',c:c=>_plHs(c.totalLicPat)},
+  {k:'licSind', g:'tarea',l:'Lic.Sind.',  c:c=>_plHs(c.licSindical)},
+
+  {k:'movilidad', g:'bonif',l:'Movilidad',  c:c=>_plHs(c.movilidad)},
+  {k:'bAltura',   g:'bonif',l:'B.Altura',   c:c=>_plHs(c.bAltura)},
+  {k:'bCv',       g:'bonif',l:'B.CostoVida',c:c=>_plHs(c.bCv)},
+  {k:'bNoct',     g:'bonif',l:'B.Noct.',    c:c=>_plHs(c.bNocturnas)},
+  {k:'refrigerio',g:'bonif',l:'Refrigerio', c:c=>_plHs(c.refrigerio)},
+
+  {k:'sub2',g:'sub2',l:'Sub Total 2',th:'background:rgba(4,78,100,.3);color:var(--mec)',tot:'sub2',
+   c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;background:rgba(4,78,100,.15);color:var(--mec)">${_plS(c.subtotal2)}</td>`},
+
+  {k:'vacaciones', g:'gratif',l:'Vacaciones',   c:c=>_plHs(c.vacaciones)},
+  {k:'bono',       g:'gratif',l:'Bono',         c:c=>_plHs(c.bono)},
+  {k:'gratif',     g:'gratif',l:'Gratif.',      c:c=>_plHs(c.gratificacion)},
+  {k:'bonif9',     g:'gratif',l:'Bonif.9%',     c:c=>_plHs(c.bonif9)},
+  {k:'totGratif',  g:'gratif',l:'Tot.Gratif.',  c:c=>_plHs(c.totalGratif)},
+  {k:'gratifTr',   g:'gratif',l:'Gratif.Trunc.',c:c=>_plHs(c.gratifTrunca)},
+  {k:'totGratifTr',g:'gratif',l:'Tot.G.Trunc.', c:c=>_plHs(c.totalGratifTrunca)},
+  {k:'heAdic',     g:'gratif',l:'HE Adic.',     c:c=>_plHs(c.heAdicional)},
+
+  {k:'baseRenta5',  g:'bases',l:'Base Renta5ta', c:c=>_plHs(c.baseRenta5)},
+  {k:'baseSctr',    g:'bases',l:'Base SCTR',     c:c=>_plHs(c.baseSctr)},
+  {k:'baseVidaLey', g:'bases',l:'Base V.Ley',    c:c=>_plHs(c.baseVidaLey)},
+  {k:'baseLeyes',   g:'bases',l:'Base LeyesSoc.',c:c=>_plHs(c.baseLeySociales)},
+
+  {k:'snp',      g:'ded',l:'SNP 13%',   th:'color:#ef4444',c:c=>c.afpType==='SNP'?_plHs(c.snp,'text-red'):_plVacio},
+  {k:'obligAfp', g:'ded',l:'Oblig.AFP', th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.obligAfp,'text-red'):_plVacio},
+  {k:'primaAfp', g:'ded',l:'Prima AFP', th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.primaAfp,'text-red'):_plVacio},
+  {k:'sobreAfp', g:'ded',l:'SobreFlujo',th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.sobreAfp,'text-red'):_plVacio},
+  {k:'totPens',  g:'ded',l:'Tot.Pensiones',th:'color:#ef4444;font-weight:800',c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${_plS(c.totalPensiones)}</td>`},
+  {k:'tipo',     g:'ded',l:'Tipo',  c:(c,p,i,x)=>`<td style="padding:2px 5px;text-align:center">${x.afpBadge}</td>`},
+  {k:'cuspp',    g:'ded',l:'CUSPP', c:c=>`<td class="mono" style="padding:2px 5px;font-size:.62rem">${c.cuspp||'—'}</td>`},
+  {k:'ley29741', g:'ded',l:'Ley29741',   th:'color:#ef4444',c:c=>_plHs(c.fondoMina,'text-red')},
+  {k:'masVida',  g:'ded',l:'MásVida',    th:'color:#ef4444',c:c=>_plHs(c.masVida,'text-red')},
+  {k:'adelantos',g:'ded',l:'Adelantos',  th:'color:#ef4444',c:c=>_plHs(c.adelanto,'text-red')},
+  {k:'vacDesc',  g:'ded',l:'Vacac.',     th:'color:#ef4444',c:c=>_plHs(c.vacDesc,'text-red')},
+  {k:'cts',      g:'ded',l:'CTS',        th:'color:#ef4444',c:c=>_plHs(c.cts,'text-red')},
+  {k:'sindicato',g:'ded',l:'Sindicato',  th:'color:#ef4444',c:c=>_plHs(c.sindicato,'text-red')},
+  {k:'rimac',    g:'ded',l:'RIMAC',      th:'color:#ef4444',c:c=>_plHs(c.rimac,'text-red')},
+  {k:'otrosDesc',g:'ded',l:'Otros',      th:'color:#ef4444',c:c=>_plHs(c.otrosDesc,'text-red')},
+  {k:'retJud',   g:'ded',l:'Ret.Judicial',th:'color:#ef4444',c:c=>_plHs(c.retJudicial,'text-red')},
+  {k:'quinta',   g:'ded',l:'5ta Cat.',   th:'color:#ef4444',c:c=>_plHs(c.quintaCat,'text-red')},
+  {k:'totDed',   g:'ded',l:'TOTAL DED.', th:'color:#ef4444;font-weight:800',tot:'ded',
+   c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444;background:rgba(239,68,68,.08)">${_plS(c.totalDeduccion)}</td>`},
+
+  {k:'neto',  g:'neto',l:'NETO A PAGAR',th:'background:rgba(16,185,129,.2);color:#10b981;font-weight:800',tot:'neto',
+   c:c=>`<td class="tr mono" style="padding:2px 7px;font-size:.8rem;font-weight:800;color:#10b981;background:rgba(16,185,129,.1);min-width:90px">${_plS(c.neto)}</td>`},
+  {k:'cuenta',g:'neto',l:'N° Cuenta',c:c=>`<td class="mono" style="padding:2px 5px;font-size:.65rem;min-width:165px">${c.cuenta||'—'}</td>`},
+  {k:'banco', g:'neto',l:'Banco',    c:c=>`<td style="padding:2px 5px;font-size:.65rem;min-width:130px">${c.banco||'—'}</td>`},
+
+  {k:'essalud',      g:'aport',l:'ESSALUD 9%',    tot:'ess',c:c=>_plHs(c.essalud)},
+  {k:'aporteAfpEmpl',g:'aport',l:'Aport.AFP',     c:c=>_plHs(c.aporteAfpEmpl)},
+  {k:'sctrPenSup',   g:'aport',l:'SCTR Pen.Sup.', c:c=>_plHs(c.sctrPenSup)},
+  {k:'sctrPenMina',  g:'aport',l:'SCTR Pen.Mina', c:c=>_plHs(c.sctrPenMina)},
+  {k:'segVidaEmpl',  g:'aport',l:'Seg.Vida Empl.',c:c=>_plHs(c.segVidaEmpl)},
+  {k:'segVidaLey',   g:'aport',l:'S.Vida Obr.',   c:c=>_plHs(c.segVidaLey)},
+  {k:'sctrSalud',    g:'aport',l:'SCTR Salud',    c:c=>_plHs(c.sctrSalud)},
+  {k:'totAport',     g:'aport',l:'Tot.Aport.',th:'color:var(--mec);font-weight:800',tot:'aport',
+   c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:var(--mec);background:rgba(4,78,100,.1)">${_plS(c.totalAportaciones)}</td>`},
+
+  {k:'acc',g:'acc',l:'✏️',c:(c,p)=>`<td style="padding:2px 4px;text-align:center"><button class="btn btn-sm" style="font-size:.62rem;padding:2px 6px;background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#3b82f6" onclick="openPlanillaDet(${p.id})">✏️</button></td>`}
+];
+
+// ── Vistas: subconjuntos de columnas para no ver las 75 de golpe ──
+const _PL_IDENT=['n','dni','nom','cargo'];
+const PL_VISTAS=[
+  {k:'resumen', l:'📋 Resumen',        cols:[..._PL_IDENT,'afp','diasTotal','sub2','totDed','neto','cuenta','banco']},
+  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','diasSub','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
+  {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
+  {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
+  {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totDed','neto']},
+  {k:'aportes', l:'🏢 Aportes Empresa',cols:[..._PL_IDENT,'afp','essalud','aporteAfpEmpl','sctrPenSup','sctrPenMina','segVidaEmpl','segVidaLey','sctrSalud','totAport']},
+  {k:'todo',    l:'📊 Todo',           cols:null}
+];
+let _plVista='resumen';
+
+function _plColsVisibles(){
+  const v=PL_VISTAS.find(x=>x.k===_plVista)||PL_VISTAS[0];
+  if(!v.cols)return PL_COLS;
+  const set=new Set([...v.cols,'acc']);
+  return PL_COLS.filter(c=>set.has(c.k));
+}
+function plSetVista(k){
+  _plVista=k;
+  if(document.getElementById('planillaCard')?.style.display!=='none')genPlanilla();
+  else _plRenderTabs();
+}
+function _plRenderTabs(){
+  const el=document.getElementById('plVistas');if(!el)return;
+  el.innerHTML=PL_VISTAS.map(v=>{
+    const act=v.k===_plVista;
+    return`<button onclick="plSetVista('${v.k}')" style="padding:.3rem .8rem;border-radius:7px;cursor:pointer;font-size:.75rem;font-weight:700;white-space:nowrap;border:1.5px solid ${act?'var(--adm)':'var(--border)'};background:${act?'rgba(59,130,246,.16)':'var(--panel2)'};color:${act?'var(--adm)':'var(--muted2)'}">${v.l}</button>`;
+  }).join('')+`<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">${_plColsVisibles().length} de ${PL_COLS.length} columnas</span>`;
+}
+
+// Congela #, DNI y Nombre al desplazarse a la derecha
+function _plFijarCols(){
+  const tb=document.getElementById('tbPlanilla');if(!tb)return;
+  const fx=PL_COLS.filter(c=>c.fx).map(c=>c.k);
+  const vis=_plColsVisibles();
+  const idx=fx.map(k=>vis.findIndex(c=>c.k===k)).filter(i=>i>=0);
+  if(!idx.length)return;
+  const head=tb.tHead;if(!head||!head.rows.length)return;
+  // La fila de detalle es la última del thead; ahí están las celdas 1 a 1
+  const filaDet=head.rows[head.rows.length-1];
+  let left=0;
+  const anchos=idx.map(i=>filaDet.cells[i]?filaDet.cells[i].offsetWidth:0);
+  const offs=anchos.map((w,j)=>{const o=left;left+=w;return o;});
+  const aplicar=(cells,base)=>idx.forEach((i,j)=>{
+    const cel=cells[base+i];if(!cel)return;
+    cel.classList.add('pl-fx');
+    if(j===idx.length-1)cel.classList.add('pl-fx-end');
+    cel.style.left=offs[j]+'px';
+  });
+  Array.from(head.rows).forEach(r=>aplicar(r.cells,0));
+  if(tb.tBodies[0])Array.from(tb.tBodies[0].rows).forEach(r=>aplicar(r.cells,0));
+  // El pie tiene una sola celda con colspan sobre las columnas fijas
+  const pie=tb.tFoot&&tb.tFoot.rows[0];
+  if(pie&&pie.cells[0]){pie.cells[0].classList.add('pl-fx','pl-fx-end');pie.cells[0].style.left='0px';}
+}
 
 // ── Generador principal ──
 function genPlanilla(){
@@ -161,129 +338,58 @@ function genPlanilla(){
   const act=DB.personal.filter(p=>p.est==='Activo'&&(!proyFiltro||p.proy===proyFiltro));
   if(!act.length){toast('No hay trabajadores activos',true);return;}
 
-  const S=n=>(n&&n!==0)?'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
-  const hs=(n,cls='')=>n?`<td class="tr mono ${cls}" style="padding:2px 5px">${S(n)}</td>`:`<td style="padding:2px 5px;opacity:.25;text-align:right">—</td>`;
-  const hd=(n,cls='')=>n?`<td class="tc mono ${cls}" style="padding:2px 4px">${n}</td>`:`<td style="padding:2px 4px;opacity:.25;text-align:center">0</td>`;
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
-
-  let totNeto=0,totSub2=0,totDed=0,totEss=0,totAport=0;
+  const cols=_plColsVisibles();
+  const tot={sub2:0,ded:0,neto:0,ess:0,aport:0};
 
   const rows=act.map((p,idx)=>{
     const det=DB.planillaMes.find(d=>d.personalId===p.id&&+d.mes===_plGenMes&&String(d.anio)===String(_plGenAnio));
     const c=_calcPlanRow(p,det);
-    totNeto+=c.neto;totSub2+=c.subtotal2;totDed+=c.totalDeduccion;totEss+=c.essalud;totAport+=c.totalAportaciones;
+    tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
     const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':'#b45309';
-    const afpBadge=`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`;
-    return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:2px 5px;font-size:.68rem;color:var(--muted2);text-align:center">${idx+1}</td>
-      <td class="mono" style="padding:2px 5px;font-size:.68rem">${p.dni}</td>
-      <td style="padding:2px 6px;min-width:150px"><strong style="font-size:.72rem">${p.ape}, ${p.nom}</strong></td>
-      <td style="padding:2px 5px;font-size:.65rem;color:var(--muted2);min-width:90px">${p.cargo||'—'}</td>
-      <td class="mono" style="padding:2px 5px;font-size:.62rem">${p.ing||'—'}</td>
-      <td style="padding:2px 5px;font-size:.62rem">${p.cat||'—'}</td>
-      <td style="padding:2px 5px;text-align:center">${afpBadge}</td>
-      <td style="padding:2px 5px;font-size:.62rem;text-align:center">${_PL_MESES[_plGenMes]}</td>
-
-      ${hd(c.he25)}${hd(c.he35)}${hd(c.he100)}
-
-      ${hs(c.jornal)}${hs(c.impHE100)}${hs(c.impHE25)}${hs(c.impHE35)}${hs(c.reintegro)}${hs(c.asigFam)}
-
-      <td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18);color:#f59e0b">${c.diasSubTotal||0}</td>
-      <td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)">${c.otrosDias||0}</td>
-      <td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>
-      <td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)">${c.diasTotal||0}</td>
-
-      ${hs(c.tareaOrdinaria,'text-acc')}${hd(c.diasDL)}${hs(c.remunDL)}
-      ${hs(c.totalDM)}${hs(c.totalLicPat)}${hs(c.licSindical)}
-      ${hs(c.movilidad)}${hs(c.bAltura)}${hs(c.bCv)}${hs(c.bNocturnas)}${hs(c.refrigerio)}
-      <td class="tr mono" style="padding:2px 5px;font-weight:700;background:rgba(4,78,100,.15);color:var(--mec)">${S(c.subtotal2)}</td>
-
-      ${hs(c.vacaciones)}${hs(c.bono)}${hs(c.gratificacion)}${hs(c.bonif9)}${hs(c.totalGratif)}${hs(c.gratifTrunca)}${hs(c.totalGratifTrunca)}${hs(c.heAdicional)}
-
-      ${hs(c.baseRenta5)}${hs(c.baseSctr)}${hs(c.baseVidaLey)}${hs(c.baseLeySociales)}
-
-      ${c.afpType==='SNP'?hs(c.snp,'text-red'):`<td style="padding:2px 5px;opacity:.2;text-align:right">—</td>`}
-      ${c.afpType!=='SNP'?hs(c.obligAfp,'text-red'):`<td style="padding:2px 5px;opacity:.2;text-align:right">—</td>`}
-      ${c.afpType!=='SNP'?hs(c.primaAfp,'text-red'):`<td style="padding:2px 5px;opacity:.2;text-align:right">—</td>`}
-      ${c.afpType!=='SNP'?hs(c.sobreAfp,'text-red'):`<td style="padding:2px 5px;opacity:.2;text-align:right">—</td>`}
-      <td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${S(c.totalPensiones)}</td>
-      <td style="padding:2px 5px;text-align:center">${afpBadge}</td>
-      <td class="mono" style="padding:2px 5px;font-size:.62rem">${c.cuspp||'—'}</td>
-      ${hs(c.fondoMina,'text-red')}${hs(c.masVida,'text-red')}${hs(c.adelanto,'text-red')}
-      ${hs(c.vacDesc,'text-red')}${hs(c.cts,'text-red')}${hs(c.sindicato,'text-red')}
-      ${hs(c.rimac,'text-red')}${hs(c.otrosDesc,'text-red')}${hs(c.retJudicial,'text-red')}${hs(c.quintaCat,'text-red')}
-      <td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444;background:rgba(239,68,68,.08)">${S(c.totalDeduccion)}</td>
-
-      <td class="tr mono" style="padding:2px 7px;font-size:.8rem;font-weight:800;color:#10b981;background:rgba(16,185,129,.1);min-width:90px">${S(c.neto)}</td>
-      <td class="mono" style="padding:2px 5px;font-size:.65rem;min-width:165px">${c.cuenta||'—'}</td>
-      <td style="padding:2px 5px;font-size:.65rem;min-width:130px">${c.banco||'—'}</td>
-
-      ${hs(c.essalud)}${hs(c.aporteAfpEmpl)}${hs(c.sctrPenSup)}${hs(c.sctrPenMina)}${hs(c.segVidaEmpl)}${hs(c.segVidaLey)}${hs(c.sctrSalud)}
-      <td class="tr mono" style="padding:2px 5px;font-weight:700;color:var(--mec);background:rgba(4,78,100,.1)">${S(c.totalAportaciones)}</td>
-
-      <td style="padding:2px 4px;text-align:center">
-        <button class="btn btn-sm" style="font-size:.62rem;padding:2px 6px;background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#3b82f6" onclick="openPlanillaDet(${p.id})">✏️</button>
-      </td>
-    </tr>`;
+    const ctx={afpBadge:`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`,
+               mes:_PL_MESES[_plGenMes]};
+    return`<tr style="border-bottom:1px solid var(--border)">${cols.map(col=>col.c(c,p,idx,ctx)).join('')}</tr>`;
   }).join('');
 
-  // Headers agrupados
-  const grp=(lbl,cols,bg)=>`<th colspan="${cols}" style="${th};background:${bg};font-size:.65rem;letter-spacing:.04em">${lbl}</th>`;
+  // Encabezado agrupado: las columnas fijas van sueltas para poder congelarlas
+  const nFx=cols.filter(c=>c.fx).length;
+  const grupos=[];
+  cols.forEach(c=>{
+    if(c.fx)return;
+    const g=grupos[grupos.length-1];
+    if(g&&g.k===c.g)g.n++;else grupos.push({k:c.g,n:1});
+  });
+  const fxCols=cols.filter(c=>c.fx);
   document.getElementById('thPlanilla').innerHTML=`
   <tr>
-    ${grp('DATOS',8,'#1e3a8a')}
-    ${grp('HORAS EXTRAS',3,'#1d4ed8')}
-    ${grp('REMUNERACIONES',6,'#2563eb')}
-    ${grp('DÍAS',4,'rgba(180,83,9,.7)')}
-    ${grp('TAREA / DL / DM / LIC.',6,'#374151')}
-    ${grp('BONIFICACIONES',5,'#374151')}
-    ${grp('SUB TOTAL 2',1,'#044e64')}
-    ${grp('GRATIFICACIONES',8,'#374151')}
-    ${grp('AFECTOS BASE',4,'#1e3a8a')}
-    ${grp('DEDUCCIONES',12,'#1f2937')}
-    ${grp('NETO / PAGO',3,'#065f46')}
-    ${grp('APORTES EMPLEADOR',8,'#1e3a8a')}
-    <th style="${th};background:#111827"></th>
+    ${fxCols.map(()=>`<th style="${th};background:${PL_GRUPOS.datos.bg}"></th>`).join('')}
+    ${grupos.map(g=>`<th colspan="${g.n}" style="${th};background:${PL_GRUPOS[g.k].bg};font-size:.65rem;letter-spacing:.04em">${PL_GRUPOS[g.k].l}</th>`).join('')}
   </tr>
   <tr style="background:#1e293b;color:#94a3b8">
-    <th style="${th}">#</th><th style="${th}">DNI</th><th style="${th}">Apellidos y Nombres</th><th style="${th}">Cargo</th><th style="${th}">F.Ingreso</th><th style="${th}">Categoría</th><th style="${th}">AFP/SNP</th><th style="${th}">Mes</th>
-    <th style="${th}">HE 25%</th><th style="${th}">HE 35%</th><th style="${th}">HE 100%</th>
-    <th style="${th}">Jornal Básico</th><th style="${th}">Imp.HE100%</th><th style="${th}">Imp.HE25%</th><th style="${th}">Imp.HE35%</th><th style="${th}">Reintegro</th><th style="${th}">Asig.Fam.</th>
-    <th style="${th};background:rgba(245,158,11,.2);color:#f59e0b">Días SubTot.</th><th style="${th}">Otros Días</th><th style="${th};color:#ef4444">Faltas</th><th style="${th};background:rgba(245,158,11,.2);color:#f59e0b">Días Total</th>
-    <th style="${th}">Tarea Ord.</th><th style="${th}">Días Lib.</th><th style="${th}">Remun.DL</th><th style="${th}">Total DM</th><th style="${th}">Lic.Pat/Mat</th><th style="${th}">Lic.Sind.</th>
-    <th style="${th}">Movilidad</th><th style="${th}">B.Altura</th><th style="${th}">B.CostoVida</th><th style="${th}">B.Noct.</th><th style="${th}">Refrigerio</th>
-    <th style="${th};background:rgba(4,78,100,.3);color:var(--mec)">Sub Total 2</th>
-    <th style="${th}">Vacaciones</th><th style="${th}">Bono</th><th style="${th}">Gratif.</th><th style="${th}">Bonif.9%</th><th style="${th}">Tot.Gratif.</th><th style="${th}">Gratif.Trunc.</th><th style="${th}">Tot.G.Trunc.</th><th style="${th}">HE Adic.</th>
-    <th style="${th}">Base Renta5ta</th><th style="${th}">Base SCTR</th><th style="${th}">Base V.Ley</th><th style="${th}">Base LeyesSoc.</th>
-    <th style="${th};color:#ef4444">SNP 13%</th><th style="${th};color:#ef4444">Oblig.AFP</th><th style="${th};color:#ef4444">Prima AFP</th><th style="${th};color:#ef4444">SobreFlujo</th><th style="${th};color:#ef4444;font-weight:800">Tot.Pensiones</th><th style="${th}">Tipo</th><th style="${th}">CUSPP</th>
-    <th style="${th};color:#ef4444">Ley29741</th><th style="${th};color:#ef4444">MásVida</th><th style="${th};color:#ef4444">Adelantos</th><th style="${th};color:#ef4444">Vacac.</th><th style="${th};color:#ef4444">CTS</th><th style="${th};color:#ef4444">Sindicato</th><th style="${th};color:#ef4444">RIMAC</th><th style="${th};color:#ef4444">Otros</th><th style="${th};color:#ef4444">Ret.Judicial</th><th style="${th};color:#ef4444">5ta Cat.</th>
-    <th style="${th};color:#ef4444;font-weight:800">TOTAL DED.</th>
-    <th style="${th};background:rgba(16,185,129,.2);color:#10b981;font-weight:800">NETO A PAGAR</th><th style="${th}">N° Cuenta</th><th style="${th}">Banco</th>
-    <th style="${th}">ESSALUD 9%</th><th style="${th}">Aport.AFP</th><th style="${th}">SCTR Pen.Sup.</th><th style="${th}">SCTR Pen.Mina</th><th style="${th}">Seg.Vida Empl.</th><th style="${th}">S.Vida Obr.</th><th style="${th}">SCTR Salud</th><th style="${th};color:var(--mec);font-weight:800">Tot.Aport.</th>
-    <th style="${th}">✏️</th>
+    ${cols.map(c=>`<th style="${th}${c.th?';'+c.th:''}">${c.l}</th>`).join('')}
   </tr>`;
 
   document.getElementById('tbPlanillaBody').innerHTML=rows;
 
-  // Totales
+  // Totales: se emiten en las columnas visibles que tengan acumulador
   const Sf=n=>'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2});
+  const colTot={sub2:'var(--mec)',ded:'#ef4444',neto:'#10b981',ess:'var(--muted2)',aport:'var(--mec)'};
+  let saltados=0;
+  const cellsTot=cols.map((c,i)=>{
+    if(i<nFx){saltados++;return'';}                       // se cubren con el colspan del rótulo
+    if(c.tot)return`<td class="tr mono" style="padding:5px;color:${colTot[c.tot]};${c.tot==='neto'?'font-size:.85rem':''}">${Sf(tot[c.tot])}</td>`;
+    return'<td style="padding:5px"></td>';
+  }).join('');
   document.getElementById('tfPlanilla').innerHTML=`<tr style="background:var(--panel2);font-weight:700;border-top:2px solid var(--mec)">
-    <td colspan="8" style="padding:5px 8px;font-size:.7rem;color:var(--muted2);letter-spacing:.08em">TOTALES · ${act.length} trabajadores</td>
-    <td colspan="23" style="padding:5px"></td>
-    <td class="tr mono" style="padding:5px;color:var(--mec)">${Sf(totSub2)}</td>
-    <td colspan="12" style="padding:5px"></td>
-    <td class="tr mono" style="padding:5px;color:#ef4444">${Sf(totDed)}</td>
-    <td class="tr mono" style="padding:5px;color:#10b981;font-size:.85rem">${Sf(totNeto)}</td>
-    <td colspan="2" style="padding:5px"></td>
-    <td colspan="6" style="padding:5px"></td>
-    <td class="tr mono" style="padding:5px;color:var(--muted2)">${Sf(totEss)}</td>
-    <td colspan="6" style="padding:5px"></td>
-    <td class="tr mono" style="padding:5px;color:var(--mec)">${Sf(totAport)}</td>
-    <td></td>
+    <td colspan="${Math.max(1,nFx)}" style="padding:5px 8px;font-size:.7rem;color:var(--muted2);letter-spacing:.08em;white-space:nowrap">TOTALES · ${act.length} trab.</td>
+    ${cellsTot}
   </tr>`;
 
-  document.getElementById('planillaResumen').textContent=`${act.length} trabajadores · Neto total: ${Sf(totNeto)}`;
+  document.getElementById('planillaResumen').textContent=`${act.length} trabajadores · Neto total: ${Sf(tot.neto)}`;
   document.getElementById('planillaCard').style.display='block';
+  _plRenderTabs();
+  _plFijarCols();
 }
 
 // ── Modal datos mensuales ──
