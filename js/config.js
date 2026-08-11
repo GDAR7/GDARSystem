@@ -42,13 +42,13 @@ const AREAS={
 // ══ USERS ══
 const USERS=[
   {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(AREAS)},
-  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','remuneraciones','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros','general']},
-  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion','remuneraciones','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
-  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','remuneraciones','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
+  {codigo:'ECOADM',dni:'11111111',nombre:'Usuario General',cargo:'General',areas:['administracion','bienestarSocial','almacenLogistica','operaciones','seguridad','mantenimiento','controlProyecto','controlEquipos','otros','general']},
+  {codigo:'OMARS',dni:'41614500',nombre:'Omar Silva Santa Cruz',cargo:'Administrador',areas:['general','administracion','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
+  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
   {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion','seguridad'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
   {codigo:'FLOBEN',dni:'10199407',nombre:'Flor Benites',cargo:'Jefe de Seguridad',areas:['general','almacenLogistica','seguridad']},
   {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
-  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','remuneraciones','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
+  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
   {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
   {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['mantenimiento','controlEquipos','administracion','seguridad'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos'],administracion:['resumenTareaje'],seguridad:['cursosSeguridad']}},
   {codigo:'CA-R-ZE',dni:'18071084',nombre:'Carlos Zelada',cargo:'Jefe de mantenimiento',areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
