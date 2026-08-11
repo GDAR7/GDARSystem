@@ -42,6 +42,33 @@ function _tarToggleCol(col){
 // Color por guardia: A ámbar · B morado · C verde
 const _TAR_GRD_COL={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
 
+// ══ FILTRO POR LEYENDA (chips TD/TN/DL/…) ══
+// Un solo tipo a la vez: muestra a quienes tienen al menos un día así en el mes
+let _tarLeyFiltro=null;
+function _tarLeySet(tipo){
+  _tarLeyFiltro=_tarLeyFiltro===tipo?null:tipo;
+  rTareaje();
+}
+function _tarAplicaLeyFiltro(lista,monthStr){
+  if(!_tarLeyFiltro)return lista;
+  const proy=document.getElementById('tareProy')?.value||'';
+  const ids=new Set(DB.tareaje
+    .filter(r=>r.tipo===_tarLeyFiltro&&r.fecha&&r.fecha.startsWith(monthStr)&&(!proy||r.proy===proy||!r.proy))
+    .map(r=>r.personalId));
+  return lista.filter(p=>ids.has(p.id));
+}
+// Cuántos trabajadores tienen al menos un día de cada tipo (para el contador del chip)
+function _tarLeyConteos(monthStr){
+  const proy=document.getElementById('tareProy')?.value||'';
+  const m={};
+  DB.tareaje.forEach(r=>{
+    if(!r.fecha||!r.fecha.startsWith(monthStr))return;
+    if(proy&&r.proy&&r.proy!==proy)return;
+    (m[r.tipo]=m[r.tipo]||new Set()).add(r.personalId);
+  });
+  return m;
+}
+
 // ══ ENCABEZADO / COLUMNAS FIJAS ══
 let _tarFijar=localStorage.getItem('_tarFijar')!=='0';   // activo por defecto
 function _tarToggleFijar(){
@@ -354,6 +381,7 @@ function rTareaje(){
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
   persF=_tarAplicaColFilt(persF); // filtros elegidos en los encabezados de columna
+  persF=_tarAplicaLeyFiltro(persF,monthStr); // chip de la leyenda (TD, TN, F, …)
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
@@ -363,7 +391,15 @@ function rTareaje(){
     {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,c:'#ef4444',ic:'❌',sub:'del mes'},
     {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c};flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
-  document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>`<span style="background:${v.bg};color:${v.tx};font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap">${k} – ${v.l}</span>`).join('');
+  // Leyenda clicable: filtra a quienes tengan al menos un día de ese tipo en el mes
+  const _leyN=_tarLeyConteos(monthStr);
+  document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>{
+    const n=_leyN[k]?_leyN[k].size:0;
+    const act=_tarLeyFiltro===k;
+    return`<span onclick="_tarLeySet('${k}')" title="${n} trabajador${n===1?'':'es'} con al menos un día ${k} en el mes${act?' · clic para quitar el filtro':''}"
+      style="background:${v.bg};color:${v.tx};font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;cursor:pointer;user-select:none;
+      ${act?'outline:2px solid #fff;outline-offset:1px;box-shadow:0 0 0 3px rgba(255,255,255,.15);':n?'':'opacity:.35;'}">${k} – ${v.l}${n?` <span style="opacity:.75">${n}</span>`:''}${act?' ✕':''}</span>`;
+  }).join('')+(_tarLeyFiltro?`<span onclick="_tarLeySet(null)" style="font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--border);color:#ef4444;white-space:nowrap">✕ Quitar filtro</span>`:'');
   const _tarRO=isModuleReadOnly('tareaje');
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const dayHdrs=Array.from({length:days},(_,i)=>{
@@ -506,6 +542,7 @@ function _tarPersFiltrados(monthStr){
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
   persF=_tarAplicaColFilt(persF);
+  persF=_tarAplicaLeyFiltro(persF,monthStr);
   if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
   return persF;
 }
@@ -515,7 +552,8 @@ function _tarFiltroTxt(){
     const c=_TAR_COLS.find(x=>x.k===k);
     return ' · '+((c&&c.l)||k)+': '+v;
   }).join('');
-  return cols+(b?' · Filtro: "'+b+'"':'');
+  const ley=_tarLeyFiltro?' · Solo con '+_tarLeyFiltro+' ('+(_TARE_T[_tarLeyFiltro]?.l||_tarLeyFiltro)+')':'';
+  return cols+ley+(b?' · Filtro: "'+b+'"':'');
 }
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
