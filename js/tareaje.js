@@ -380,6 +380,10 @@ function rTareaje(){
     const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
+  // Los dados de baja (estado "Inactivo") no aparecen en la grilla, solo se cuentan.
+  // Los "De Permiso" sí se muestran: siguen en planilla y hay que marcarles su jornada.
+  const _nInact=persF.filter(p=>p.est==='Inactivo').length;
+  persF=persF.filter(p=>p.est!=='Inactivo');
   persF=_tarAplicaColFilt(persF); // filtros elegidos en los encabezados de columna
   persF=_tarAplicaLeyFiltro(persF,monthStr); // chip de la leyenda (TD, TN, F, …)
   const persFIds=new Set(persF.map(p=>p.id));
@@ -389,7 +393,8 @@ function rTareaje(){
     {l:'Trabajo Día',v:monthRecs.filter(r=>r.tipo==='TD').length,c:'#10b981',ic:'☀️',sub:'jornadas TD'},
     {l:'Trabajo Noche',v:monthRecs.filter(r=>r.tipo==='TN').length,c:'#3b82f6',ic:'🌙',sub:'jornadas TN'},
     {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,c:'#ef4444',ic:'❌',sub:'del mes'},
-    {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'}
+    {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'},
+    {l:'Inactivos',v:_nInact,c:'#64748b',ic:'🚫',sub:'dados de baja · fuera de la grilla'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c};flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   // Leyenda clicable: filtra a quienes tengan al menos un día de ese tipo en el mes
   const _leyN=_tarLeyConteos(monthStr);
@@ -541,6 +546,7 @@ function _tarPersFiltrados(monthStr){
     const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
+  persF=persF.filter(p=>p.est!=='Inactivo'); // igual que la grilla
   persF=_tarAplicaColFilt(persF);
   persF=_tarAplicaLeyFiltro(persF,monthStr);
   if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
