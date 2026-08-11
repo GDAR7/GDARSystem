@@ -1022,7 +1022,8 @@ function _rosterSetPersonaCfg(personalId,campo,valor,msg){
       supaDelete('personalRosterCfg',existing.id);
     }else syncSheet('savePersonalRosterCfg',existing);
   }else if(valor){
-    const rec={id:nid('prc'),personalId,turno:null,fechaInicio:null};
+    // Solo se envía el campo que se está configurando: el otro queda sin definir
+    const rec={id:nid('prc'),personalId};
     rec[campo]=valor;
     DB.personalRosterCfg.push(rec);syncSheet('savePersonalRosterCfg',rec);
   }
