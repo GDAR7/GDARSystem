@@ -1,12 +1,18 @@
 // ══ PLANILLA DE SUELDOS ══
 const _PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+// Tasas AFP · oblig = aporte obligatorio · comision = comisión sobre flujo
+// prima = seguro de invalidez y sobrevivencia (la fija la SBS, es igual para todas)
+// ⚠ Las AFP actualizan sus comisiones periódicamente: revisar al menos una vez al año.
 const _PL_AFP_RATES={
-  'Integra' :{oblig:0.10,comision:0.0155,prima:0.0174},
+  'Integra'  :{oblig:0.10,comision:0.0155,prima:0.0174},
   'Profuturo':{oblig:0.10,comision:0.0169,prima:0.0174},
-  'Prima'   :{oblig:0.10,comision:0.0138,prima:0.0174}
+  'Prima'    :{oblig:0.10,comision:0.0138,prima:0.0174},
+  'Habitat'  :{oblig:0.10,comision:0.0137,prima:0.0174}
 };
 
 let _plGenMes=null,_plGenAnio=null;
+// AFPs encontradas en el personal que no están en _PL_AFP_RATES
+const _plAfpDesconocidas=new Set();
 let _plDetPersonalId=null,_plDetMes=null,_plDetAnio=null,_plDetCurTab=0;
 
 // ── Tabs modal datos mensuales ──
@@ -100,11 +106,19 @@ function _calcPlanRow(p,det){
     snp=r2(baseLeySociales*0.13);
     totalPensiones=snp;
   }else{
-    const rt=_PL_AFP_RATES[afpType]||_PL_AFP_RATES['Integra'];
-    obligAfp =r2(baseLeySociales*rt.oblig);
-    primaAfp =r2(baseLeySociales*rt.prima);
-    sobreAfp =r2(baseLeySociales*rt.comision);
-    totalPensiones=r2(obligAfp+primaAfp+sobreAfp);
+    const rt=_PL_AFP_RATES[afpType];
+    if(!rt){
+      // AFP no registrada: no se inventa una tasa. Se aplica solo el aporte
+      // obligatorio (10%, igual para todas) y se marca para avisar al usuario.
+      _plAfpDesconocidas.add(afpType);
+      obligAfp=r2(baseLeySociales*0.10);
+      totalPensiones=obligAfp;
+    }else{
+      obligAfp =r2(baseLeySociales*rt.oblig);
+      primaAfp =r2(baseLeySociales*rt.prima);
+      sobreAfp =r2(baseLeySociales*rt.comision);
+      totalPensiones=r2(obligAfp+primaAfp+sobreAfp);
+    }
   }
 
   // Deducciones adicionales
@@ -338,6 +352,7 @@ function genPlanilla(){
 
   const act=DB.personal.filter(p=>p.est==='Activo'&&(!proyFiltro||p.proy===proyFiltro));
   if(!act.length){toast('No hay trabajadores activos',true);return;}
+  _plAfpDesconocidas.clear();
 
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
   const cols=_plColsVisibles();
@@ -347,7 +362,7 @@ function genPlanilla(){
     const det=DB.planillaMes.find(d=>d.personalId===p.id&&+d.mes===_plGenMes&&String(d.anio)===String(_plGenAnio));
     const c=_calcPlanRow(p,det);
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
-    const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':'#b45309';
+    const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
     const ctx={afpBadge:`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`,
                mes:_PL_MESES[_plGenMes]};
     return`<tr style="border-bottom:1px solid var(--border)">${cols.map(col=>col.c(c,p,idx,ctx)).join('')}</tr>`;
@@ -391,6 +406,11 @@ function genPlanilla(){
   document.getElementById('planillaCard').style.display='block';
   _plRenderTabs();
   _plFijarCols();
+  if(_plAfpDesconocidas.size){
+    const lista=[..._plAfpDesconocidas].join(', ');
+    toast('AFP sin tasa configurada: '+lista+' — solo se aplicó el 10% obligatorio',true);
+    console.warn('[Planilla] AFP no registradas en _PL_AFP_RATES:',lista);
+  }
 }
 
 // ── Modal datos mensuales ──

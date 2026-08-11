@@ -506,6 +506,20 @@
   <div id="abcSemBody" style="display:none"></div>
 </div>
 
+<!-- REMUNERACIONES – RENTA DE QUINTA CATEGORÍA -->
+<div class="page" id="page-renta5ta">
+  <div class="ph"><div class="ph-title" style="color:#ca8a04">📑 Renta de Quinta Categoría</div><div class="ph-sub">Proyección anual y retención mensual — art. 40 del Reglamento de la Ley del Impuesto a la Renta</div></div>
+  <div id="r5Body"></div>
+</div>
+
+<!-- MODAL: DETALLE DEL CÁLCULO -->
+<div class="mo" id="mRenta5Det"><div class="modal" style="max-width:620px">
+  <div class="mh"><div><div class="mttl" id="r5DetTtl">Detalle</div><div class="msub" id="r5DetSub"></div></div>
+    <button class="mx" onclick="closeM('mRenta5Det')">✕</button></div>
+  <div class="mb"><div id="r5DetBody"></div></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mRenta5Det')">Cerrar</button></div>
+</div></div>
+
 <!-- SEGURIDAD – CURSOS / CAPACITACIONES -->
 <div class="page" id="page-cursosSeguridad">
   <div class="ph"><div class="ph-title" style="color:var(--seg)">👨‍🎓 Cursos y Capacitaciones</div><div class="ph-sub">Matriz de personal por curso (RR. HH.)</div></div>
@@ -1844,7 +1858,7 @@
       <div class="fg" style="grid-column:1/-1"><label>Notas</label><textarea id="wNotas" rows="2" style="resize:vertical" placeholder="Observaciones, condiciones especiales..."></textarea></div>
     </div>
     <div id="perP1" class="fg-grid" style="display:none">
-      <div class="fg"><label>AFP / SNP</label><select id="wAfp"><option value="">— Seleccionar —</option><option>SNP</option><option>Integra</option><option>Profuturo</option><option>Prima</option></select></div>
+      <div class="fg"><label>AFP / SNP</label><select id="wAfp"><option value="">— Seleccionar —</option><option>SNP</option><option>Integra</option><option>Profuturo</option><option>Prima</option><option>Habitat</option></select></div>
       <div class="fg"><label>CUSPP</label><input id="wCuspp" placeholder="Ej: 671241LAREO9"></div>
       <div class="fg"><label>Banco</label><select id="wBanco"><option value="">— Seleccionar —</option><option>BCP</option><option>BBVA</option><option>Interbank</option><option>Scotiabank</option><option>BanBif</option><option>Mibanco</option><option>Caja Huancayo</option><option>Caja Piura</option></select></div>
       <div class="fg" style="grid-column:1/-1"><label>N° Cuenta</label><input id="wCuenta" placeholder="Ej: 00110104840200456451"></div>
@@ -3082,10 +3096,11 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=39"></script>
-<script src="js/utils.js?v=20"></script>
+<script src="js/config.js?v=40"></script>
+<script src="js/utils.js?v=21"></script>
 <script src="js/personal.js?v=13"></script>
-<script src="js/planilla.js?v=3"></script>
+<script src="js/planilla.js?v=4"></script>
+<script src="js/renta5ta.js?v=1"></script>
 <script src="js/almacen.js?v=3"></script>
 <script src="js/analisisAbc.js?v=7"></script>
 <script src="js/kardexEpp.js?v=1"></script>
