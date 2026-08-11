@@ -952,10 +952,15 @@ function _rosterFmt(iso){
 function _rosterDia(iso){return new Date(iso+'T12:00:00').getDay();}
 const _DN=['DO','LU','MA','MI','JU','VI','SA'];
 
+// El turno y el inicio de ciclo de la guardia se pueden sobreescribir por persona
 function _rosterTipoPersona(fecha,cfg,personalId){
   const pCfg=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
-  if(pCfg&&pCfg.turno){
-    return _rosterTipo(fecha,{...cfg,turno:pCfg.turno});
+  if(pCfg&&(pCfg.turno||pCfg.fechaInicio)){
+    return _rosterTipo(fecha,{
+      ...cfg,
+      turno:       pCfg.turno       ||cfg?.turno,
+      fechaInicio: pCfg.fechaInicio ||cfg?.fechaInicio
+    });
   }
   return _rosterTipo(fecha,cfg);
 }
@@ -975,34 +980,61 @@ function _rosterPersonaTurnoPicker(personalId,ev){
     {v:'NOCHE',ic:'🌙', lb:'Solo Noche (TN)',co:'#818cf8'},
     {v:'MIXTO',ic:'☀️🌙',lb:'Mixto 7D+7N',  co:'#10b981'}
   ];
+  const curIni=pCfg?.fechaInicio||'';
+  const cfgGrd=p?_rosterGetCfg(p.guardia):null;
+  const iniGrd=cfgGrd?.fechaInicio||'';
   div.innerHTML=`<div style="font-size:.68rem;font-weight:700;color:var(--text);margin-bottom:.1rem">${nm}</div>
-    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.55rem">Turno individual (sobreescribe guardia)</div>
+    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.55rem">Configuración individual (sobreescribe la guardia)</div>
     <div style="display:flex;flex-direction:column;gap:.28rem">
       ${opts.map(o=>`<button onclick="_rosterSetPersonaTurno(${personalId},'${o.v}')" style="display:flex;align-items:center;gap:.5rem;background:${cur===o.v?'rgba(168,85,247,.2)':'rgba(255,255,255,.04)'};border:1px solid ${cur===o.v?'#a855f7':'var(--border)'};border-radius:6px;padding:.3rem .6rem;color:${cur===o.v?'#a855f7':o.co};cursor:pointer;font-size:.7rem;font-weight:${cur===o.v?'700':'500'};text-align:left"><span style="font-size:.8rem">${o.ic}</span>${o.lb}${cur===o.v?' ✓':''}</button>`).join('')}
       <button onclick="_rosterSetPersonaTurno(${personalId},null)" style="display:flex;align-items:center;gap:.5rem;background:${!cur?'rgba(168,85,247,.1)':'rgba(255,255,255,.03)'};border:1px solid ${!cur?'#a855f7':'var(--border)'};border-radius:6px;padding:.3rem .6rem;color:${!cur?'#a855f7':'var(--muted2)'};cursor:pointer;font-size:.7rem;font-weight:${!cur?'700':'400'};text-align:left"><span>↩</span>Heredar turno de guardia${!cur?' ✓':''}</button>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:.6rem 0 .45rem"></div>
+    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.3rem">Inicio de ciclo individual</div>
+    <input type="date" id="_pRosterIni" value="${curIni}" class="date-ic-azul"
+      style="width:100%;background:var(--panel2);border:1px solid ${curIni?'#a855f7':'var(--border)'};border-radius:6px;padding:.28rem .45rem;color:var(--text);font-size:.72rem;color-scheme:dark">
+    <div style="display:flex;gap:.28rem;margin-top:.35rem">
+      <button onclick="_rosterSetPersonaInicio(${personalId},document.getElementById('_pRosterIni').value)"
+        style="flex:1;background:#a855f7;border:none;border-radius:6px;padding:.3rem;color:#fff;cursor:pointer;font-size:.68rem;font-weight:700">💾 Guardar</button>
+      <button onclick="_rosterSetPersonaInicio(${personalId},null)"
+        style="flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.3rem;color:var(--muted2);cursor:pointer;font-size:.68rem">↩ Usar guardia</button>
+    </div>
+    <div style="font-size:.55rem;color:var(--muted);margin-top:.35rem;line-height:1.4">
+      ${curIni?`Ciclo propio desde <strong style="color:#a855f7">${_rosterFmt(curIni)}</strong>`:iniGrd?`Hereda de la guardia: <strong>${_rosterFmt(iniGrd)}</strong>`:'La guardia no tiene ciclo configurado'}
     </div>`;
   document.body.appendChild(div);
   const r=ev.target.getBoundingClientRect();
   let top=r.bottom+4,left=r.left;
-  if(left+220>window.innerWidth)left=window.innerWidth-225;
-  if(top+220>window.innerHeight)top=r.top-225;
+  if(left+230>window.innerWidth)left=window.innerWidth-235;
+  if(top+340>window.innerHeight)top=Math.max(6,r.top-345);
   div.style.top=top+'px';div.style.left=left+'px';
   setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();document.removeEventListener('click',h);}},{capture:true,once:false}),50);
 }
 
-function _rosterSetPersonaTurno(personalId,turno){
+// Guarda o limpia un campo de la config individual; si queda vacía, borra el registro
+function _rosterSetPersonaCfg(personalId,campo,valor,msg){
   document.getElementById('_pRosterPicker')?.remove();
   const existing=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
-  if(!turno){
-    if(existing){DB.personalRosterCfg=DB.personalRosterCfg.filter(c=>c.id!==existing.id);supaDelete('personalRosterCfg',existing.id);}
-  }else if(existing){
-    existing.turno=turno;syncSheet('savePersonalRosterCfg',existing);
-  }else{
-    const rec={id:nid('prc'),personalId,turno};
+  if(existing){
+    existing[campo]=valor||null;
+    if(!existing.turno&&!existing.fechaInicio){
+      DB.personalRosterCfg=DB.personalRosterCfg.filter(c=>c.id!==existing.id);
+      supaDelete('personalRosterCfg',existing.id);
+    }else syncSheet('savePersonalRosterCfg',existing);
+  }else if(valor){
+    const rec={id:nid('prc'),personalId,turno:null,fechaInicio:null};
+    rec[campo]=valor;
     DB.personalRosterCfg.push(rec);syncSheet('savePersonalRosterCfg',rec);
   }
   rRoster();
-  toast('✓ Turno personal actualizado');
+  toast(msg);
+}
+function _rosterSetPersonaTurno(personalId,turno){
+  _rosterSetPersonaCfg(personalId,'turno',turno,turno?'✓ Turno personal actualizado':'✓ Turno heredado de la guardia');
+}
+function _rosterSetPersonaInicio(personalId,fecha){
+  if(fecha&&!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){toast('Fecha inválida',true);return;}
+  _rosterSetPersonaCfg(personalId,'fechaInicio',fecha,fecha?'✓ Inicio de ciclo individual: '+_rosterFmt(fecha):'✓ Inicio heredado de la guardia');
 }
 
 function _rosterTipo(fecha,cfg){
@@ -1083,8 +1115,12 @@ function rRoster(){
       }).join('');
       const grdBadge=p.guardia?`<span style="font-size:.5rem;padding:1px 4px;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:3px;font-weight:700">${p.guardia}</span>`:'';
       const _pTurno=pCfgPersona?.turno;
+      const _pIni=pCfgPersona?.fechaInicio;
       const _pTurnoIc=_pTurno==='DIA'?'☀️':_pTurno==='NOCHE'?'🌙':_pTurno==='MIXTO'?'⇄':null;
-      const turnoBadge=`<span onclick="_rosterPersonaTurnoPicker(${p.id},event)" title="${_pTurno?'Turno personal: '+_pTurno:'Click para asignar turno individual'}" style="cursor:pointer;margin-left:2px;font-size:.45rem;padding:1px 4px;border-radius:3px;font-weight:700;${_pTurno?'background:rgba(168,85,247,.2);color:#a855f7;border:1px solid rgba(168,85,247,.4)':'background:rgba(255,255,255,.05);color:var(--muted2);border:1px solid rgba(255,255,255,.1)'}">${_pTurnoIc||'⚙'}</span>`;
+      const _pIc=(_pTurnoIc||'')+(_pIni?'📅':'')||'⚙';
+      const _pTit=[_pTurno?'Turno personal: '+_pTurno:'',_pIni?'Inicio de ciclo propio: '+_rosterFmt(_pIni):''].filter(Boolean).join(' · ')||'Click para configurar turno e inicio de ciclo individual';
+      const _pAct=_pTurno||_pIni;
+      const turnoBadge=`<span onclick="_rosterPersonaTurnoPicker(${p.id},event)" title="${_pTit}" style="cursor:pointer;margin-left:2px;font-size:.45rem;padding:1px 4px;border-radius:3px;font-weight:700;${_pAct?'background:rgba(168,85,247,.2);color:#a855f7;border:1px solid rgba(168,85,247,.4)':'background:rgba(255,255,255,.05);color:var(--muted2);border:1px solid rgba(255,255,255,.1)'}">${_pIc}</span>`;
       return`<tr>
         <td style="padding:.2rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:600;color:var(--text);width:175px;max-width:175px">${p.ape||''}, ${(p.nom||'').split(' ')[0]} ${grdBadge}${turnoBadge}</td>
         <td style="padding:.2rem .5rem;font-size:.62rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:125px;max-width:125px">${(p.cargo||'').toUpperCase().slice(0,18)}</td>
