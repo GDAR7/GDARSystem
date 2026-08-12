@@ -286,6 +286,7 @@ function addCistRiego(tanques,tramoId){
       </select>
     </div>
   </div>`;
+  
   c.appendChild(div);
   if(tramoId){const sel=document.getElementById('crTramo'+ci);if(sel)sel.value=tramoId;}
   _recalcCistTotal();

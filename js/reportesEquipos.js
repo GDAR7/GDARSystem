@@ -283,6 +283,13 @@ function _reqOnTipoChange(){
   rReporteEquipos();
 }
 
+// Utilización: solo mide los equipos de producción (línea amarilla y blanca).
+// Generadores, luminarias, vehículos, etc. distorsionan el % porque no tienen
+// una jornada comparable; se incluyen aparte con el checkbox.
+const _UTIL_LINEAS=['Línea Amarilla','Línea Blanca'];
+let _reqUtilTodos=false;
+function _reqUtilToggle(el){_reqUtilTodos=!!el.checked;rReporteEquipos();}
+
 // Tabs del Reporte de Equipos: 1 = Partes Diarios · 2 = Utilización de Equipos
 let _reqTabSel=1;
 function _reqTabSwitch(t){
@@ -345,11 +352,17 @@ function rReporteEquipos(){
     if(!utilByEq[p.eqId])utilByEq[p.eqId]={ef:0,im:0,dias:new Set()};
     utilByEq[p.eqId].ef+=Math.max(0,+p.ef||0);utilByEq[p.eqId].im+=(+p.im||0);utilByEq[p.eqId].dias.add(p.fecha);
   });
-  const utilRows=Object.entries(utilByEq).map(([id,d])=>{
+  const utilRowsAll=Object.entries(utilByEq).map(([id,d])=>{
     const eq=DB.equipos.find(e=>e.id==id);
     return{eq,ef:d.ef,im:d.im,dias:d.dias.size,util:hsDisp>0?d.ef/hsDisp*100:0};
   }).sort((a,b)=>b.util-a.util);
-  const utilGlob=utilRows.length&&hsDisp>0?totEf/(utilRows.length*hsDisp)*100:0;
+  // Si el usuario ya eligió un tipo distinto en el filtro de arriba, se respeta esa
+  // elección: sería confuso vaciarle la tabla por el checkbox.
+  const _utilSoloLineas=!_reqUtilTodos&&(!fTipo||_UTIL_LINEAS.includes(fTipo));
+  const utilRows=_utilSoloLineas?utilRowsAll.filter(r=>_UTIL_LINEAS.includes(r.eq&&r.eq.tipo)):utilRowsAll;
+  const _utilOcultos=utilRowsAll.length-utilRows.length;
+  const _utilEf=utilRows.reduce((s,r)=>s+r.ef,0);
+  const utilGlob=utilRows.length&&hsDisp>0?_utilEf/(utilRows.length*hsDisp)*100:0;
   const _uCol=u=>u>=70?'#10b981':u>=40?'#f59e0b':'#ef4444';
 
   const kpiEl=document.getElementById('reqKpis');
@@ -357,7 +370,7 @@ function rReporteEquipos(){
     {l:'Total Partes',v:partes.length,c:'var(--ceq)',ic:'📋'},
     {l:'Hs Efectivas',v:parseFloat(totEf.toFixed(2))+'h',c:'#10b981',ic:'⚙️'},
     {l:'Hs Inoperativas',v:parseFloat(totIm.toFixed(2))+'h',c:'#ef4444',ic:'🛑'},
-    {l:'Utilización',v:partes.length?utilGlob.toFixed(0)+'%':'—',c:partes.length?_uCol(utilGlob):'var(--muted2)',ic:'📈'},
+    {l:'Utilización',v:utilRows.length?utilGlob.toFixed(0)+'%'+`<br><span style="font-size:.55rem;font-weight:600;color:var(--muted2);letter-spacing:.03em">${_utilSoloLineas?'línea amarilla + blanca':'todos los equipos'} · ${utilRows.length} eq.</span>`:'—',c:utilRows.length?_uCol(utilGlob):'var(--muted2)',ic:'📈'},
     {l:'Prom. Hs / Turno',v:partesConHoras.length?`${promHsTurno.toFixed(2)}h<br><span style="font-size:.55rem;font-weight:600;color:var(--muted2);letter-spacing:.03em">${partesConHoras.length} turno${partesConHoras.length===1?'':'s'} trabajado${partesConHoras.length===1?'':'s'}</span>`:'—',c:'#06b6d4',ic:'📊'},
     {l:'Días Hmin Cumpl.',v:diasHmin,c:'#f59e0b',ic:'✅'},
     {l:'Hs Stanby a Pagar',v:stanby+'h',c:'#8b5cf6',ic:'⏸️'}
@@ -366,21 +379,31 @@ function rReporteEquipos(){
   // Tabla de utilización por equipo
   const utilEl=document.getElementById('reqUtil');
   if(utilEl){
-    utilEl.innerHTML=!utilRows.length?'<div class="card"><div class="card-body" style="text-align:center;color:var(--muted2);padding:2rem;font-size:.85rem">Sin datos de utilización para los filtros seleccionados.</div></div>':`<div class="card">
-      <div class="card-head"><span class="card-title">📈 Utilización de Equipos</span>
+    const _chk=`<label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.63rem;color:var(--muted2);cursor:pointer;user-select:none">
+      <input type="checkbox" ${_reqUtilTodos?'checked':''} onchange="_reqUtilToggle(this)" style="cursor:pointer;accent-color:var(--ceq)">
+      Incluir equipos menores y vehículos${!_reqUtilTodos&&_utilOcultos>0?` <span style="color:var(--ceq);font-weight:700">(${_utilOcultos} oculto${_utilOcultos===1?'':'s'})</span>`:''}
+    </label>`;
+    utilEl.innerHTML=`<div class="card">
+      <div class="card-head" style="flex-wrap:wrap;gap:.5rem"><span class="card-title">📈 Utilización de Equipos</span>
+        ${_chk}
         <span style="font-size:.63rem;color:var(--muted2)">Hs efectivas ÷ Hs disponibles · ${diasPer} día${diasPer===1?'':'s'} × ${jornada}h jornada = ${fmtN(hsDisp)}h por equipo</span>
       </div>
+      ${!utilRows.length?`<div class="card-body" style="text-align:center;color:var(--muted2);padding:2rem;font-size:.85rem">${_utilSoloLineas&&_utilOcultos>0?'No hay equipos de línea amarilla ni blanca con partes en el período.<br><span style="font-size:.72rem">Marque el checkbox para ver los '+_utilOcultos+' equipo(s) restantes.</span>':'Sin datos de utilización para los filtros seleccionados.'}</div>`:`
       <div class="card-body" style="padding:0"><div class="tbl-wrap"><table style="font-size:.72rem">
         <thead><tr style="font-size:.62rem;text-transform:uppercase;letter-spacing:.06em">
-          <th>Código</th><th>Equipo</th><th>Tipo</th><th class="tr">Días c/Parte</th><th class="tr">Hs Efectivas</th><th class="tr">Hs Inop.</th><th style="min-width:190px">Utilización</th>
+          <th>Código</th><th>Equipo</th><th>Línea</th><th>Tipo</th><th class="tr">Días c/Parte</th><th class="tr">Hs Efectivas</th><th class="tr">Hs Inop.</th><th style="min-width:190px">Utilización</th>
         </tr></thead>
         <tbody>
         ${utilRows.map(r=>{
           const c=_uCol(r.util);
           const pct=Math.min(100,Math.round(r.util));
+          const _tp=r.eq&&r.eq.tipo||'';
+          const _lnC=_tp==='Línea Amarilla'?'#f59e0b':_tp==='Línea Blanca'?'#94a3b8':'#64748b';
+          const _lnT=_tp==='Línea Amarilla'?'AMARILLA':_tp==='Línea Blanca'?'BLANCA':(_tp||'—').toUpperCase();
           return`<tr>
             <td class="mono" style="color:var(--ceq);font-weight:700">${r.eq?r.eq.codigo:'—'}</td>
             <td>${r.eq?(r.eq.nombre||'').split(' ').slice(0,4).join(' '):'—'}</td>
+            <td><span style="font-size:.58rem;font-weight:800;letter-spacing:.05em;color:${_lnC};border:1px solid ${_lnC};border-radius:4px;padding:.1rem .3rem;white-space:nowrap">${_lnT}</span></td>
             <td><span class="badge b-cyan" style="font-size:.6rem">${r.eq?(r.eq.sub||r.eq.tipo||'—'):'—'}</span></td>
             <td class="tr mono">${r.dias}</td>
             <td class="tr mono" style="color:#10b981;font-weight:700">${parseFloat(r.ef.toFixed(2))}h</td>
@@ -394,7 +417,7 @@ function rReporteEquipos(){
           </tr>`;
         }).join('')}
         </tbody>
-      </table></div></div>
+      </table></div></div>`}
     </div>`;
   }
 
