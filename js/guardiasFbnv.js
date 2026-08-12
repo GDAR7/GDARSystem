@@ -10,8 +10,9 @@ const _GD_EN_OBRA=['TD','TN','DLT','A5'];
 const _GD_LIBRE=['DL'];
 const _GD_AUSENTES=['F','DM','P','V','LP','LM','LF'];
 // Color del nombre: azul puro para turno día, azul noche para turno noche,
-// plomo oscuro para día libre y rojo para faltas / licencias.
-const _GD_TXT_TIPO={TD:'0000FF',DLT:'0000FF',A5:'0000FF',TN:'002060',DL:'595959'};
+// naranja para Anexo 5, plomo oscuro para día libre y rojo para faltas / licencias.
+const _GD_A5='ED7D31';
+const _GD_TXT_TIPO={TD:'0000FF',DLT:'0000FF',A5:_GD_A5,TN:'002060',DL:'595959'};
 const _GD_TXT_GRUPO={obra:'0000FF',libre:'595959',aus:'C00000'};
 function _gdColor(tipo,grupo){return _GD_TXT_TIPO[tipo]||_GD_TXT_GRUPO[grupo]||'111111';}
 // Colores del encabezado de cada guardia (los mismos del formato original)
@@ -204,6 +205,7 @@ function rGuardiasFbnv(){
         <strong>Leyenda:</strong>
         <span style="color:#0000FF">TD — Trabajo Día</span>
         <span style="color:#002060">TN — Trabajo Noche</span>
+        <span style="color:#${_GD_A5}">A5 — Anexo 5</span>
         <span style="color:#595959">DL — Día Libre</span>
         <span style="color:#C00000">F / DM / P / V — Falta, descanso médico, permiso o licencia</span>
       </div>
@@ -217,6 +219,10 @@ const _GD_CSS=`
   .gd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:start}
   .gd-blk{overflow-x:auto}
   .gd-t{width:100%;border-collapse:collapse}
+  /* La hoja es blanca pero vive dentro del tema oscuro: styles.css aplica
+     td{color:var(--text)} directamente a cada celda y eso gana sobre el color
+     heredado de .gd-doc. Hay que forzar el negro o el texto sale invisible. */
+  .gd-doc th,.gd-doc td{color:#111}
   .gd-t th,.gd-t td{border:1px solid #000;padding:1px 4px}
   .gd-g{font-size:10px;font-weight:800;text-align:center;letter-spacing:.06em}
   .gd-h{font-size:8px;font-weight:800;text-align:center;line-height:1.15}
@@ -231,7 +237,7 @@ const _GD_CSS=`
   .gd-res th.gd-res-tg{background:#0F2D4A}
   .gd-ley{margin-top:9px;font-size:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;color:#475569}
   .gd-ley span{font-weight:700}
-  .gd-vacio{font-size:9px;text-align:center;color:#94a3b8;font-style:italic;padding:8px}
+  .gd-doc td.gd-vacio{font-size:9px;text-align:center;color:#94a3b8;font-style:italic;padding:8px}
   .gd-tot{font-size:8.5px;font-weight:800;background:#f1f5f9;text-align:right}
   @media (max-width:1100px){.gd-grid{grid-template-columns:1fr}}`;
 
