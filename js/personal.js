@@ -938,6 +938,47 @@ let _rosterFiltroCargos=new Set(); // cargos seleccionados (vacío = todos)
 let _rosterCargoDropEl=null;
 const _ROSTER_GUARDIAS=['A','B','C'];
 
+// ── Tipos que se pueden fijar a mano sobre el ciclo ──────────────────────────
+// Los de "jornada" reemplazan lo que calcula el ciclo; los de "ausencia" sirven
+// para dejar programada una ausencia ya conocida (vacaciones, permiso, DM…).
+// Son las mismas marcas del Tareaje para que el roster y el tareo hablen igual.
+const _ROSTER_TIPOS=[
+  {t:'TD', ic:'☀️', l:'Turno Día',          g:'jor'},
+  {t:'TN', ic:'🌙', l:'Turno Noche',        g:'jor'},
+  {t:'DL', ic:'🔵', l:'Día Libre',          g:'jor'},
+  {t:'DLT',ic:'💚', l:'DL Trabajado',       g:'jor'},
+  {t:'A5', ic:'🟠', l:'Anexo 5',            g:'jor'},
+  {t:'P',  ic:'📄', l:'Permiso',            g:'aus'},
+  {t:'F',  ic:'❌', l:'Falta',              g:'aus'},
+  {t:'DM', ic:'🏥', l:'Descanso Médico',    g:'aus'},
+  {t:'V',  ic:'🏖️', l:'Vacaciones',         g:'aus'},
+  {t:'LP', ic:'👶', l:'Lic. Paternidad',    g:'aus'},
+  {t:'LM', ic:'🤱', l:'Lic. Maternidad',    g:'aus'},
+  {t:'LF', ic:'🕯️', l:'Lic. Fallecimiento', g:'aus'}
+];
+const _ROSTER_AUS=_ROSTER_TIPOS.filter(x=>x.g==='aus').map(x=>x.t);
+const _ROSTER_OBRA=['TD','TN','DLT','A5'];
+// Color base de cada tipo: se toma del Tareaje para no tener dos paletas
+function _rosterTipoCol(t){
+  if(t==='TD')return'#10b981';
+  if(t==='TN')return'#818cf8';
+  if(t==='D'||t==='DL')return'#64748b';
+  return(typeof _TARE_T!=='undefined'&&_TARE_T[t]&&_TARE_T[t].bg)||'#94a3b8';
+}
+// Cómo se pinta una celda de la grilla oscura
+function _rosterCelda(t){
+  if(!t)return{bg:'rgba(255,255,255,.02)',tx:'#374151',lbl:'·'};
+  if(t==='TD')return{bg:'rgba(16,185,129,.18)',tx:'#10b981',lbl:'TD'};
+  if(t==='TN')return{bg:'rgba(99,102,241,.18)',tx:'#818cf8',lbl:'TN'};
+  if(t==='D'||t==='DL')return{bg:'rgba(239,68,68,.1)',tx:'#64748b',lbl:'DL'};
+  const c=_rosterTipoCol(t);
+  return{bg:c+'2e',tx:c,lbl:t};
+}
+function _rosterTipoLbl(t){
+  if(t==='D')return'DL';
+  return t||'';
+}
+
 function _rosterLunes(d=new Date()){
   const dx=new Date(d);const day=dx.getDay();
   dx.setDate(dx.getDate()-day+(day===0?-6:1));
@@ -1121,11 +1162,8 @@ function rRoster(){
         const esOvr=!!ovr;
         const esHoy=d===hoy;
         const dow=_rosterDia(d);
-        let bg='',tx='',lbl='';
-        if(!tipo){bg='rgba(255,255,255,.02)';tx='#374151';lbl='·';}
-        else if(tipo==='TD'){bg='rgba(16,185,129,.18)';tx='#10b981';lbl='TD';}
-        else if(tipo==='TN'){bg='rgba(99,102,241,.18)';tx='#818cf8';lbl='TN';}
-        else{bg='rgba(239,68,68,.1)';tx='#64748b';lbl='DL';}
+        const _cel=_rosterCelda(tipo);
+        const bg=_cel.bg,tx=_cel.tx,lbl=_cel.lbl;
         const mKey=`${p.id}|${d}`;
         const isSel=_rosterMultiSel.has(mKey);
         return`<td onclick="${_rosterMultiMode?`_rosterMultiToggleCell('${mKey}',this)`:`_rosterOvrPicker(${p.id},'${d}',event)`}" title="${esOvr?'⚠️ Día sobreescrito':'Click para cambiar'}" style="text-align:center;padding:0;height:24px;font-size:.55rem;font-weight:700;background:${isSel?'rgba(168,85,247,.45)':bg};color:${isSel?'#fff':tx};${esHoy?'border-left:2px solid #f59e0b;border-right:2px solid #f59e0b':''};cursor:pointer;${isSel?'outline:2px solid #a855f7;outline-offset:-2px;':''}">${lbl}${esOvr&&!isSel?'<span style="font-size:.4rem;line-height:1;display:block;color:#f59e0b">✎</span>':''}</td>`;
@@ -1149,15 +1187,17 @@ function rRoster(){
       ?`<tr><td colspan="${35+2}" style="text-align:center;font-size:.65rem;color:var(--muted2);padding:.6rem">Sin personal asignado a Guardia ${grd}</td></tr>`:'';
 
     const _tipoHoyBase=cfg?_rosterTipo(hoy,cfg):null;
-    let _cTD=0,_cTN=0,_cDL=0;
+    let _cTD=0,_cTN=0,_cDL=0,_cAus=0;
     personas.forEach(p=>{
       const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===hoy);
       const t=ovr?ovr.tipo:_tipoHoyBase;
-      if(t==='TD')_cTD++;else if(t==='TN')_cTN++;else if(t==='D'||t==='DL')_cDL++;
+      if(t==='TD')_cTD++;else if(t==='TN')_cTN++;
+      else if(t==='D'||t==='DL')_cDL++;
+      else if(_ROSTER_AUS.includes(t))_cAus++;
     });
     const _tipoHoy=_tipoHoyBase;
     const _badge=(n,lbl,bg,col)=>n>0?`<span style="font-size:.65rem;font-weight:700;background:${bg};color:${col};padding:2px 9px;border-radius:4px">${n} ${lbl}</span>`:'';
-    const resumenHoy=_tipoHoy?`<div style="display:flex;align-items:center;gap:.35rem;margin-left:.4rem"><span style="font-size:.58rem;color:var(--muted2);font-weight:600">HOY:</span>${_badge(_cTD,'TD','rgba(16,185,129,.22)','#10b981')}${_badge(_cTN,'TN','rgba(99,102,241,.22)','#818cf8')}${_badge(_cDL,'DL','rgba(100,116,139,.22)','#94a3b8')}</div>`:'';
+    const resumenHoy=_tipoHoy?`<div style="display:flex;align-items:center;gap:.35rem;margin-left:.4rem"><span style="font-size:.58rem;color:var(--muted2);font-weight:600">HOY:</span>${_badge(_cTD,'TD','rgba(16,185,129,.22)','#10b981')}${_badge(_cTN,'TN','rgba(99,102,241,.22)','#818cf8')}${_badge(_cDL,'DL','rgba(100,116,139,.22)','#94a3b8')}${_badge(_cAus,'AUS','rgba(239,68,68,.18)','#ef4444')}</div>`:'';
     return`<div style="margin-bottom:1.2rem">
       <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-left:4px solid #f59e0b;border-radius:0 6px 6px 0;margin-bottom:.4rem;flex-wrap:wrap">
         <span style="font-size:.75rem;font-weight:800;color:#f59e0b">GUARDIA ${grd}</span>
@@ -1180,7 +1220,8 @@ function rRoster(){
   }).join('');
 
   // ── KPI del día activo (hoy) ──
-  let _kpiTD=0,_kpiTN=0,_kpiDL=0;
+  let _kpiTD=0,_kpiTN=0,_kpiDL=0,_kpiAus=0;
+  const _kpiAusDet={};
   personasFiltradas.filter(p=>p.guardia).forEach(p=>{
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
@@ -1189,28 +1230,20 @@ function rRoster(){
     if(t==='TD')_kpiTD++;
     else if(t==='TN')_kpiTN++;
     else if(t==='D'||t==='DL')_kpiDL++;
+    else if(_ROSTER_AUS.includes(t)){_kpiAus++;_kpiAusDet[t]=(_kpiAusDet[t]||0)+1;}
   });
+  const _ausSub=Object.entries(_kpiAusDet).map(([t,n])=>n+' '+t).join(' · ')||'ninguna';
+  const _kpiCard=(lbl,val,col,sub)=>`<div style="background:var(--panel);border:1px solid ${col};border-top:3px solid ${col};border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
+      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">${lbl}</span>
+      <span style="font-size:1.8rem;font-weight:800;color:${col};line-height:1">${val}</span>
+      <span style="font-size:.58rem;color:var(--muted2)">${sub}</span>
+    </div>`;
   const kpiHoy=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
-    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #10b981;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
-      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">TD · Hoy</span>
-      <span style="font-size:1.8rem;font-weight:800;color:#10b981;line-height:1">${_kpiTD}</span>
-      <span style="font-size:.58rem;color:var(--muted2)">personas en obra</span>
-    </div>
-    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #818cf8;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
-      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">TN · Hoy</span>
-      <span style="font-size:1.8rem;font-weight:800;color:#818cf8;line-height:1">${_kpiTN}</span>
-      <span style="font-size:.58rem;color:var(--muted2)">turno noche</span>
-    </div>
-    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #64748b;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
-      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">DL · Hoy</span>
-      <span style="font-size:1.8rem;font-weight:800;color:#64748b;line-height:1">${_kpiDL}</span>
-      <span style="font-size:.58rem;color:var(--muted2)">día libre</span>
-    </div>
-    <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid #f59e0b;border-radius:8px;padding:.55rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-width:110px">
-      <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2)">Total activos</span>
-      <span style="font-size:1.8rem;font-weight:800;color:#f59e0b;line-height:1">${_kpiTD+_kpiTN+_kpiDL}</span>
-      <span style="font-size:.58rem;color:var(--muted2)">con guardia asignada</span>
-    </div>
+    ${_kpiCard('TD · Hoy',_kpiTD,'#10b981','personas en obra')}
+    ${_kpiCard('TN · Hoy',_kpiTN,'#818cf8','turno noche')}
+    ${_kpiCard('DL · Hoy',_kpiDL,'#64748b','día libre')}
+    ${_kpiCard('Ausencias · Hoy',_kpiAus,'#ef4444',_ausSub)}
+    ${_kpiCard('Total activos',_kpiTD+_kpiTN+_kpiDL+_kpiAus,'#f59e0b','con guardia asignada')}
   </div>`;
 
   // ── barra resumen diario TD+TN ──
@@ -1222,7 +1255,7 @@ function rRoster(){
         const tipoBase=_rosterTipoPersona(d,cfg,p.id);
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const t=ovr?ovr.tipo:tipoBase;
-        if(t==='TD'||t==='TN')n++;
+        if(_ROSTER_OBRA.includes(t))n++;   // TD, TN, DL trabajado y Anexo 5 van a obra
       });
     });
     return n;
@@ -1238,12 +1271,25 @@ function rRoster(){
   </div>`;
 
   // ── leyenda ──
-  const leyenda=`<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
-    <span style="background:rgba(16,185,129,.18);color:#10b981;border-radius:4px;padding:2px 8px;font-weight:700">TD = Turno Día</span>
-    <span style="background:rgba(99,102,241,.18);color:#818cf8;border-radius:4px;padding:2px 8px;font-weight:700">TN = Turno Noche</span>
-    <span style="background:rgba(239,68,68,.1);color:#64748b;border-radius:4px;padding:2px 8px;font-weight:700">DL = Día Libre</span>
+  // Solo se listan los tipos que realmente aparecen, para no llenar de chips inútiles
+  const _tiposEnVista=new Set();
+  _ROSTER_GUARDIAS.forEach(g=>{
+    const cfg=_rosterGetCfg(g);if(!cfg)return;
+    personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
+      dias35.forEach(d=>{
+        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const t=ovr?ovr.tipo:_rosterTipoPersona(d,cfg,p.id);
+        if(t)_tiposEnVista.add(t==='D'?'DL':t);
+      });
+    });
+  });
+  const leyenda=`<div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem;font-size:.65rem">
+    ${_ROSTER_TIPOS.filter(o=>_tiposEnVista.has(o.t)).map(o=>{
+      const c=_rosterTipoCol(o.t);
+      return`<span style="background:${c}2e;color:${c};border:1px solid ${c}66;border-radius:4px;padding:2px 8px;font-weight:700">${o.t} = ${o.l}</span>`;
+    }).join('')}
     <span style="background:#f59e0b20;color:#f59e0b;border-radius:4px;padding:2px 8px;font-weight:700;border:1px solid #f59e0b40">HOY</span>
-    <span style="font-size:.58rem;color:var(--muted2);margin-left:.3rem">Ciclo: ${_ROSTER_CICLO_T} días trabajando · ${_ROSTER_CICLO_D} días descansando</span>
+    <span style="font-size:.58rem;color:var(--muted2);margin-left:.3rem">Ciclo: ${_ROSTER_CICLO_T} días trabajando · ${_ROSTER_CICLO_D} días descansando · ✎ = día fijado a mano</span>
   </div>`;
 
   document.getElementById('rosterBody').innerHTML=`
@@ -1281,11 +1327,12 @@ function rRoster(){
     ${_rosterMultiMode?`<div style="position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:.5rem;padding:.45rem .8rem;margin-bottom:.6rem;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);border-radius:8px;flex-wrap:wrap">
       <span style="font-size:.72rem;font-weight:700;color:#a855f7">☰ Multi-selección activa</span>
       <span id="rosterMultiCount" style="font-size:.68rem;color:var(--muted2)">${_rosterMultiSel.size} celda${_rosterMultiSel.size!==1?'s':''} seleccionada${_rosterMultiSel.size!==1?'s':''}</span>
-      <div style="display:flex;gap:.35rem;margin-left:auto">
-        <button onclick="_rosterMultiApply('TD')" style="background:rgba(16,185,129,.2);color:#10b981;border:1px solid #10b98150;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">☀️ TD</button>
-        <button onclick="_rosterMultiApply('TN')" style="background:rgba(99,102,241,.2);color:#818cf8;border:1px solid #818cf850;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">🌙 TN</button>
-        <button onclick="_rosterMultiApply('DL')" style="background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid #94a3b840;border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">🔵 DL</button>
-        <button onclick="_rosterMultiApply('RESET')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer">↺ Restaurar ciclo</button>
+      <div style="display:flex;gap:.3rem;margin-left:auto;flex-wrap:wrap;align-items:center">
+        ${_ROSTER_TIPOS.map(o=>{
+          const c=_rosterTipoCol(o.t);
+          return`<button onclick="_rosterMultiApply('${o.t}')" title="${o.l}" style="background:${c}26;color:${c};border:1px solid ${c}66;border-radius:5px;padding:.25rem .55rem;font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap">${o.ic} ${o.t}</button>`;
+        }).join('')}
+        <button onclick="_rosterMultiApply('RESET')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:.25rem .65rem;font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap">↺ Restaurar ciclo</button>
       </div>
     </div>`:''}
     ${kpiHoy}
@@ -1390,10 +1437,12 @@ function _rosterPrintPDF(){
         const tipoBase=cfg?_rosterTipo(d,cfg):null;
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const tipo=ovr?ovr.tipo:tipoBase;
+        // Hoja blanca: fondo claro del color del tipo y texto del mismo tono oscuro
         let bg='',tx='#94a3b8',lbl='·';
         if(tipo==='TD'){bg='#d1fae5';tx='#065f46';lbl='TD';}
         else if(tipo==='TN'){bg='#e0e7ff';tx='#3730a3';lbl='TN';}
-        else if(tipo==='DL'){bg='#f1f5f9';tx='#64748b';lbl='DL';}
+        else if(tipo==='D'||tipo==='DL'){bg='#f1f5f9';tx='#64748b';lbl='DL';}
+        else if(tipo){const c=_rosterTipoCol(tipo);bg=c+'26';tx=c;lbl=tipo;}
         const esHoy=d===hoy;
         return`<td style="text-align:center;padding:0;height:16px;font-size:5.5px;font-weight:700;${bg?`background:${bg};color:${tx};`:'color:#cbd5e1;'}border:1px solid #e2e8f0;${esHoy?'outline:2px solid #f59e0b;outline-offset:-2px;':''}">${lbl}${ovr?'*':''}</td>`;
       }).join('');
@@ -1498,9 +1547,12 @@ function _rosterExportXLSX(desde,hasta){
         const tipoBase=_rosterTipoPersona(d,cfg,p.id);
         const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
         const t=ovr?ovr.tipo:tipoBase;
-        const lbl=!t?'':t==='TD'?'TD':t==='TN'?'TN':'DL';
-        const col=!t?'CBD5E1':t==='TD'?'059669':t==='TN'?'4338CA':'6B7280';
-        const cb=!t?bg:t==='TD'?'D1FAE5':t==='TN'?'EDE9FE':'F1F5F9';
+        const _esDL=t==='D'||t==='DL';
+        // Los tipos extra (P, F, DM…) toman su color del Tareaje, sin el '#'
+        const _hex=t?_rosterTipoCol(t).replace('#','').toUpperCase():'';
+        const lbl=!t?'':_esDL?'DL':t;
+        const col=!t?'CBD5E1':t==='TD'?'059669':t==='TN'?'4338CA':_esDL?'6B7280':_hex;
+        const cb=!t?bg:t==='TD'?'D1FAE5':t==='TN'?'EDE9FE':_esDL?'F1F5F9':'FFFFFF';
         return{v:lbl,t:'s',s:{font:{bold:!!t,color:{rgb:col},sz:7},fill:{fgColor:{rgb:cb}},alignment:{horizontal:'center',vertical:'center'},border:BOR}};
       });
       wsData.push([S(`${p.ape||''}, ${p.nom||''}`,false,bg,'0F172A'),S((p.cargo||'').toUpperCase().slice(0,22),false,bg,'334155'),...dayCells]);
@@ -1633,6 +1685,7 @@ function _rosterMultiToggleCell(key,el){
 }
 function _rosterMultiApply(tipo){
   if(!_rosterMultiSel.size)return;
+  const _n=_rosterMultiSel.size;
   _rosterMultiSel.forEach(key=>{
     const [pid,fecha]=key.split('|');
     const personalId=+pid;
@@ -1647,7 +1700,8 @@ function _rosterMultiApply(tipo){
   });
   _rosterMultiSel.clear();
   rRoster();
-  toast(`✓ ${_rosterMultiSel.size||'Varios'} días actualizados`);
+  const _lbl=tipo==='RESET'?'restaurados al ciclo':'marcados como '+tipo;
+  toast(`✓ ${_n} día${_n===1?'':'s'} ${_lbl}`);
 }
 
 // ── OVERRIDE DE DÍAS DEL ROSTER ──────────────────────────────────────────────
@@ -1655,19 +1709,32 @@ let _rosterOvrEl=null;
 function _rosterOvrPicker(personalId,fecha,ev){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
   const ovr=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
+  const p=(DB.personal||[]).find(x=>x.id===+personalId);
+  const nm=p?`${p.ape||''}, ${(p.nom||'').split(' ')[0]}`:'';
   const div=document.createElement('div');
-  div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:.35rem;min-width:130px;font-size:.72rem';
-  div.innerHTML=`<div style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.1rem">${fecha}</div>
-    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','TD')" style="background:rgba(16,185,129,.18);color:#10b981;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">☀️ TD – Turno Día</button>
-    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','TN')" style="background:rgba(99,102,241,.18);color:#818cf8;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">🌙 TN – Turno Noche</button>
-    <button onclick="_rosterSaveOvr(${personalId},'${fecha}','DL')" style="background:rgba(239,68,68,.1);color:#64748b;border:none;border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">🔵 DL – Día Libre</button>
-    ${ovr?`<button onclick="_rosterDelOvr(${personalId},'${fecha}')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:.3rem .5rem;cursor:pointer;font-weight:700;text-align:left">↺ Restaurar ciclo</button>`:''}`;
+  div.style.cssText='position:fixed;z-index:99999;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:.5rem .55rem;box-shadow:0 8px 28px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:.22rem;width:186px;max-height:min(420px,80vh);overflow-y:auto;font-size:.7rem';
+  const btn=o=>{
+    const c=_rosterTipoCol(o.t);
+    const act=ovr&&ovr.tipo===o.t;
+    return`<button onclick="_rosterSaveOvr(${personalId},'${fecha}','${o.t}')"
+      style="background:${act?c+'38':c+'1c'};color:${c};border:1px solid ${act?c:'transparent'};border-radius:5px;padding:.26rem .45rem;cursor:pointer;font-weight:700;text-align:left;display:flex;align-items:center;gap:.4rem;font-size:.7rem">
+      <span style="font-size:.75rem">${o.ic}</span><span style="flex:1">${o.t} – ${o.l}</span>${act?'✓':''}</button>`;
+  };
+  const sep=t=>`<div style="font-size:.53rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.3rem .1rem .1rem;border-top:1px solid var(--border);margin-top:.15rem">${t}</div>`;
+  div.innerHTML=`<div style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em">${fecha}</div>
+    ${nm?`<div style="font-size:.63rem;color:var(--text);font-weight:600;margin-bottom:.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>`:''}
+    ${sep('Jornada')}
+    ${_ROSTER_TIPOS.filter(o=>o.g==='jor').map(btn).join('')}
+    ${sep('Ausencias y licencias')}
+    ${_ROSTER_TIPOS.filter(o=>o.g==='aus').map(btn).join('')}
+    ${ovr?`<button onclick="_rosterDelOvr(${personalId},'${fecha}')" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.35);border-radius:5px;padding:.28rem .45rem;cursor:pointer;font-weight:700;text-align:left;margin-top:.35rem">↺ Restaurar ciclo</button>`:''}`;
   document.body.appendChild(div);
   _rosterOvrEl=div;
   const r=ev.target.getBoundingClientRect();
+  const h=Math.min(div.offsetHeight||420,window.innerHeight-16);
   let top=r.bottom+4,left=r.left;
-  if(left+140>window.innerWidth)left=window.innerWidth-145;
-  if(top+160>window.innerHeight)top=r.top-165;
+  if(left+196>window.innerWidth)left=Math.max(8,window.innerWidth-200);
+  if(top+h>window.innerHeight)top=Math.max(8,window.innerHeight-h-8);
   div.style.top=top+'px';div.style.left=left+'px';
   setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();_rosterOvrEl=null;document.removeEventListener('click',h);}},{once:false}),10);
 }
