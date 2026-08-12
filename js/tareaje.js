@@ -44,6 +44,13 @@ const _TAR_GRD_COL={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
 
 // ══ FILTRO POR LEYENDA (chips TD/TN/DL/…) ══
 // Un solo tipo a la vez: muestra a quienes tienen al menos un día así en el mes
+// Mostrar u ocultar a los dados de baja: se activa con doble clic en su KPI
+let _tarVerInact=false;
+function _tarToggleInact(){
+  _tarVerInact=!_tarVerInact;
+  rTareaje();
+  toast(_tarVerInact?'👁️ Inactivos visibles en la grilla':'🚫 Inactivos ocultos');
+}
 let _tarLeyFiltro=null;
 function _tarLeySet(tipo){
   _tarLeyFiltro=_tarLeyFiltro===tipo?null:tipo;
@@ -486,10 +493,11 @@ function rTareaje(){
     const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
-  // Los dados de baja (estado "Inactivo") no aparecen en la grilla, solo se cuentan.
-  // Los "De Permiso" sí se muestran: siguen en planilla y hay que marcarles su jornada.
+  // Los dados de baja (estado "Inactivo") normalmente no aparecen en la grilla, solo
+  // se cuentan; el KPI "Inactivos" los hace visibles cuando hay que revisar su mes.
+  // Los "De Permiso" sí se muestran siempre: siguen en planilla y hay que marcarlos.
   const _nInact=persF.filter(p=>p.est==='Inactivo').length;
-  persF=persF.filter(p=>p.est!=='Inactivo');
+  if(!_tarVerInact)persF=persF.filter(p=>p.est!=='Inactivo');
   persF=_tarAplicaColFilt(persF); // filtros elegidos en los encabezados de columna
   persF=_tarAplicaLeyFiltro(persF,monthStr); // chip de la leyenda (TD, TN, F, …)
   const persFIds=new Set(persF.map(p=>p.id));
@@ -500,8 +508,11 @@ function rTareaje(){
     {l:'Trabajo Noche',v:monthRecs.filter(r=>r.tipo==='TN').length,c:'#3b82f6',ic:'🌙',sub:'jornadas TN'},
     {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,c:'#ef4444',ic:'❌',sub:'del mes'},
     {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'},
-    {l:'Inactivos',v:_nInact,c:'#64748b',ic:'🚫',sub:'dados de baja · fuera de la grilla'}
-  ].map(k=>`<div class="kpi" style="--kc:${k.c};flex:1;min-width:150px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+    {l:'Inactivos',v:_nInact,c:_tarVerInact?'#f59e0b':'#64748b',ic:_tarVerInact?'👁️':'🚫',
+     sub:_tarVerInact?'visibles · doble clic para ocultar':'dados de baja · doble clic para mostrar',
+     dbl:'_tarToggleInact()',
+     tit:_tarVerInact?'Doble clic para volver a ocultarlos':'Doble clic para mostrarlos en la grilla'}
+  ].map(k=>`<div class="kpi" ${k.dbl?`ondblclick="${k.dbl}" title="${k.tit}"`:''} style="--kc:${k.c};flex:1;min-width:150px${k.dbl?';cursor:pointer;user-select:none':''}"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   // Leyenda clicable: filtra a quienes tengan al menos un día de ese tipo en el mes
   const _leyN=_tarLeyConteos(monthStr);
   document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>{
@@ -535,9 +546,15 @@ function rTareaje(){
     const totDLT=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_matchProy(r)).map(r=>r.fecha)).size;
     const _a5html=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
     const _dlthtml=totDLT>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
-    return`<tr style="border-bottom:1px solid var(--border)" data-search="${((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase()}">
-      <td class="tar-fx" style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 4px;white-space:nowrap;min-width:52px">${idx+1} <button class="tar-edit-btn" onclick="event.stopPropagation();_tarEditPersona(${p.id})" title="Editar datos del trabajador">✏️</button></td>
-      <td class="tar-fx tar-fx-end" ondblclick="_tarEditPersona(${p.id})" title="Doble clic para editar los datos del trabajador" style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px;cursor:pointer"><strong>${p.ape}, ${p.nom}</strong></td>
+    // Los inactivos solo se ven con el toggle: se marcan para no confundirlos con activos
+    const _esInact=p.est==='Inactivo';
+    const _inactBadge=_esInact?' <span style="font-size:.55rem;font-weight:800;color:#ef4444;border:1px solid #ef444470;background:#ef444420;border-radius:3px;padding:0 4px;vertical-align:middle">BAJA</span>':'';
+    // En las columnas fijas se tiñe con background-image para no pisar el
+    // background-color opaco que necesita el sticky (si no, se transparenta al scrollear)
+    const _inactFx=_esInact?';background-image:linear-gradient(rgba(239,68,68,.08),rgba(239,68,68,.08))':'';
+    return`<tr style="border-bottom:1px solid var(--border)${_esInact?';background:rgba(239,68,68,.05)':''}" data-search="${((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase()}">
+      <td class="tar-fx" style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 4px;white-space:nowrap;min-width:52px${_inactFx}">${idx+1} <button class="tar-edit-btn" onclick="event.stopPropagation();_tarEditPersona(${p.id})" title="Editar datos del trabajador">✏️</button></td>
+      <td class="tar-fx tar-fx-end" ondblclick="_tarEditPersona(${p.id})" title="${_esInact?'Trabajador dado de baja · doble clic para editar':'Doble clic para editar los datos del trabajador'}" style="padding:3px 8px;white-space:nowrap;font-size:.78rem;min-width:180px;cursor:pointer${_inactFx}"><strong style="${_esInact?'color:var(--muted2)':''}">${p.ape}, ${p.nom}</strong>${_inactBadge}</td>
       ${_tarShowDni?`<td style="padding:3px 5px;white-space:nowrap;font-size:.72rem;font-family:monospace;color:#22d3ee;min-width:80px">${p.dni||'—'}</td>`:''}
       ${_tarShowCargo?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:var(--muted2);min-width:100px">${p.cargo||'—'}</td>`:''}
       ${_tarShowCat?`<td style="padding:3px 5px;white-space:nowrap;font-size:.7rem;color:#38bdf8;min-width:100px">${p.cat||'—'}</td>`:''}
@@ -652,7 +669,7 @@ function _tarPersFiltrados(monthStr){
     const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
-  persF=persF.filter(p=>p.est!=='Inactivo'); // igual que la grilla
+  if(!_tarVerInact)persF=persF.filter(p=>p.est!=='Inactivo'); // igual que la grilla
   persF=_tarAplicaColFilt(persF);
   persF=_tarAplicaLeyFiltro(persF,monthStr);
   if(buscar)persF=persF.filter(p=>((p.ape||'')+' '+(p.nom||'')+' '+(p.cargo||'')+' '+(p.proc||'')+' '+(p.dni||'')).toLowerCase().includes(buscar));
@@ -669,7 +686,8 @@ function _tarFiltroTxt(){
     return ' · '+((c&&c.l)||k)+': '+txt;
   }).join('');
   const ley=_tarLeyFiltro?' · Solo con '+_tarLeyFiltro+' ('+(_TARE_T[_tarLeyFiltro]?.l||_tarLeyFiltro)+')':'';
-  return cols+ley+(b?' · Filtro: "'+b+'"':'');
+  const inact=_tarVerInact?' · Incluye personal dado de baja':'';
+  return cols+ley+inact+(b?' · Filtro: "'+b+'"':'');
 }
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
