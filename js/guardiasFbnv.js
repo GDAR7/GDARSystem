@@ -53,8 +53,44 @@ function _gdEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 function _gdNorm(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();}
 function _gdOrdenIdx(cargo){const i=_GD_ORDEN.indexOf(_gdNorm(cargo));return i<0?900:i;}
 function _gdDMY(f){const p=String(f||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:(f||'');}
-function _gdToggleAusentes(v){_gdAusentes=v;rGuardiasFbnv();}
-function _gdToggleLibres(v){_gdLibres=v;rGuardiasFbnv();}
+function _gdRepintar(){if(_gdModo==='roster')rGuardiasRoster();else rGuardiasFbnv();}
+function _gdToggleAusentes(v){_gdAusentes=v;_gdRepintar();}
+function _gdToggleLibres(v){_gdLibres=v;_gdRepintar();}
+
+// ── Origen de los datos ──────────────────────────────────────────────────
+//  'tareaje' → asistencia realmente marcada ese día (lo que pasó)
+//  'roster'  → ciclo proyectado del Master de Guardias (lo que está programado),
+//              así se puede sacar el cuadro de cualquier fecha futura.
+let _gdModo='tareaje';
+function _gdFecha(){
+  const id=_gdModo==='roster'?'gdRosFecha':'tarPgFecha';
+  return document.getElementById(id)?.value||today();
+}
+function _gdProy(){return _gdModo==='roster'?'':(document.getElementById('tarPgProy')?.value||'');}
+function _gdTipos(fecha,proy){
+  if(_gdModo==='roster')return _gdTiposRoster(fecha);
+  const m={};
+  (DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy))
+    .forEach(r=>{m[r.personalId]=r.tipo;});
+  return m;
+}
+// Jornada programada de cada persona según su guardia, respetando los días
+// sobreescritos a mano y la fecha de incorporación individual.
+function _gdTiposRoster(fecha){
+  const m={};
+  if(typeof _rosterGetCfg!=='function')return m;
+  (DB.personal||[]).forEach(p=>{
+    if((p.est||'Activo')!=='Activo')return;
+    const cfg=_rosterGetCfg(p.guardia);
+    if(!cfg)return;
+    const ovr=(DB.rosterOvr||[]).find(o=>+o.personalId===+p.id&&o.fecha===fecha);
+    let t=ovr?ovr.tipo:_rosterTipoPersona(fecha,cfg,p.id);
+    if(!t)return;                 // aún no se incorpora o la guardia no arrancó
+    if(t==='D')t='DL';            // el ciclo devuelve 'D'; el cuadro usa 'DL'
+    m[p.id]=t;
+  });
+  return m;
+}
 // Situación de la persona ese día: en obra, día libre o ausencia justificada/falta
 function _gdGrupo(t){
   if(_GD_EN_OBRA.includes(t))return'obra';
@@ -65,11 +101,9 @@ function _gdGrupo(t){
 
 // ── Armado de la matriz ──
 function _gdDatos(){
-  const fecha=document.getElementById('tarPgFecha')?.value||today();
-  const proy=document.getElementById('tarPgProy')?.value||'';
-  const tipoDe={};
-  (DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy))
-    .forEach(r=>{tipoDe[r.personalId]=r.tipo;});
+  const fecha=_gdFecha();
+  const proy=_gdProy();
+  const tipoDe=_gdTipos(fecha,proy);
 
   const porG={};_GD_GUARDIAS.forEach(g=>porG[g]={});
   const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,libre:0,aus:0,td:0,tn:0,total:0});
@@ -114,11 +148,23 @@ function _gdResumenTxt(c,plano){
 }
 
 // ── Render (hoja blanca, igual al formato impreso) ──
+// Tab del Resumen Diario de Tareaje: cuadro con la asistencia marcada
 function rGuardiasFbnv(){
-  const cont=document.getElementById('gdBody');if(!cont)return;
+  _gdModo='tareaje';
   if(typeof _tarPgInitFiltros==='function')_tarPgInitFiltros();
+  _gdRender('gdBody');
+}
+// Tab del Roster: el mismo cuadro pero con la programación del ciclo
+function rGuardiasRoster(){
+  _gdModo='roster';
+  _gdRender('gdRosBody');
+}
+function _gdRender(contId){
+  const cont=document.getElementById(contId);if(!cont)return;
+  const esRos=_gdModo==='roster';
   const d=_gdDatos();
-  const proyNom=d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos';
+  const proyNom=esRos?'Programación del ciclo de guardias'
+    :(d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos');
 
   const bloqueHtml=g=>{
     let fila=0;
@@ -173,21 +219,28 @@ function rGuardiasFbnv(){
       ${tarjeta('Total General',tot,'#06b6d4','📋')}
     </div>
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-      <span style="font-size:.72rem;color:var(--muted2)">Fecha: <strong style="color:var(--text)">${_gdDMY(d.fecha)}</strong> · ${_gdEsc(proyNom)}</span>
+      ${esRos
+        ? `<span style="font-size:.72rem;color:var(--muted2)">Fecha:</span>
+           <input type="date" id="gdRosFecha" value="${d.fecha}" onchange="rGuardiasRoster()" class="date-ic-azul"
+             style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.22rem .5rem;font-size:.75rem;color-scheme:dark">
+           <button onclick="_gdRosSaltar(-1)" title="Día anterior" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.18rem .5rem;font-size:.72rem;cursor:pointer">◀</button>
+           <button onclick="_gdRosHoy()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;color:#f59e0b;padding:.18rem .6rem;font-size:.7rem;font-weight:700;cursor:pointer">Hoy</button>
+           <button onclick="_gdRosSaltar(1)" title="Día siguiente" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.18rem .5rem;font-size:.72rem;cursor:pointer">▶</button>`
+        : `<span style="font-size:.72rem;color:var(--muted2)">Fecha: <strong style="color:var(--text)">${_gdDMY(d.fecha)}</strong> · ${_gdEsc(proyNom)}</span>`}
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
         <input type="checkbox" ${_gdLibres?'checked':''} onchange="_gdToggleLibres(this.checked)" style="width:auto;margin:0;cursor:pointer"> Días libres (DL)
       </label>
-      <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
+      ${esRos?'':`<label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
         <input type="checkbox" ${_gdAusentes?'checked':''} onchange="_gdToggleAusentes(this.checked)" style="width:auto;margin:0;cursor:pointer"> Ausentes (F, DM, P, V…)
-      </label>
-      <span style="font-size:.68rem;color:var(--muted)">Fecha y proyecto seleccionado</span>
+      </label>`}
+      <span style="font-size:.68rem;color:var(--muted)">${esRos?'Programado · no es la asistencia real':'Fecha y proyecto seleccionado'}</span>
       <button onclick="_gdExcel()" style="margin-left:auto;background:#166534;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Exportar Excel</button>
       <button onclick="_gdPrint()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
     </div>
     <style>${_GD_CSS}</style>
     <div class="gd-doc">
       <div class="gd-tit">GUARDIAS FBNV</div>
-      <div class="gd-sub">PERSONAL DIRECTO · ${_gdDMY(d.fecha)} · ${_gdEsc(proyNom)}</div>
+      <div class="gd-sub">${esRos?'PROGRAMACIÓN DEL ROSTER':'PERSONAL DIRECTO'} · ${_gdDMY(d.fecha)} · ${_gdEsc(proyNom)}</div>
       <div class="gd-grid">${_GD_GUARDIAS.map(bloqueHtml).join('')}</div>
       <table class="gd-res">
         <thead><tr><th>RESUMEN</th>${_GD_GUARDIAS.map(g=>`<th>GUARDIA ${g}</th>`).join('')}<th class="gd-res-tg">TOTAL GENERAL</th></tr></thead>
@@ -241,9 +294,22 @@ const _GD_CSS=`
   .gd-tot{font-size:8.5px;font-weight:800;background:#f1f5f9;text-align:right}
   @media (max-width:1100px){.gd-grid{grid-template-columns:1fr}}`;
 
+// Navegación día a día del cuadro proyectado
+function _gdRosSaltar(n){
+  const el=document.getElementById('gdRosFecha');if(!el)return;
+  const f=new Date((el.value||today())+'T12:00:00');
+  f.setDate(f.getDate()+n);
+  el.value=f.toISOString().slice(0,10);
+  rGuardiasRoster();
+}
+function _gdRosHoy(){
+  const el=document.getElementById('gdRosFecha');if(!el)return;
+  el.value=today();rGuardiasRoster();
+}
+
 // ── PDF ──
 function _gdPrint(){
-  const cont=document.getElementById('gdBody');if(!cont)return;
+  const cont=document.getElementById(_gdModo==='roster'?'gdRosBody':'gdBody');if(!cont)return;
   const doc=cont.querySelector('.gd-doc');
   if(!doc){toast('Nada que imprimir',true);return;}
   const w=window.open('','_blank','width=1200,height=780');
@@ -264,15 +330,17 @@ function _gdPrint(){
 // ── Excel: tres bloques lado a lado, con celdas combinadas por cargo ──
 function _gdExcel(){
   const d=_gdDatos();
-  if(!d.totalFilas){toast('No hay personal con asistencia ese día',true);return;}
-  const proyNom=d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos';
+  const esRos=_gdModo==='roster';
+  if(!d.totalFilas){toast(esRos?'No hay guardias programadas para ese día':'No hay personal con asistencia ese día',true);return;}
+  const proyNom=esRos?'Programación del ciclo de guardias'
+    :(d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos');
   const COLS=[0,4,8];          // columna inicial de cada bloque (3 y 7 quedan de separación)
   const NC=11;
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
   const vacia=()=>Array(NC).fill('');
 
   const aoa=[];
-  const f0=vacia();f0[0]=`GUARDIAS FBNV — PERSONAL DIRECTO · ${_gdDMY(d.fecha)} · ${proyNom}`;aoa.push(f0);
+  const f0=vacia();f0[0]=`GUARDIAS FBNV — ${esRos?'PROGRAMACIÓN DEL ROSTER':'PERSONAL DIRECTO'} · ${_gdDMY(d.fecha)} · ${proyNom}`;aoa.push(f0);
   const f1=vacia();_GD_GUARDIAS.forEach((g,i)=>{f1[COLS[i]]='GUARDIA '+g;});aoa.push(f1);
   const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES - Turno';});aoa.push(f2);
 
@@ -380,6 +448,6 @@ function _gdExcel(){
 
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Guardias FBNV');
-  XLSX.writeFile(wb,`Guardias_FBNV_${d.fecha}.xlsx`);
+  XLSX.writeFile(wb,`Guardias_FBNV_${esRos?'Programado_':''}${d.fecha}.xlsx`);
   toast('✓ Excel descargado');
 }

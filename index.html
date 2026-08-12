@@ -896,7 +896,12 @@
 <!-- ROSTER DE GUARDIAS -->
 <div class="page" id="page-roster">
   <div class="ph"><div class="ph-title" style="color:var(--adm)">🗓️ Roster de Guardias</div><div class="ph-sub">Cronograma proyectado de rotación de personal · Ciclo 14 días trabajando / 7 días descansando</div></div>
+  <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
+    <button id="rosterTabBtn-grid" onclick="_rosterTab('grid')" style="background:var(--adm);color:#fff;border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🗓️ Cronograma</button>
+    <button id="rosterTabBtn-fbnv" onclick="_rosterTab('fbnv')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🛡️ Guardias FBNV</button>
+  </div>
   <div id="rosterBody"></div>
+  <div id="gdRosBody" style="display:none"></div>
 </div>
 
 <!-- RESUMEN DIARIO TAREAJE – página completa -->
@@ -3099,8 +3104,8 @@
 
 
 <script src="js/config.js?v=41"></script>
-<script src="js/utils.js?v=21"></script>
-<script src="js/personal.js?v=16"></script>
+<script src="js/utils.js?v=22"></script>
+<script src="js/personal.js?v=17"></script>
 <script src="js/planilla.js?v=4"></script>
 <script src="js/renta5ta.js?v=1"></script>
 <script src="js/almacen.js?v=3"></script>
@@ -3109,13 +3114,13 @@
 <script src="js/insumosAux.js?v=1"></script>
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
-<script src="js/guardiasFbnv.js?v=11"></script>
+<script src="js/guardiasFbnv.js?v=12"></script>
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=11"></script>
 <script src="js/salidaEquipos.js?v=2"></script>
-<script src="js/tareaje.js?v=17"></script>
+<script src="js/tareaje.js?v=18"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=56"></script>
 <script src="js/partesDiarios.js?v=3"></script>

@@ -1057,6 +1057,22 @@ function _rosterGetCfg(guardia){
   return (DB.rosterConfig||[]).find(r=>r.guardia===guardia&&r.activo!==false)||null;
 }
 
+// Tabs del Roster: 'grid' = cronograma de 35 días · 'fbnv' = cuadro de las tres
+// guardias para un día, armado con la programación (no con el tareaje marcado).
+let _rosterTabAct='grid';
+function _rosterTab(k){
+  _rosterTabAct=k;
+  const esGrid=k==='grid';
+  const g=document.getElementById('rosterBody'),f=document.getElementById('gdRosBody');
+  if(g)g.style.display=esGrid?'':'none';
+  if(f)f.style.display=esGrid?'none':'';
+  [['grid',esGrid],['fbnv',!esGrid]].forEach(([n,act])=>{
+    const b=document.getElementById('rosterTabBtn-'+n);
+    if(b){b.style.background=act?'var(--adm)':'transparent';b.style.color=act?'#fff':'var(--muted2)';}
+  });
+  if(esGrid)rRoster();else rGuardiasRoster();
+}
+
 function rRoster(){
   if(!_rosterInicioVista)_rosterInicioVista=_rosterLunes();
   const hoy=today();

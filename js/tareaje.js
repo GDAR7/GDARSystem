@@ -116,33 +116,53 @@ function _tarEditPersona(id){
 
 // ══ FILTROS POR COLUMNA (en el encabezado de cada columna informativa) ══
 const _TAR_CAMPO={dni:'dni',cargo:'cargo',cat:'cat',tipo:'tipo',ing:'ing',asig:'asig',grd:'guardia',proc:'proc'};
-let _tarColFilt={};   // {claveColumna: valorSeleccionado}
+let _tarColFilt={};   // {claveColumna:[valores]} · ausente o vacío = columna sin filtrar
 // Valor mostrado/filtrable de una persona en una columna
 function _tarVal(p,k){
   if(k==='asig')return +p.asig?'Sí':'No';
   return String(p[_TAR_CAMPO[k]]||'').trim();
 }
-function _tarColFiltSet(k,v){
-  if(v)_tarColFilt[k]=v;else delete _tarColFilt[k];
+function _tarColFiltSel(k){return _tarColFilt[k]||[];}
+// Marca o desmarca un valor sin cerrar el panel: así se eligen varios de una pasada
+function _tarColFiltToggle(k,v){
+  const cur=[..._tarColFiltSel(k)];
+  const i=cur.indexOf(v);
+  if(i<0)cur.push(v);else cur.splice(i,1);
+  if(cur.length)_tarColFilt[k]=cur;else delete _tarColFilt[k];
+  rTareaje();
+}
+function _tarColFiltSetVarios(k,vals){
+  if(vals&&vals.length)_tarColFilt[k]=[...vals];else delete _tarColFilt[k];
+  rTareaje();
+}
+function _tarColFiltLimpiar(k){
+  delete _tarColFilt[k];
   if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}
   rTareaje();
 }
 function _tarAplicaColFilt(lista){
-  Object.entries(_tarColFilt).forEach(([k,v])=>{if(v)lista=lista.filter(p=>_tarVal(p,k)===v);});
+  Object.entries(_tarColFilt).forEach(([k,vs])=>{
+    if(!vs||!vs.length)return;
+    const set=new Set(vs);
+    lista=lista.filter(p=>set.has(_tarVal(p,k)));
+  });
   return lista;
 }
 // <th> con su botón de filtro
 function _tarTh(k,label,color,minw,center){
-  const act=_tarColFilt[k];
+  const sel=_tarColFiltSel(k);
+  const n=sel.length;
   const c=color||'#22d3ee';
+  const tit=n?'Filtrado: '+sel.map(v=>v||'(sin dato)').slice(0,4).join(', ')+(n>4?' … +'+(n-4):''):'Filtrar esta columna';
   return`<th style="padding:5px 6px;font-size:.68rem;white-space:nowrap;min-width:${minw}px;${center?'text-align:center;':''}${color?`color:${color};`:''}">
     <span style="display:inline-flex;align-items:center;gap:.25rem">${label}
-      <button onclick="event.stopPropagation();_tarColFiltPanel(event,'${k}')" title="${act?'Filtrado: '+act:'Filtrar esta columna'}"
-        style="background:${act?c+'33':'transparent'};border:1px solid ${act?c:'transparent'};border-radius:4px;color:${act?c:'var(--muted2)'};cursor:pointer;font-size:.6rem;padding:0 3px;line-height:1.5">▾</button>
-      ${act?`<span onclick="event.stopPropagation();_tarColFiltSet('${k}','')" title="Quitar filtro" style="cursor:pointer;color:#ef4444;font-size:.62rem;font-weight:700">✕</span>`:''}
+      <button onclick="event.stopPropagation();_tarColFiltPanel(event,'${k}')" title="${_tarEsc(tit)}"
+        style="background:${n?c+'33':'transparent'};border:1px solid ${n?c:'transparent'};border-radius:4px;color:${n?c:'var(--muted2)'};cursor:pointer;font-size:.6rem;padding:0 3px;line-height:1.5">${n>1?n+' ':''}▾</button>
+      ${n?`<span onclick="event.stopPropagation();_tarColFiltLimpiar('${k}')" title="Quitar filtro" style="cursor:pointer;color:#ef4444;font-size:.62rem;font-weight:700">✕</span>`:''}
     </span>
   </th>`;
 }
+function _tarEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let _tarColFiltEl=null;
 function _tarColFiltPanel(ev,k){
   if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}
@@ -154,15 +174,56 @@ function _tarColFiltPanel(ev,k){
   base.forEach(p=>{const v=_tarVal(p,k)||'(sin dato)';cnt[v]=(cnt[v]||0)+1;});
   const vals=Object.keys(cnt).sort((a,b)=>a.localeCompare(b,'es'));
   const div=document.createElement('div');
-  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.45rem .4rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:235px;max-height:330px;overflow-y:auto;font-family:inherit';
+  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.55);width:265px;font-family:inherit;display:flex;flex-direction:column;max-height:400px';
+  div.onclick=e=>e.stopPropagation();
+
+  // Cabecera fija: título + contador de lo seleccionado
   const tit=document.createElement('div');
-  tit.textContent='Filtrar por '+col.l;
-  tit.style.cssText=`font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:${col.c};font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem`;
+  tit.style.cssText=`font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:${col.c};font-weight:700;padding:.5rem .6rem .35rem;display:flex;align-items:center;gap:.4rem`;
+  const titTxt=document.createElement('span');titTxt.textContent='Filtrar por '+col.l;titTxt.style.flex='1';
+  const titN=document.createElement('span');
+  titN.style.cssText='font-size:.6rem;font-weight:800;letter-spacing:0;text-transform:none';
+  tit.appendChild(titTxt);tit.appendChild(titN);
   div.appendChild(tit);
-  const mkRow=(label,valor,n,sel)=>{
+
+  // Buscador: filtra la lista de valores, no la grilla
+  const busWrap=document.createElement('div');
+  busWrap.style.cssText='padding:0 .5rem .4rem;position:relative';
+  const bus=document.createElement('input');
+  bus.type='text';bus.placeholder='🔍 Buscar '+col.l.toLowerCase()+'…';
+  bus.style.cssText=`width:100%;box-sizing:border-box;font-size:.72rem;padding:.28rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);outline:none`;
+  bus.onfocus=()=>bus.style.borderColor=col.c;
+  bus.onblur=()=>bus.style.borderColor='var(--border)';
+  busWrap.appendChild(bus);
+  div.appendChild(busWrap);
+
+  // Lista desplazable de opciones
+  const lista=document.createElement('div');
+  lista.style.cssText='overflow-y:auto;padding:0 .4rem;flex:1;border-top:1px solid var(--border)';
+  div.appendChild(lista);
+
+  // Pie: acciones sobre lo que esté visible según el buscador
+  const pie=document.createElement('div');
+  pie.style.cssText='display:flex;gap:.3rem;padding:.4rem .5rem;border-top:1px solid var(--border)';
+  const btn=(txt,color,fn)=>{
+    const b=document.createElement('button');
+    b.textContent=txt;
+    b.style.cssText=`flex:1;background:transparent;border:1px solid ${color}66;color:${color};border-radius:6px;padding:.22rem 0;font-size:.66rem;font-weight:700;cursor:pointer`;
+    b.onmouseenter=()=>b.style.background=color+'22';
+    b.onmouseleave=()=>b.style.background='transparent';
+    b.onclick=fn;
+    return b;
+  };
+  div.appendChild(pie);
+
+  const mkRow=(label,valor,n,sel,esTodos)=>{
     const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;padding:.3rem .45rem;border-radius:6px;cursor:pointer;font-size:.73rem';
+    row.style.cssText='display:flex;align-items:center;gap:.4rem;padding:.28rem .4rem;border-radius:6px;cursor:pointer;font-size:.73rem';
     if(sel)row.style.background=col.c+'1f';
+    const box=document.createElement('span');
+    box.textContent=sel?'✓':'';
+    box.style.cssText=`flex:0 0 14px;height:14px;line-height:13px;text-align:center;font-size:.62rem;font-weight:900;border-radius:${esTodos?'50%':'4px'};border:1.5px solid ${sel?col.c:'var(--muted2)'};background:${sel?col.c:'transparent'};color:#08131f`;
+    row.appendChild(box);
     const lbl=document.createElement('span');
     lbl.textContent=label;
     lbl.style.cssText=`flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${sel?'700':'500'};color:${sel?col.c:'var(--text)'}`;
@@ -170,28 +231,73 @@ function _tarColFiltPanel(ev,k){
     if(n!==null){
       const b=document.createElement('span');
       b.textContent=n;
-      b.style.cssText='margin-left:6px;font-size:.6rem;color:var(--muted2);background:rgba(255,255,255,.08);border-radius:9px;padding:1px 7px;min-width:22px;text-align:center';
+      b.style.cssText='font-size:.6rem;color:var(--muted2);background:rgba(255,255,255,.08);border-radius:9px;padding:1px 7px;min-width:22px;text-align:center';
       row.appendChild(b);
     }
     row.onmouseenter=()=>{if(!sel)row.style.background='rgba(255,255,255,.05)';};
     row.onmouseleave=()=>{if(!sel)row.style.background='';};
-    row.onclick=()=>_tarColFiltSet(k,valor);
+    row.onclick=()=>{
+      if(esTodos)_tarColFiltLimpiarSinCerrar(k);else _tarColFiltToggle(k,valor);
+      pintar();
+    };
     return row;
   };
-  div.appendChild(mkRow('— Todos —','',base.length,!_tarColFilt[k]));
-  vals.forEach(v=>div.appendChild(mkRow(v,v==='(sin dato)'?'':v,cnt[v],_tarColFilt[k]===v)));
+
+  // Redibuja lista y pie según el texto del buscador y lo ya seleccionado
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  function pintar(){
+    const q=norm(bus.value.trim());
+    const visibles=vals.filter(v=>!q||norm(v).includes(q));
+    const sel=_tarColFiltSel(k);
+    titN.textContent=sel.length?sel.length+' sel.':'';
+    titN.style.color=sel.length?col.c:'var(--muted2)';
+    lista.innerHTML='';
+    lista.appendChild(mkRow('— Todos —','',base.length,!sel.length,true));
+    if(!visibles.length){
+      const vac=document.createElement('div');
+      vac.textContent='Sin coincidencias';
+      vac.style.cssText='padding:.6rem .4rem;font-size:.7rem;color:var(--muted2);font-style:italic;text-align:center';
+      lista.appendChild(vac);
+    }else visibles.forEach(v=>{
+      const valor=v==='(sin dato)'?'':v;
+      lista.appendChild(mkRow(v,valor,cnt[v],sel.includes(valor)));
+    });
+    pie.innerHTML='';
+    // Las acciones operan sobre lo visible, para poder marcar de golpe un resultado de búsqueda
+    pie.appendChild(btn(q?`Marcar ${visibles.length} visible${visibles.length===1?'':'s'}`:'Marcar todos',col.c,()=>{
+      const add=visibles.map(v=>v==='(sin dato)'?'':v);
+      _tarColFiltSetVarios(k,[...new Set([...sel,...add])]);pintar();
+    }));
+    pie.appendChild(btn('Limpiar','#ef4444',()=>{_tarColFiltLimpiarSinCerrar(k);pintar();}));
+    pie.appendChild(btn('Cerrar','#94a3b8',()=>{if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}}));
+  }
+  bus.oninput=pintar;
+  bus.onkeydown=e=>{
+    if(e.key==='Escape'){if(_tarColFiltEl){_tarColFiltEl.remove();_tarColFiltEl=null;}}
+    // Enter marca la única coincidencia: buscar + Enter y listo
+    if(e.key==='Enter'){
+      const q=norm(bus.value.trim());
+      const vis=vals.filter(v=>!q||norm(v).includes(q));
+      if(vis.length===1){_tarColFiltToggle(k,vis[0]==='(sin dato)'?'':vis[0]);bus.value='';pintar();}
+    }
+  };
+  pintar();
+
   document.body.appendChild(div);
   _tarColFiltEl=div;
   const r=ev.currentTarget.getBoundingClientRect();
   let top=r.bottom+4,left=r.left-60;
-  if(left+240>window.innerWidth)left=Math.max(8,window.innerWidth-245);
+  if(left+272>window.innerWidth)left=Math.max(8,window.innerWidth-277);
   if(left<8)left=8;
-  if(top+340>window.innerHeight)top=Math.max(8,r.top-345);
+  if(top+410>window.innerHeight)top=Math.max(8,r.top-415);
   div.style.top=top+'px';div.style.left=left+'px';
+  bus.focus();
   setTimeout(()=>document.addEventListener('click',function h(e){
     if(_tarColFiltEl&&!_tarColFiltEl.contains(e.target)){_tarColFiltEl.remove();_tarColFiltEl=null;document.removeEventListener('click',h);}
   }),10);
 }
+// Limpia la columna dejando el panel abierto (el ✕ del encabezado sí lo cierra)
+function _tarColFiltLimpiarSinCerrar(k){delete _tarColFilt[k];rTareaje();}
 
 // ── Selector de columnas visibles (multi-check en un solo botón) ──
 // Procedencia va siempre al final de la lista de columnas informativas
@@ -554,9 +660,13 @@ function _tarPersFiltrados(monthStr){
 }
 function _tarFiltroTxt(){
   const b=(document.getElementById('tareBuscar')?.value||'').trim();
-  const cols=Object.entries(_tarColFilt).map(([k,v])=>{
+  const cols=Object.entries(_tarColFilt).map(([k,vs])=>{
     const c=_TAR_COLS.find(x=>x.k===k);
-    return ' · '+((c&&c.l)||k)+': '+v;
+    const a=(vs||[]).map(v=>v||'(sin dato)');
+    if(!a.length)return'';
+    // Con muchos valores marcados el encabezado se vuelve ilegible: se resume
+    const txt=a.length>3?a.slice(0,3).join(', ')+' +'+(a.length-3)+' más':a.join(', ');
+    return ' · '+((c&&c.l)||k)+': '+txt;
   }).join('');
   const ley=_tarLeyFiltro?' · Solo con '+_tarLeyFiltro+' ('+(_TARE_T[_tarLeyFiltro]?.l||_tarLeyFiltro)+')':'';
   return cols+ley+(b?' · Filtro: "'+b+'"':'');
