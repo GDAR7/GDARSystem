@@ -952,16 +952,15 @@ function _rosterFmt(iso){
 function _rosterDia(iso){return new Date(iso+'T12:00:00').getDay();}
 const _DN=['DO','LU','MA','MI','JU','VI','SA'];
 
-// El turno y el inicio de ciclo de la guardia se pueden sobreescribir por persona
+// Configuración individual sobre la guardia:
+//  · turno       → sobreescribe el turno (día / noche / mixto)
+//  · fechaInicio → fecha de incorporación: antes de ella la persona no figura.
+//    NO reinicia el ciclo: el ritmo TD/TN/DL sigue siendo el de la guardia,
+//    para que descanse los mismos días que el resto de su grupo.
 function _rosterTipoPersona(fecha,cfg,personalId){
   const pCfg=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+personalId);
-  if(pCfg&&(pCfg.turno||pCfg.fechaInicio)){
-    return _rosterTipo(fecha,{
-      ...cfg,
-      turno:       pCfg.turno       ||cfg?.turno,
-      fechaInicio: pCfg.fechaInicio ||cfg?.fechaInicio
-    });
-  }
+  if(pCfg&&pCfg.fechaInicio&&fecha<pCfg.fechaInicio)return null;
+  if(pCfg&&pCfg.turno)return _rosterTipo(fecha,{...cfg,turno:pCfg.turno});
   return _rosterTipo(fecha,cfg);
 }
 
@@ -990,17 +989,18 @@ function _rosterPersonaTurnoPicker(personalId,ev){
       <button onclick="_rosterSetPersonaTurno(${personalId},null)" style="display:flex;align-items:center;gap:.5rem;background:${!cur?'rgba(168,85,247,.1)':'rgba(255,255,255,.03)'};border:1px solid ${!cur?'#a855f7':'var(--border)'};border-radius:6px;padding:.3rem .6rem;color:${!cur?'#a855f7':'var(--muted2)'};cursor:pointer;font-size:.7rem;font-weight:${!cur?'700':'400'};text-align:left"><span>↩</span>Heredar turno de guardia${!cur?' ✓':''}</button>
     </div>
     <div style="border-top:1px solid var(--border);margin:.6rem 0 .45rem"></div>
-    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.3rem">Inicio de ciclo individual</div>
+    <div style="font-size:.58rem;color:var(--muted2);margin-bottom:.3rem">Fecha de incorporación</div>
     <input type="date" id="_pRosterIni" value="${curIni}" class="date-ic-azul"
       style="width:100%;background:var(--panel2);border:1px solid ${curIni?'#a855f7':'var(--border)'};border-radius:6px;padding:.28rem .45rem;color:var(--text);font-size:.72rem;color-scheme:dark">
     <div style="display:flex;gap:.28rem;margin-top:.35rem">
       <button onclick="_rosterSetPersonaInicio(${personalId},document.getElementById('_pRosterIni').value)"
         style="flex:1;background:#a855f7;border:none;border-radius:6px;padding:.3rem;color:#fff;cursor:pointer;font-size:.68rem;font-weight:700">💾 Guardar</button>
       <button onclick="_rosterSetPersonaInicio(${personalId},null)"
-        style="flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.3rem;color:var(--muted2);cursor:pointer;font-size:.68rem">↩ Usar guardia</button>
+        style="flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.3rem;color:var(--muted2);cursor:pointer;font-size:.68rem">↩ Desde el inicio</button>
     </div>
     <div style="font-size:.55rem;color:var(--muted);margin-top:.35rem;line-height:1.4">
-      ${curIni?`Ciclo propio desde <strong style="color:#a855f7">${_rosterFmt(curIni)}</strong>`:iniGrd?`Hereda de la guardia: <strong>${_rosterFmt(iniGrd)}</strong>`:'La guardia no tiene ciclo configurado'}
+      ${curIni?`Figura desde el <strong style="color:#a855f7">${_rosterFmt(curIni)}</strong>. Antes de esa fecha queda en blanco.`:'Figura desde el inicio del ciclo de la guardia.'}
+      <br>Sigue el ritmo de la <strong>Guardia ${p?.guardia||'—'}</strong>${iniGrd?` (ciclo desde ${_rosterFmt(iniGrd)})`:''}: descansa los mismos días que su grupo.
     </div>`;
   document.body.appendChild(div);
   const r=ev.target.getBoundingClientRect();
@@ -1035,7 +1035,7 @@ function _rosterSetPersonaTurno(personalId,turno){
 }
 function _rosterSetPersonaInicio(personalId,fecha){
   if(fecha&&!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){toast('Fecha inválida',true);return;}
-  _rosterSetPersonaCfg(personalId,'fechaInicio',fecha,fecha?'✓ Inicio de ciclo individual: '+_rosterFmt(fecha):'✓ Inicio heredado de la guardia');
+  _rosterSetPersonaCfg(personalId,'fechaInicio',fecha,fecha?'✓ Se incorpora el '+_rosterFmt(fecha):'✓ Figura desde el inicio del ciclo');
 }
 
 function _rosterTipo(fecha,cfg){
@@ -1119,7 +1119,7 @@ function rRoster(){
       const _pIni=pCfgPersona?.fechaInicio;
       const _pTurnoIc=_pTurno==='DIA'?'☀️':_pTurno==='NOCHE'?'🌙':_pTurno==='MIXTO'?'⇄':null;
       const _pIc=(_pTurnoIc||'')+(_pIni?'📅':'')||'⚙';
-      const _pTit=[_pTurno?'Turno personal: '+_pTurno:'',_pIni?'Inicio de ciclo propio: '+_rosterFmt(_pIni):''].filter(Boolean).join(' · ')||'Click para configurar turno e inicio de ciclo individual';
+      const _pTit=[_pTurno?'Turno personal: '+_pTurno:'',_pIni?'Se incorpora el '+_rosterFmt(_pIni):''].filter(Boolean).join(' · ')||'Click para configurar turno individual o fecha de incorporación';
       const _pAct=_pTurno||_pIni;
       const turnoBadge=`<span onclick="_rosterPersonaTurnoPicker(${p.id},event)" title="${_pTit}" style="cursor:pointer;margin-left:2px;font-size:.45rem;padding:1px 4px;border-radius:3px;font-weight:700;${_pAct?'background:rgba(168,85,247,.2);color:#a855f7;border:1px solid rgba(168,85,247,.4)':'background:rgba(255,255,255,.05);color:var(--muted2);border:1px solid rgba(255,255,255,.1)'}">${_pIc}</span>`;
       return`<tr>
