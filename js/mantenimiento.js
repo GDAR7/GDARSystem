@@ -204,32 +204,86 @@ function gestAddSubtipo(){
 }
 
 // ══ AUTOCOMPLETE PROVEEDOR ══
+// No hay tabla de proveedores: la ficha se reconstruye desde los equipos ya
+// registrados. Se recorren TODOS los equipos del proveedor y se toma el primer
+// valor no vacío de cada campo, porque el dato suele estar repartido entre
+// varias fichas (uno tiene el RUC, otro el correo, otro el logo).
+function _eqProvMap(){
+  const map={};
+  (DB.equipos||[]).forEach(e=>{
+    const nom=(e.proveedor||'').trim();
+    if(!nom)return;
+    const d=map[nom]||(map[nom]={ctc:'',cel:'',cor:'',ruc:'',logo:'',n:0});
+    d.n++;
+    if(!d.ctc &&e.contacto)     d.ctc =e.contacto.trim();
+    if(!d.cel &&e.celular)      d.cel =String(e.celular).trim();
+    if(!d.cor &&e.correo)       d.cor =e.correo.trim();
+    if(!d.ruc &&e.rucProveedor) d.ruc =String(e.rucProveedor).trim();
+    if(!d.logo&&e.logoProveedor)d.logo=e.logoProveedor;
+  });
+  return map;
+}
+function _eqProvBuscar(nombre){
+  const q=(nombre||'').trim().toLowerCase();
+  if(!q)return null;
+  const map=_eqProvMap();
+  const k=Object.keys(map).find(p=>p.toLowerCase()===q);
+  return k?{nombre:k,...map[k]}:null;
+}
 function _eqProvAc(val){
   const drop=document.getElementById('eqProvDrop');if(!drop)return;
   const q=(val||'').trim().toLowerCase();
   if(!q){drop.style.display='none';return;}
-  // Extraer proveedores únicos de DB.equipos con sus datos de contacto
-  const map={};
-  DB.equipos.forEach(e=>{
-    if(e.proveedor&&e.proveedor.trim()&&!map[e.proveedor]){
-      map[e.proveedor]={ctc:e.contacto||'',cel:e.celular||'',cor:e.correo||'',ruc:e.rucProveedor||''};
-    }
-  });
-  const matches=Object.entries(map).filter(([p])=>p.toLowerCase().includes(q));
+  const matches=Object.entries(_eqProvMap())
+    .filter(([p])=>p.toLowerCase().includes(q))
+    .sort((a,b)=>b[1].n-a[1].n);      // primero los proveedores con más equipos
   if(!matches.length){drop.style.display='none';return;}
-  drop.innerHTML=matches.map(([p,d])=>`
-    <div onclick="_eqProvPick('${p.replace(/'/g,"\\'")}','${d.ctc.replace(/'/g,"\\'")}','${d.cel.replace(/'/g,"\\'")}','${d.cor.replace(/'/g,"\\'")}','${d.ruc.replace(/'/g,"\\'")}')
-    " style="padding:.38rem .6rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)"
-       onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
-      <div style="font-weight:600">${p}</div>
-      ${(d.ctc||d.ruc)?`<div style="font-size:.72rem;color:var(--muted2)">${d.ruc?'RUC '+d.ruc+' · ':''}${d.ctc}${d.cel?' · '+d.cel:''}</div>`:''}
-    </div>`).join('');
+  drop.innerHTML=matches.map(([p,d])=>{
+    const det=[d.ruc?'RUC '+d.ruc:'',d.ctc,d.cel].filter(Boolean).join(' · ');
+    return`<div onclick="_eqProvPick(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+      style="display:flex;align-items:center;gap:.5rem;padding:.38rem .6rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+      <div style="width:34px;height:22px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border-radius:4px;overflow:hidden">
+        ${d.logo?`<img src="${d.logo}" style="max-width:100%;max-height:100%;object-fit:contain">`:'<span style="font-size:.6rem;color:var(--muted)">—</span>'}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p}</div>
+        ${det?`<div style="font-size:.72rem;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${det}</div>`:''}
+      </div>
+      <span style="font-size:.6rem;color:var(--muted2);background:rgba(255,255,255,.06);border-radius:9px;padding:1px 7px">${d.n} eq.</span>
+    </div>`;
+  }).join('');
   drop.style.display='block';
 }
-function _eqProvPick(prov,ctc,cel,cor,ruc){
-  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
-  set('eqProv',prov);set('eqCtc',ctc);set('eqCel',cel);set('eqCor',cor);set('eqProvRuc',ruc||'');
+// Elegir de la lista: se rellena todo, es una acción explícita del usuario
+function _eqProvPick(prov){
+  const d=_eqProvBuscar(prov);
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
+  set('eqProv',d?d.nombre:prov);
+  if(d){
+    set('eqCtc',d.ctc);set('eqCel',d.cel);set('eqCor',d.cor);set('eqProvRuc',d.ruc);
+    if(d.logo){_eqLogoProvUrl=d.logo;_eqLogoProvRender();}
+  }
   const drop=document.getElementById('eqProvDrop');if(drop)drop.style.display='none';
+  if(d)toast('✓ Datos de '+d.nombre+' cargados');
+}
+// Al salir del campo: si el nombre coincide exacto con un proveedor conocido se
+// completa SOLO lo que esté vacío, para no pisar algo que el usuario ya escribió.
+function _eqProvAuto(){
+  const d=_eqProvBuscar(document.getElementById('eqProv')?.value);
+  if(!d)return;
+  const llenados=[];
+  const fill=(id,v,lbl)=>{
+    const el=document.getElementById(id);
+    if(!el||!v||el.value.trim())return;
+    el.value=v;llenados.push(lbl);
+  };
+  fill('eqProvRuc',d.ruc,'RUC');
+  fill('eqCtc',d.ctc,'contacto');
+  fill('eqCel',d.cel,'celular');
+  fill('eqCor',d.cor,'correo');
+  if(d.logo&&!_eqLogoProvUrl){_eqLogoProvUrl=d.logo;_eqLogoProvRender();llenados.push('logo');}
+  if(llenados.length)toast('✓ '+d.nombre+': '+llenados.join(', '));
 }
 
 let _eqTab=0,_eqEditId=null;

@@ -2481,7 +2481,9 @@
       <div class="eq-sec">Proveedor / Contrato</div>
       <div class="fg" style="position:relative">
         <label>Proveedor</label>
-        <input id="eqProv" autocomplete="off" oninput="_eqProvAc(this.value)" onblur="setTimeout(()=>{const d=document.getElementById('eqProvDrop');if(d)d.style.display='none'},180)">
+        <input id="eqProv" autocomplete="off" placeholder="Escriba y elija de la lista" title="Si el proveedor ya está registrado en otro equipo, se completan solos el RUC, contacto, celular, correo y logo"
+          oninput="_eqProvAc(this.value)"
+          onblur="setTimeout(()=>{const d=document.getElementById('eqProvDrop');if(d)d.style.display='none';_eqProvAuto();},180)">
         <div id="eqProvDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--mec);border-radius:6px;z-index:999;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px #0006"></div>
       </div>
       <div class="fg"><label>RUC Proveedor</label><input id="eqProvRuc" placeholder="20xxxxxxxxx"></div>
@@ -3118,7 +3120,7 @@
 <script src="js/combustible.js?v=2"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
-<script src="js/mantenimiento.js?v=11"></script>
+<script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=2"></script>
 <script src="js/tareaje.js?v=19"></script>
 <script src="js/engrase.js?v=4"></script>
