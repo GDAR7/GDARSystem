@@ -11,6 +11,13 @@ let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
 let _edpFirmaEcoId=null;               // Firma virtual (imagen) del residente para el cajetín ECOSERMO
 const _EDP_FIRMA_BUCKET='Equip_eco26'; // se reusa el bucket público de equipos, carpeta firmas/
 let _edpDescManual=[];
+// Disponibilidad mecánica mínima exigida para tener derecho a cobrar las horas
+// mínimas del contrato. Por debajo de este umbral el equipo no cumplió y solo
+// se le pagan las horas que efectivamente trabajó.
+const _EDP_DISP_MIN=85;
+// Checkbox "Solo horas efectivas": ignora el mínimo aunque la disponibilidad
+// sea buena. Arranca siempre desmarcado (no se recuerda entre EDPs).
+let _edpSoloEfectivas=false;
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
 
@@ -45,7 +52,8 @@ function _edpRerender(inmediato){
   if(inmediato)run();else _edpTimer=setTimeout(run,350);
 }
 function _edpSet(campo,val,inmediato){
-  if(campo==='eq')_edpEqId=val;
+  // Al cambiar de equipo se arma otro EDP: el checkbox vuelve a su estado por defecto
+  if(campo==='eq'){_edpEqId=val;_edpSoloEfectivas=false;}
   else if(campo==='num')_edpNum=val;
   else if(campo==='desde')_edpDesde=val;
   else if(campo==='hasta')_edpHasta=val;
@@ -57,6 +65,7 @@ function _edpSet(campo,val,inmediato){
   else if(campo==='tarifaAtencion')_edpTarifaAtencion=+val||0;
   else if(campo==='cantPres')_edpCantPres=val===''?null:+val;
   else if(campo==='acumAnt')_edpAcumAnt=+val||0;
+  else if(campo==='soloEf')_edpSoloEfectivas=!!val;
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
   else if(campo==='firmaEcoId'){
@@ -144,10 +153,18 @@ function _edpHoras(eq,desde,hasta){
   const dispMec=horasDisp>0?Math.max(0,Math.min(100,(horasDisp-horasInop)/horasDisp*100)):100;
   // Horas mínimas del CONTRATO CON EL PROVEEDOR (campo "Horas Mínimas" del Máster), no las de venta al cliente
   const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.horasMinimas||0);
-  const horasMinimasAPagar=Math.max(0,+(horasMinimas-horasEfectivas).toFixed(2));
-  const horasAPagar=Math.max(horasMinimas,horasEfectivas);
+  // El mínimo del contrato solo se paga si el equipo alcanzó la disponibilidad
+  // mecánica exigida. Si estuvo mucho tiempo inoperativo el incumplimiento es
+  // suyo, así que se le pagan únicamente las horas trabajadas.
+  const cumpleDisp=dispMec>=_EDP_DISP_MIN;
+  const aplicaMinimo=cumpleDisp&&!_edpSoloEfectivas;
+  const horasMinimasAPagar=aplicaMinimo?Math.max(0,+(horasMinimas-horasEfectivas).toFixed(2)):0;
+  const horasAPagar=aplicaMinimo?Math.max(horasMinimas,horasEfectivas):horasEfectivas;
+  const motivoSinMinimo=aplicaMinimo?''
+    :_edpSoloEfectivas?'Se acordó pagar solo las horas efectivas'
+    :`Disponibilidad mecánica ${dispMec.toFixed(1)}% < ${_EDP_DISP_MIN}% exigido`;
   const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
-  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados};
+  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo};
 }
 
 // Descuentos: insumos de Almacén ECO usados en Auxilios Mecánicos del equipo + horas de atención mecánica (T. Parada)
@@ -236,6 +253,27 @@ function rEdpProveedores(){
           ${sug>0&&Math.abs(sug-_edpAcumAnt)>0.01?`<button onclick="_edpSet('acumAnt',${sug},1)" style="margin-top:.2rem;font-size:.62rem;padding:.15rem .45rem;border-radius:5px;border:1px solid #10b98150;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;align-self:flex-start">↺ Usar ${_sim} ${_edpN2(sug)} (EDPs guardados)</button>`:''}
         </div>`;
       })()}
+      ${tarifaUn==='HM'?(()=>{
+        // Estado del mínimo: se explica en el panel para que quien arma el EDP
+        // entienda por qué salió ese número antes de mandarlo a imprimir
+        const bloqueado=!H.cumpleDisp;
+        const col=bloqueado?'#ef4444':_edpSoloEfectivas?'#f59e0b':'#10b981';
+        const msg=bloqueado
+          ?`Disponibilidad ${H.dispMec.toFixed(1)}% &lt; ${_EDP_DISP_MIN}% · el mínimo no se paga`
+          :_edpSoloEfectivas?'Se paga solo lo trabajado'
+          :`Disponibilidad ${H.dispMec.toFixed(1)}% ≥ ${_EDP_DISP_MIN}% · se paga el mínimo`;
+        return`<div class="fg" style="grid-column:span 2">
+          <label>Horas a pagar</label>
+          <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;border:1px solid ${col};border-radius:7px;padding:.4rem .6rem;background:${col}12">
+            <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.76rem;color:var(--text);cursor:${bloqueado?'not-allowed':'pointer'};opacity:${bloqueado?'.55':'1'}">
+              <input type="checkbox" ${_edpSoloEfectivas?'checked':''} ${bloqueado?'disabled':''} onchange="_edpSet('soloEf',this.checked,1)" style="width:auto;margin:0;cursor:inherit;accent-color:${col}">
+              <strong>Solo horas efectivas</strong>
+            </label>
+            <span style="font-size:.66rem;color:${col};font-weight:700">${msg}</span>
+            <span style="margin-left:auto;font-size:.8rem;font-weight:800;color:${col};white-space:nowrap">${_edpN2(H.horasAPagar)} hrs</span>
+          </div>
+        </div>`;
+      })():''}
       <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaprov" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
       <div class="fg" style="grid-column:1/-1">
@@ -358,6 +396,8 @@ async function _edpGuardar(){
     estado:prev?prev.estado||'Emitido':'Emitido',
     detalle:{dias:H.dias,horasMinimas:H.horasMinimas,horasEfectivas:H.horasEfectivas,
       horasAPagar:H.horasAPagar,diasTrabajados:H.diasTrabajados,dispMec:H.dispMec,
+      // Queda registrado por qué se pagó (o no) el mínimo, para poder auditar el EDP después
+      aplicaMinimo:H.aplicaMinimo,motivoSinMinimo:H.motivoSinMinimo,dispMinima:_EDP_DISP_MIN,
       descRows,insumos:D.insumos,atenciones:D.atenciones,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
       firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
@@ -601,9 +641,12 @@ function _edpDocHtml(eq,H,D,F){
       <tbody>${filasHoras||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
       <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.horasMotor)}</td><td style="${TD};text-align:right">${_edpN2(H.horasCal)}</td><td style="${TD};text-align:right">${_edpN2(H.horasEfectivas)}</td><td style="${TD}"></td></tr></tfoot>
     </table>`;
+    // El % se marca en rojo cuando no llega al umbral: es lo que sustenta el no pago del mínimo
+    const _dCol=H.cumpleDisp?'#111':'#C00000';
     resumenPagina2=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:520px">
       <table style="border:1px solid #cbd5e1"><tbody>
-        <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700">${H.dispMec.toFixed(1)}%</td></tr>
+        <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700;color:${_dCol}">${H.dispMec.toFixed(1)}%</td></tr>
+        <tr><td style="${TD}">DISPONIBILIDAD MÍNIMA</td><td style="${TD};text-align:right;font-weight:700">${_EDP_DISP_MIN}.0%</td></tr>
         <tr><td style="${TD}">HORAS MÍNIMAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimas)} hrs</td></tr>
       </tbody></table>
       <table style="border:1px solid #cbd5e1"><tbody>
@@ -611,7 +654,10 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td style="${TD}">HORAS MÍNIMAS A PAGAR</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimasAPagar)} hrs</td></tr>
         <tr><td style="${TD};font-weight:800;background:#fde047">HORAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.horasAPagar)} hrs</td></tr>
       </tbody></table>
-    </div>`;
+    </div>
+    ${H.motivoSinMinimo?`<div style="max-width:520px;margin-top:6px;padding:5px 8px;border:1px solid #C00000;background:#FDECEC;font-size:8.5px;color:#C00000;font-weight:700">
+      NO SE PAGAN HORAS MÍNIMAS — ${H.motivoSinMinimo}. Se valoriza únicamente ${_edpN2(H.horasEfectivas)} hrs efectivamente trabajadas.
+    </div>`:''}`;
   }
 
   const pagina2=`<div style="font-family:Arial,sans-serif;color:#111">
