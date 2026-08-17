@@ -67,8 +67,13 @@ function rComb(){
     // Notas: en registros viejos el texto quedó guardado en placaSerie, igual que
     // en el modal de ver. Se recorta en la celda y el texto completo va en el title.
     const _nota=(r.notas||r.placaSerie||'').trim();
+    // Con notas de varias líneas se muestra la primera y se avisa cuántas faltan;
+    // el texto completo (con sus saltos) va en el tooltip.
+    const _nLins=_nota?_nota.split(/\r?\n/).filter(l=>l.trim()):[];
+    const _mas=_nLins.length>1?`<span style="color:var(--muted2);font-size:.62rem;font-weight:700"> +${_nLins.length-1}</span>`:'';
     const notaCell=_nota
-      ?`<td style="font-size:.72rem;color:#fbbf24;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help" title="${_cbEsc(_nota)}">📝 ${_cbEsc(_nota)}</td>`
+      ?`<td style="font-size:.72rem;color:#fbbf24;max-width:190px;cursor:help" title="${_cbEsc(_nota)}">
+          <span style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">📝 ${_cbEsc(_nLins[0]||_nota)}</span>${_mas}</td>`
       :`<td style="color:var(--muted)">—</td>`;
     const pedRef=esIngreso
       ?[(r.numReserva?`<span style="font-size:.68rem;color:var(--alm)">Res: ${r.numReserva}</span>`:''),
@@ -323,7 +328,7 @@ function verComb(id){
 <div class="grid">
   <div class="field"><label>N° Formato</label><span class="mono">${mu(r.numFormato)}</span></div>
   <div class="field"><label>Despachador</label><span>${mu(r.despachador)}</span></div>
-  <div class="field" style="grid-column:1/-1"><label>Notas / Observaciones</label><span>${mu(r.notas||r.placaSerie)}</span></div>
+  <div class="field" style="grid-column:1/-1"><label>Notas / Observaciones</label><span style="white-space:pre-line">${mu(_cbEsc((r.notas||r.placaSerie||'').trim()))}</span></div>
 </div>
 <div class="footer">
   <div class="firma">Firma Operador / Conductor</div>
@@ -392,7 +397,7 @@ function _combExportPDF(){
       <td style="text-align:right;color:${+saldoR<0?'#ef4444':'#10b981'};font-weight:700">${saldoR}</td>
       <td style="text-align:right">${costo}</td>
       <td style="font-size:.75rem">${r.numFormato||'—'}</td>
-      <td style="font-size:.72rem">${_cbEsc((r.notas||r.placaSerie||'').trim())||'—'}</td>
+      <td style="font-size:.72rem;max-width:220px">${_cbEsc((r.notas||r.placaSerie||'').trim()).replace(/\r?\n/g,'<br>')||'—'}</td>
       <td><span style="background:${r.estado==='Cerrado'?'#10b98122':'#f9731622'};color:${r.estado==='Cerrado'?'#10b981':'#f97316'};padding:1px 6px;border-radius:4px;font-size:.68rem">${r.estado||'—'}</span></td>
     </tr>`;
   }).join('');
