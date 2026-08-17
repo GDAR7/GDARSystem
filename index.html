@@ -431,8 +431,9 @@
         </select>
       </div>
       <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbComb')"></div>
-        <button class="btn btn-out" style="color:#ef4444;border-color:#ef444440" onclick="_combExportPDF()" title="Exportar Kardex a PDF">📄 PDF</button>
+        <div class="search-wrap"><span>🔍</span><input id="cbBuscar" class="search-input" placeholder="Buscar..." oninput="flt(this,'tbComb')"></div>
+        <button class="btn btn-out" style="color:#ef4444;border-color:#ef444440" onclick="_combExportPDF()" title="Exporta a PDF solo los movimientos visibles en pantalla">📄 PDF</button>
+        <button class="btn btn-out" style="color:#10b981;border-color:#10b98140" onclick="_combExportXLS()" title="Exporta a Excel solo los movimientos visibles en pantalla">📊 Excel</button>
         <button class="btn btn-a" style="--ba:#10b981" onclick="openCombModal('ingreso')">＋ Ingreso</button>
         <button class="btn btn-a" style="--ba:var(--alm)" onclick="openCombModal('despacho')">＋ Despacho</button>
       </div>
@@ -3117,7 +3118,7 @@
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=13"></script>
-<script src="js/combustible.js?v=3"></script>
+<script src="js/combustible.js?v=4"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=12"></script>

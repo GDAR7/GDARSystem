@@ -75,7 +75,7 @@ function rComb(){
         (r.numAtendido?`<span style="font-size:.68rem;color:#10b981">Atn: ${r.numAtendido}</span>`:'')]
         .filter(Boolean).join('<br>')||`<span style="color:var(--muted)">—</span>`
       :(r.refPedido?`<span style="font-size:.68rem;color:#3b82f6">Ref: ${r.refPedido}</span>`:`<span style="color:var(--muted)">—</span>`);
-    return`<tr>
+    return`<tr data-id="${r.id}">
       <td class="mono">${r.fecha}</td>
       <td>${tipoBadge}</td>
       <td style="font-size:.78rem">${referencia}</td>
@@ -338,27 +338,40 @@ ${S}body>${S}html>`;
   win.document.write(html);win.document.close();
 }
 
-// ── Exportar Kardex completo a PDF ───────────────────────────────────────────
+// ── Lo que está a la vista ───────────────────────────────────────────────────
+// Se leen las filas realmente visibles del DOM (no se recalculan los filtros):
+// así el archivo sale idéntico a la pantalla, incluido lo que ocultó el buscador.
+function _combVisibles(){
+  const tb=document.getElementById('tbComb');
+  if(!tb)return{lista:[],salMap:{},filtro:''};
+  const ids=Array.from(tb.rows)
+    .filter(tr=>tr.style.display!=='none'&&tr.dataset.id)
+    .map(tr=>+tr.dataset.id);
+  const porId=new Map((DB.combustible||[]).map(r=>[+r.id,r]));
+  const lista=ids.map(id=>porId.get(id)).filter(Boolean);
+  // El saldo se calcula sobre TODOS los movimientos: es un acumulado del tanque,
+  // no del subconjunto. Se muestra el mismo número que ya se ve en la grilla.
+  let sal=0;const salMap={};
+  [...(DB.combustible||[])].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id)
+    .forEach(r=>{sal+=(r.tipoMov==='Ingreso'?r.gal:-r.gal);salMap[r.id]=sal;});
+  const pf=document.getElementById('cbKardexFilter');
+  const bus=(document.getElementById('cbBuscar')?.value||'').trim();
+  const filtro=[pf&&pf.value?'Pedido/Atn N° '+pf.value:'',bus?'Búsqueda: "'+bus+'"':'']
+    .filter(Boolean).join(' · ');
+  return{lista,salMap,filtro};
+}
+
+// ── Exportar a PDF lo que se está viendo ─────────────────────────────────────
 function _combExportPDF(){
-  const pfEl=document.getElementById('cbKardexFilter');
-  const filtVal=pfEl?pfEl.value:'';
-  const listaFilt=filtVal
-    ?DB.combustible.filter(r=>r.tipoMov==='Ingreso'?r.numAtendido===filtVal:r.refPedido===filtVal)
-    :DB.combustible;
-  const sorted=[...listaFilt].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id);
-  if(!sorted.length){toast('No hay registros para exportar',true);return;}
+  const V=_combVisibles();
+  const sorted=V.lista;
+  if(!sorted.length){toast('No hay registros visibles para exportar',true);return;}
+  const salMap=V.salMap;
+  const filtVal=V.filtro;
 
-  // Saldo acumulado
-  let sal=0;
-  const salMap={};
-  [...DB.combustible].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id).forEach(r=>{
-    sal+=(r.tipoMov==='Ingreso'?r.gal:-r.gal);
-    salMap[r.id]=sal;
-  });
-
-  const totEnt=listaFilt.filter(r=>r.tipoMov==='Ingreso').reduce((a,c)=>a+c.gal,0);
-  const totSal=listaFilt.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+c.gal,0);
-  const totCost=listaFilt.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+(c.gal*(c.precio||0)),0);
+  const totEnt=sorted.filter(r=>r.tipoMov==='Ingreso').reduce((a,c)=>a+c.gal,0);
+  const totSal=sorted.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+c.gal,0);
+  const totCost=sorted.filter(r=>r.tipoMov!=='Ingreso').reduce((a,c)=>a+(c.gal*(c.precio||0)),0);
   const saldo=totEnt-totSal;
 
   const filas=sorted.map(r=>{
@@ -388,7 +401,7 @@ function _combExportPDF(){
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   const S='<'+'/';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
-  const titulo=filtVal?`Kardex Combustible – Pedido/Atn N° ${filtVal}`:'Kardex de Combustible – Todos los registros';
+  const titulo=filtVal?`Kardex de Combustible – ${filtVal}`:'Kardex de Combustible – Todos los registros';
   win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -415,13 +428,16 @@ function _combExportPDF(){
   <div class="header-logo"><img src="${_logoUrl}" alt="Ecosermo"></div>
   <div class="doc-title">
     <h2>Kardex de Combustible</h2>
-    <p>${filtVal?`Pedido / Atendido: <strong>${filtVal}</strong> · `:''}Emitido: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
+    <p>${filtVal?`<strong>${_cbEsc(filtVal)}</strong> · `:''}${sorted.length} movimiento${sorted.length===1?'':'s'} · Emitido: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
   </div>
 </div>
+${filtVal?`<div style="margin-bottom:.6rem;padding:4px 8px;border-left:3px solid #f97316;background:#fff7ed;font-size:.7rem;color:#9a3412">
+  Reporte parcial: solo incluye los movimientos que cumplen el filtro aplicado en pantalla (${_cbEsc(filtVal)}). Los totales corresponden a esos movimientos.
+</div>`:''}
 <div class="kpis">
   <div class="kpi"><div class="kpi-l">Total Ingresado</div><div class="kpi-v" style="color:#3b82f6">${totEnt.toFixed(1)} gal</div></div>
   <div class="kpi"><div class="kpi-l">Total Despachado</div><div class="kpi-v" style="color:#f97316">${totSal.toFixed(1)} gal</div></div>
-  <div class="kpi"><div class="kpi-l">Saldo</div><div class="kpi-v" style="color:${saldo<0?'#ef4444':'#10b981'}">${saldo.toFixed(1)} gal</div></div>
+  <div class="kpi"><div class="kpi-l">${filtVal?'Neto del filtro':'Saldo'}</div><div class="kpi-v" style="color:${saldo<0?'#ef4444':'#10b981'}">${saldo.toFixed(1)} gal</div></div>
   <div class="kpi"><div class="kpi-l">Costo Total</div><div class="kpi-v" style="color:#ef4444">S/ ${totCost.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
 </div>
 <table>
@@ -440,6 +456,69 @@ function _combExportPDF(){
 <script>window.onload=function(){window.print();}<${'/'}script>
 ${S}body>${S}html>`);
   win.document.close();
+}
+
+// ── Exportar a Excel lo que se está viendo ───────────────────────────────────
+function _combExportXLS(){
+  if(typeof XLSX==='undefined'){toast('Librería de Excel no disponible',true);return;}
+  const V=_combVisibles();
+  const lista=V.lista;
+  if(!lista.length){toast('No hay registros visibles para exportar',true);return;}
+
+  const BOR={top:{style:'thin',color:{rgb:'D0D7E2'}},bottom:{style:'thin',color:{rgb:'D0D7E2'}},
+             left:{style:'thin',color:{rgb:'D0D7E2'}},right:{style:'thin',color:{rgb:'D0D7E2'}}};
+  const S=(v,o)=>({v:v===undefined||v===null?'':v,t:typeof v==='number'?'n':'s',s:Object.assign({
+    font:{sz:9,color:{rgb:(o&&o.col)||'0F172A'},bold:!!(o&&o.b)},
+    fill:{fgColor:{rgb:(o&&o.bg)||'FFFFFF'}},
+    alignment:{horizontal:(o&&o.al)||'left',vertical:'center',wrapText:!!(o&&o.wrap)},
+    border:BOR},(o&&o.numFmt)?{numFmt:o.numFmt}:{})});
+
+  const HDR=['Fecha','Tipo Mov.','Referencia','N° Reserva / Ref.','Tipo Comb.',
+             'Entrada (gal)','Salida (gal)','Saldo (gal)','Costo S/','N° Formato','Notas','Estado'];
+  const aoa=[];
+  aoa.push([S('KARDEX DE COMBUSTIBLE',{b:1,bg:'1E3A5F',col:'FFFFFF',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'1E3A5F'}))]);
+  aoa.push([S((V.filtro?V.filtro+' · ':'')+lista.length+' movimientos · Emitido '+new Date().toLocaleString('es-PE'),
+    {bg:'EEF2F8',col:'475569',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'EEF2F8'}))]);
+  aoa.push(HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'})));
+
+  let tEnt=0,tSal=0,tCost=0;
+  lista.forEach(r=>{
+    const eq=(DB.equipos||[]).find(e=>e.id===r.eqId);
+    const esIng=r.tipoMov==='Ingreso';
+    const ref=esIng?(r.proveedor||''):(eq?`${eq.codigo} – ${eq.nombre}`:(r.op||''));
+    const ped=esIng?[r.numReserva?'Res: '+r.numReserva:'',r.numAtendido?'Atn: '+r.numAtendido:''].filter(Boolean).join(' / ')
+                   :(r.refPedido?'Ref: '+r.refPedido:'');
+    const costo=esIng?null:+((r.gal||0)*(r.precio||0)).toFixed(2);
+    if(esIng)tEnt+=r.gal;else{tSal+=r.gal;tCost+=costo||0;}
+    aoa.push([
+      S(r.fecha,{al:'center'}),
+      S(esIng?'Ingreso':'Despacho',{b:1,al:'center',col:esIng?'059669':'EA580C'}),
+      S(ref),S(ped,{col:'2563EB'}),S(r.tipo||'',{al:'center'}),
+      S(esIng?+r.gal:null,{al:'right',b:1,col:'059669',numFmt:'#,##0.0'}),
+      S(esIng?null:+r.gal,{al:'right',b:1,col:'DC2626',numFmt:'#,##0.0'}),
+      S(+(V.salMap[r.id]||0).toFixed(1),{al:'right',b:1,numFmt:'#,##0.0'}),
+      S(costo,{al:'right',numFmt:'#,##0.00'}),
+      S(r.numFormato||'',{al:'center'}),
+      S((r.notas||r.placaSerie||'').trim(),{wrap:1,col:'92400E'}),
+      S(r.estado||'',{al:'center'})
+    ]);
+  });
+  aoa.push([S('TOTALES',{b:1,bg:'EEF2F8',al:'right'}),...Array(4).fill(S('',{bg:'EEF2F8'})),
+    S(+tEnt.toFixed(1),{b:1,bg:'EEF2F8',al:'right',col:'059669',numFmt:'#,##0.0'}),
+    S(+tSal.toFixed(1),{b:1,bg:'EEF2F8',al:'right',col:'DC2626',numFmt:'#,##0.0'}),
+    S(+(tEnt-tSal).toFixed(1),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.0'}),
+    S(+tCost.toFixed(2),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00'}),
+    ...Array(3).fill(S('',{bg:'EEF2F8'}))]);
+
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:HDR.length-1}},{s:{r:1,c:0},e:{r:1,c:HDR.length-1}}];
+  ws['!cols']=[{wch:11},{wch:11},{wch:32},{wch:20},{wch:13},{wch:12},{wch:12},{wch:11},{wch:12},{wch:13},{wch:34},{wch:12}];
+  ws['!rows']=[{hpt:22},{hpt:16}];
+  ws['!freeze']={xSplit:0,ySplit:3};      // encabezados fijos al desplazar
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Kardex');
+  XLSX.writeFile(wb,`Kardex_Combustible_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`✓ ${lista.length} movimiento${lista.length===1?'':'s'} exportados`);
 }
 
 
