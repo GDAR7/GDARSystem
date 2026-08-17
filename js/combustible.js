@@ -141,47 +141,67 @@ function _cbDespSelect(nombre){
   const drop=document.getElementById('cbDespDrop');if(drop)drop.style.display='none';
 }
 
-// ── Filtro rápido del selector de equipos ────────────────────────────────────
-// No se ocultan <option> (los navegadores lo tratan distinto): se reconstruye la
-// lista desde DB.equipos, que es la misma fuente que usa refreshSelects().
-function _cbEqOpcion(e){
-  const nom=(e.nombre||'').split(' ').slice(0,3).join(' ');
-  return`<option value="${e.id}">${e.codigo} – ${nom}${e.placa?' ['+e.placa+']':''}</option>`;
-}
-function _cbEqFiltrar(q){
-  const sel=document.getElementById('cbEq');if(!sel)return;
+// ── Buscador de equipos (mismo patrón que Operador / Despachador) ────────────
+// El input visible muestra el texto; el id del equipo vive en el hidden #cbEq,
+// que es lo que leen saveComb() y editComb().
+const _CB_EQ_COL={'Línea Amarilla':'#f59e0b','Línea Blanca':'#94a3b8','Vehículo Menor':'#8b5cf6','Equipos Menores':'#3b82f6'};
+function _cbEqTexto(e){return`${e.codigo} – ${(e.nombre||'').split(' ').slice(0,3).join(' ')}`;}
+function _cbEqSearch(q){
+  const drop=document.getElementById('cbEqDrop');if(!drop)return;
   const txt=String(q||'').toLowerCase().trim();
-  const prev=sel.value;
-  const lista=(DB.equipos||[]).filter(e=>{
-    if(!txt)return true;
-    return`${e.codigo||''} ${e.nombre||''} ${e.placa||''} ${e.tipo||''} ${e.sub||''}`.toLowerCase().includes(txt);
-  });
-  sel.innerHTML=lista.length?lista.map(_cbEqOpcion).join('')
-    :'<option value="">— Ningún equipo coincide —</option>';
-  // Se conserva lo elegido si sigue en la lista; con una sola coincidencia se elige sola
-  if(lista.some(e=>String(e.id)===String(prev)))sel.value=prev;
-  else if(lista.length===1)sel.value=lista[0].id;
-  _cbEqInfo(lista.length,txt);
+  const lista=(DB.equipos||[])
+    .filter(e=>!txt||`${e.codigo||''} ${e.nombre||''} ${e.placa||''} ${e.tipo||''} ${e.sub||''}`.toLowerCase().includes(txt))
+    .sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
+  if(!lista.length){
+    drop.innerHTML=`<div style="padding:.5rem .8rem;font-size:.75rem;color:var(--muted2);font-style:italic">Ningún equipo coincide con "${_cbEsc(q)}"</div>`;
+    drop.style.display='block';return;
+  }
+  drop.innerHTML=lista.map(e=>{
+    const cc=_CB_EQ_COL[e.tipo]||'var(--muted2)';
+    return`<div onclick="_cbEqSelect(${e.id});event.stopPropagation()"
+      style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <div>
+        <span style="font-weight:700;color:var(--mec)">${_cbEsc(e.codigo||'')}</span>
+        <span style="font-size:.75rem;margin-left:.4rem">${_cbEsc((e.nombre||'').split(' ').slice(0,3).join(' '))}</span>
+        ${e.placa?`<span style="font-size:.68rem;color:var(--muted2);margin-left:.35rem">[${_cbEsc(e.placa)}]</span>`:''}
+      </div>
+      <span style="font-size:.63rem;font-weight:700;color:${cc};flex-shrink:0;margin-left:.5rem">${_cbEsc(e.tipo||'')}</span>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
 }
-// Enter en el buscador salta al selector con el resultado ya elegido
-function _cbEqKey(ev){
-  if(ev.key!=='Enter')return;
-  ev.preventDefault();
-  const sel=document.getElementById('cbEq');
-  if(sel&&sel.value)sel.focus();
+function _cbEqSelect(id){
+  const e=(DB.equipos||[]).find(x=>+x.id===+id);
+  const hid=document.getElementById('cbEq');if(hid)hid.value=e?e.id:'';
+  const inp=document.getElementById('cbEqBuscar');
+  if(inp&&e){inp.value=_cbEqTexto(e);inp.style.borderColor='var(--mec)';}
+  const drop=document.getElementById('cbEqDrop');if(drop)drop.style.display='none';
 }
-function _cbEqInfo(n,txt){
-  const el=document.getElementById('cbEqInfo');if(!el)return;
-  const sel=document.getElementById('cbEq');
-  const eq=(DB.equipos||[]).find(e=>String(e.id)===String(sel&&sel.value));
-  const filtro=n!==undefined&&txt?`${n} de ${(DB.equipos||[]).length} equipos · `:'';
-  el.innerHTML=eq
-    ?`${filtro}<span style="color:var(--mec);font-weight:700">${eq.codigo}</span> · ${eq.tipo||'—'}${eq.placa?' · Placa '+eq.placa:''}`
-    :(filtro||'');
+// Al salir del campo hay que dejar claro si quedó algo elegido: si escribió el
+// código exacto se resuelve solo; si no eligió nada, se borra el texto para que
+// no parezca seleccionado un equipo que en realidad no lo está.
+function _cbEqBlur(){
+  setTimeout(()=>{
+    const inp=document.getElementById('cbEqBuscar'),hid=document.getElementById('cbEq');
+    if(!inp||!hid)return;
+    const txt=inp.value.trim().toLowerCase();
+    if(!txt){hid.value='';inp.style.borderColor='';return;}
+    const sel=(DB.equipos||[]).find(e=>+e.id===+hid.value);
+    if(sel&&_cbEqTexto(sel).toLowerCase()===txt)return;      // sigue coincidiendo
+    const exacto=(DB.equipos||[]).find(e=>(e.codigo||'').toLowerCase()===txt||_cbEqTexto(e).toLowerCase()===txt);
+    if(exacto){_cbEqSelect(exacto.id);return;}
+    hid.value='';inp.value='';inp.style.borderColor='';
+    toast('Elija un equipo de la lista',true);
+  },180);
 }
-function _cbEqReset(){
-  const b=document.getElementById('cbEqBuscar');if(b)b.value='';
-  _cbEqFiltrar('');
+// Deja el buscador en blanco (nuevo despacho) o con el equipo ya guardado (edición)
+function _cbEqReset(eqId){
+  const e=eqId?(DB.equipos||[]).find(x=>+x.id===+eqId):null;
+  const hid=document.getElementById('cbEq');if(hid)hid.value=e?e.id:'';
+  const inp=document.getElementById('cbEqBuscar');
+  if(inp){inp.value=e?_cbEqTexto(e):'';inp.style.borderColor=e?'var(--mec)':'';}
+  const drop=document.getElementById('cbEqDrop');if(drop)drop.style.display='none';
 }
 
 function _renderPersonaDrop(drop,lista,fnSelect){
@@ -214,6 +234,7 @@ function _combPopulateRefPed(selVal){
 document.addEventListener('click',e=>{
   if(!document.getElementById('cbOpRow')?.contains(e.target)){const d=document.getElementById('cbOpDrop');if(d)d.style.display='none';}
   if(!document.getElementById('cbDespRow')?.contains(e.target)){const d=document.getElementById('cbDespDrop');if(d)d.style.display='none';}
+  if(!document.getElementById('cbEqRow')?.contains(e.target)){const d=document.getElementById('cbEqDrop');if(d)d.style.display='none';}
 });
 function openCombModal(mode){
   _combMode=mode; _combEditId=null;
@@ -233,14 +254,12 @@ function openCombModal(mode){
     document.getElementById('cbNumAtn').value='';
   }else{
     _combPopulateRefPed('');
-    _cbEqReset();                                   // limpia el buscador y repuebla la lista
-    const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value='';
-    _cbEqInfo();
+    _cbEqReset();
     document.getElementById('cbPrc').value='6.30';
     document.getElementById('cbOp').value='';
     document.getElementById('cbNot').value='';
     document.getElementById('cbDesp').value='';
-    ['cbOpDrop','cbDespDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
+    ['cbOpDrop','cbDespDrop','cbEqDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
   }
   openM('mComb');
 }
@@ -302,15 +321,13 @@ function editComb(id){
     document.getElementById('cbNumAtn').value=r.numAtendido||'';
   }else{
     _combPopulateRefPed(r.refPedido||'');
-    _cbEqReset();                                   // sin filtro, para que el equipo guardado esté en la lista
-    const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value=r.eqId||'';
-    _cbEqInfo();
+    _cbEqReset(r.eqId);
     document.getElementById('cbOp').value=r.op||'';
     document.getElementById('cbPrc').value=r.precio||6.30;
     document.getElementById('cbTc').value=r.tipoCosto||'Costo Directo';
     document.getElementById('cbNot').value=r.notas||r.placaSerie||'';
     document.getElementById('cbDesp').value=r.despachador||'';
-    ['cbOpDrop','cbDespDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
+    ['cbOpDrop','cbDespDrop','cbEqDrop'].forEach(id=>{const d=document.getElementById(id);if(d)d.style.display='none';});
   }
   openM('mComb');
 }

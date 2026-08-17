@@ -79,7 +79,9 @@ function refreshSelects(){
 
   [['soT',trabList],['rT',trabList],['alT',trabList],['hT',trabList],['lvT',trabList],
    ['inTr',trabList],['ptR',trabList],['suS',trabList],['acRe',trabList],
-   ['otEq',eqList],['otMec',_mecOptsHtml('')],['cbEq',eqList],['cbOp',trabList],
+   // cbEq no va aquí: el selector de equipo de Combustible es un buscador con
+   // dropdown (_cbEqSearch), no un <select>; se puebla solo desde DB.equipos.
+   ['otEq',eqList],['otMec',_mecOptsHtml('')],['cbOp',trabList],
    ['coEq',eqListOpt],['rpEq',eqList],['rpOp',trabList],
    ['aePers',trabList],['emPers',almList],
    ['asItem',stockOpts],

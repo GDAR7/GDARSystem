@@ -2125,12 +2125,11 @@
       <label>Vinculado a N° Atendido <span style="color:var(--muted2);font-size:.65rem">(opcional)</span></label>
       <select id="cbRefPed"><option value="">— Sin vinculación —</option></select>
     </div>
-    <div class="fg" id="cbEqRow">
+    <div class="fg" id="cbEqRow" style="position:relative">
       <label>Equipo</label>
-      <input id="cbEqBuscar" autocomplete="off" placeholder="🔍 Filtrar por código, nombre o placa…" oninput="_cbEqFiltrar(this.value)" onkeydown="_cbEqKey(event)"
-        style="margin-bottom:.28rem;font-size:.72rem;padding:.28rem .55rem">
-      <select id="cbEq" onchange="_cbEqInfo()"></select>
-      <div id="cbEqInfo" style="font-size:.6rem;color:var(--muted2);margin-top:.2rem;min-height:.9rem"></div>
+      <input id="cbEqBuscar" autocomplete="off" placeholder="Buscar por código, nombre o placa..." oninput="_cbEqSearch(this.value)" onfocus="_cbEqSearch(this.value)" onblur="_cbEqBlur()" style="width:100%;box-sizing:border-box">
+      <input type="hidden" id="cbEq">
+      <div id="cbEqDrop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px #00000060;z-index:9999;margin-top:2px"></div>
     </div>
     <div class="fg" id="cbOpRow" style="position:relative">
       <label>Operador / Conductor</label>
@@ -3113,7 +3112,7 @@
 
 
 <script src="js/config.js?v=41"></script>
-<script src="js/utils.js?v=22"></script>
+<script src="js/utils.js?v=23"></script>
 <script src="js/personal.js?v=18"></script>
 <script src="js/planilla.js?v=4"></script>
 <script src="js/renta5ta.js?v=1"></script>
@@ -3124,7 +3123,7 @@
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=13"></script>
-<script src="js/combustible.js?v=6"></script>
+<script src="js/combustible.js?v=7"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=12"></script>
