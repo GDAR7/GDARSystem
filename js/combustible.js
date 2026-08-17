@@ -1,4 +1,5 @@
 ﻿// ══ COMBUSTIBLE ══
+function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function rComb(){
   // Poblar filtro por N° Pedido/Atendido preservando selección
   const pfEl=document.getElementById('cbKardexFilter');
@@ -63,6 +64,12 @@ function rComb(){
         ${_bloq48
           ?`<button class="btn btn-del btn-sm" disabled title="Registro bloqueado después de 48 horas" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`
           :`<button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`}`;
+    // Notas: en registros viejos el texto quedó guardado en placaSerie, igual que
+    // en el modal de ver. Se recorta en la celda y el texto completo va en el title.
+    const _nota=(r.notas||r.placaSerie||'').trim();
+    const notaCell=_nota
+      ?`<td style="font-size:.72rem;color:#fbbf24;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help" title="${_cbEsc(_nota)}">📝 ${_cbEsc(_nota)}</td>`
+      :`<td style="color:var(--muted)">—</td>`;
     const pedRef=esIngreso
       ?[(r.numReserva?`<span style="font-size:.68rem;color:var(--alm)">Res: ${r.numReserva}</span>`:''),
         (r.numAtendido?`<span style="font-size:.68rem;color:#10b981">Atn: ${r.numAtendido}</span>`:'')]
@@ -78,6 +85,7 @@ function rComb(){
       <td class="tr mono" style="color:${saldoColor};font-weight:700">${(saldoMap[r.id]||0).toFixed(1)}</td>
       <td class="tr mono" style="font-size:.78rem">${costoCell}</td>
       <td class="mono" style="font-size:.75rem">${mu(r.numFormato)}</td>
+      ${notaCell}
       <td>${estBadge}</td>
       <td style="display:flex;gap:.3rem">${btns}</td>
     </tr>`;
@@ -371,6 +379,7 @@ function _combExportPDF(){
       <td style="text-align:right;color:${+saldoR<0?'#ef4444':'#10b981'};font-weight:700">${saldoR}</td>
       <td style="text-align:right">${costo}</td>
       <td style="font-size:.75rem">${r.numFormato||'—'}</td>
+      <td style="font-size:.72rem">${_cbEsc((r.notas||r.placaSerie||'').trim())||'—'}</td>
       <td><span style="background:${r.estado==='Cerrado'?'#10b98122':'#f9731622'};color:${r.estado==='Cerrado'?'#10b981':'#f97316'};padding:1px 6px;border-radius:4px;font-size:.68rem">${r.estado||'—'}</span></td>
     </tr>`;
   }).join('');
@@ -416,7 +425,7 @@ function _combExportPDF(){
   <div class="kpi"><div class="kpi-l">Costo Total</div><div class="kpi-v" style="color:#ef4444">S/ ${totCost.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
 </div>
 <table>
-  <thead><tr><th>Fecha</th><th>Tipo Mov.</th><th>Referencia</th><th>N° Reserva / Ref.</th><th>Tipo Comb.</th><th style="text-align:right">Entrada (gal)</th><th style="text-align:right">Salida (gal)</th><th style="text-align:right">Saldo (gal)</th><th style="text-align:right">Costo S/</th><th>N° Formato</th><th>Estado</th></tr></thead>
+  <thead><tr><th>Fecha</th><th>Tipo Mov.</th><th>Referencia</th><th>N° Reserva / Ref.</th><th>Tipo Comb.</th><th style="text-align:right">Entrada (gal)</th><th style="text-align:right">Salida (gal)</th><th style="text-align:right">Saldo (gal)</th><th style="text-align:right">Costo S/</th><th>N° Formato</th><th>Notas</th><th>Estado</th></tr></thead>
   <tbody>${filas}</tbody>
   <tfoot><tr class="totales">
     <td colspan="5">TOTALES</td>
@@ -424,7 +433,7 @@ function _combExportPDF(){
     <td style="text-align:right;color:#ef4444">-${totSal.toFixed(1)}</td>
     <td style="text-align:right;color:${saldo<0?'#ef4444':'#10b981'}">${saldo.toFixed(1)}</td>
     <td style="text-align:right">S/ ${totCost.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-    <td colspan="2"></td>
+    <td colspan="3"></td>
   </tr></tfoot>
 </table>
 <div class="footer">Generado por GDAR – ECOSERMO · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</div>
