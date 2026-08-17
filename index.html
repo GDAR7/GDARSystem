@@ -2125,7 +2125,13 @@
       <label>Vinculado a N° Atendido <span style="color:var(--muted2);font-size:.65rem">(opcional)</span></label>
       <select id="cbRefPed"><option value="">— Sin vinculación —</option></select>
     </div>
-    <div class="fg" id="cbEqRow"><label>Equipo</label><select id="cbEq"></select></div>
+    <div class="fg" id="cbEqRow">
+      <label>Equipo</label>
+      <input id="cbEqBuscar" autocomplete="off" placeholder="🔍 Filtrar por código, nombre o placa…" oninput="_cbEqFiltrar(this.value)" onkeydown="_cbEqKey(event)"
+        style="margin-bottom:.28rem;font-size:.72rem;padding:.28rem .55rem">
+      <select id="cbEq" onchange="_cbEqInfo()"></select>
+      <div id="cbEqInfo" style="font-size:.6rem;color:var(--muted2);margin-top:.2rem;min-height:.9rem"></div>
+    </div>
     <div class="fg" id="cbOpRow" style="position:relative">
       <label>Operador / Conductor</label>
       <input id="cbOp" autocomplete="off" placeholder="Buscar por nombre o cargo..." oninput="_cbOpSearch(this.value)" onfocus="_cbOpSearch(this.value)" style="width:100%;box-sizing:border-box">
@@ -3118,7 +3124,7 @@
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=13"></script>
-<script src="js/combustible.js?v=5"></script>
+<script src="js/combustible.js?v=6"></script>
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=12"></script>

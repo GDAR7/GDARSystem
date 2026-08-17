@@ -141,6 +141,49 @@ function _cbDespSelect(nombre){
   const drop=document.getElementById('cbDespDrop');if(drop)drop.style.display='none';
 }
 
+// ── Filtro rápido del selector de equipos ────────────────────────────────────
+// No se ocultan <option> (los navegadores lo tratan distinto): se reconstruye la
+// lista desde DB.equipos, que es la misma fuente que usa refreshSelects().
+function _cbEqOpcion(e){
+  const nom=(e.nombre||'').split(' ').slice(0,3).join(' ');
+  return`<option value="${e.id}">${e.codigo} – ${nom}${e.placa?' ['+e.placa+']':''}</option>`;
+}
+function _cbEqFiltrar(q){
+  const sel=document.getElementById('cbEq');if(!sel)return;
+  const txt=String(q||'').toLowerCase().trim();
+  const prev=sel.value;
+  const lista=(DB.equipos||[]).filter(e=>{
+    if(!txt)return true;
+    return`${e.codigo||''} ${e.nombre||''} ${e.placa||''} ${e.tipo||''} ${e.sub||''}`.toLowerCase().includes(txt);
+  });
+  sel.innerHTML=lista.length?lista.map(_cbEqOpcion).join('')
+    :'<option value="">— Ningún equipo coincide —</option>';
+  // Se conserva lo elegido si sigue en la lista; con una sola coincidencia se elige sola
+  if(lista.some(e=>String(e.id)===String(prev)))sel.value=prev;
+  else if(lista.length===1)sel.value=lista[0].id;
+  _cbEqInfo(lista.length,txt);
+}
+// Enter en el buscador salta al selector con el resultado ya elegido
+function _cbEqKey(ev){
+  if(ev.key!=='Enter')return;
+  ev.preventDefault();
+  const sel=document.getElementById('cbEq');
+  if(sel&&sel.value)sel.focus();
+}
+function _cbEqInfo(n,txt){
+  const el=document.getElementById('cbEqInfo');if(!el)return;
+  const sel=document.getElementById('cbEq');
+  const eq=(DB.equipos||[]).find(e=>String(e.id)===String(sel&&sel.value));
+  const filtro=n!==undefined&&txt?`${n} de ${(DB.equipos||[]).length} equipos · `:'';
+  el.innerHTML=eq
+    ?`${filtro}<span style="color:var(--mec);font-weight:700">${eq.codigo}</span> · ${eq.tipo||'—'}${eq.placa?' · Placa '+eq.placa:''}`
+    :(filtro||'');
+}
+function _cbEqReset(){
+  const b=document.getElementById('cbEqBuscar');if(b)b.value='';
+  _cbEqFiltrar('');
+}
+
 function _renderPersonaDrop(drop,lista,fnSelect){
   if(!lista.length){drop.style.display='none';return;}
   drop.innerHTML=lista.map(p=>{
@@ -190,7 +233,9 @@ function openCombModal(mode){
     document.getElementById('cbNumAtn').value='';
   }else{
     _combPopulateRefPed('');
+    _cbEqReset();                                   // limpia el buscador y repuebla la lista
     const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value='';
+    _cbEqInfo();
     document.getElementById('cbPrc').value='6.30';
     document.getElementById('cbOp').value='';
     document.getElementById('cbNot').value='';
@@ -257,7 +302,9 @@ function editComb(id){
     document.getElementById('cbNumAtn').value=r.numAtendido||'';
   }else{
     _combPopulateRefPed(r.refPedido||'');
+    _cbEqReset();                                   // sin filtro, para que el equipo guardado esté en la lista
     const eqSel=document.getElementById('cbEq');if(eqSel)eqSel.value=r.eqId||'';
+    _cbEqInfo();
     document.getElementById('cbOp').value=r.op||'';
     document.getElementById('cbPrc').value=r.precio||6.30;
     document.getElementById('cbTc').value=r.tipoCosto||'Costo Directo';
