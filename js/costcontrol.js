@@ -1,11 +1,5 @@
-// ══ VENTA (placeholder) ══
-function rVenta(){
-  document.getElementById('page-venta').innerHTML=`
-  <div style="padding:1rem 1.2rem">
-    <h2 style="font-size:1.4rem;font-weight:900;color:var(--text);margin:0 0 .4rem">Venta</h2>
-    <div style="font-size:.8rem;color:var(--muted2)">Módulo en construcción</div>
-  </div>`;
-}
+// ══ VENTA → Valorización al cliente (el render vive en js/valorizacion.js) ══
+function rVenta(){rValorizacion();}
 
 // ══ TARIFAS DE EQUIPOS ══
 let _tarifaEditId=null;
