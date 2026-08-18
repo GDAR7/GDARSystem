@@ -1,6 +1,41 @@
 ﻿// ══ COMBUSTIBLE ══
 function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Período contable: del 21 de un mes al 20 del siguiente ──────────────────
+// Es el corte con el que se valorizan equipos y proveedores, así que el kardex
+// arranca mostrando el período en curso según la fecha de hoy.
+const _cbIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function _cbPeriodoDe(base){
+  const d=base?new Date(base+'T12:00:00'):new Date();
+  // Del 21 en adelante ya se está en el período que cierra el 20 del mes próximo
+  const ini=d.getDate()>=21?new Date(d.getFullYear(),d.getMonth(),21)
+                           :new Date(d.getFullYear(),d.getMonth()-1,21);
+  return{desde:_cbIso(ini),hasta:_cbIso(new Date(ini.getFullYear(),ini.getMonth()+1,20))};
+}
+let _cbDesde='',_cbHasta='',_cbPerInit=false;
+function _cbPerSet(campo,val){
+  if(campo==='desde')_cbDesde=val;else _cbHasta=val;
+  rComb();
+}
+// Salta n períodos completos hacia atrás o adelante
+function _cbPerNav(n){
+  if(!_cbDesde){const p=_cbPeriodoDe();_cbDesde=p.desde;_cbHasta=p.hasta;}
+  const d=new Date(_cbDesde+'T12:00:00');
+  const ini=new Date(d.getFullYear(),d.getMonth()+n,21);
+  _cbDesde=_cbIso(ini);
+  _cbHasta=_cbIso(new Date(ini.getFullYear(),ini.getMonth()+1,20));
+  rComb();
+}
+function _cbPerHoy(){const p=_cbPeriodoDe();_cbDesde=p.desde;_cbHasta=p.hasta;rComb();}
+function _cbPerTodo(){_cbDesde='';_cbHasta='';_cbPerInit=true;rComb();}
+const _cbDMY=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
+function _cbEnPeriodo(f){return(!_cbDesde||f>=_cbDesde)&&(!_cbHasta||f<=_cbHasta);}
+
 function rComb(){
+  // Al entrar por primera vez se posiciona en el período en curso
+  if(!_cbPerInit){
+    const p=_cbPeriodoDe();_cbDesde=p.desde;_cbHasta=p.hasta;_cbPerInit=true;
+  }
   // Poblar filtro por N° Pedido/Atendido preservando selección
   const pfEl=document.getElementById('cbKardexFilter');
   const prevFilt=pfEl?pfEl.value:'';
@@ -13,24 +48,50 @@ function rComb(){
   }
   const filtVal=pfEl?pfEl.value:'';
 
-  // Subconjunto filtrado para KPIs
-  const listaFilt=filtVal
+  // Subconjunto filtrado para KPIs: N° de pedido + período
+  const listaFilt=(filtVal
     ?DB.combustible.filter(r=>r.tipoMov==='Ingreso'
         ?r.numAtendido===filtVal
         :r.refPedido===filtVal)
-    :DB.combustible;
+    :DB.combustible).filter(r=>_cbEnPeriodo(r.fecha||''));
   const ingFilt=listaFilt.filter(r=>r.tipoMov==='Ingreso');
   const despFilt=listaFilt.filter(r=>r.tipoMov!=='Ingreso');
   const totEntrada=ingFilt.reduce((a,c)=>a+c.gal,0);
   const totSalida=despFilt.reduce((a,c)=>a+c.gal,0);
-  const saldoAct=totEntrada-totSalida;
   const totCost=despFilt.reduce((a,c)=>a+(c.gal*(c.precio||0)),0);
-  document.getElementById('combKpis').innerHTML=[
-    {l:'Total Ingresado',v:totEntrada.toFixed(1)+' gal',c:'#3b82f6'},
-    {l:'Total Despachado',v:totSalida.toFixed(1)+' gal',c:'#f97316'},
-    {l:filtVal?'Saldo del Pedido':'Saldo Actual',v:saldoAct.toFixed(1)+' gal',c:saldoAct<0?'#ef4444':'#10b981'},
-    {l:'Costo Total',v:fmt(totCost),c:'#ef4444'}
-  ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${k.v.toString().length>9?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('');
+  // Saldo inicial: todo lo movido ANTES del período (nivel del tanque al abrir)
+  const _hayPer=!!(_cbDesde||_cbHasta);
+  const saldoIni=_hayPer&&_cbDesde
+    ?DB.combustible.filter(r=>(r.fecha||'')<_cbDesde)
+      .reduce((a,c)=>a+(c.tipoMov==='Ingreso'?c.gal:-c.gal),0)
+    :0;
+  const saldoFin=saldoIni+totEntrada-totSalida;
+  const _kpis=[];
+  if(_hayPer)_kpis.push({l:'Saldo Inicial',v:saldoIni.toFixed(1)+' gal',c:'#64748b'});
+  _kpis.push(
+    {l:_hayPer?'Ingresado del Período':'Total Ingresado',v:totEntrada.toFixed(1)+' gal',c:'#3b82f6'},
+    {l:_hayPer?'Despachado del Período':'Total Despachado',v:totSalida.toFixed(1)+' gal',c:'#f97316'},
+    {l:filtVal?'Saldo del Pedido':_hayPer?'Saldo Final':'Saldo Actual',v:saldoFin.toFixed(1)+' gal',c:saldoFin<0?'#ef4444':'#10b981'},
+    {l:_hayPer?'Costo del Período':'Costo Total',v:fmt(totCost),c:'#ef4444'});
+  document.getElementById('combKpis').innerHTML=_kpis
+    .map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${k.v.toString().length>9?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('');
+
+  // Barra de período (se inyecta sobre la tarjeta del kardex)
+  const _perEl=document.getElementById('cbPeriodoBar');
+  if(_perEl){
+    const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.22rem .45rem;font-size:.73rem;color-scheme:dark';
+    const btn='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.72rem;cursor:pointer';
+    _perEl.innerHTML=`
+      <span style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;white-space:nowrap">Período</span>
+      <button onclick="_cbPerNav(-1)" title="Período anterior" style="${btn}">◀</button>
+      <input type="date" class="date-ic-azul" value="${_cbDesde}" onchange="_cbPerSet('desde',this.value)" style="${inpS}">
+      <span style="color:var(--muted2);font-size:.72rem">→</span>
+      <input type="date" class="date-ic-azul" value="${_cbHasta}" onchange="_cbPerSet('hasta',this.value)" style="${inpS}">
+      <button onclick="_cbPerNav(1)" title="Período siguiente" style="${btn}">▶</button>
+      <button onclick="_cbPerHoy()" style="background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.4);border-radius:6px;color:#f97316;padding:.2rem .6rem;font-size:.7rem;font-weight:700;cursor:pointer">Período actual</button>
+      <button onclick="_cbPerTodo()" style="${btn};${!_hayPer?'border-color:#f97316;color:#f97316;font-weight:700':''}">Todo el histórico</button>
+      <span style="font-size:.63rem;color:var(--muted)">${_hayPer?`${_cbDMY(_cbDesde)} al ${_cbDMY(_cbHasta)} · ${listaFilt.length} movimiento${listaFilt.length===1?'':'s'}`:`Sin filtro de fechas · ${listaFilt.length} movimientos`}</span>`;
+  }
 
   // Saldo acumulado GLOBAL (todos los registros en orden cronológico)
   const sorted=[...DB.combustible].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id);
@@ -43,7 +104,8 @@ function rComb(){
   });
 
   const filtSet=filtVal?new Set(listaFilt.map(r=>r.id)):null;
-  document.getElementById('tbComb').innerHTML=sorted.filter(r=>!filtSet||filtSet.has(r.id)).map(r=>{
+  document.getElementById('tbComb').innerHTML=sorted
+    .filter(r=>(!filtSet||filtSet.has(r.id))&&_cbEnPeriodo(r.fecha||'')).map(r=>{
     const eq=DB.equipos.find(e=>e.id===r.eqId);
     const mu=s=>s?s:`<span style="color:var(--muted)">—</span>`;
     const esIngreso=r.tipoMov==='Ingreso';
@@ -442,7 +504,8 @@ function _combVisibles(){
     .forEach(r=>{sal+=(r.tipoMov==='Ingreso'?r.gal:-r.gal);salMap[r.id]=sal;});
   const pf=document.getElementById('cbKardexFilter');
   const bus=(document.getElementById('cbBuscar')?.value||'').trim();
-  const filtro=[pf&&pf.value?'Pedido/Atn N° '+pf.value:'',bus?'Búsqueda: "'+bus+'"':'']
+  const per=(_cbDesde||_cbHasta)?`Período ${_cbDMY(_cbDesde)} al ${_cbDMY(_cbHasta)}`:'';
+  const filtro=[per,pf&&pf.value?'Pedido/Atn N° '+pf.value:'',bus?'Búsqueda: "'+bus+'"':'']
     .filter(Boolean).join(' · ');
   return{lista,salMap,filtro};
 }
