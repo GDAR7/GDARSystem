@@ -1441,7 +1441,12 @@
     <div class="ph-title" style="color:var(--ceq)">Proveedores</div>
     <div class="ph-sub">Estado de Pago (EDP) para proveedores de equipos — horas trabajadas, tarifa y descuentos de Auxilios Mecánicos</div>
   </div>
+  <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
+    <button id="edpTabBtn-edp" onclick="_edpTab('edp')" style="background:var(--ceq);color:#fff;border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🧾 Generar EDP</button>
+    <button id="edpTabBtn-costos" onclick="_edpTab('costos')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Costos y KPI</button>
+  </div>
   <div id="edpBody"></div>
+  <div id="edpCostosBody" style="display:none"></div>
 </div>
 
 <!-- CONTROL PROYECTO – DAILY REPORT -->
@@ -3135,6 +3140,7 @@
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=6"></script>
 <script src="js/edpProveedores.js?v=28"></script>
+<script src="js/edpCostos.js?v=1"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=2"></script>
 <script src="js/pizarra.js"></script>
