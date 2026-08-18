@@ -817,7 +817,28 @@ function _edpDocHtml(eq,H,D,F){
   if(esDia){
     // Formato por DÍAS: cada parte diario = 1.00 de trabajo, sin horómetros ni calentamiento
     const marcaModelo=[eq.marca,eq.modelo].filter(Boolean).join(' ')||'—';
-    const filasDias=H.dias.map((d,i)=>`<tr>
+    // Pagando por día calendario la fecha vale 1: se muestra un solo parte por
+    // fecha. Se prioriza el operativo y, entre ellos, el turno DÍA; si la fecha
+    // solo tuvo turno NOCHE, se muestra ese.
+    const _unoPorFecha=(lista)=>{
+      const porFecha=new Map();
+      lista.forEach(d=>{
+        const act=porFecha.get(d.fecha);
+        if(!act){porFecha.set(d.fecha,d);return;}
+        const mejor=(a,b)=>{
+          if(a.trabajo!==b.trabajo)return a.trabajo>b.trabajo?a:b;   // el operativo manda
+          const esDiaA=/^D/i.test(a.turno||''),esDiaB=/^D/i.test(b.turno||'');
+          if(esDiaA!==esDiaB)return esDiaA?a:b;                      // luego el turno DÍA
+          return a;
+        };
+        porFecha.set(d.fecha,mejor(act,d));
+      });
+      return [...porFecha.values()].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    };
+    const _porFechaTab=F.tarifaUn==='MES'||_edpDiaModo==='fecha';
+    const _filasFuente=_porFechaTab?_unoPorFecha(H.dias):H.dias;
+    const _totFilas=_filasFuente.reduce((s,d)=>s+d.trabajo,0);
+    const filasDias=_filasFuente.map((d,i)=>`<tr>
       <td style="${TD};text-align:center">${i+1}</td><td style="${TD};text-align:center">${_edpFmtDMY(d.fecha)}</td>
       <td style="${TD};text-align:center">${(eq.sub||eq.tipo||'').toUpperCase()}</td><td style="${TD};text-align:center">${marcaModelo.toUpperCase()}</td>
       <td style="${TD};text-align:center">${eq.placa||'—'}</td><td style="${TD};text-align:center">${d.turno}</td>
@@ -832,28 +853,27 @@ function _edpDocHtml(eq,H,D,F){
         <th style="${TH}">Trabajo Día</th><th style="${TH}">Parcial</th><th style="${TH};text-align:left">Observaciones</th>
       </tr></thead>
       <tbody>${filasDias||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
-      <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="7" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD}"></td></tr></tfoot>
+      <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="7" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(_totFilas)}</td><td style="${TD};text-align:right">${_edpN2(_totFilas)}</td><td style="${TD}"></td></tr></tfoot>
     </table>`;
     // Con tarifa MENSUAL lo que se paga es una fracción del mes, no los días sueltos
     const esMes=F.tarifaUn==='MES';
     const _porFecha=esMes||_edpDiaModo==='fecha';
     const _cantPagar=esMes?H.diasAPagar:(_porFecha?H.diasAPagar:H.diasTrabajados);
     const _dobles=H.diasTrabajados-H.diasReportados;
-    resumenPagina2=`<div style="max-width:${esMes?'420':'380'}px">
+    // Por día calendario el cuadro ya muestra una fila por fecha, así que hablar
+    // de turnos o de criterio de pago sobra: los números cuadran solos.
+    resumenPagina2=`<div style="max-width:${esMes?'420':'360'}px">
       <table style="border:1px solid #cbd5e1;width:100%"><tbody>
         <tr><td style="${TD}">DÍAS DEL PERÍODO</td><td style="${TD};text-align:right;font-weight:700">${H.diasPeriodo}</td></tr>
-        <tr><td style="${TD}">TURNOS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>
+        ${!_porFecha?`<tr><td style="${TD}">TURNOS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>`:''}
         <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.diasReportados}</td></tr>
         <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.diasInoperativos?'color:#b91c1c':''}">${H.diasInoperativos}</td></tr>
-        ${!esMes?`<tr><td style="${TD}">CRITERIO DE PAGO</td><td style="${TD};text-align:right;font-weight:700">${_porFecha?'Por día calendario':'Por turno'}</td></tr>`:''}
-        <tr><td style="${TD};font-weight:800;background:#fde047">${_porFecha&&!esMes?'DÍAS A PAGAR':esMes?'DÍAS A PAGAR':'TURNOS A PAGAR'}</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(_cantPagar)} ${_porFecha||esMes?'días':'turnos'}</td></tr>
+        <tr><td style="${TD};font-weight:800;background:#fde047">${_porFecha?'DÍAS A PAGAR':'TURNOS A PAGAR'}</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(_cantPagar)} ${_porFecha?'días':'turnos'}</td></tr>
         ${esMes?`<tr><td style="${TD};font-weight:800;background:#fde047">INCIDENCIA</td>
           <td style="${TD};text-align:right;font-weight:900;background:#fde047">${(H.incidencia*100).toFixed(2)} %</td></tr>`:''}
       </tbody></table>
-      ${!esMes&&_dobles>0?`<div style="margin-top:5px;font-size:8.5px;color:#334155;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
-        ${_dobles} fecha${_dobles===1?'':'s'} con doble turno (día y noche).
-        ${_porFecha?`Se valoriza <strong>por día calendario</strong>: cada fecha cuenta 1 aunque tenga los dos turnos.`
-                   :`Se valoriza <strong>por turno</strong>: cada parte cuenta 1, por eso ${H.diasTrabajados} y no ${H.diasReportados}.`}
+      ${!esMes&&!_porFecha&&_dobles>0?`<div style="margin-top:5px;font-size:8.5px;color:#334155;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
+        ${_dobles} fecha${_dobles===1?'':'s'} con doble turno (día y noche): se valoriza <strong>por turno</strong>, por eso ${H.diasTrabajados} y no ${H.diasReportados}.
       </div>`:''}
       ${esMes?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
         <strong>INCIDENCIA = DÍAS A PAGAR ÷ DÍAS DEL PERÍODO</strong> (21 al 20 del mes siguiente)<br>
