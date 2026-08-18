@@ -21,6 +21,17 @@ let _edpSoloEfectivas=false;
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
 
+// Cantidad que se valoriza según la unidad de tarifa del contrato:
+//   HM  → horas a pagar (respeta el mínimo si cumplió disponibilidad)
+//   DIA → días efectivamente trabajados
+//   MES → incidencia (fracción del mes): días a pagar ÷ días del período
+function _edpCantValorizada(tarifaUn,H){
+  if(tarifaUn==='HM') return H.horasAPagar;
+  if(tarifaUn==='DIA')return H.diasTrabajados;
+  return H.incidencia;
+}
+const _edpUnLbl=u=>u==='HM'?'Hora Máquina':u==='DIA'?'Día':u==='MES'?'Mes':u;
+
 // ── Identificadores ──────────────────────────────────────────────────────────
 // El id de la fila NO se toma de DB.nx: ese contador arranca en 1 en cada carga
 // de la página y hacía que un EDP nuevo pisara una fila ya guardada (upsert por
@@ -76,6 +87,10 @@ function _edpSet(campo,val,inmediato){
   // defecto y el N° se propone según la serie de ESE equipo.
   if(campo==='eq'){
     _edpEqId=val;_edpSoloEfectivas=false;
+    // La tarifa, el mínimo y la cantidad contractual son de CADA equipo: si se
+    // arrastran los overrides del anterior se valoriza con la tarifa equivocada
+    // (p. ej. una cisterna mensual cobrando los S/80 por hora de un volquete).
+    _edpTarifaOv=null;_edpHminOv=null;_edpCantPres=null;
     if(val)_edpNum=_edpSiguienteNum(val);
   }
   else if(campo==='num')_edpNum=val;
@@ -188,7 +203,21 @@ function _edpHoras(eq,desde,hasta){
     :_edpSoloEfectivas?'Se acordó pagar solo las horas efectivas'
     :`Disponibilidad mecánica ${dispMec.toFixed(1)}% < ${_EDP_DISP_MIN}% exigido`;
   const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
-  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo};
+
+  // ── Valorización MENSUAL (tarifaUn = MES) ──────────────────────────────────
+  // No se paga por hora ni por parte: se paga una fracción de la tarifa del mes.
+  //   incidencia = días a pagar ÷ días del período (21 al 20 del mes siguiente)
+  // Si el equipo estuvo los 30 días → 1.0000 (100 % de la tarifa mensual).
+  // Se cuentan FECHAS únicas: dos partes el mismo día (día y noche) son un día.
+  const fechas=[...new Set(dias.map(d=>d.fecha))];
+  const diasReportados=fechas.length;
+  // Un día es inoperativo solo si ningún parte de esa fecha fue operativo
+  const diasInoperativos=fechas.filter(f=>!dias.some(d=>d.fecha===f&&d.trabajo===1)).length;
+  const diasAPagar=Math.max(0,diasReportados-diasInoperativos);
+  const incidencia=diasPeriodo>0?Math.min(1,+(diasAPagar/diasPeriodo).toFixed(4)):0;
+
+  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
+    diasReportados,diasInoperativos,diasAPagar,incidencia};
 }
 
 // Descuentos: insumos de Almacén ECO usados en Auxilios Mecánicos del equipo + horas de atención mecánica (T. Parada)
@@ -255,7 +284,7 @@ function rEdpProveedores(){
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
   // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
-  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  const cantEquipo=_edpCantValorizada(tarifaUn,H);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const _mon=eq.moneda||'SOLES';
   const _sim=_mon==='DOLARES'?'US$':_mon==='EUROS'?'€':'S/';
@@ -276,8 +305,18 @@ function rEdpProveedores(){
   const editBar=`<div class="card" style="margin-bottom:.9rem">
     <div class="card-head"><span class="card-title">⚙️ Ajustes antes de imprimir</span></div>
     <div class="card-body"><div class="fg-grid">
-      <div class="fg"><label>Tarifa Equipo ${_sim} (${tarifaUn})</label><input type="number" step="0.01" id="edp_tarifa" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Tarifa Equipo ${_sim} por ${_edpUnLbl(tarifaUn)}</label>
+        <input type="number" step="0.01" id="edp_tarifa" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}${+tarifa!==+(eq.tarifa||0)?';border-color:#f59e0b':''}">
+        <span style="font-size:.6rem;color:${+tarifa!==+(eq.tarifa||0)?'#f59e0b':'var(--muted2)'};margin-top:.15rem">
+          ${+tarifa!==+(eq.tarifa||0)?`⚠ Editada · en el Máster es ${_sim} ${_edpN2(+eq.tarifa||0)}`:`Del Máster de ${eq.codigo}`}
+        </span></div>
       ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" id="edp_hmin" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
+      ${tarifaUn==='MES'?`<div class="fg" style="grid-column:span 2"><label>Incidencia del mes</label>
+        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;border:1px solid ${H.incidencia>=1?'#10b981':'#f59e0b'};border-radius:7px;padding:.4rem .6rem;background:${H.incidencia>=1?'#10b98112':'#f59e0b12'}">
+          <span style="font-size:.72rem;color:var(--text)"><strong>${H.diasAPagar}</strong> días a pagar ÷ <strong>${H.diasPeriodo}</strong> del período</span>
+          <span style="font-size:.64rem;color:var(--muted2)">${H.diasReportados} reportados${H.diasInoperativos?` · ${H.diasInoperativos} inoperativos`:''}</span>
+          <span style="margin-left:auto;font-size:.85rem;font-weight:800;color:${H.incidencia>=1?'#10b981':'#f59e0b'};white-space:nowrap">${(H.incidencia*100).toFixed(2)} % · ${_sim} ${_edpN2(+(H.incidencia*tarifa).toFixed(2))}</span>
+        </div></div>`:''}
       <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" id="edp_tatm" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" id="edp_cantpres" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
       ${(()=>{
@@ -405,7 +444,7 @@ async function _edpGuardar(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  const cantEquipo=_edpCantValorizada(tarifaUn,H);
   const montoEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
@@ -662,12 +701,21 @@ function _edpDocHtml(eq,H,D,F){
       <tbody>${filasDias||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
       <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="7" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD};text-align:right">${_edpN2(H.diasTrabajados)}</td><td style="${TD}"></td></tr></tfoot>
     </table>`;
-    resumenPagina2=`<div style="max-width:340px">
+    // Con tarifa MENSUAL lo que se paga es una fracción del mes, no los días sueltos
+    const esMes=F.tarifaUn==='MES';
+    resumenPagina2=`<div style="max-width:${esMes?'420':'340'}px">
       <table style="border:1px solid #cbd5e1;width:100%"><tbody>
-        <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>
-        <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.dias.length-H.diasTrabajados?'color:#b91c1c':''}">${H.dias.length-H.diasTrabajados}</td></tr>
-        <tr><td style="${TD};font-weight:800;background:#fde047">DÍAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.diasTrabajados)} días</td></tr>
+        <tr><td style="${TD}">DÍAS DEL PERÍODO</td><td style="${TD};text-align:right;font-weight:700">${H.diasPeriodo}</td></tr>
+        <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.diasReportados}</td></tr>
+        <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.diasInoperativos?'color:#b91c1c':''}">${H.diasInoperativos}</td></tr>
+        <tr><td style="${TD};font-weight:800;background:#fde047">DÍAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(esMes?H.diasAPagar:H.diasTrabajados)} días</td></tr>
+        ${esMes?`<tr><td style="${TD};font-weight:800;background:#fde047">INCIDENCIA</td>
+          <td style="${TD};text-align:right;font-weight:900;background:#fde047">${(H.incidencia*100).toFixed(2)} %</td></tr>`:''}
       </tbody></table>
+      ${esMes?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
+        <strong>INCIDENCIA = DÍAS A PAGAR ÷ DÍAS DEL PERÍODO</strong> (21 al 20 del mes siguiente)<br>
+        ${H.diasAPagar} ÷ ${H.diasPeriodo} = ${_edpN2(H.incidencia)} · se valoriza ese factor de la tarifa mensual de ${SIM} ${_edpN2(F.tarifa)}
+      </div>`:''}
     </div>`;
   }else{
     const filasHoras=H.dias.map((d,i)=>`<tr>
@@ -801,7 +849,7 @@ function _edpPrint(){
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
   // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
-  const cantEquipo=tarifaUn==='HM'?H.horasAPagar:(tarifaUn==='DIA'?H.diasTrabajados:1);
+  const cantEquipo=_edpCantValorizada(tarifaUn,H);
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
