@@ -515,6 +515,13 @@ function _edpDocHtml(eq,H,D,F){
   const THS=`background:${HDR};color:#fff;padding:3px 5px;font-size:8.5px;font-weight:700;text-transform:uppercase;text-align:center;border:1px solid #fff`;
   const THS_AM=`background:#FFFF00;color:#111;padding:3px 5px;font-size:8.5px;font-weight:700;text-transform:uppercase;text-align:center;border:1px solid #666`;
   const AM=`background:#FFFACD`; // celdas de la sección Valorización Actual
+  // ── ACUMULADO ACTUAL ───────────────────────────────────────────────────────
+  // Es solo un recordatorio de lo valorizado hasta la fecha, NO lo que se cobra
+  // en este EDP: va en gris para que no compita con la Valorización Actual.
+  // 👉 Para cambiar el tono, editar únicamente estas dos constantes.
+  const ACUM_TXT='#94a3b8';   // color del texto (plomo). Más oscuro: #64748b
+  const ACUM_BG ='#f1f5f9';   // fondo de las celdas. Antes era azul #dbeafe
+  const TD_AC=`border:1px solid #cbd5e1;padding:3px 6px;font-size:10px;color:${ACUM_TXT}`;
   const pctFmt=v=>v==null?'':v.toFixed(1)+'%';
 
   // Presupuesto contractual (opcional) y avances
@@ -550,9 +557,9 @@ function _edpDocHtml(eq,H,D,F){
     <td style="${TD};text-align:right;${AM}">${_edpN2(F.cantEquipo)}</td>
     <td style="${TD};text-align:right;font-weight:700;${AM}">${SIM} ${_edpN2(F.totEquipo)}</td>
     <td style="${TD};text-align:right;${AM}">${pctFmt(pctEq)}</td>
-    <td style="${TD};text-align:right"></td>
-    <td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(acumTotEq)}</td>
-    <td style="${TD};text-align:right">${pctFmt(pctAcumEq)}</td>
+    <td style="${TD_AC};text-align:right"></td>
+    <td style="${TD_AC};text-align:right;font-weight:600">${SIM} ${_edpN2(acumTotEq)}</td>
+    <td style="${TD_AC};text-align:right">${pctFmt(pctAcumEq)}</td>
   </tr>`;
 
   const filasDesc=F.descRows.length
@@ -564,7 +571,7 @@ function _edpDocHtml(eq,H,D,F){
       <td style="${TD};text-align:right;${AM}">(${_edpN2(r.cant)})</td>
       <td style="${TD};text-align:right;color:#b91c1c;${AM}">${SIM} (${_edpN2(r.total)})</td>
       <td style="${TD};${AM}"></td>
-      <td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">${SIM} (${_edpN2(r.total)})</td><td style="${TD}"></td>
+      <td style="${TD_AC}"></td><td style="${TD_AC};text-align:right">${SIM} (${_edpN2(r.total)})</td><td style="${TD_AC}"></td>
     </tr>`).join('')
     :`<tr><td colspan="12" style="${TD};text-align:center;color:#94a3b8">Sin descuentos registrados en Auxilios Mecánicos para este período</td></tr>`;
 
@@ -602,9 +609,9 @@ function _edpDocHtml(eq,H,D,F){
           <td style="${TD};${AM}"></td>
           <td style="${TD};text-align:right;font-weight:900;background:#FFFF00">${SIM} ${_edpN2(F.presupuestoTotal)}</td>
           <td style="${TD};${AM}"></td>
-          <td style="${TD};background:#dbeafe"></td>
-          <td style="${TD};text-align:right;font-weight:900;background:#dbeafe">${SIM} ${_edpN2(+(_edpAcumAnt+F.presupuestoTotal).toFixed(2))}</td>
-          <td style="${TD};background:#dbeafe"></td>
+          <td style="${TD_AC};background:${ACUM_BG}"></td>
+          <td style="${TD_AC};text-align:right;font-weight:700;background:${ACUM_BG}">${SIM} ${_edpN2(+(_edpAcumAnt+F.presupuestoTotal).toFixed(2))}</td>
+          <td style="${TD_AC};background:${ACUM_BG}"></td>
         </tr>
       </tbody>
     </table>
