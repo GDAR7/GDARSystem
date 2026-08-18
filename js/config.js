@@ -34,7 +34,7 @@ const AREAS={
   otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
     modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'}]},
+    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
     modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
