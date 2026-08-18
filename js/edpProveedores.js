@@ -21,6 +21,26 @@ let _edpSoloEfectivas=false;
 
 function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
 
+// ── Identificadores ──────────────────────────────────────────────────────────
+// El id de la fila NO se toma de DB.nx: ese contador arranca en 1 en cada carga
+// de la página y hacía que un EDP nuevo pisara una fila ya guardada (upsert por
+// id). Se calcula desde los EDP realmente cargados, así no puede desfasarse.
+function _edpNuevoId(){
+  const max=(DB.edpProveedores||[]).reduce((m,r)=>Math.max(m,+r.id||0),0);
+  const id=max+1;
+  if(DB.nx&&DB.nx.edpp!==undefined)DB.nx.edpp=id+1;   // mantiene el contador coherente
+  return id;
+}
+// El N° de EDP es correlativo POR EQUIPO: cada equipo lleva su propia serie
+// 01, 02, 03… igual que los estados de pago en papel.
+function _edpSiguienteNum(eqId){
+  const nums=(DB.edpProveedores||[])
+    .filter(r=>+r.eqId===+eqId)
+    .map(r=>parseInt(String(r.numEdp||'').replace(/\D/g,''),10))
+    .filter(n=>!isNaN(n));
+  return String(nums.length?Math.max(...nums)+1:1).padStart(2,'0');
+}
+
 // En el EDP solo va UNA actividad por día: se corta en el primer separador real
 // (punto seguido de espacio, o guion entre palabras). Las abreviaturas tipo "D.P." no cortan.
 function _edpDesc1(txt){
@@ -52,8 +72,12 @@ function _edpRerender(inmediato){
   if(inmediato)run();else _edpTimer=setTimeout(run,350);
 }
 function _edpSet(campo,val,inmediato){
-  // Al cambiar de equipo se arma otro EDP: el checkbox vuelve a su estado por defecto
-  if(campo==='eq'){_edpEqId=val;_edpSoloEfectivas=false;}
+  // Al cambiar de equipo se arma otro EDP: el checkbox vuelve a su estado por
+  // defecto y el N° se propone según la serie de ESE equipo.
+  if(campo==='eq'){
+    _edpEqId=val;_edpSoloEfectivas=false;
+    if(val)_edpNum=_edpSiguienteNum(val);
+  }
   else if(campo==='num')_edpNum=val;
   else if(campo==='desde')_edpDesde=val;
   else if(campo==='hasta')_edpHasta=val;
@@ -201,7 +225,19 @@ function rEdpProveedores(){
         <option value="">— Seleccionar —</option>
         ${eqs.map(e=>`<option value="${e.id}" ${e.id===+_edpEqId?'selected':''}>${e.codigo} — ${(e.nombre||'').split(' ').slice(0,4).join(' ')}${e.proveedor?' · '+e.proveedor:''}</option>`).join('')}
       </select></div>
-      <div class="fg"><label>N° EDP</label><input id="edp_num" value="${_edpNum}" placeholder="05" oninput="_edpSet('num',this.value)" style="${inpS}"></div>
+      ${(()=>{
+        // La numeración es por equipo: se muestra cuántos EDP lleva esta serie
+        const nSerie=eq?(DB.edpProveedores||[]).filter(r=>+r.eqId===eq.id).length:0;
+        const dup=eq&&_edpNum.trim()&&(DB.edpProveedores||[]).some(r=>+r.eqId===eq.id&&String(r.numEdp).trim()===_edpNum.trim());
+        return`<div class="fg"><label>N° EDP ${eq?`<span style="color:var(--muted2);font-size:.65rem;font-weight:400;text-transform:none;letter-spacing:0">· serie de ${eq.codigo}</span>`:''}</label>
+          <input id="edp_num" value="${_edpNum}" placeholder="01" oninput="_edpSet('num',this.value)" style="${inpS}${dup?';border-color:#f59e0b':''}">
+          <span style="font-size:.6rem;color:${dup?'#f59e0b':'var(--muted2)'};margin-top:.15rem">
+            ${!eq?'Elija un equipo para proponer el número'
+              :dup?`⚠ Ya existe el EDP ${_edpNum} de ${eq.codigo}: al guardar se actualizará`
+              :nSerie?`${nSerie} EDP guardado${nSerie===1?'':'s'} de este equipo · siguiente propuesto: ${_edpSiguienteNum(eq.id)}`
+              :'Primer EDP de este equipo'}
+          </span></div>`;
+      })()}
       <div class="fg"><label>Desde</label><input type="date" class="date-ic-azul" id="edp_desde" value="${_edpDesde}" onchange="_edpSet('desde',this.value,1)" style="${inpS};color-scheme:dark"></div>
       <div class="fg"><label>Hasta</label><input type="date" class="date-ic-azul" id="edp_hasta" value="${_edpHasta}" onchange="_edpSet('hasta',this.value,1)" style="${inpS};color-scheme:dark"></div>
       <div class="fg"><label>Cliente</label><input id="edp_cliente" value="${_edpCliente}" placeholder="Nombre del cliente final" oninput="_edpSet('cliente',this.value)" style="${inpS}"></div>
@@ -388,7 +424,7 @@ async function _edpGuardar(){
   if(prev&&!confirm(`Ya existe el EDP N° ${_edpNum} de ${eq.codigo}.\n\n¿Reemplazarlo con los datos actuales?`))return;
 
   const rec={
-    id:prev?prev.id:nid('edpp'),
+    id:prev?prev.id:_edpNuevoId(),
     eqId:eq.id,proveedor:eq.proveedor||'',numEdp:_edpNum.trim(),
     desde:_edpDesde,hasta:_edpHasta,
     moneda:eq.moneda||'SOLES',tarifaUn,tarifa,
