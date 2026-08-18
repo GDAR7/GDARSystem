@@ -11,6 +11,8 @@ let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
 let _edpFirmaEcoId=null;               // Firma virtual (imagen) del residente para el cajetín ECOSERMO
 const _EDP_FIRMA_BUCKET='Equip_eco26'; // se reusa el bucket público de equipos, carpeta firmas/
 let _edpDescManual=[];
+let _edpRecon=0;          // Reconocimiento contractual (+/−) en unidades de la tarifa
+let _edpReconMotivo='';   // Sustento que se imprime en el EDP
 // Disponibilidad mecánica mínima exigida para tener derecho a cobrar las horas
 // mínimas del contrato. Por debajo de este umbral el equipo no cumplió y solo
 // se le pagan las horas que efectivamente trabajó.
@@ -31,6 +33,17 @@ function _edpCantValorizada(tarifaUn,H){
   return H.incidencia;
 }
 const _edpUnLbl=u=>u==='HM'?'Hora Máquina':u==='DIA'?'Día':u==='MES'?'Mes':u;
+const _edpUnAbrev=u=>u==='HM'?'h':u==='DIA'?'d':u==='MES'?'mes':'';
+
+// Reconocimiento contractual: ajuste manual sobre lo que arroja el sistema.
+// Sirve cuando el contrato obliga a reconocer días/horas que los partes no
+// registran (mínimos, stand by pactado, movilización) o a descontar algo
+// acordado. Va en las MISMAS unidades de la tarifa y puede ser negativo.
+function _edpCantFinal(tarifaUn,H){
+  const base=_edpCantValorizada(tarifaUn,H);
+  const recon=+_edpRecon||0;
+  return{base,recon,total:Math.max(0,+(base+recon).toFixed(4))};
+}
 
 // ── Identificadores ──────────────────────────────────────────────────────────
 // El id de la fila NO se toma de DB.nx: ese contador arranca en 1 en cada carga
@@ -91,6 +104,7 @@ function _edpSet(campo,val,inmediato){
     // arrastran los overrides del anterior se valoriza con la tarifa equivocada
     // (p. ej. una cisterna mensual cobrando los S/80 por hora de un volquete).
     _edpTarifaOv=null;_edpHminOv=null;_edpCantPres=null;
+    _edpRecon=0;_edpReconMotivo='';   // el reconocimiento es de un EDP concreto
     if(val)_edpNum=_edpSiguienteNum(val);
   }
   else if(campo==='num')_edpNum=val;
@@ -105,6 +119,8 @@ function _edpSet(campo,val,inmediato){
   else if(campo==='cantPres')_edpCantPres=val===''?null:+val;
   else if(campo==='acumAnt')_edpAcumAnt=+val||0;
   else if(campo==='soloEf')_edpSoloEfectivas=!!val;
+  else if(campo==='recon')_edpRecon=+val||0;
+  else if(campo==='reconMotivo')_edpReconMotivo=val;
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
   else if(campo==='firmaEcoId'){
@@ -284,7 +300,8 @@ function rEdpProveedores(){
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
   // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
-  const cantEquipo=_edpCantValorizada(tarifaUn,H);
+  const CQ=_edpCantFinal(tarifaUn,H);
+  const cantEquipo=CQ.total;
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const _mon=eq.moneda||'SOLES';
   const _sim=_mon==='DOLARES'?'US$':_mon==='EUROS'?'€':'S/';
@@ -319,6 +336,23 @@ function rEdpProveedores(){
         </div></div>`:''}
       <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" id="edp_tatm" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" id="edp_cantpres" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
+      ${(()=>{
+        // Ajuste manual sobre lo que arroja el sistema: mínimos de contrato,
+        // stand by pactado, movilización… Positivo suma, negativo descuenta.
+        const cq=_edpCantFinal(tarifaUn,H);
+        const ab=_edpUnAbrev(tarifaUn);
+        const col=cq.recon>0?'#10b981':cq.recon<0?'#ef4444':'var(--border)';
+        return`<div class="fg" style="grid-column:span 2">
+          <label>Reconocimiento contractual (${tarifaUn}) <span style="color:var(--muted2);font-size:.65rem;font-weight:400;text-transform:none;letter-spacing:0">· + suma · − descuenta</span></label>
+          <div style="display:flex;gap:.4rem">
+            <input type="number" step="0.01" id="edp_recon" value="${_edpRecon||''}" placeholder="0" title="Días/horas reconocidos por contrato que los partes no registran" oninput="_edpSet('recon',this.value)" style="${inpS};width:90px;border-color:${col}">
+            <input id="edp_reconmot" value="${(_edpReconMotivo||'').replace(/"/g,'&quot;')}" placeholder="Motivo (se imprime en el EDP)" oninput="_edpSet('reconMotivo',this.value)" style="${inpS};flex:1">
+          </div>
+          <span style="font-size:.6rem;color:${cq.recon?col:'var(--muted2)'};margin-top:.15rem">
+            Sistema ${_edpN2(cq.base)} ${ab}${cq.recon?` ${cq.recon>0?'+':'−'} ${_edpN2(Math.abs(cq.recon))} ${ab} = <strong>${_edpN2(cq.total)} ${ab}</strong> · ${_sim} ${_edpN2(+(cq.total*tarifa).toFixed(2))}`:' · sin ajuste'}
+          </span>
+        </div>`;
+      })()}
       ${(()=>{
         // Sugerencia: suma de los EDP ya guardados de este equipo (excluyendo el que se está editando)
         const prevGuardado=(DB.edpProveedores||[]).find(r=>+r.eqId===eq.id&&String(r.numEdp).trim()===_edpNum.trim());
@@ -381,7 +415,7 @@ function rEdpProveedores(){
     </div>
   </div>`;
 
-  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
 }
 
 // ══ EDPs GUARDADOS ══════════════════════════════════════════════════════════
@@ -444,7 +478,8 @@ async function _edpGuardar(){
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
-  const cantEquipo=_edpCantValorizada(tarifaUn,H);
+  const CQ=_edpCantFinal(tarifaUn,H);
+  const cantEquipo=CQ.total;
   const montoEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
@@ -474,6 +509,10 @@ async function _edpGuardar(){
       // Queda registrado por qué se pagó (o no) el mínimo, para poder auditar el EDP después
       aplicaMinimo:H.aplicaMinimo,motivoSinMinimo:H.motivoSinMinimo,dispMinima:_EDP_DISP_MIN,
       descRows,insumos:D.insumos,atenciones:D.atenciones,
+      // Reconocimiento contractual: se guarda el desglose para poder auditar
+      // por qué la cantidad valorizada no coincide con la que arroja el sistema
+      cantBase:CQ.base,cantRecon:CQ.recon,reconMotivo:_edpReconMotivo,
+      incidencia:H.incidencia,diasReportados:H.diasReportados,diasInoperativos:H.diasInoperativos,diasPeriodo:H.diasPeriodo,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
       firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
       cliente:_edpCliente,rucCliente:_edpRuc},
@@ -495,6 +534,7 @@ function _edpCargar(id){
   _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
   _edpCantPres=d.cantPres!=null?d.cantPres:null;
   _edpAcumAnt=+d.acumAnt||0;
+  _edpRecon=+d.cantRecon||0;_edpReconMotivo=d.reconMotivo||'';
   _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';_edpFirmaEcoId=d.firmaEcoId||null;
   if(d.cliente)_edpCliente=d.cliente;
   if(d.rucCliente)_edpRuc=d.rucCliente;
@@ -586,6 +626,11 @@ function _edpDocHtml(eq,H,D,F){
     </tr>
   </thead>`;
 
+  // Con reconocimiento, la fila 1.01 muestra lo que arroja el sistema y el
+  // ajuste va en una línea aparte: así el proveedor ve de dónde sale el total.
+  const _rec=+F.cantRecon||0;
+  const _cantFila=_rec?F.cantBase:F.cantEquipo;
+  const _totFila=+(_cantFila*F.tarifa).toFixed(2);
   const filaEq=`<tr>
     <td style="${TD};text-align:center">1.01</td>
     <td style="${TD};font-weight:700">${eqDesc}</td>
@@ -593,13 +638,40 @@ function _edpDocHtml(eq,H,D,F){
     <td style="${TD};text-align:right">${cantPres!=null?_edpN2(cantPres):''}</td>
     <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
     <td style="${TD};text-align:right">${totPres!=null?_edpN2(totPres):''}</td>
-    <td style="${TD};text-align:right;${AM}">${_edpN2(F.cantEquipo)}</td>
-    <td style="${TD};text-align:right;font-weight:700;${AM}">${SIM} ${_edpN2(F.totEquipo)}</td>
+    <td style="${TD};text-align:right;${AM}">${_edpN2(_cantFila)}</td>
+    <td style="${TD};text-align:right;font-weight:700;${AM}">${SIM} ${_edpN2(_totFila)}</td>
     <td style="${TD};text-align:right;${AM}">${pctFmt(pctEq)}</td>
     <td style="${TD_AC};text-align:right"></td>
     <td style="${TD_AC};text-align:right;font-weight:600">${SIM} ${_edpN2(acumTotEq)}</td>
     <td style="${TD_AC};text-align:right">${pctFmt(pctAcumEq)}</td>
-  </tr>`;
+  </tr>
+  ${_rec?(()=>{
+    const totRec=+(_rec*F.tarifa).toFixed(2);
+    const col=_rec>0?'#166534':'#b91c1c';
+    const sg=_rec>0?'+':'−';
+    const val=Math.abs(_rec),valS=Math.abs(totRec);
+    return`<tr>
+      <td style="${TD};text-align:center">1.02</td>
+      <td style="${TD}">Reconocimiento contractual${_edpReconMotivo?` — ${_edpReconMotivo}`:''}</td>
+      <td style="${TD};text-align:center">${F.tarifaUn}</td>
+      <td style="${TD}"></td>
+      <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
+      <td style="${TD}"></td>
+      <td style="${TD};text-align:right;color:${col};${AM}">${sg} ${_edpN2(val)}</td>
+      <td style="${TD};text-align:right;font-weight:700;color:${col};${AM}">${sg} ${SIM} ${_edpN2(valS)}</td>
+      <td style="${TD};${AM}"></td>
+      <td style="${TD_AC}"></td><td style="${TD_AC}"></td><td style="${TD_AC}"></td>
+    </tr>
+    <tr>
+      <td style="${TD}"></td>
+      <td style="${TD};font-weight:700;text-align:right">TOTAL EQUIPO (${F.tarifaUn})</td>
+      <td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td>
+      <td style="${TD};text-align:right;font-weight:800;${AM}">${_edpN2(F.cantEquipo)}</td>
+      <td style="${TD};text-align:right;font-weight:800;${AM}">${SIM} ${_edpN2(F.totEquipo)}</td>
+      <td style="${TD};${AM}"></td>
+      <td style="${TD_AC}"></td><td style="${TD_AC}"></td><td style="${TD_AC}"></td>
+    </tr>`;
+  })():''}`;
 
   const filasDesc=F.descRows.length
     ?F.descRows.map((r,i)=>`<tr>
@@ -849,7 +921,8 @@ function _edpPrint(){
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
   const tarifaUn=eq.tarifaUn||'HM';
   // La cantidad valorizada es la de PAGO: horas a pagar (respeta el mínimo del contrato) o días trabajados
-  const cantEquipo=_edpCantValorizada(tarifaUn,H);
+  const CQ=_edpCantFinal(tarifaUn,H);
+  const cantEquipo=CQ.total;
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
@@ -863,7 +936,7 @@ function _edpPrint(){
   const total=+(subTotal+igv).toFixed(2);
   const detraccion=+(total*0.10).toFixed(2);
   const aAbonar=+(total-detraccion).toFixed(2);
-  const F={tarifa,tarifaUn,cantEquipo,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar};
+  const F={tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar};
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>EDP ${_edpNum||''} - ${eq.codigo}</title>
   <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
