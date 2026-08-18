@@ -158,7 +158,10 @@ function _cbEqSearch(q){
   }
   drop.innerHTML=lista.map(e=>{
     const cc=_CB_EQ_COL[e.tipo]||'var(--muted2)';
-    return`<div onclick="_cbEqSelect(${e.id});event.stopPropagation()"
+    // mousedown + preventDefault: la selección ocurre ANTES del blur del input
+    // y el foco no se pierde. Con onclick, un clic algo lento dejaba correr
+    // primero la validación del blur y esta borraba el campo.
+    return`<div onmousedown="event.preventDefault();event.stopPropagation();_cbEqSelect(${e.id})"
       style="padding:.45rem .8rem;cursor:pointer;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
       onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
       <div>
@@ -171,27 +174,41 @@ function _cbEqSearch(q){
   }).join('');
   drop.style.display='block';
 }
+let _cbEqSelT=0;   // momento de la última selección, para que el blur no la pise
 function _cbEqSelect(id){
   const e=(DB.equipos||[]).find(x=>+x.id===+id);
-  const hid=document.getElementById('cbEq');if(hid)hid.value=e?e.id:'';
+  if(!e)return;
+  _cbEqSelT=Date.now();
+  const hid=document.getElementById('cbEq');if(hid)hid.value=e.id;
   const inp=document.getElementById('cbEqBuscar');
-  if(inp&&e){inp.value=_cbEqTexto(e);inp.style.borderColor='var(--mec)';}
+  if(inp){inp.value=_cbEqTexto(e);inp.style.borderColor='var(--mec)';}
   const drop=document.getElementById('cbEqDrop');if(drop)drop.style.display='none';
 }
-// Al salir del campo hay que dejar claro si quedó algo elegido: si escribió el
-// código exacto se resuelve solo; si no eligió nada, se borra el texto para que
-// no parezca seleccionado un equipo que en realidad no lo está.
+// Al salir del campo se comprueba que haya un equipo realmente elegido.
+// Nunca se borra lo que el usuario escribió: solo se marca en rojo si no se
+// pudo resolver, para que pueda corregirlo sin volver a teclear todo.
 function _cbEqBlur(){
   setTimeout(()=>{
+    if(Date.now()-_cbEqSelT<500)return;          // se acaba de elegir de la lista
     const inp=document.getElementById('cbEqBuscar'),hid=document.getElementById('cbEq');
     if(!inp||!hid)return;
-    const txt=inp.value.trim().toLowerCase();
+    const txt=inp.value.trim();
     if(!txt){hid.value='';inp.style.borderColor='';return;}
-    const sel=(DB.equipos||[]).find(e=>+e.id===+hid.value);
-    if(sel&&_cbEqTexto(sel).toLowerCase()===txt)return;      // sigue coincidiendo
-    const exacto=(DB.equipos||[]).find(e=>(e.codigo||'').toLowerCase()===txt||_cbEqTexto(e).toLowerCase()===txt);
-    if(exacto){_cbEqSelect(exacto.id);return;}
-    hid.value='';inp.value='';inp.style.borderColor='';
+    const low=txt.toLowerCase();
+    // ¿Lo que ya estaba elegido sigue correspondiendo al texto? Basta con que
+    // el texto contenga su código: así tolera nombres recortados o retoques.
+    const sel=hid.value?(DB.equipos||[]).find(e=>+e.id===+hid.value):null;
+    if(sel&&low.includes(String(sel.codigo||'').toLowerCase())){inp.style.borderColor='var(--mec)';return;}
+    // Si no, se intenta resolver por código exacto, texto completo o placa
+    const eqs=DB.equipos||[];
+    const cod=s=>String(s||'').toLowerCase().trim();
+    const hallado=eqs.find(e=>cod(e.codigo)===low)
+                ||eqs.find(e=>_cbEqTexto(e).toLowerCase()===low)
+                ||eqs.find(e=>cod(e.placa)&&cod(e.placa)===low)
+                ||eqs.find(e=>cod(e.codigo)&&low.includes(cod(e.codigo)));
+    if(hallado){_cbEqSelect(hallado.id);return;}
+    hid.value='';
+    inp.style.borderColor='#ef4444';
     toast('Elija un equipo de la lista',true);
   },180);
 }
