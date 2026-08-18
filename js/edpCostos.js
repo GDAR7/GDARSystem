@@ -14,6 +14,43 @@ function _ecMesLbl(m){
   const N=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Set','Oct','Nov','Dic'];
   return`${N[+mo-1]||mo} ${y}`;
 }
+// ── TIPO DE CAMBIO ──────────────────────────────────────────────────────────
+// Cada EDP se emite en la moneda de su contrato. Para poder sumar y comparar
+// hay que llevar todo a soles: sumar dólares como si fueran soles subvalúa el
+// costo unas 3.4 veces. La tasa es editable y se recuerda en el navegador.
+const _TC_DEF={DOLARES:3.40,EUROS:3.90};
+let _tcRates=Object.assign({},_TC_DEF,(()=>{try{return JSON.parse(localStorage.getItem('_gdarTC')||'null')||{};}catch(e){return{};}})());
+function _tcGet(m){
+  if(m==='DOLARES')return +_tcRates.DOLARES||_TC_DEF.DOLARES;
+  if(m==='EUROS')  return +_tcRates.EUROS  ||_TC_DEF.EUROS;
+  return 1;                       // SOLES o moneda no declarada
+}
+function _tcSet(m,v){
+  const n=+v;
+  if(!n||n<=0){toast('Tipo de cambio inválido',true);return;}
+  _tcRates[m]=n;
+  try{localStorage.setItem('_gdarTC',JSON.stringify(_tcRates));}catch(e){}
+  if(typeof rEdpCostos==='function'&&document.getElementById('edpCostosBody')&&document.getElementById('edpCostosBody').style.display!=='none')rEdpCostos();
+  if(typeof rResultadoOperativo==='function'&&document.getElementById('roBody'))rResultadoOperativo();
+}
+const _tcSim=m=>m==='DOLARES'?'US$':m==='EUROS'?'€':'S/';
+// Convierte a soles cualquier importe según la moneda con que se emitió el EDP
+function _aSoles(monto,moneda){return +((+monto||0)*_tcGet(moneda)).toFixed(2);}
+// Monedas distintas de SOLES presentes en los EDP cargados
+function _tcMonedasEnUso(){
+  return [...new Set((DB.edpProveedores||[]).map(r=>r.moneda||'SOLES'))].filter(m=>m!=='SOLES');
+}
+// Controles de tasa para la barra de filtros (solo las monedas que se usan)
+function _tcControles(estilo){
+  const ms=_tcMonedasEnUso();
+  if(!ms.length)return'';
+  return ms.map(m=>`<div style="display:flex;flex-direction:column;gap:.15rem">
+    <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:#fbbf24">T.C. ${m==='DOLARES'?'US$':'€'} → S/</label>
+    <input type="number" step="0.001" min="0.001" value="${_tcGet(m)}" title="Tipo de cambio usado para convertir los EDP en ${m.toLowerCase()} a soles"
+      onchange="_tcSet('${m}',this.value)" style="${estilo};width:88px;border-color:#fbbf24;color:#fbbf24;font-weight:700">
+  </div>`).join('');
+}
+
 const _ecN=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _ecN0=v=>Number(v||0).toLocaleString('es-PE',{maximumFractionDigits:0});
 function _ecEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -38,6 +75,9 @@ function _ecDatos(){
   const q=_ecBuscar.trim().toLowerCase();
   const filas=(DB.edpProveedores||[]).map(r=>{
     const eq=eqById.get(+r.eqId)||{};
+    // Todos los importes se guardan convertidos a SOLES: es la única forma de
+    // sumarlos entre sí. Se conserva el original para poder mostrarlo.
+    const mon=r.moneda||'SOLES';
     return{
       id:r.id,eqId:+r.eqId,
       codigo:eq.codigo||'(equipo eliminado)',
@@ -47,9 +87,9 @@ function _ecDatos(){
       mes:_ecMes(r),numEdp:r.numEdp||'',
       desde:r.desde||'',hasta:r.hasta||'',
       tarifaUn:r.tarifaUn||'HM',cantEquipo:+r.cantEquipo||0,
-      neto:+r.subtotal||0,desc:+r.montoDesc||0,total:+r.total||0,
-      aAbonar:+r.aAbonar||0,estado:r.estado||'Emitido',
-      moneda:r.moneda||'SOLES'
+      neto:_aSoles(r.subtotal,mon),desc:_aSoles(r.montoDesc,mon),total:_aSoles(r.total,mon),
+      aAbonar:_aSoles(r.aAbonar,mon),estado:r.estado||'Emitido',
+      moneda:mon,netoOrig:+r.subtotal||0,tc:_tcGet(mon)
     };
   });
   // Los anulados no son gasto: se excluyen salvo que se pidan explícitamente
@@ -175,8 +215,11 @@ function rEdpCostos(mantenerFoco){
   const TDs='padding:4px 7px;font-size:.72rem;white-space:nowrap';
   const filas=ordenados.map(a=>{
     const pct=tNeto>0?a.neto/tNeto*100:0;
+    // Aviso de conversión: el importe mostrado ya está en soles
+    const mx=a.f.moneda!=='SOLES'
+      ?` <span title="Emitido en ${a.f.moneda.toLowerCase()} · convertido a S/ con T.C. ${a.f.tc}" style="font-size:.55rem;font-weight:800;color:#fbbf24;border:1px solid #fbbf2466;background:#fbbf2418;border-radius:3px;padding:0 3px">${_tcSim(a.f.moneda)}</span>`:'';
     return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="${TDs};color:var(--ceq);font-weight:700;font-family:monospace">${_ecEsc(a.f.codigo)}</td>
+      <td style="${TDs};color:var(--ceq);font-weight:700;font-family:monospace">${_ecEsc(a.f.codigo)}${mx}</td>
       <td style="${TDs};max-width:180px;overflow:hidden;text-overflow:ellipsis">${_ecEsc(a.f.nombre)}</td>
       <td style="${TDs};color:var(--muted2)">${_ecEsc(a.f.tipo)}</td>
       <td style="${TDs};max-width:170px;overflow:hidden;text-overflow:ellipsis">${_ecEsc(a.f.proveedor)}</td>
@@ -222,6 +265,7 @@ function rEdpCostos(mantenerFoco){
         <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Buscar</label>
         <input id="ecBuscar" value="${_ecEsc(_ecBuscar)}" placeholder="Código, equipo, proveedor o N° EDP…" oninput="_ecSet('buscar',this.value)" style="${selS};width:100%;box-sizing:border-box">
       </div>
+      ${_tcControles(selS)}
       <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;color:var(--muted2);cursor:pointer;padding-bottom:.35rem">
         <input type="checkbox" ${_ecIncAnulados?'checked':''} onchange="_ecSet('anulados',this.checked)" style="width:auto;margin:0;cursor:pointer"> Incluir anulados
       </label>
