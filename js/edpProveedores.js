@@ -13,6 +13,10 @@ const _EDP_FIRMA_BUCKET='Equip_eco26'; // se reusa el bucket público de equipos
 let _edpDescManual=[];
 let _edpRecon=0;          // Reconocimiento contractual (+/−) en unidades de la tarifa
 let _edpReconMotivo='';   // Sustento que se imprime en el EDP
+// Tarifa por DÍA: cómo se cuenta lo trabajado.
+//  'turno' → cada parte vale 1 (día y noche del mismo día son 2) — comportamiento histórico
+//  'fecha' → se paga por día calendario (día y noche del mismo día son 1)
+let _edpDiaModo='turno';
 // Disponibilidad mecánica mínima exigida para tener derecho a cobrar las horas
 // mínimas del contrato. Por debajo de este umbral el equipo no cumplió y solo
 // se le pagan las horas que efectivamente trabajó.
@@ -29,7 +33,7 @@ function _edpFmtDMY(iso){if(!iso||!iso.includes('-'))return iso||'—';const[y,m
 //   MES → incidencia (fracción del mes): días a pagar ÷ días del período
 function _edpCantValorizada(tarifaUn,H){
   if(tarifaUn==='HM') return H.horasAPagar;
-  if(tarifaUn==='DIA')return H.diasTrabajados;
+  if(tarifaUn==='DIA')return _edpDiaModo==='fecha'?H.diasAPagar:H.diasTrabajados;
   return H.incidencia;
 }
 const _edpUnLbl=u=>u==='HM'?'Hora Máquina':u==='DIA'?'Día':u==='MES'?'Mes':u;
@@ -105,6 +109,7 @@ function _edpSet(campo,val,inmediato){
     // (p. ej. una cisterna mensual cobrando los S/80 por hora de un volquete).
     _edpTarifaOv=null;_edpHminOv=null;_edpCantPres=null;
     _edpRecon=0;_edpReconMotivo='';   // el reconocimiento es de un EDP concreto
+    _edpDiaModo='turno';
     if(val)_edpNum=_edpSiguienteNum(val);
   }
   else if(campo==='num')_edpNum=val;
@@ -121,6 +126,7 @@ function _edpSet(campo,val,inmediato){
   else if(campo==='soloEf')_edpSoloEfectivas=!!val;
   else if(campo==='recon')_edpRecon=+val||0;
   else if(campo==='reconMotivo')_edpReconMotivo=val;
+  else if(campo==='diaModo')_edpDiaModo=val==='fecha'?'fecha':'turno';
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
   else if(campo==='firmaEcoId'){
@@ -208,13 +214,34 @@ function _edpHoras(eq,desde,hasta){
   const dispMec=horasDisp>0?Math.max(0,Math.min(100,(horasDisp-horasInop)/horasDisp*100)):100;
   // Horas mínimas del CONTRATO CON EL PROVEEDOR (campo "Horas Mínimas" del Máster), no las de venta al cliente
   const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.horasMinimas||0);
+
+  // ── Prorrateo del mínimo por permanencia en obra ───────────────────────────
+  // El mínimo es MENSUAL: si el equipo entró (o salió) a mitad del período no le
+  // corresponde completo, sino la parte proporcional a los días que estuvo:
+  //     mínimo proporcional = mínimo ÷ días del período × días en obra
+  // Ej.: 180 h en 30 días, ingresa el 16/07 y el período cierra el 20/07 →
+  //      5 días × (180/30) = 30 h de mínimo, no 180.
+  // Se usan días de PERMANENCIA, no días trabajados: un equipo presente que
+  // estuvo parado conserva su mínimo — para eso existe el mínimo.
+  const _priParte=dias.length?dias[0].fecha:'';
+  // La llegada sale del contrato del Máster; si no está, del primer parte
+  const _llegada=eq.inicioContrato||_priParte||'';
+  const _salida=eq.terminoContrato||'';
+  const iniObra=_llegada&&_llegada>desde?_llegada:desde;
+  const finObra=_salida&&_salida<hasta?_salida:hasta;
+  const diasEnObra=iniObra>finObra?0
+    :Math.min(diasPeriodo,Math.round((new Date(finObra+'T12:00')-new Date(iniObra+'T12:00'))/864e5)+1);
+  const factorMin=diasPeriodo>0?Math.min(1,diasEnObra/diasPeriodo):1;
+  const prorrateado=diasEnObra<diasPeriodo;
+  const horasMinimasProp=+(horasMinimas*factorMin).toFixed(2);
+
   // El mínimo del contrato solo se paga si el equipo alcanzó la disponibilidad
   // mecánica exigida. Si estuvo mucho tiempo inoperativo el incumplimiento es
   // suyo, así que se le pagan únicamente las horas trabajadas.
   const cumpleDisp=dispMec>=_EDP_DISP_MIN;
   const aplicaMinimo=cumpleDisp&&!_edpSoloEfectivas;
-  const horasMinimasAPagar=aplicaMinimo?Math.max(0,+(horasMinimas-horasEfectivas).toFixed(2)):0;
-  const horasAPagar=aplicaMinimo?Math.max(horasMinimas,horasEfectivas):horasEfectivas;
+  const horasMinimasAPagar=aplicaMinimo?Math.max(0,+(horasMinimasProp-horasEfectivas).toFixed(2)):0;
+  const horasAPagar=aplicaMinimo?Math.max(horasMinimasProp,horasEfectivas):horasEfectivas;
   const motivoSinMinimo=aplicaMinimo?''
     :_edpSoloEfectivas?'Se acordó pagar solo las horas efectivas'
     :`Disponibilidad mecánica ${dispMec.toFixed(1)}% < ${_EDP_DISP_MIN}% exigido`;
@@ -233,7 +260,8 @@ function _edpHoras(eq,desde,hasta){
   const incidencia=diasPeriodo>0?Math.min(1,+(diasAPagar/diasPeriodo).toFixed(4)):0;
 
   return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
-    diasReportados,diasInoperativos,diasAPagar,incidencia};
+    diasReportados,diasInoperativos,diasAPagar,incidencia,
+    horasMinimasProp,diasEnObra,factorMin,prorrateado,iniObra,finObra};
 }
 
 // Descuentos: insumos de Almacén ECO usados en Auxilios Mecánicos del equipo + horas de atención mecánica (T. Parada)
@@ -327,7 +355,37 @@ function rEdpProveedores(){
         <span style="font-size:.6rem;color:${+tarifa!==+(eq.tarifa||0)?'#f59e0b':'var(--muted2)'};margin-top:.15rem">
           ${+tarifa!==+(eq.tarifa||0)?`⚠ Editada · en el Máster es ${_sim} ${_edpN2(+eq.tarifa||0)}`:`Del Máster de ${eq.codigo}`}
         </span></div>
-      ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato)</label><input type="number" step="0.01" id="edp_hmin" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}"></div>`:''}
+      ${tarifaUn==='HM'?`<div class="fg"><label>Horas Mínimas (contrato · mes)</label>
+        <input type="number" step="0.01" id="edp_hmin" value="${H.horasMinimas}" oninput="_edpSet('hmin',this.value)" style="${inpS}${H.prorrateado?';border-color:#f59e0b':''}">
+        <span style="font-size:.6rem;color:${H.prorrateado?'#f59e0b':'var(--muted2)'};margin-top:.15rem">
+          ${H.prorrateado
+            ?`⚠ Prorrateado: ${H.diasEnObra} de ${H.diasPeriodo} días en obra → exigible <strong>${_edpN2(H.horasMinimasProp)} h</strong>`
+            :'Período completo · se exige el mínimo íntegro'}
+        </span></div>`:''}
+      ${tarifaUn==='DIA'?(()=>{
+        // Un mismo día con parte de día y de noche puede valer 2 (por turno) o 1
+        // (por día calendario). Depende de lo pactado, así que se elige aquí.
+        const turnos=H.diasTrabajados, fechas=H.diasAPagar;
+        const esFecha=_edpDiaModo==='fecha';
+        const dobles=turnos-fechas;
+        const col=esFecha?'#f59e0b':'#10b981';
+        const op=(v,lbl,n,sub)=>`<label style="flex:1;min-width:180px;display:flex;align-items:center;gap:.45rem;cursor:pointer;border:1px solid ${_edpDiaModo===v?col:'var(--border)'};background:${_edpDiaModo===v?col+'18':'transparent'};border-radius:7px;padding:.35rem .55rem">
+            <input type="radio" name="edpDiaModo" value="${v}" ${_edpDiaModo===v?'checked':''} onchange="_edpSet('diaModo','${v}',1)" style="width:auto;margin:0;cursor:pointer;accent-color:${col}">
+            <span style="flex:1"><span style="font-size:.73rem;font-weight:700;color:var(--text)">${lbl}</span>
+              <span style="display:block;font-size:.6rem;color:var(--muted2)">${sub}</span></span>
+            <span style="font-size:.85rem;font-weight:800;color:${_edpDiaModo===v?col:'var(--muted2)'}">${_edpN2(n)}</span>
+          </label>`;
+        return`<div class="fg" style="grid-column:1/-1"><label>Cómo se cuentan los días</label>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            ${op('turno','Por turno',turnos,'Día y noche del mismo día cuentan aparte')}
+            ${op('fecha','Por día calendario',fechas,'Día y noche del mismo día cuentan como 1')}
+          </div>
+          <span style="font-size:.6rem;color:var(--muted2);margin-top:.2rem">
+            ${dobles>0?`Hay <strong>${dobles}</strong> fecha${dobles===1?'':'s'} con doble turno · se valoriza <strong style="color:${col}">${_edpN2(esFecha?fechas:turnos)}</strong> × ${_sim} ${_edpN2(tarifa)} = ${_sim} ${_edpN2(+((esFecha?fechas:turnos)*tarifa).toFixed(2))}`
+              :'Ningún día tiene doble turno: ambas opciones dan el mismo resultado'}
+          </span>
+        </div>`;
+      })():''}
       ${tarifaUn==='MES'?`<div class="fg" style="grid-column:span 2"><label>Incidencia del mes</label>
         <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;border:1px solid ${H.incidencia>=1?'#10b981':'#f59e0b'};border-radius:7px;padding:.4rem .6rem;background:${H.incidencia>=1?'#10b98112':'#f59e0b12'}">
           <span style="font-size:.72rem;color:var(--text)"><strong>${H.diasAPagar}</strong> días a pagar ÷ <strong>${H.diasPeriodo}</strong> del período</span>
@@ -370,7 +428,7 @@ function rEdpProveedores(){
         const msg=bloqueado
           ?`Disponibilidad ${H.dispMec.toFixed(1)}% &lt; ${_EDP_DISP_MIN}% · el mínimo no se paga`
           :_edpSoloEfectivas?'Se paga solo lo trabajado'
-          :`Disponibilidad ${H.dispMec.toFixed(1)}% ≥ ${_EDP_DISP_MIN}% · se paga el mínimo`;
+          :`Disponibilidad ${H.dispMec.toFixed(1)}% ≥ ${_EDP_DISP_MIN}% · se paga el mínimo${H.prorrateado?' proporcional ('+_edpN2(H.horasMinimasProp)+' h)':''}`;
         return`<div class="fg" style="grid-column:span 2">
           <label>Horas a pagar</label>
           <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;border:1px solid ${col};border-radius:7px;padding:.4rem .6rem;background:${col}12">
@@ -512,6 +570,8 @@ async function _edpGuardar(){
       // Reconocimiento contractual: se guarda el desglose para poder auditar
       // por qué la cantidad valorizada no coincide con la que arroja el sistema
       cantBase:CQ.base,cantRecon:CQ.recon,reconMotivo:_edpReconMotivo,
+      horasMinimasProp:H.horasMinimasProp,diasEnObra:H.diasEnObra,prorrateado:H.prorrateado,
+      diaModo:_edpDiaModo,turnosReportados:H.dias.length,
       incidencia:H.incidencia,diasReportados:H.diasReportados,diasInoperativos:H.diasInoperativos,diasPeriodo:H.diasPeriodo,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
       firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
@@ -535,6 +595,7 @@ function _edpCargar(id){
   _edpCantPres=d.cantPres!=null?d.cantPres:null;
   _edpAcumAnt=+d.acumAnt||0;
   _edpRecon=+d.cantRecon||0;_edpReconMotivo=d.reconMotivo||'';
+  _edpDiaModo=d.diaModo==='fecha'?'fecha':'turno';   // los EDP viejos se pagaron por turno
   _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';_edpFirmaEcoId=d.firmaEcoId||null;
   if(d.cliente)_edpCliente=d.cliente;
   if(d.rucCliente)_edpRuc=d.rucCliente;
@@ -775,15 +836,25 @@ function _edpDocHtml(eq,H,D,F){
     </table>`;
     // Con tarifa MENSUAL lo que se paga es una fracción del mes, no los días sueltos
     const esMes=F.tarifaUn==='MES';
-    resumenPagina2=`<div style="max-width:${esMes?'420':'340'}px">
+    const _porFecha=esMes||_edpDiaModo==='fecha';
+    const _cantPagar=esMes?H.diasAPagar:(_porFecha?H.diasAPagar:H.diasTrabajados);
+    const _dobles=H.diasTrabajados-H.diasReportados;
+    resumenPagina2=`<div style="max-width:${esMes?'420':'380'}px">
       <table style="border:1px solid #cbd5e1;width:100%"><tbody>
         <tr><td style="${TD}">DÍAS DEL PERÍODO</td><td style="${TD};text-align:right;font-weight:700">${H.diasPeriodo}</td></tr>
+        <tr><td style="${TD}">TURNOS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>
         <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.diasReportados}</td></tr>
         <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.diasInoperativos?'color:#b91c1c':''}">${H.diasInoperativos}</td></tr>
-        <tr><td style="${TD};font-weight:800;background:#fde047">DÍAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(esMes?H.diasAPagar:H.diasTrabajados)} días</td></tr>
+        ${!esMes?`<tr><td style="${TD}">CRITERIO DE PAGO</td><td style="${TD};text-align:right;font-weight:700">${_porFecha?'Por día calendario':'Por turno'}</td></tr>`:''}
+        <tr><td style="${TD};font-weight:800;background:#fde047">${_porFecha&&!esMes?'DÍAS A PAGAR':esMes?'DÍAS A PAGAR':'TURNOS A PAGAR'}</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(_cantPagar)} ${_porFecha||esMes?'días':'turnos'}</td></tr>
         ${esMes?`<tr><td style="${TD};font-weight:800;background:#fde047">INCIDENCIA</td>
           <td style="${TD};text-align:right;font-weight:900;background:#fde047">${(H.incidencia*100).toFixed(2)} %</td></tr>`:''}
       </tbody></table>
+      ${!esMes&&_dobles>0?`<div style="margin-top:5px;font-size:8.5px;color:#334155;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
+        ${_dobles} fecha${_dobles===1?'':'s'} con doble turno (día y noche).
+        ${_porFecha?`Se valoriza <strong>por día calendario</strong>: cada fecha cuenta 1 aunque tenga los dos turnos.`
+                   :`Se valoriza <strong>por turno</strong>: cada parte cuenta 1, por eso ${H.diasTrabajados} y no ${H.diasReportados}.`}
+      </div>`:''}
       ${esMes?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
         <strong>INCIDENCIA = DÍAS A PAGAR ÷ DÍAS DEL PERÍODO</strong> (21 al 20 del mes siguiente)<br>
         ${H.diasAPagar} ÷ ${H.diasPeriodo} = ${_edpN2(H.incidencia)} · se valoriza ese factor de la tarifa mensual de ${SIM} ${_edpN2(F.tarifa)}
@@ -810,7 +881,9 @@ function _edpDocHtml(eq,H,D,F){
       <table style="border:1px solid #cbd5e1"><tbody>
         <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700;color:${_dCol}">${H.dispMec.toFixed(1)}%</td></tr>
         <tr><td style="${TD}">DISPONIBILIDAD MÍNIMA</td><td style="${TD};text-align:right;font-weight:700">${_EDP_DISP_MIN}.0%</td></tr>
-        <tr><td style="${TD}">HORAS MÍNIMAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimas)} hrs</td></tr>
+        <tr><td style="${TD}">HORAS MÍNIMAS (MES)</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimas)} hrs</td></tr>
+        ${H.prorrateado?`<tr><td style="${TD}">DÍAS EN OBRA / PERÍODO</td><td style="${TD};text-align:right;font-weight:700;color:#C00000">${H.diasEnObra} / ${H.diasPeriodo}</td></tr>
+        <tr><td style="${TD};font-weight:800">HORAS MÍNIMAS PROPORC.</td><td style="${TD};text-align:right;font-weight:900">${_edpN2(H.horasMinimasProp)} hrs</td></tr>`:''}
       </tbody></table>
       <table style="border:1px solid #cbd5e1"><tbody>
         <tr><td style="${TD}">HORAS TRABAJADAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasEfectivas)} hrs</td></tr>
@@ -818,6 +891,11 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td style="${TD};font-weight:800;background:#fde047">HORAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.horasAPagar)} hrs</td></tr>
       </tbody></table>
     </div>
+    ${H.prorrateado?`<div style="max-width:520px;margin-top:6px;padding:5px 8px;border-left:3px solid ${AZ};background:#f8fafc;font-size:8.5px;color:#334155">
+      <strong>MÍNIMO PRORRATEADO POR PERMANENCIA</strong> — el equipo estuvo ${H.diasEnObra} de los ${H.diasPeriodo} días del período
+      (desde el ${_edpFmtDMY(H.iniObra)}), por lo que no le corresponde el mínimo mensual completo:<br>
+      ${_edpN2(H.horasMinimas)} h ÷ ${H.diasPeriodo} días × ${H.diasEnObra} días = <strong>${_edpN2(H.horasMinimasProp)} h</strong> de mínimo exigible.
+    </div>`:''}
     ${H.motivoSinMinimo?`<div style="max-width:520px;margin-top:6px;padding:5px 8px;border:1px solid #C00000;background:#FDECEC;font-size:8.5px;color:#C00000;font-weight:700">
       NO SE PAGAN HORAS MÍNIMAS — ${H.motivoSinMinimo}. Se valoriza únicamente ${_edpN2(H.horasEfectivas)} hrs efectivamente trabajadas.
     </div>`:''}`;
