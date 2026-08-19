@@ -79,18 +79,19 @@ function rComb(){
   // Barra de período (se inyecta sobre la tarjeta del kardex)
   const _perEl=document.getElementById('cbPeriodoBar');
   if(_perEl){
-    const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.22rem .45rem;font-size:.73rem;color-scheme:dark';
-    const btn='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.2rem .5rem;font-size:.72rem;cursor:pointer';
+    // width fijo: la CSS global pone width:100% a todo input y rompía la fila
+    const inpS='width:124px;flex:0 0 124px;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.16rem .35rem;font-size:.7rem;color-scheme:dark';
+    const btn='flex:0 0 auto;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.16rem .42rem;font-size:.7rem;line-height:1.2;cursor:pointer;white-space:nowrap';
     _perEl.innerHTML=`
-      <span style="font-size:.6rem;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;white-space:nowrap">Período</span>
+      <span style="font-size:.58rem;letter-spacing:.09em;color:var(--muted2);text-transform:uppercase;white-space:nowrap;flex:0 0 auto">Período</span>
       <button onclick="_cbPerNav(-1)" title="Período anterior" style="${btn}">◀</button>
       <input type="date" class="date-ic-azul" value="${_cbDesde}" onchange="_cbPerSet('desde',this.value)" style="${inpS}">
-      <span style="color:var(--muted2);font-size:.72rem">→</span>
+      <span style="color:var(--muted2);font-size:.7rem;flex:0 0 auto">→</span>
       <input type="date" class="date-ic-azul" value="${_cbHasta}" onchange="_cbPerSet('hasta',this.value)" style="${inpS}">
       <button onclick="_cbPerNav(1)" title="Período siguiente" style="${btn}">▶</button>
-      <button onclick="_cbPerHoy()" style="background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.4);border-radius:6px;color:#f97316;padding:.2rem .6rem;font-size:.7rem;font-weight:700;cursor:pointer">Período actual</button>
-      <button onclick="_cbPerTodo()" style="${btn};${!_hayPer?'border-color:#f97316;color:#f97316;font-weight:700':''}">Todo el histórico</button>
-      <span style="font-size:.63rem;color:var(--muted)">${_hayPer?`${_cbDMY(_cbDesde)} al ${_cbDMY(_cbHasta)} · ${listaFilt.length} movimiento${listaFilt.length===1?'':'s'}`:`Sin filtro de fechas · ${listaFilt.length} movimientos`}</span>`;
+      <button onclick="_cbPerHoy()" title="Ir al período en curso (21 al 20)" style="${btn};background:rgba(249,115,22,.14);border-color:rgba(249,115,22,.4);color:#f97316;font-weight:700">Actual</button>
+      <button onclick="_cbPerTodo()" title="Quitar el filtro de fechas" style="${btn};${!_hayPer?'border-color:#f97316;color:#f97316;font-weight:700':''}">Todo</button>
+      <span style="font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${_hayPer?`${listaFilt.length} mov.`:`Sin filtro · ${listaFilt.length} mov.`}</span>`;
   }
 
   // Saldo acumulado GLOBAL (todos los registros en orden cronológico)
