@@ -3,6 +3,19 @@ const fmt=n=>'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,max
 const fmtN=n=>Number(n).toLocaleString('es-PE',{minimumFractionDigits:1,maximumFractionDigits:1});
 const today=()=>new Date().toISOString().split('T')[0];
 const nid=k=>DB.nx[k]++;
+// ── Id nuevo a prueba de colisiones ─────────────────────────────────────────
+// Los contadores de DB.nx arrancan en 1 en cada carga de página y solo se
+// sincronizan con la base para las tablas listadas en el nxMap del loader.
+// Para las que faltan, nid() devolvía un id ya usado y el upsert PISABA la fila
+// existente. Este helper calcula el id desde los registros ya cargados, así que
+// no puede desfasarse aunque la tabla no esté en el mapa.
+//   nxKey = clave del contador (ej. 'teq') · dbKey = arreglo en DB (ej. 'tarifasEq')
+function nidSeguro(nxKey,dbKey){
+  const max=(DB[dbKey]||[]).reduce((m,r)=>Math.max(m,+r.id||0),0);
+  const id=max+1;
+  if(DB.nx&&DB.nx[nxKey]!==undefined)DB.nx[nxKey]=id+1;   // deja el contador coherente
+  return id;
+}
 function toast(m,e=false){const t=document.getElementById('toast');t.textContent=(e?'✗ ':'✔ ')+m;t.className='show'+(e?' err':'');setTimeout(()=>t.className='',2500);}
 function openM(id){document.getElementById(id).classList.add('open');refreshSelects();}
 function closeM(id){document.getElementById(id).classList.remove('open');}

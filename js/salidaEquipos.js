@@ -203,7 +203,7 @@ async function _seqSave(){
   if(fechaRetorno&&fechaRetorno<fechaSalida){toast('La fecha de retorno no puede ser anterior a la de salida',true);return;}
 
   const rec={
-    id:_seqEditId!=null?_seqEditId:nid('sleq'),
+    id:_seqEditId!=null?_seqEditId:nidSeguro('sleq','salidaEquipos'),
     eqId:+document.getElementById('seqEq').value||null,
     placa:v('seqPlaca')||null,codigo,tipoEquipo:v('seqTipoEq')||null,
     tipoMantto:v('seqTipoMantto')||null,motivo:v('seqMotivo')||null,

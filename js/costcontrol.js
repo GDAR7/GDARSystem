@@ -160,7 +160,7 @@ function gTarifa(){
     if(idx>-1){Object.assign(DB.tarifasEq[idx],rec);syncSheet('saveTarifaEq',DB.tarifasEq[idx]);}
     _tarifaEditId=null;
   }else{
-    rec.id=nid('teq');
+    rec.id=nidSeguro('teq','tarifasEq');
     DB.tarifasEq.push(rec);
     syncSheet('saveTarifaEq',rec);
   }
@@ -177,7 +177,7 @@ function delTarifa(id){
 async function cargarTarifasIniciales(){
   if(!confirm(`¿Cargar las ${_CC_TARIFA_EQ.length} tarifas contractuales como punto de partida?\nPodrás editarlas después.`))return;
   for(const t of _CC_TARIFA_EQ){
-    const rec={id:nid('teq'),tipo:t.tipo||'Otros',desc:t.lab,unidad:t.un,
+    const rec={id:nidSeguro('teq','tarifasEq'),tipo:t.tipo||'Otros',desc:t.lab,unidad:t.un,
       tarifaSeca:t.seca,tarifaFull:t.full,tarifaCosto:0,palabrasClave:t.kw.join(', ')};
     DB.tarifasEq.push(rec);
     syncSheet('saveTarifaEq',rec);

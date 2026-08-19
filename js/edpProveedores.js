@@ -159,7 +159,7 @@ async function _edpFirmaOnFile(ev){
   const{error}=await supa.storage.from(_EDP_FIRMA_BUCKET).upload(path,file,{upsert:false});
   if(error){toast('Error al subir: '+error.message,true);return;}
   const{data:{publicUrl}}=supa.storage.from(_EDP_FIRMA_BUCKET).getPublicUrl(path);
-  const rec={id:nid('frm'),rol:'RESIDENTE',nombre,imgUrl:publicUrl,imgPath:path,creadoEn:new Date().toISOString()};
+  const rec={id:nidSeguro('frm','firmas'),rol:'RESIDENTE',nombre,imgUrl:publicUrl,imgPath:path,creadoEn:new Date().toISOString()};
   if(await supaUpsert('firmas',rec))return;
   (DB.firmas=DB.firmas||[]).push(rec);
   _edpFirmaEcoId=rec.id;_edpFirmaEco=nombre;

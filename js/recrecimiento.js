@@ -64,7 +64,7 @@ async function _recPlanoOnFile(ev){
     if(error){toast('Error al guardar: '+error.message,true);return;}
     prev.pdfUrl=urlData.publicUrl;prev.pdfName=file.name;prev.pdfPath=path;
   }else{
-    const id=nid('rpl');
+    const id=nidSeguro('rpl','recPlanos');
     const{error}=await supa.from('rec_planos').insert({id,dique:_recDique,pdf_url:urlData.publicUrl,pdf_name:file.name,pdf_path:path});
     if(error){toast('Error al guardar: '+error.message,true);return;}
     (DB.recPlanos=DB.recPlanos||[]).push({id,dique:_recDique,pdfUrl:urlData.publicUrl,pdfName:file.name,pdfPath:path});
@@ -647,7 +647,7 @@ async function _recCrearElemento(tipo,xPct,yPct){
   const t=_REC_ELEM_TIPOS[tipo];if(!t)return;
   const n=(DB.recElementos||[]).filter(e=>e.dique===_recDique&&e.tipo===tipo).length+1;
   const nombre=(tipo==='piezometro'?'PZ-':'K-')+String(n).padStart(2,'0');
-  const id=nid('relem');
+  const id=nidSeguro('relem','recElementos');
   const x=+xPct.toFixed(2),y=+yPct.toFixed(2);
   const{error}=await supa.from('rec_elementos').insert({id,dique:_recDique,tipo,nombre,x,y,progresiva:'',notas:''});
   if(error){toast('Error al crear: '+error.message,true);return;}
@@ -1581,7 +1581,7 @@ async function _recSaveElemCapa(elemId){
     if(c){c.numero=numero;c.cota=cota;c.material=material;c.pct=pct;c.fecha=fecha;}
     _recElemCapaEditId=null;
   }else{
-    const id=nid('relc');
+    const id=nidSeguro('relc','recElemCapas');
     const{error}=await supa.from('rec_elemento_capas').insert({id,elemento_id:+elemId,numero,cota,material:material||null,pct,fecha});
     if(error){toast('Error al guardar: '+error.message,true);return;}
     (DB.recElemCapas=DB.recElemCapas||[]).push({id,elementoId:+elemId,numero,cota,material,pct,fecha});
