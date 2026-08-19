@@ -189,6 +189,20 @@ async function cargarTarifasIniciales(){
 let _ccOffset=0, _ccTarifaModo='seca', _ccTabActiva='equipos';
 // Precio S/ por galón para valorizar combustible en Cost Control (independiente del costo de almacén)
 let _ccPrecioComb=+(localStorage.getItem('ccPrecioComb')||0)||null;
+// ── Sin IGV ─────────────────────────────────────────────────────────────────
+// Las tarifas y el precio de combustible se manejan con IGV incluido. Este
+// interruptor divide TODOS los importes entre 1.18 para trabajar con valores
+// netos; el margen se recalcula sobre esos netos, así que el % no cambia
+// (venta y costo bajan en la misma proporción) pero los soles sí.
+const _CC_IGV=1.18;
+let _ccSinIgv=localStorage.getItem('ccSinIgv')==='1';
+const _ccF=()=>_ccSinIgv?1/_CC_IGV:1;          // factor a aplicar a los importes
+function _ccToggleIgv(v){
+  _ccSinIgv=!!v;
+  try{localStorage.setItem('ccSinIgv',_ccSinIgv?'1':'0');}catch(e){}
+  rCostControl();
+  toast(_ccSinIgv?'Valores netos · sin IGV (÷ 1.18)':'Valores con IGV incluido');
+}
 function _ccSetPrecioComb(v){
   const n=+v||0;
   _ccPrecioComb=n>0?n:null;
@@ -356,7 +370,13 @@ function rCostControl(){
 
     // Combustible del período (galones despachados × precio configurado)
     const galones=galMap[r.eq.id]||0;
-    const costoComb=galones*precioComb;
+    let costoComb=galones*precioComb;
+    // Sin IGV: los tres importes se llevan a neto antes de calcular el margen,
+    // para no mezclar una venta con impuesto contra un costo sin él.
+    const _f=_ccF();
+    venta=+(venta*_f).toFixed(2);
+    costoProveedor=+(costoProveedor*_f).toFixed(2);
+    costoComb=+(costoComb*_f).toFixed(2);
     // Margen: Full → Venta − (Costo Prov. + Combustible) · Seca → Venta − Costo Prov.
     const margen=venta-costoProveedor-(KEY==='full'?costoComb:0);
 
@@ -379,8 +399,8 @@ function rCostControl(){
     hhMap[per2.id].dias++;
   });
   const hhRows=Object.values(hhMap).map(r=>{
-    const costoDia=r.tarifa.mes/per.dias;
-    return{...r,costoDia,costo:costoDia*r.dias};
+    const costoDia=+(r.tarifa.mes/per.dias*_ccF()).toFixed(2);
+    return{...r,costoDia,costo:+(costoDia*r.dias).toFixed(2)};
   });
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
   const totalGen=totalVentaEq+totalHH;
@@ -396,7 +416,8 @@ function rCostControl(){
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
       <div>
         <h2 style="font-size:1.45rem;font-weight:900;color:var(--text);margin:0;letter-spacing:-.02em">Cost Control</h2>
-        <div style="font-size:.76rem;color:var(--muted2);margin-top:.2rem">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
+        <div style="font-size:.76rem;color:var(--muted2);margin-top:.2rem">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días
+          ${_ccSinIgv?'<span style="color:#10b981;font-weight:700;margin-left:.4rem">· SIN IGV</span>':''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
         <!-- Navegación de período -->
@@ -416,8 +437,19 @@ function rCostControl(){
           <input id="ccPrecioComb" type="number" step="0.01" min="0" value="${precioComb.toFixed(2)}" onchange="_ccSetPrecioComb(this.value)" style="width:62px;background:transparent;border:none;border-bottom:1px dashed rgba(249,115,22,.5);color:var(--text);font-family:monospace;font-weight:700;font-size:.82rem;outline:none;text-align:right">
           <span style="font-size:.64rem;color:var(--muted2)">/gal${precioAlm>0?` · Alm: S/ ${precioAlm.toFixed(2)}`:''}</span>
         </div>
+        <!-- Sin IGV: divide todos los importes entre 1.18 -->
+        <label title="Divide venta, costo de proveedor y combustible entre 1.18 para trabajar con valores netos. El margen se recalcula sobre los netos."
+          style="display:flex;align-items:center;gap:.4rem;background:${_ccSinIgv?'rgba(16,185,129,.15)':'var(--panel2)'};border:1px solid ${_ccSinIgv?'#10b981':'var(--border)'};border-radius:8px;padding:.3rem .7rem;cursor:pointer;user-select:none">
+          <input type="checkbox" ${_ccSinIgv?'checked':''} onchange="_ccToggleIgv(this.checked)" style="width:auto;margin:0;cursor:pointer;accent-color:#10b981">
+          <span style="font-size:.75rem;font-weight:700;color:${_ccSinIgv?'#10b981':'var(--muted2)'};white-space:nowrap">Sin IGV</span>
+          <span style="font-size:.62rem;color:var(--muted)">÷ 1.18</span>
+        </label>
       </div>
     </div>
+    ${_ccSinIgv?`<div style="margin:-.5rem 0 1rem;padding:.35rem .8rem;border-left:3px solid #10b981;background:rgba(16,185,129,.08);border-radius:0 6px 6px 0;font-size:.7rem;color:#10b981">
+      <strong>Valores netos (sin IGV)</strong> — venta, costo de proveedor y combustible divididos entre ${_CC_IGV}.
+      El combustible se valoriza a <strong>S/ ${(precioComb/_CC_IGV).toFixed(2)}/gal</strong> en lugar de S/ ${precioComb.toFixed(2)}.
+    </div>`:''}
 
     <!-- KPIs -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.65rem;margin-bottom:1.2rem">
@@ -425,7 +457,7 @@ function rCostControl(){
         {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
         {l:'Venta Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
         {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:'desde Tarifa del Master', ico:'💸'},
-        {l:'Combustible Eq.',     v:_ccFmt(totalCombEq),  c:'#f97316', s:`${totalGalEq.toFixed(1)} gal × S/ ${precioComb.toFixed(2)}`, ico:'⛽'},
+        {l:'Combustible Eq.',     v:_ccFmt(totalCombEq),  c:'#f97316', s:`${totalGalEq.toFixed(1)} gal × S/ ${(precioComb*_ccF()).toFixed(2)}${_ccSinIgv?' <span style="color:#10b981;font-weight:700">neto</span>':''}`, ico:'⛽'},
         {l:'Margen Bruto Eq.',    v:_ccFmt(totalMargenEq), c:'#10b981', s:modo==='full'?'Venta − (C.Prov. + Comb.)':'Venta − Costo Prov.', ico:'📈'},
       ].map(k=>`
       <div style="background:var(--panel2);border:2px solid ${k.c}55;border-radius:10px;padding:.85rem 1rem;border-left:4px solid ${k.c}">
