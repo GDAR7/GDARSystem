@@ -347,6 +347,22 @@ function rCostControl(){
   const precioAlm=_galPerTot>0?_costoAlmTot/_galPerTot:0;       // precio promedio de almacén (referencia)
   const precioComb=_ccPrecioComb||precioAlm||6.30;               // precio configurable para Cost Control
 
+  // — Costo real del proveedor: EDP ya emitidos en el período —
+  // Si el equipo tiene un EDP emitido, ESE es el costo real (ya se acordó con el
+  // proveedor). El cálculo automático horas × tarifa es solo el estimado para
+  // los equipos que todavía no tienen su estado de pago.
+  const edpMap={};
+  (DB.edpProveedores||[]).forEach(e=>{
+    if(e.estado==='Anulado'||!e.eqId)return;
+    if((e.hasta||'')<per.desde||(e.desde||'')>per.hasta)return;   // fuera del período
+    const mon=e.moneda||'SOLES';
+    // Los EDP en dólares se convierten con el T.C. del módulo de proveedores
+    const monto=typeof _aSoles==='function'?_aSoles(e.subtotal,mon):(+e.subtotal||0);
+    const a=edpMap[e.eqId]||(edpMap[e.eqId]={monto:0,n:0,nums:[],moneda:'SOLES',orig:0});
+    a.monto+=monto;a.orig+=+e.subtotal||0;a.n++;a.nums.push(e.numEdp||'');
+    if(mon!=='SOLES')a.moneda=mon;
+  });
+
   // — Costos de equipos —
   const eqMap={};
   partes.forEach(p=>{
@@ -372,12 +388,18 @@ function rCostControl(){
       else                     venta=factor*(t[KEY]||0); // MES
     }
 
-    // Calcular COSTO PROVEEDOR según unidad del Master (independiente de la venta)
+    // COSTO PROVEEDOR — primero el EDP emitido (es lo que realmente se paga);
+    // si no hay EDP, se estima con la tarifa del Máster según su unidad.
     let costoProveedor=0;
+    const _edp=edpMap[r.eq.id];
     const tRate=+r.eq.tarifa||0;
-    if(unCosto==='HM')       costoProveedor=r.horasEf*tRate;
-    else if(unCosto==='DIA') costoProveedor=dias*tRate;       // ej: 17 días × S/200
-    else                     costoProveedor=factor*tRate;      // MES: incidencia × tarifa
+    if(_edp){
+      costoProveedor=_edp.monto;
+    }else{
+      if(unCosto==='HM')       costoProveedor=r.horasEf*tRate;
+      else if(unCosto==='DIA') costoProveedor=dias*tRate;       // ej: 17 días × S/200
+      else                     costoProveedor=factor*tRate;      // MES: incidencia × tarifa
+    }
 
     // Combustible: por defecto el costo REAL registrado en cada despacho.
     // Con el precio manual activo se recalcula a galones × precio configurado.
@@ -389,7 +411,7 @@ function rCostControl(){
     // Margen: Full → Venta − (Costo Prov. + Combustible) · Seca → Venta − Costo Prov.
     const margen=venta-costoProveedor-(KEY==='full'?costoComb:0);
 
-    return{...r,costo:venta,costoProveedor,galones,costoComb,margen,tarifaObj:t,un:unVenta,unCosto};
+    return{...r,costo:venta,costoProveedor,galones,costoComb,margen,tarifaObj:t,un:unVenta,unCosto,edp:_edp||null};
   });
   const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
   const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
@@ -474,7 +496,11 @@ function rCostControl(){
       ${[
         {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
         {l:'Venta Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
-        {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:'desde Tarifa del Master', ico:'💸'},
+        {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:(()=>{
+          const nE=eqRows.filter(r=>r.edp).length,nS=eqRows.length-nE;
+          return nE?`<span style="color:#10b981;font-weight:700">${nE} con EDP</span>${nS?` · ${nS} estimado${nS===1?'':'s'}`:''}`
+                   :'estimado desde Tarifa del Master';
+        })(), ico:'💸'},
         {l:'Combustible Eq.',     v:_ccFmt(totalCombEq),  c:'#f97316', s:`${totalGalEq.toFixed(1)} gal · S/ ${(totalGalEq>0?totalCombEq/totalGalEq:0).toFixed(2)}/gal ${_ccPrecioManual?'<span style="color:#f97316;font-weight:700">manual</span>':'<span style="color:var(--muted)">real</span>'}${_ccSinIgv?' <span style="color:#10b981;font-weight:700">neto</span>':''}`, ico:'⛽'},
         {l:'Margen Bruto Eq.',    v:_ccFmt(totalMargenEq), c:'#10b981', s:modo==='full'?'Venta − (C.Prov. + Comb.)':'Venta − Costo Prov.', ico:'📈'},
       ].map(k=>`
@@ -549,18 +575,23 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       const tarifaCell=t?_ccFmt(t[KEY])+`<br><span style="font-size:.62rem;color:var(--muted2)">/${unLabel}</span>`
         :'<span style="color:#f59e0b;font-size:.72rem">Sin tarifa</span>';
 
-      // Columna Costo Proveedor (usa su propia unidad del Master)
+      // Columna Costo Proveedor — el EDP emitido manda sobre el estimado
       const unCosto=r.unCosto||r.un||'HM';
       const sinCostoEq=!r.eq.tarifa;
       let costoPCell;
-      if(sinCostoEq){
+      if(r.edp){
+        const nums=r.edp.nums.filter(Boolean).join(', ');
+        const mx=r.edp.moneda!=='SOLES'
+          ?`<br><span style="font-size:.6rem;color:#fbbf24">${r.edp.moneda==='DOLARES'?'US$':'€'} ${_ccFmt(r.edp.orig).replace('S/ ','')} × ${typeof _tcGet==='function'?_tcGet(r.edp.moneda):''}</span>`:'';
+        costoPCell=`${_ccFmt(r.costoProveedor)}
+          <br><span title="Costo real del EDP N° ${nums} emitido a este proveedor" style="font-size:.58rem;font-weight:800;color:#10b981;border:1px solid #10b98166;background:rgba(16,185,129,.14);border-radius:3px;padding:0 4px">EDP ${nums}</span>${mx}`;
+      } else if(sinCostoEq){
         costoPCell=`<span style="color:var(--muted2);font-size:.7rem">Sin tarifa en<br>Master</span>`;
-      } else if(unCosto!==r.un){
-        // Unidades distintas → mostrar fórmula explicativa
-        const baseFmt=unCosto==='HM'?r.horasEf.toFixed(1)+'h':unCosto==='DIA'?dias+'d':((factor*100).toFixed(0)+'%');
-        costoPCell=`${_ccFmt(r.costoProveedor)}<br><span style="font-size:.61rem;color:rgba(245,158,11,.6)">${baseFmt} × S/${(+r.eq.tarifa||0).toFixed(0)}</span>`;
       } else {
-        costoPCell=_ccFmt(r.costoProveedor);
+        // Sin EDP: estimado con la tarifa del Máster, se muestra la fórmula
+        const baseFmt=unCosto==='HM'?r.horasEf.toFixed(1)+'h':unCosto==='DIA'?dias+'d':((factor*100).toFixed(0)+'%');
+        costoPCell=`${_ccFmt(r.costoProveedor)}
+          <br><span title="Estimado: aún no hay EDP emitido para este equipo en el período" style="font-size:.61rem;color:rgba(245,158,11,.75)">≈ ${baseFmt} × S/${(+r.eq.tarifa||0).toFixed(0)}</span>`;
       }
 
       // Combustible (galones despachados en el período × precio configurado)
