@@ -974,9 +974,20 @@ function _rosterCelda(t){
   const c=_rosterTipoCol(t);
   return{bg:c+'2e',tx:c,lbl:t};
 }
+// Busca el día sobreescrito de una persona.
+// La fecha se recorta a 10 caracteres antes de comparar: si la columna de
+// Supabase es timestamp devuelve "2026-08-20T00:00:00+00:00" y la comparación
+// directa contra "2026-08-20" fallaba — el dato estaba guardado pero la grilla
+// no lo encontraba, y parecía que el cambio manual no se había guardado.
+const _rFec=f=>String(f||'').slice(0,10);
+function _rosterOvrDe(personalId,fecha){
+  const f=_rFec(fecha);
+  return (DB.rosterOvr||[]).find(o=>+o.personalId===+personalId&&_rFec(o.fecha)===f);
+}
 function _rosterTipoLbl(t){
   if(t==='D')return'DL';
-  return t||'';
+  const o=_ROSTER_TIPOS.find(x=>x.t===t);
+  return o?o.t+' – '+o.l:(t||'');
 }
 
 function _rosterLunes(d=new Date()){
@@ -1157,7 +1168,7 @@ function rRoster(){
       const pCfgPersona=(DB.personalRosterCfg||[]).find(c=>+c.personalId===+p.id);
       const cells=dias35.map(d=>{
         const tipoBase=_rosterTipoPersona(d,cfg,p.id);
-        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const ovr=_rosterOvrDe(p.id,d);
         const tipo=ovr?ovr.tipo:tipoBase;
         const esOvr=!!ovr;
         const esHoy=d===hoy;
@@ -1189,7 +1200,7 @@ function rRoster(){
     const _tipoHoyBase=cfg?_rosterTipo(hoy,cfg):null;
     let _cTD=0,_cTN=0,_cDL=0,_cAus=0;
     personas.forEach(p=>{
-      const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===hoy);
+      const ovr=_rosterOvrDe(p.id,hoy);
       const t=ovr?ovr.tipo:_tipoHoyBase;
       if(t==='TD')_cTD++;else if(t==='TN')_cTN++;
       else if(t==='D'||t==='DL')_cDL++;
@@ -1225,7 +1236,7 @@ function rRoster(){
   personasFiltradas.filter(p=>p.guardia).forEach(p=>{
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
-    const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===hoy);
+    const ovr=_rosterOvrDe(p.id,hoy);
     const t=ovr?ovr.tipo:_rosterTipo(hoy,cfg);
     if(t==='TD')_kpiTD++;
     else if(t==='TN')_kpiTN++;
@@ -1253,7 +1264,7 @@ function rRoster(){
       const cfg=_rosterGetCfg(g);if(!cfg)return;
       personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
         const tipoBase=_rosterTipoPersona(d,cfg,p.id);
-        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const ovr=_rosterOvrDe(p.id,d);
         const t=ovr?ovr.tipo:tipoBase;
         if(_ROSTER_OBRA.includes(t))n++;   // TD, TN, DL trabajado y Anexo 5 van a obra
       });
@@ -1277,7 +1288,7 @@ function rRoster(){
     const cfg=_rosterGetCfg(g);if(!cfg)return;
     personasFiltradas.filter(p=>p.guardia===g).forEach(p=>{
       dias35.forEach(d=>{
-        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const ovr=_rosterOvrDe(p.id,d);
         const t=ovr?ovr.tipo:_rosterTipoPersona(d,cfg,p.id);
         if(t)_tiposEnVista.add(t==='D'?'DL':t);
       });
@@ -1435,7 +1446,7 @@ function _rosterPrintPDF(){
     const rows=personas.map((p,idx)=>{
       const cells=dias35.map(d=>{
         const tipoBase=cfg?_rosterTipo(d,cfg):null;
-        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const ovr=_rosterOvrDe(p.id,d);
         const tipo=ovr?ovr.tipo:tipoBase;
         // Hoja blanca: fondo claro del color del tipo y texto del mismo tono oscuro
         let bg='',tx='#94a3b8',lbl='·';
@@ -1545,7 +1556,7 @@ function _rosterExportXLSX(desde,hasta){
       const bg=i%2===0?'F8FAFC':'FFFFFF';
       const dayCells=dias.map(d=>{
         const tipoBase=_rosterTipoPersona(d,cfg,p.id);
-        const ovr=DB.rosterOvr.find(o=>+o.personalId===+p.id&&o.fecha===d);
+        const ovr=_rosterOvrDe(p.id,d);
         const t=ovr?ovr.tipo:tipoBase;
         const _esDL=t==='D'||t==='DL';
         // Los tipos extra (P, F, DM…) toman su color del Tareaje, sin el '#'
@@ -1683,32 +1694,39 @@ function _rosterMultiToggleCell(key,el){
   const cnt=document.getElementById('rosterMultiCount');
   if(cnt)cnt.textContent=`${_rosterMultiSel.size} celda${_rosterMultiSel.size!==1?'s':''} seleccionada${_rosterMultiSel.size!==1?'s':''}`;
 }
-function _rosterMultiApply(tipo){
+async function _rosterMultiApply(tipo){
   if(!_rosterMultiSel.size)return;
-  const _n=_rosterMultiSel.size;
-  _rosterMultiSel.forEach(key=>{
+  const claves=[..._rosterMultiSel];
+  const _n=claves.length;
+  _rosterMultiSel.clear();
+  const pend=[];
+  claves.forEach(key=>{
     const [pid,fecha]=key.split('|');
     const personalId=+pid;
-    let rec=DB.rosterOvr.find(o=>+o.personalId===personalId&&o.fecha===fecha);
+    let rec=_rosterOvrDe(personalId,fecha);
     if(tipo==='RESET'){
-      if(rec){DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);supaDelete('rosterOvr',rec.id);}
+      if(rec){DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);pend.push(supaDelete('rosterOvr',rec.id));}
     }else{
       if(rec){rec.tipo=tipo;}
-      else{rec={id:nid('rovr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
-      syncSheet('saveRosterOvr',rec);
+      else{rec={id:nidSeguro('rovr','rosterOvr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
+      pend.push(supaUpsert('rosterOvr',rec));
     }
   });
-  _rosterMultiSel.clear();
   rRoster();
+  toast(`Guardando ${_n} día${_n===1?'':'s'}…`);
+  // Se espera a que TODAS terminen para poder confirmar o avisar del fallo
+  const res=await Promise.all(pend);
+  const fallos=res.filter(Boolean).length;
   const _lbl=tipo==='RESET'?'restaurados al ciclo':'marcados como '+tipo;
-  toast(`✓ ${_n} día${_n===1?'':'s'} ${_lbl}`);
+  if(fallos)toast(`⚠ ${fallos} de ${_n} no se pudieron guardar`,true);
+  else toast(`✓ ${_n} día${_n===1?'':'s'} ${_lbl}`);
 }
 
 // ── OVERRIDE DE DÍAS DEL ROSTER ──────────────────────────────────────────────
 let _rosterOvrEl=null;
 function _rosterOvrPicker(personalId,fecha,ev){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  const ovr=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
+  const ovr=_rosterOvrDe(personalId,fecha);
   const p=(DB.personal||[]).find(x=>x.id===+personalId);
   const nm=p?`${p.ape||''}, ${(p.nom||'').split(' ')[0]}`:'';
   const div=document.createElement('div');
@@ -1738,17 +1756,27 @@ function _rosterOvrPicker(personalId,fecha,ev){
   div.style.top=top+'px';div.style.left=left+'px';
   setTimeout(()=>document.addEventListener('click',function h(e){if(!div.contains(e.target)){div.remove();_rosterOvrEl=null;document.removeEventListener('click',h);}},{once:false}),10);
 }
-function _rosterSaveOvr(personalId,fecha,tipo){
+async function _rosterSaveOvr(personalId,fecha,tipo){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  let rec=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
+  let rec=_rosterOvrDe(personalId,fecha);
+  const esNuevo=!rec;
   if(rec){rec.tipo=tipo;}
-  else{rec={id:nid('rovr'),personalId,fecha,tipo};DB.rosterOvr.push(rec);}
-  syncSheet('saveRosterOvr',rec);
+  // nidSeguro en vez de nid: el contador puede quedar corto y el upsert pisaría otra fila
+  else{rec={id:nidSeguro('rovr','rosterOvr'),personalId:+personalId,fecha,tipo};DB.rosterOvr.push(rec);}
   rRoster();
+  // Se espera la respuesta de la base: si falla hay que deshacer el cambio en
+  // pantalla, o el usuario cree que quedó guardado y al recargar no está.
+  const err=await supaUpsert('rosterOvr',rec);
+  if(err){
+    if(esNuevo)DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);
+    rRoster();
+    return;
+  }
+  toast('✓ '+_rosterTipoLbl(tipo)+' guardado · '+_rosterFmt(fecha));
 }
 function _rosterDelOvr(personalId,fecha){
   if(_rosterOvrEl){_rosterOvrEl.remove();_rosterOvrEl=null;}
-  const rec=DB.rosterOvr.find(o=>+o.personalId===+personalId&&o.fecha===fecha);
+  const rec=_rosterOvrDe(personalId,fecha);
   if(!rec)return;
   DB.rosterOvr=DB.rosterOvr.filter(o=>o.id!==rec.id);
   supaDelete('rosterOvr',rec.id);
