@@ -83,7 +83,7 @@ function _gdTiposRoster(fecha){
     if((p.est||'Activo')!=='Activo')return;
     const cfg=_rosterGetCfg(p.guardia);
     if(!cfg)return;
-    const ovr=(DB.rosterOvr||[]).find(o=>+o.personalId===+p.id&&o.fecha===fecha);
+    const ovr=(DB.rosterOvr||[]).find(o=>+o.personalId===+p.id&&String(o.fecha||'').slice(0,10)===fecha);
     let t=ovr?ovr.tipo:_rosterTipoPersona(fecha,cfg,p.id);
     if(!t)return;                 // aún no se incorpora o la guardia no arrancó
     if(t==='D')t='DL';            // el ciclo devuelve 'D'; el cuadro usa 'DL'

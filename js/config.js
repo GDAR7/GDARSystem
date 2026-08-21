@@ -258,32 +258,30 @@ async function refreshData(){
 // ══ CARGA INICIAL DESDE SUPABASE ══
 async function loadSheetsData(){
   try{
-    // Tablas que crecen sin límite: se cargan paginadas (Supabase corta en 1000 filas por consulta)
-    const PAGINADAS={catalogoItems:'materiales',tareaje:'tareaje',partes:'partes',combustible:'combustible'};
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen'&&!PAGINADAS[k]);
-    const results=await Promise.all(
-      simpleKeys.map(dbKey=>
-        supa.from(SUPA_TABLES[dbKey]).select('*')
-          .then(({data,error})=>({dbKey,data,error}))
-      )
-    );
-    // Carga paginada en bloques de 1000 hasta traer todo
+    // Carga paginada en bloques de 1000 hasta traer todo.
+    // Supabase corta CUALQUIER select en 1000 filas: si una tabla las supera y no
+    // se pagina, las filas que faltan simplemente no llegan y parece que los datos
+    // "no se guardaron" (le pasó a roster_ovr al llegar a 1364 registros).
+    // Por eso TODAS las tablas se cargan así: la segunda petición solo se hace
+    // cuando la primera devuelve exactamente 1000, así que no cuesta nada extra.
     const cargarPaginado=async tabla=>{
-      let all=[],from=0,pageSize=1000;
+      let all=[],from=0,pageSize=1000,err=null;
       while(true){
         const{data,error}=await supa.from(tabla).select('*').range(from,from+pageSize-1).order('id');
-        if(error){console.warn('[loadPaginado]',tabla,error.message);break;}
+        if(error){console.warn('[loadPaginado]',tabla,error.message);err=error;break;}
         if(!data||data.length===0)break;
         all=all.concat(data);
         if(data.length<pageSize)break;
         from+=pageSize;
       }
-      return all;
+      return{data:all,error:err};
     };
-    for(const[dbKey,tabla]of Object.entries(PAGINADAS)){
-      const data=await cargarPaginado(tabla);
-      if(data.length>0)results.push({dbKey,data,error:null});
-    }
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen');
+    const results=await Promise.all(
+      simpleKeys.map(dbKey=>
+        cargarPaginado(SUPA_TABLES[dbKey]).then(({data,error})=>({dbKey,data,error}))
+      )
+    );
     const nxMap={personal:'personal',social:'social',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',

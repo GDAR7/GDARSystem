@@ -974,15 +974,63 @@ function _rosterCelda(t){
   const c=_rosterTipoCol(t);
   return{bg:c+'2e',tx:c,lbl:t};
 }
+// Normaliza EN SITIO las fechas de los días sobreescritos.
+// La columna de Supabase guarda timestamp ("2026-08-20T00:00:00+00:00") y al
+// volver ya no coincidía con la fecha corta de la grilla: el cambio estaba
+// guardado pero no se veía. Se corre antes de cada render, es idempotente.
+function _rosterNormOvr(){
+  (DB.rosterOvr||[]).forEach(o=>{
+    if(o&&typeof o.fecha==='string'&&o.fecha.length>10)o.fecha=o.fecha.slice(0,10);
+  });
+  // Mismo problema en las fechas de inicio de ciclo y de incorporación
+  (DB.rosterConfig||[]).forEach(c=>{
+    if(c&&typeof c.fechaInicio==='string'&&c.fechaInicio.length>10)c.fechaInicio=c.fechaInicio.slice(0,10);
+  });
+  (DB.personalRosterCfg||[]).forEach(c=>{
+    if(c&&typeof c.fechaInicio==='string'&&c.fechaInicio.length>10)c.fechaInicio=c.fechaInicio.slice(0,10);
+  });
+}
 // Busca el día sobreescrito de una persona.
-// La fecha se recorta a 10 caracteres antes de comparar: si la columna de
-// Supabase es timestamp devuelve "2026-08-20T00:00:00+00:00" y la comparación
-// directa contra "2026-08-20" fallaba — el dato estaba guardado pero la grilla
-// no lo encontraba, y parecía que el cambio manual no se había guardado.
+// Dos precauciones aprendidas a la mala:
+//  1) La fecha se recorta a 10 caracteres antes de comparar, por si la columna
+//     devolviera el valor con hora.
+//  2) Puede haber VARIAS filas para la misma persona y fecha: mientras la carga
+//     estaba truncada en 1000 registros, al no encontrar el original se creaba
+//     uno nuevo. Se toma SIEMPRE el de id más alto — el último guardado —, si no
+//     la grilla mostraría el valor viejo y parecería que el cambio no se guardó.
 const _rFec=f=>String(f||'').slice(0,10);
 function _rosterOvrDe(personalId,fecha){
   const f=_rFec(fecha);
-  return (DB.rosterOvr||[]).find(o=>+o.personalId===+personalId&&_rFec(o.fecha)===f);
+  let hit=null;
+  (DB.rosterOvr||[]).forEach(o=>{
+    if(+o.personalId!==+personalId||_rFec(o.fecha)!==f)return;
+    if(!hit||+o.id>+hit.id)hit=o;
+  });
+  return hit;
+}
+// Filas repetidas de la misma persona+fecha: se conserva la última y se borran
+// las anteriores, en memoria y en la base.
+async function _rosterLimpiarDuplicados(){
+  const porClave=new Map();
+  (DB.rosterOvr||[]).forEach(o=>{
+    const k=(+o.personalId)+'|'+_rFec(o.fecha);
+    if(!porClave.has(k))porClave.set(k,[]);
+    porClave.get(k).push(o);
+  });
+  const sobran=[];
+  porClave.forEach(arr=>{
+    if(arr.length<2)return;
+    arr.sort((a,b)=>+b.id-+a.id);          // el más nuevo primero
+    sobran.push(...arr.slice(1));
+  });
+  if(!sobran.length){toast('No hay días duplicados');return;}
+  if(!confirm('Se encontraron '+sobran.length+' registro(s) duplicado(s) de dias del roster. Se conservara el mas reciente de cada dia y se borraran los anteriores. Continuar?'))return;
+  const ids=new Set(sobran.map(o=>+o.id));
+  DB.rosterOvr=(DB.rosterOvr||[]).filter(o=>!ids.has(+o.id));
+  rRoster();
+  toast('Limpiando '+sobran.length+' duplicados…');
+  for(const o of sobran)await supaDelete('rosterOvr',o.id);
+  toast('✓ '+sobran.length+' duplicado(s) eliminado(s)');
 }
 function _rosterTipoLbl(t){
   if(t==='D')return'DL';
@@ -1126,6 +1174,7 @@ function _rosterTab(k){
 }
 
 function rRoster(){
+  _rosterNormOvr();   // fechas de Supabase pueden venir con hora
   if(!_rosterInicioVista)_rosterInicioVista=_rosterLunes();
   const hoy=today();
   const dias35=Array.from({length:35},(_,i)=>_rosterAddDays(_rosterInicioVista,i));
@@ -1332,6 +1381,7 @@ function rRoster(){
         <button onclick="_rosterInicioVista=_rosterLunes();rRoster()" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.3rem .7rem;color:#f59e0b;cursor:pointer;font-size:.72rem;font-weight:700">Hoy</button>
         <button onclick="_rosterPrintPDF()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:6px;padding:.3rem .7rem;color:#ef4444;cursor:pointer;font-size:.72rem;font-weight:700">🖨️ PDF</button>
         <button onclick="_rosterOpenExport()" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:.3rem .7rem;color:#10b981;cursor:pointer;font-size:.72rem;font-weight:700">📥 Excel</button>
+        <button onclick="_rosterLimpiarDuplicados()" title="Busca dias repetidos de la misma persona y deja solo el ultimo guardado" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:6px;padding:.3rem .7rem;color:#ef4444;cursor:pointer;font-size:.72rem;font-weight:700">🧹 Duplicados</button>
         <button onclick="_rosterToggleMulti()" style="background:${_rosterMultiMode?'rgba(168,85,247,.2)':'rgba(168,85,247,.08)'};border:1px solid ${_rosterMultiMode?'#a855f7':'rgba(168,85,247,.3)'};border-radius:6px;padding:.3rem .7rem;color:${_rosterMultiMode?'#a855f7':'#c084fc'};cursor:pointer;font-size:.72rem;font-weight:700">${_rosterMultiMode?'✕ Cancelar':'☰ Multi-selección'}</button>
       </div>
     </div>
