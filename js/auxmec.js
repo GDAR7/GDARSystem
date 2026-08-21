@@ -340,14 +340,14 @@ function openAuxMec(){
   _amPopulateMatDatalist();
   openM('mAuxMec');
 }
-function gAuxMec(){
+async function gAuxMec(){
   const eqId=+document.getElementById('amEq').value||null;
   const horometro=parseFloat(document.getElementById('amHorometro').value)||null;
   if(!eqId){toast('Seleccione un equipo (Tab Identificación)',true);amGoTab(0);return;}
   if(!horometro){toast('El horómetro/Km es obligatorio (Tab Identificación)',true);amGoTab(0);return;}
   if(!document.getElementById('amDesc').value.trim()){toast('Ingrese descripción del problema (Tab Diagnóstico)',true);amGoTab(1);return;}
   const rec={
-    id:nid('auxMec'),
+    id:nidSeguro('auxMec','auxiliosMecanicos'),
     cod:document.getElementById('amCod').value,
     fecha:document.getElementById('amFecha').value||today(),
     hora:document.getElementById('amHora').value||null,
@@ -370,29 +370,38 @@ function gAuxMec(){
     conforme:document.getElementById('amConforme').checked,
     obs:document.getElementById('amObs').value.trim()||null,
   };
-  const _saveInsumos=(auxilioId)=>{
-    amGetInsumos().forEach(ins=>{
-      const insRec={id:nid('auxMecIns'),auxilioId,desc:ins.desc,cod:ins.cod||null,cant:ins.cant,und:ins.und||null,origen:ins.origen};
+  // Los insumos tienen FK contra el auxilio: hay que esperar a que el padre
+  // exista en la base antes de mandarlos, o Postgres rechaza cada fila con
+  // "violates foreign key constraint aux_mec_insumos_auxilio_id_fkey".
+  const _saveInsumos=async(auxilioId)=>{
+    for(const ins of amGetInsumos()){
+      const insRec={id:nidSeguro('auxMecIns','auxMecInsumos'),auxilioId,desc:ins.desc,cod:ins.cod||null,cant:ins.cant,und:ins.und||null,origen:ins.origen};
       DB.auxMecInsumos.push(insRec);
-      syncSheet('saveAuxMecInsumo',insRec);
-    });
+      const e=await supaUpsert('auxMecInsumos',insRec);
+      if(e)DB.auxMecInsumos=DB.auxMecInsumos.filter(x=>x.id!==insRec.id);
+    }
   };
   if(_amEditId!==null){
     // EDITAR: actualizar registro existente
     const idx=DB.auxiliosMecanicos.findIndex(x=>x.id===_amEditId);
-    if(idx>-1){DB.auxiliosMecanicos[idx]={...DB.auxiliosMecanicos[idx],...rec,id:_amEditId};syncSheet('saveAuxMec',DB.auxiliosMecanicos[idx]);}
+    if(idx>-1){
+      DB.auxiliosMecanicos[idx]={...DB.auxiliosMecanicos[idx],...rec,id:_amEditId};
+      const eP=await supaUpsert('auxiliosMecanicos',DB.auxiliosMecanicos[idx]);
+      if(eP){toast('No se guardaron los cambios',true);return;}
+    }
     // Reemplazar insumos: borrar los viejos e insertar nuevos
     const viejosIds=DB.auxMecInsumos.filter(i=>i.auxilioId===_amEditId).map(i=>i.id);
     DB.auxMecInsumos=DB.auxMecInsumos.filter(i=>i.auxilioId!==_amEditId);
-    viejosIds.forEach(vid=>supaDelete('auxMecInsumos',vid));
-    _saveInsumos(_amEditId);
+    for(const vid of viejosIds)await supaDelete('auxMecInsumos',vid);
+    await _saveInsumos(_amEditId);
     _amEditId=null;
     closeM('mAuxMec');rAuxMec();toast('Auxilio actualizado: '+rec.cod);
   }else{
     // CREAR: nuevo registro
     DB.auxiliosMecanicos.push(rec);
-    syncSheet('saveAuxMec',rec);
-    _saveInsumos(rec.id);
+    const eC=await supaUpsert('auxiliosMecanicos',rec);
+    if(eC){DB.auxiliosMecanicos=DB.auxiliosMecanicos.filter(x=>x.id!==rec.id);rAuxMec();return;}
+    await _saveInsumos(rec.id);
     // Guardar timestamp de creación para la ventana de 48h del botón eliminar
     try{const d=JSON.parse(localStorage.getItem('ecosermo_auxmec_ts')||'{}');d[rec.id]=Date.now();localStorage.setItem('ecosermo_auxmec_ts',JSON.stringify(d));}catch(e){}
     closeM('mAuxMec');rAuxMec();toast('Auxilio registrado: '+rec.cod);
