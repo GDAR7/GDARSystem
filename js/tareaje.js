@@ -51,6 +51,89 @@ function _tarToggleInact(){
   rTareaje();
   toast(_tarVerInact?'👁️ Inactivos visibles en la grilla':'🚫 Inactivos ocultos');
 }
+
+// ══ RANGO DE FECHAS ═════════════════════════════════════════════════════════
+// La grilla puede mostrar un mes completo (modo 'mes') o un rango libre
+// (modo 'rango'), por ejemplo el período contable del 21 al 20.
+let _tarModo='mes';
+let _tarDesde='', _tarHasta='';
+const _tarPad=n=>String(n).padStart(2,'0');
+function _tarMesSel(){return document.getElementById('tareMes')?.value||new Date().toISOString().slice(0,7);}
+function _tarRangoOn(){return _tarModo==='rango'&&_tarDesde&&_tarHasta&&_tarDesde<=_tarHasta;}
+// Lista de fechas ISO que se dibujan como columnas
+function _tarFechas(){
+  if(_tarRangoOn()){
+    const out=[];let d=new Date(_tarDesde+'T12:00:00');const fin=new Date(_tarHasta+'T12:00:00');
+    while(d<=fin){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+    return out.slice(0,400);              // tope de seguridad
+  }
+  const[y,m]=_tarMesSel().split('-').map(Number);
+  const n=new Date(y,m,0).getDate();
+  return Array.from({length:n},(_,i)=>`${y}-${_tarPad(m)}-${_tarPad(i+1)}`);
+}
+// ¿Una marca de tareaje cae dentro de lo que se está mostrando?
+function _tarEnRango(f){
+  if(!f)return false;
+  if(_tarRangoOn())return f>=_tarDesde&&f<=_tarHasta;
+  return f.startsWith(_tarMesSel());
+}
+// Rótulo del período para encabezados e impresión
+function _tarPeriodoLbl(){
+  if(_tarRangoOn()){
+    const dmy=i=>{const[a,b,c]=i.split('-');return `${c}/${b}/${a}`;};
+    return dmy(_tarDesde)+' AL '+dmy(_tarHasta);
+  }
+  const[y,m]=_tarMesSel().split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase()+' '+y;
+}
+function _tarSetRango(campo,val){
+  if(campo==='desde')_tarDesde=val;
+  else if(campo==='hasta')_tarHasta=val;
+  if(_tarDesde&&_tarHasta)_tarModo='rango';
+  rTareaje();
+}
+// Período contable 21→20 que contiene la fecha dada (o la de hoy)
+function _tarPeriodo2120(base){
+  const d=base?new Date(base+'T12:00:00'):new Date();
+  const y=d.getFullYear(),m=d.getMonth(),dia=d.getDate();
+  const ini=dia>=21?new Date(y,m,21):new Date(y,m-1,21);
+  const fin=new Date(ini.getFullYear(),ini.getMonth()+1,20);
+  const iso=x=>`${x.getFullYear()}-${_tarPad(x.getMonth()+1)}-${_tarPad(x.getDate())}`;
+  return{desde:iso(ini),hasta:iso(fin)};
+}
+function _tarPer2120(){
+  const p=_tarPeriodo2120();_tarDesde=p.desde;_tarHasta=p.hasta;_tarModo='rango';rTareaje();
+}
+function _tarPerNav(n){
+  const base=_tarRangoOn()?_tarDesde:null;
+  const p=_tarPeriodo2120(base);
+  const d=new Date(p.desde+'T12:00:00');d.setMonth(d.getMonth()+n);
+  const q=_tarPeriodo2120(`${d.getFullYear()}-${_tarPad(d.getMonth()+1)}-21`);
+  _tarDesde=q.desde;_tarHasta=q.hasta;_tarModo='rango';rTareaje();
+}
+function _tarVolverMes(){_tarModo='mes';_tarDesde='';_tarHasta='';rTareaje();}
+
+
+// Barra de rango: se pinta en cada render para reflejar el modo activo
+function _tarPintarRango(){
+  const el=document.getElementById('tareRangoBar');if(!el)return;
+  const on=_tarRangoOn();
+  const inp=`width:118px;flex:0 0 118px;box-sizing:border-box;background:var(--panel);border:1px solid ${on?'#22d3ee':'var(--border)'};border-radius:5px;color:var(--text);padding:.16rem .35rem;font-size:.7rem;color-scheme:dark`;
+  const btn='flex:0 0 auto;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.16rem .45rem;font-size:.7rem;line-height:1.2;cursor:pointer;white-space:nowrap';
+  const mesEl=document.getElementById('tareMes');
+  if(mesEl)mesEl.style.opacity=on?'.45':'1';   // el mes queda atenuado en modo rango
+  el.innerHTML=`
+    <span style="font-size:.58rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;white-space:nowrap">o rango</span>
+    <input type="date" class="date-ic-azul" value="${_tarDesde}" onchange="_tarSetRango('desde',this.value)" style="${inp}">
+    <span style="color:var(--muted2);font-size:.7rem">→</span>
+    <input type="date" class="date-ic-azul" value="${_tarHasta}" onchange="_tarSetRango('hasta',this.value)" style="${inp}">
+    <button onclick="_tarPerNav(-1)" title="Período anterior" style="${btn}">◀</button>
+    <button onclick="_tarPer2120()" title="Período contable en curso: del 21 al 20" style="${btn};background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.45);color:#22d3ee;font-weight:700">21→20</button>
+    <button onclick="_tarPerNav(1)" title="Período siguiente" style="${btn}">▶</button>
+    ${on?`<button onclick="_tarVolverMes()" title="Volver a la vista por mes" style="${btn};border-color:#ef444455;color:#ef4444;font-weight:700">✕ Mes</button>
+    <span style="font-size:.62rem;color:#22d3ee;font-weight:700;white-space:nowrap">${_tarFechas().length} días</span>`:''}`;
+}
+
 let _tarLeyFiltro=null;
 function _tarLeySet(tipo){
   _tarLeyFiltro=_tarLeyFiltro===tipo?null:tipo;
@@ -60,7 +143,7 @@ function _tarAplicaLeyFiltro(lista,monthStr){
   if(!_tarLeyFiltro)return lista;
   const proy=document.getElementById('tareProy')?.value||'';
   const ids=new Set(DB.tareaje
-    .filter(r=>r.tipo===_tarLeyFiltro&&r.fecha&&r.fecha.startsWith(monthStr)&&(!proy||r.proy===proy||!r.proy))
+    .filter(r=>r.tipo===_tarLeyFiltro&&_tarEnRango(r.fecha)&&(!proy||r.proy===proy||!r.proy))
     .map(r=>r.personalId));
   return lista.filter(p=>ids.has(p.id));
 }
@@ -69,7 +152,7 @@ function _tarLeyConteos(monthStr){
   const proy=document.getElementById('tareProy')?.value||'';
   const m={};
   DB.tareaje.forEach(r=>{
-    if(!r.fecha||!r.fecha.startsWith(monthStr))return;
+    if(!_tarEnRango(r.fecha))return;
     if(proy&&r.proy&&r.proy!==proy)return;
     (m[r.tipo]=m[r.tipo]||new Set()).add(r.personalId);
   });
@@ -485,12 +568,15 @@ function rTareaje(){
   const days=new Date(y,m,0).getDate();
   const monthStr=`${y}-${pad(m)}`;
   const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const _MESC=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+  const FECHAS=_tarFechas();
+  const _multiMes=FECHAS.length>0&&FECHAS[0].slice(0,7)!==FECHAS[FECHAS.length-1].slice(0,7);
   const proyEl=document.getElementById('tareProy');
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
   const proyFiltro=proyEl?proyEl.value:'';
   let persF;
   if(proyFiltro){
-    const workerIdsConRec=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    const workerIdsConRec=new Set(DB.tareaje.filter(r=>_tarEnRango(r.fecha)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||workerIdsConRec.has(p.id));
   }else{persF=DB.personal;}
   // Los dados de baja (estado "Inactivo") normalmente no aparecen en la grilla, solo
@@ -501,7 +587,7 @@ function rTareaje(){
   persF=_tarAplicaColFilt(persF); // filtros elegidos en los encabezados de columna
   persF=_tarAplicaLeyFiltro(persF,monthStr); // chip de la leyenda (TD, TN, F, …)
   const persFIds=new Set(persF.map(p=>p.id));
-  const monthRecs=DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&persFIds.has(r.personalId));
+  const monthRecs=DB.tareaje.filter(r=>_tarEnRango(r.fecha)&&persFIds.has(r.personalId));
   document.getElementById('tareKpis').innerHTML=[
     {l:'Trabajadores',v:persF.length,c:'var(--mec)',ic:'👷',sub:'en grilla'},
     {l:'Trabajo Día',v:monthRecs.filter(r=>r.tipo==='TD').length,c:'#10b981',ic:'☀️',sub:'jornadas TD'},
@@ -524,26 +610,28 @@ function rTareaje(){
   }).join('')+(_tarLeyFiltro?`<span onclick="_tarLeySet(null)" style="font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--border);color:#ef4444;white-space:nowrap">✕ Quitar filtro</span>`:'');
   const _tarRO=isModuleReadOnly('tareaje');
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
-  const dayHdrs=Array.from({length:days},(_,i)=>{
-    const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
+  const dayHdrs=FECHAS.map(fecha=>{
+    const d=+fecha.slice(8);
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th ${_tarRO?'':` onclick="_tarColClick('${fecha}')"`} style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${_tarRO?'':'cursor:pointer;'}${isSun?'color:#f59e0b;background-image:linear-gradient(rgba(245,158,11,.12),rgba(245,158,11,.12))':''}">${d}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
+    // En un rango que cruza meses, el subtitulo muestra el mes en vez del dia
+    const sub=_multiMes?_MESC[+fecha.slice(5,7)-1]:DN[dow];
+    return`<th ${_tarRO?'':` onclick="_tarColClick('${fecha}')"`} title="${fecha}" style="text-align:center;min-width:30px;width:30px;padding:2px 1px;font-size:.6rem;${_tarRO?'':'cursor:pointer;'}${isSun?'color:#f59e0b;background-image:linear-gradient(rgba(245,158,11,.12),rgba(245,158,11,.12))':''}">${d}<div style="font-size:.5rem;opacity:.7">${sub}</div></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
     const _matchProy=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
-    const cells=Array.from({length:days},(_,i)=>{
-      const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
+    const cells=FECHAS.map(fecha=>{
+      const d=+fecha.slice(8);
       const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_matchProy(r));
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
       return`<td id="tar-${p.id}-${fecha}" ${_tarRO?'':` onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)"`} style="text-align:center;${_tarRO?'':'cursor:pointer;'}height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
     }).join('');
-    const totD=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&(r.tipo==='TD'||r.tipo==='A5')&&_matchProy(r)).map(r=>r.fecha)).size;
-    const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_matchProy(r)).map(r=>r.fecha)).size;
-    const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_matchProy(r)).map(r=>r.fecha)).size;
-    const totA5=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='A5'&&_matchProy(r)).map(r=>r.fecha)).size;
-    const totDLT=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totD=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&(r.tipo==='TD'||r.tipo==='A5')&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='TN'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='DL'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totA5=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='A5'&&_matchProy(r)).map(r=>r.fecha)).size;
+    const totDLT=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='DLT'&&_matchProy(r)).map(r=>r.fecha)).size;
     const _a5html=totA5>0?('<br><span style="color:#f97316;font-weight:700">'+totA5+'</span><span style="color:var(--muted2);font-size:.6rem">A5</span>'):'';
     const _dlthtml=totDLT>0?(' <span style="color:#84cc16;font-weight:700">'+totDLT+'</span><span style="color:var(--muted2);font-size:.6rem">DLT</span>'):'';
     // Los inactivos solo se ven con el toggle: se marcan para no confundirlos con activos
@@ -594,12 +682,13 @@ function rTareaje(){
         ${_tarShowAsig?_tarTh('asig','Asig. Fam.','#fbbf24',72,1):''}
         ${_tarShowGrd?_tarTh('grd','Guardia','#f59e0b',70,1):''}
         ${_tarShowProc?_tarTh('proc','Procedencia','#a78bfa',100):''}
-        <th colspan="${days}" style="text-align:center;padding:5px;font-size:.72rem;background-image:linear-gradient(rgba(4,78,100,.2),rgba(4,78,100,.2));color:var(--mec);font-weight:700;letter-spacing:.05em">${mesNombre} ${y}</th>
+        <th colspan="${FECHAS.length}" style="text-align:center;padding:5px;font-size:.72rem;background-image:linear-gradient(rgba(4,78,100,.2),rgba(4,78,100,.2));color:var(--mec);font-weight:700;letter-spacing:.05em">${_tarPeriodoLbl()}</th>
         <th style="padding:5px 4px;font-size:.62rem;text-align:center;white-space:nowrap;min-width:55px;background-image:linear-gradient(rgba(4,78,100,.12),rgba(4,78,100,.12));line-height:1.4"><span style="color:#10b981">TD</span>/<span style="color:#3b82f6">TN</span><br><span style="color:#6b7280">DL</span></th>
       </tr>
       <tr style="background:var(--panel2)"><th class="tar-fx"></th><th class="tar-fx tar-fx-end"></th>${_tarShowDni?'<th></th>':''}${_tarShowCargo?'<th></th>':''}${_tarShowCat?'<th></th>':''}${_tarShowTipo?'<th></th>':''}${_tarShowIng?'<th></th>':''}${_tarShowAsig?'<th></th>':''}${_tarShowGrd?'<th></th>':''}${_tarShowProc?'<th></th>':''}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
+  _tarPintarRango();
   _tarAplicarFijado();
 }
 function openTarePicker(personalId,fecha,cellEl){
@@ -666,7 +755,7 @@ function _tarPersFiltrados(monthStr){
   const buscar=(document.getElementById('tareBuscar')?.value||'').toLowerCase().trim();
   let persF;
   if(proyFiltro){
-    const wids=new Set(DB.tareaje.filter(r=>r.fecha&&r.fecha.startsWith(monthStr)&&r.proy===proyFiltro).map(r=>r.personalId));
+    const wids=new Set(DB.tareaje.filter(r=>_tarEnRango(r.fecha)&&r.proy===proyFiltro).map(r=>r.personalId));
     persF=DB.personal.filter(p=>p.proy===proyFiltro||wids.has(p.id));
   }else{persF=[...DB.personal];}
   if(!_tarVerInact)persF=persF.filter(p=>p.est!=='Inactivo'); // igual que la grilla
@@ -687,7 +776,8 @@ function _tarFiltroTxt(){
   }).join('');
   const ley=_tarLeyFiltro?' · Solo con '+_tarLeyFiltro+' ('+(_TARE_T[_tarLeyFiltro]?.l||_tarLeyFiltro)+')':'';
   const inact=_tarVerInact?' · Incluye personal dado de baja':'';
-  return cols+ley+inact+(b?' · Filtro: "'+b+'"':'');
+  const per=_tarRangoOn()?' · Período '+_tarPeriodoLbl():'';
+  return per+cols+ley+inact+(b?' · Filtro: "'+b+'"':'');
 }
 function printTareaje(){
   const pad=n=>String(n).padStart(2,'0');
@@ -696,6 +786,9 @@ function printTareaje(){
   const days=new Date(y,m,0).getDate();
   const monthStr=`${y}-${pad(m)}`;
   const DN=['D','L','M','X','J','V','S'];
+  const _MESC=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+  const FECHAS=_tarFechas();
+  const _multiMes=FECHAS.length>0&&FECHAS[0].slice(0,7)!==FECHAS[FECHAS.length-1].slice(0,7);
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const proyEl=document.getElementById('tareProy');
@@ -704,31 +797,31 @@ function printTareaje(){
   const elab='';
   // Solo los que están visibles en la grilla (proyecto + guardia + buscador)
   const persF=_tarPersFiltrados(monthStr);
-  const dayHdrs=Array.from({length:days},(_,i)=>{
-    const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
+  const dayHdrs=FECHAS.map(fecha=>{
+    const d=+fecha.slice(8);
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th style="text-align:center;width:18px;min-width:18px;padding:1px 0;font-size:6.5px;${isSun?'background:#fef3c7;color:#92400e':'background:#1e3a5f;color:#fff'}">${d}<br><span style="font-size:5.5px">${DN[dow]}</span></th>`;
+    const sub=_multiMes?_MESC[+fecha.slice(5,7)-1]:DN[dow];
+    return`<th style="text-align:center;width:18px;min-width:18px;padding:1px 0;font-size:6.5px;${isSun?'background:#fef3c7;color:#92400e':'background:#1e3a5f;color:#fff'}">${d}<br><span style="font-size:5.5px">${sub}</span></th>`;
   }).join('');
   const rows=persF.map((p,idx)=>{
     const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
-    const cells=Array.from({length:days},(_,i)=>{
-      const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
+    const cells=FECHAS.map(fecha=>{
       const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
       return`<td style="text-align:center;padding:0;border:1px solid #e2e8f0;height:18px;${t?`background:${t.bg};color:${t.tx};font-weight:700;font-size:6px`:''}${isSun&&!tipo?'background:#fffbeb;':''}">${tipo}</td>`;
     }).join('');
-    const totD=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&(r.tipo==='TD'||r.tipo==='A5')&&_mp(r)).map(r=>r.fecha)).size;
-    const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='TN'&&_mp(r)).map(r=>r.fecha)).size;
-    const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DL'&&_mp(r)).map(r=>r.fecha)).size;
-    const totA5p=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='A5'&&_mp(r)).map(r=>r.fecha)).size;
-    const totDLTp=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo==='DLT'&&_mp(r)).map(r=>r.fecha)).size;
+    const totD=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&(r.tipo==='TD'||r.tipo==='A5')&&_mp(r)).map(r=>r.fecha)).size;
+    const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='TN'&&_mp(r)).map(r=>r.fecha)).size;
+    const totDL=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='DL'&&_mp(r)).map(r=>r.fecha)).size;
+    const totA5p=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='A5'&&_mp(r)).map(r=>r.fecha)).size;
+    const totDLTp=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='DLT'&&_mp(r)).map(r=>r.fecha)).size;
     const _pa5=totA5p>0?' <span style="color:#ea580c;font-weight:700">'+totA5p+'</span>A5':'';
     const _pdlt=totDLTp>0?' <span style="color:#65a30d;font-weight:700">'+totDLTp+'</span>DLT':'';
     return`<tr><td style="text-align:center;font-size:7px;padding:1px 2px;border:1px solid #e2e8f0">${idx+1}</td><td style="font-size:7.5px;font-weight:700;padding:1px 4px;border:1px solid #e2e8f0;white-space:nowrap">${p.ape}, ${p.nom}</td><td style="font-size:6.5px;padding:1px 3px;border:1px solid #e2e8f0;white-space:nowrap;color:#64748b">${p.cargo||'—'}</td>${cells}<td style="text-align:center;font-size:7px;padding:1px 3px;border:1px solid #e2e8f0;background:#e0f2fe;line-height:1.6"><span style="color:#059669;font-weight:700">${totD}</span>TD <span style="color:#1e40af;font-weight:700">${totN}</span>TN<br><span style="color:#6b7280;font-weight:700">${totDL}</span>DL${_pdlt}${_pa5}</td></tr>`;
   }).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tareaje ${mesNombre} ${y}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tareaje ${_tarPeriodoLbl()}</title>
 <style>@page{size:A4 landscape;margin:.7cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
 .hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:5px;margin-bottom:6px}
 .hdr img{height:44px;object-fit:contain}
@@ -740,7 +833,7 @@ td{border:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{backgrou
 .ley{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
 .lt{font-size:6px;font-weight:700;padding:2px 4px;border-radius:3px;color:#fff}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
-<div class="hdr"><img src="${_logoUrl}" alt="Ecosermo"><div style="text-align:center"><div style="font-size:13px;font-weight:900;color:#1e3a5f">TAREAJE DE PERSONAL</div><div style="font-size:9px;color:#64748b">Control de Asistencia Mensual</div></div><div style="text-align:right;font-size:7.5px;color:#64748b"><div style="font-weight:700;color:#1e3a5f;font-size:10px">${mesNombre} ${y}</div><div>Generado: ${new Date().toLocaleString('es-PE')}</div></div></div>
+<div class="hdr"><img src="${_logoUrl}" alt="Ecosermo"><div style="text-align:center"><div style="font-size:13px;font-weight:900;color:#1e3a5f">TAREAJE DE PERSONAL</div><div style="font-size:9px;color:#64748b">${_tarRangoOn()?"Control de Asistencia por Período":"Control de Asistencia Mensual"}</div></div><div style="text-align:right;font-size:7.5px;color:#64748b"><div style="font-weight:700;color:#1e3a5f;font-size:10px">${_tarPeriodoLbl()}</div><div>Generado: ${new Date().toLocaleString('es-PE')}</div></div></div>
 <div class="info-row"><div class="il">Proyecto</div><div class="iv">${proyNombre}</div><div class="il">Elaborado por</div><div class="iv">${elab}</div><div class="il">Fecha</div><div class="iv" style="background:#fef08a;font-weight:700;color:#1e3a5f">${new Date().toLocaleDateString('es-PE')}</div></div>
 <div class="ley">${Object.entries(_TARE_T).map(([k,v])=>`<span class="lt" style="background:${v.bg};color:${v.tx}">${k}=${v.l}</span>`).join('')}</div>
 <table><thead><tr><th style="background:#1e3a5f;color:#fff;width:20px">N°</th><th style="background:#1e3a5f;color:#fff;text-align:left;min-width:130px">Trabajador</th><th style="background:#1e3a5f;color:#fff;text-align:left;min-width:80px">Cargo</th>${dayHdrs}<th style="background:#1e3a5f;color:#fff;width:30px">D/N</th></tr></thead><tbody>${rows}</tbody></table>
@@ -768,6 +861,9 @@ function _doExportTareaje(){
   const mv=document.getElementById('tareMes')?.value||new Date().toISOString().slice(0,7);
   const [y,m]=mv.split('-').map(Number);
   const days=new Date(y,m,0).getDate();
+  const _MESC=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+  const FECHAS=_tarFechas();
+  const _multiMes=FECHAS.length>0&&FECHAS[0].slice(0,7)!==FECHAS[FECHAS.length-1].slice(0,7);
   const monthStr=`${y}-${pad(m)}`;
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const proyEl=document.getElementById('tareProy');
@@ -783,7 +879,7 @@ function _doExportTareaje(){
   const _totS={fill:{patternType:'solid',fgColor:{rgb:'DBEAFE'}},font:{bold:true,sz:9},alignment:{horizontal:'center',vertical:'center'}};
   const _emptyS=(even)=>({fill:{patternType:'solid',fgColor:{rgb:even?'F8FAFC':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'}});
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
-  const dayNums=Array.from({length:days},(_,i)=>i+1);
+  const dayNums=FECHAS.map(f=>_multiMes?(+f.slice(8)+'/'+f.slice(5,7)):+f.slice(8));
   // Se exportan exactamente las columnas informativas visibles en la grilla
   const colsVis=_TAR_COLS.filter(c=>c.get());
   const nFix=2+colsVis.length; // N° + Trabajador + columnas visibles
@@ -791,16 +887,16 @@ function _doExportTareaje(){
   const dataRows=persF.map((p,idx)=>{
     const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
     const dayCells=dayNums.map(d=>{const fecha=`${y}-${pad(m)}-${pad(d)}`;const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));return rec?rec.tipo:'';});
-    const ct=t=>new Set(DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha.startsWith(monthStr)&&r.tipo===t&&_mp(r)).map(r=>r.fecha)).size;
+    const ct=t=>new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo===t&&_mp(r)).map(r=>r.fecha)).size;
     const otros=['DM','LP','LM','LF','V','DLT','A5','R'].reduce((s,t)=>s+ct(t),0);
     return[idx+1,`${p.ape}, ${p.nom}`,...colsVis.map(c=>_tarVal(p,c.k)||''),...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
   });
-  const titulo=[`TAREAJE DE PERSONAL – ${mesNombre} ${y}  |  Proyecto: ${proyNombre}  |  Generado: ${new Date().toLocaleString('es-PE')}`];
+  const titulo=[`TAREAJE DE PERSONAL – ${_tarPeriodoLbl()}  |  Proyecto: ${proyNombre}  |  Generado: ${new Date().toLocaleString('es-PE')}`];
   const wsData=[titulo,[],headers,...dataRows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}}];
   const _wCol={dni:12,cargo:22,cat:16,tipo:12,ing:12,asig:8,grd:8,proc:14};
-  ws['!cols']=[{wch:4},{wch:32},...colsVis.map(c=>({wch:_wCol[c.k]||14})),...Array(days).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
+  ws['!cols']=[{wch:4},{wch:32},...colsVis.map(c=>({wch:_wCol[c.k]||14})),...Array(FECHAS.length).fill({wch:4}),{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:4},{wch:5}];
   ws['!rows']=[{hpt:20},{hpt:4},...Array(dataRows.length+1).fill({hpt:14})];
   // Estilo título (fila 0)
   const tc=ws[addr(0,0)];
@@ -822,11 +918,11 @@ function _doExportTareaje(){
       else{c.s=_emptyS(even);}
     });
     // columnas de totales
-    for(let ci=nFix+days;ci<nFix+days+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
+    for(let ci=nFix+FECHAS.length;ci<nFix+FECHAS.length+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
   });
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${mesNombre} ${y}`.substring(0,31));
-  XLSX.writeFile(wb,`Tareaje_${monthStr}_${proyFiltro||'TODOS'}.xlsx`);
+  XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${_tarPeriodoLbl()}`.substring(0,31));
+  XLSX.writeFile(wb,`Tareaje_${_tarRangoOn()?_tarDesde+"_al_"+_tarHasta:monthStr}_${proyFiltro||'TODOS'}.xlsx`);
   toast('✓ Excel con colores descargado');
 }
 

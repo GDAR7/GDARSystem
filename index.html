@@ -862,6 +862,7 @@
         <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
         <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
         <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
+        <span id="tareRangoBar" style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:nowrap"></span>
         <button id="tarBtnCols" class="btn btn-out btn-sm" onclick="_tarColsPanel(event)" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Elegir qué columnas mostrar">🧩 Columnas ▾</button>
         <button id="tarBtnFijar" class="btn btn-out btn-sm" onclick="_tarToggleFijar()" style="font-size:.75rem" title="Fijar encabezado (mes y fechas) y las columnas N° / Trabajador al desplazarse">📌 Fijar encabezado</button>
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
@@ -3143,7 +3144,7 @@
 <script src="js/viaticos.js?v=8"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
-<script src="js/tareaje.js?v=19"></script>
+<script src="js/tareaje.js?v=20"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=57"></script>
 <script src="js/partesDiarios.js?v=3"></script>
