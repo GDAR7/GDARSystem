@@ -154,8 +154,9 @@ function rHhVenta(mantenerFoco){
   <div class="ph"><div class="ph-title" style="color:#10b981">👷 HH Venta</div>
     <div class="ph-sub">Tarifa de venta por cargo y venta real según el Tareaje</div></div>
   <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
-    ${_tb('tarifas','🏷️ Tarifas por cargo')}${_tb('real','📊 Venta Real')}
+    ${_tb('tarifas','🏷️ Tarifas por cargo')}${_tb('real','📋 Venta Real')}${_tb('analisis','📈 Análisis')}
   </div>`;
+  if(_hhTab==='analisis'){pg.innerHTML=_cab+_haRender();return;}
   if(_hhTab==='real'){
     pg.innerHTML=_cab+_hrRender();
     if(mantenerFoco){const b=document.getElementById('hrBuscar');if(b){b.focus();b.setSelectionRange(b.value.length,b.value.length);}}
@@ -555,4 +556,261 @@ function _hrExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'Venta Real');
   XLSX.writeFile(wb,`Venta_Real_${_hrDesde}_al_${_hrHasta}.xlsx`);
   toast('✓ Venta real exportada');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  TAB "ANÁLISIS" — dónde está el monto de venta
+//  Barras ordenadas de mayor a menor con acumulado Pareto: de un vistazo se ve
+//  qué pocos cargos concentran la mayor parte de la venta. Reusa el período y
+//  los filtros del tab Venta Real, así que ambos siempre cuadran.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Dimensiones por las que se puede agrupar. El campo sale de DB.personal.
+const _HA_DIMS=[
+  {k:'cargo',   l:'Cargo',      ic:'🏷️', get:f=>f.cargo},
+  {k:'cat',     l:'Categoría',  ic:'📑', get:f=>(f.p.cat||'Sin categoría').trim()},
+  {k:'tipo',    l:'Tipo',       ic:'🧩', get:f=>(f.p.tipo||'Sin tipo').trim()},
+  {k:'guardia', l:'Guardia',    ic:'🛡️', get:f=>(f.p.guardia||'Sin guardia').trim()},
+  {k:'proc',    l:'Procedencia',ic:'📍', get:f=>(f.p.proc||'Sin procedencia').trim()}
+];
+let _haDim='cargo', _haTop=15, _haVerTodo=false;
+const _HA_HUE='#10b981';
+
+function _haSet(campo,val){
+  if(campo==='dim')_haDim=val;
+  else if(campo==='top')_haTop=+val||15;
+  else if(campo==='verTodo')_haVerTodo=!!val;
+  rHhVenta();
+}
+
+// Agrupa la venta real por la dimensión elegida y calcula el acumulado
+function _haDatos(){
+  const D=_hrDatos();
+  const dim=_HA_DIMS.find(d=>d.k===_haDim)||_HA_DIMS[0];
+  const m=new Map();
+  D.filas.forEach(f=>{
+    const k=dim.get(f)||'—';
+    const a=m.get(k)||{k,venta:0,inc:0,n:0,trab:0,dlt:0,sinTarifa:0};
+    a.venta+=f.venta;a.inc+=f.inc;a.n++;a.trab+=f.trab;a.dlt+=f.dlt;
+    if(f.sinTarifa)a.sinTarifa++;
+    m.set(k,a);
+  });
+  const arr=[...m.values()].sort((a,b)=>b.venta-a.venta);
+  const total=arr.reduce((s,a)=>s+a.venta,0);
+  let acum=0;
+  arr.forEach(a=>{
+    a.pct=total>0?a.venta/total*100:0;
+    acum+=a.pct;a.acum=acum;
+    a.prom=a.n?a.venta/a.n:0;
+  });
+  // Cuántos elementos hacen el 80% de la venta (regla de Pareto)
+  const n80=arr.findIndex(a=>a.acum>=80)+1;
+  return{arr,total,dim,n80:n80||arr.length,D};
+}
+
+function _haRender(){
+  if(!_hrDesde||!_hrHasta){const q=_hrPer2120();_hrDesde=q.desde;_hrHasta=q.hasta;}
+  const A=_haDatos();
+  const vis=_haVerTodo?A.arr:A.arr.slice(0,_haTop);
+  const resto=A.arr.length-vis.length;
+  const restoV=A.arr.slice(vis.length).reduce((s,a)=>s+a.venta,0);
+  const max=Math.max(...A.arr.map(a=>a.venta),0)||1;
+
+  const selS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.75rem';
+  const kpi=(l,v,c,sub)=>`<div class="kpi" style="--kc:${c};border:1px solid ${c};flex:1;min-width:165px">
+    <div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:${String(v).length>12?'1.15rem':'1.5rem'}">${v}</div>
+    <div class="kpi-sub">${sub||''}</div></div>`;
+
+  // Chips para cambiar de dimensión sin recargar filtros
+  const chips=_HA_DIMS.map(d=>{
+    const act=_haDim===d.k;
+    return`<button onclick="_haSet('dim','${d.k}')" style="background:${act?_HA_HUE:'transparent'};color:${act?'#062':'var(--muted2)'};border:1px solid ${act?_HA_HUE:'var(--border)'};border-radius:20px;padding:.28rem .85rem;font-size:.74rem;font-weight:${act?'800':'600'};cursor:pointer;white-space:nowrap">${d.ic} ${d.l}</button>`;
+  }).join('');
+
+  const top1=A.arr[0];
+  const sinTar=A.D.filas.filter(f=>f.sinTarifa).length;
+
+  // Barras: una sola serie, el color no codifica identidad — solo hace legible la magnitud
+  const barras=vis.map((a,i)=>{
+    const w=Math.max(1.2,a.venta/max*100);
+    const dest=a.acum<=80;   // los que forman el 80% van a color pleno
+    return`<div title="${_hhEsc(a.k)} · ${_hhFmt(a.venta)} · ${a.pct.toFixed(1)}% del total · ${a.n} persona(s)"
+      style="display:grid;grid-template-columns:26px 200px 1fr 108px 62px;align-items:center;gap:.5rem;padding:1px 0">
+      <span style="font-size:.6rem;color:var(--muted);text-align:right;font-family:monospace">${i+1}</span>
+      <span style="font-size:.72rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_hhEsc(a.k)}
+        <span style="color:var(--muted2);font-weight:400;font-size:.62rem">· ${a.n}p</span></span>
+      <div style="position:relative;height:16px;background:rgba(255,255,255,.045);border-radius:4px">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:${dest?_HA_HUE:_HA_HUE+'70'};border-radius:0 4px 4px 0"></div>
+      </div>
+      <span style="font-size:.72rem;font-family:monospace;font-variant-numeric:tabular-nums;text-align:right;color:var(--text);font-weight:${dest?'700':'400'}">${_hhFmt(a.venta)}</span>
+      <span style="font-size:.66rem;font-family:monospace;text-align:right;color:var(--muted2)">${a.pct.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+
+  const filaResto=resto>0?`<div style="display:grid;grid-template-columns:26px 200px 1fr 108px 62px;align-items:center;gap:.5rem;padding:3px 0;border-top:1px dashed var(--border);margin-top:.3rem">
+      <span></span>
+      <span style="font-size:.7rem;color:var(--muted2);font-style:italic">Otros ${resto}</span>
+      <div style="position:relative;height:16px;background:rgba(255,255,255,.045);border-radius:4px">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.max(1,restoV/max*100)}%;background:var(--muted);border-radius:0 4px 4px 0;opacity:.5"></div>
+      </div>
+      <span style="font-size:.72rem;font-family:monospace;text-align:right;color:var(--muted2)">${_hhFmt(restoV)}</span>
+      <span style="font-size:.66rem;font-family:monospace;text-align:right;color:var(--muted2)">${A.total?(restoV/A.total*100).toFixed(1):'0.0'}%</span>
+    </div>`:'';
+
+  // Barra de composición: los que hacen el 80% vs el resto
+  const v80=A.arr.slice(0,A.n80).reduce((s,a)=>s+a.venta,0);
+  const p80=A.total?v80/A.total*100:0;
+
+  const TH='padding:5px 8px;font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);white-space:nowrap';
+  const TD='padding:4px 8px;font-size:.73rem;white-space:nowrap;border-bottom:1px solid var(--border)';
+  const MONO='font-family:monospace;font-variant-numeric:tabular-nums';
+  const tabla=A.arr.map((a,i)=>`<tr>
+      <td style="${TD};text-align:center;color:var(--muted);${MONO};font-size:.64rem">${i+1}</td>
+      <td style="${TD};font-weight:700">${_hhEsc(a.k)}
+        ${a.sinTarifa?`<span title="${a.sinTarifa} persona(s) sin tarifa configurada" style="font-size:.55rem;font-weight:800;color:#ef4444;border:1px solid #ef444455;border-radius:3px;padding:0 4px;margin-left:.3rem">${a.sinTarifa} SIN TARIFA</span>`:''}</td>
+      <td style="${TD};text-align:center;${MONO}">${a.n}</td>
+      <td style="${TD};text-align:center;${MONO};color:var(--muted2)">${a.trab}</td>
+      <td style="${TD};text-align:center;${MONO};color:${a.dlt?'#84cc16':'var(--muted)'}">${a.dlt||'—'}</td>
+      <td style="${TD};text-align:right;${MONO};color:#38bdf8;font-weight:700">${a.inc.toFixed(2)}</td>
+      <td style="${TD};text-align:right;${MONO};color:var(--muted2)">${_hhFmt(a.prom)}</td>
+      <td style="${TD};text-align:right;${MONO};font-weight:800;color:${_HA_HUE}">${_hhFmt(a.venta)}</td>
+      <td style="${TD};text-align:right;${MONO};color:var(--muted2)">${a.pct.toFixed(1)}%</td>
+      <td style="${TD};text-align:right;${MONO};color:${a.acum<=80?'#f59e0b':'var(--muted)'};font-weight:${a.acum<=80?'700':'400'}">${a.acum.toFixed(1)}%</td>
+    </tr>`).join('');
+
+  return`
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="card-head"><span class="card-title">🗓️ Período y agrupación</span>
+      <span style="font-size:.63rem;color:var(--muted2)">${_hrDMY(_hrDesde)} → ${_hrDMY(_hrHasta)} · ${A.D.nDias} días · ${A.D.filas.length} trabajadores</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.7rem">
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Desde</label>
+          <input type="date" class="date-ic-azul" value="${_hrDesde}" onchange="_hrSet('desde',this.value)" style="${selS};width:130px;color-scheme:dark"></div>
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Hasta</label>
+          <input type="date" class="date-ic-azul" value="${_hrHasta}" onchange="_hrSet('hasta',this.value)" style="${selS};width:130px;color-scheme:dark"></div>
+        <div style="display:flex;gap:.25rem;padding-bottom:.1rem">
+          <button onclick="_hrNav(-1)" title="Período anterior" style="${selS};cursor:pointer">◀</button>
+          <button onclick="_hrHoy()" title="Período contable en curso" style="${selS};cursor:pointer;background:rgba(16,185,129,.14);border-color:#10b98166;color:#10b981;font-weight:700">21→20</button>
+          <button onclick="_hrNav(1)" title="Período siguiente" style="${selS};cursor:pointer">▶</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Proyecto</label>
+          <select onchange="_hrSet('proy',this.value)" style="${selS};max-width:230px">
+            <option value="">— Todos —</option>
+            ${(DB.proyectos||[]).map(p=>`<option value="${_hhEsc(p.codigo)}" ${_hrProy===p.codigo?'selected':''}>[${_hhEsc(p.codigo)}] ${_hhEsc(p.nombre||'')}</option>`).join('')}
+          </select></div>
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Mostrar</label>
+          <select onchange="_haSet('top',this.value)" style="${selS}">
+            ${[10,15,20,30].map(n=>`<option value="${n}" ${_haTop===n?'selected':''}>Top ${n}</option>`).join('')}
+          </select></div>
+        <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted2);cursor:pointer;padding-bottom:.35rem">
+          <input type="checkbox" ${_haVerTodo?'checked':''} onchange="_haSet('verTodo',this.checked)" style="width:auto;margin:0;cursor:pointer"> Ver todos
+        </label>
+        <button onclick="_haExcel()" style="background:#166534;color:#fff;border:none;border-radius:6px;padding:.3rem .8rem;font-size:.72rem;font-weight:700;cursor:pointer;margin-left:auto">📊 Excel</button>
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">${chips}</div>
+    </div>
+  </div>
+
+  <div class="kpi-row" style="margin-bottom:.9rem">
+    ${kpi('Venta real',_hhFmt(A.total),_HA_HUE,`${A.arr.length} ${A.dim.l.toLowerCase()}s distintos`)}
+    ${kpi('Concentración 80%',A.n80,'#f59e0b',`${A.dim.l.toLowerCase()}s hacen el ${p80.toFixed(0)}% de la venta`)}
+    ${kpi(`Mayor ${A.dim.l.toLowerCase()}`,top1?_hhEsc(top1.k).slice(0,18):'—','#a855f7',top1?`${_hhFmt(top1.venta)} · ${top1.pct.toFixed(1)}%`:'sin datos')}
+    ${kpi('Incidencia total',A.D.filas.reduce((s,f)=>s+f.inc,0).toFixed(2),'#38bdf8','meses-hombre vendidos')}
+    ${kpi('Sin tarifa',sinTar,sinTar?'#ef4444':'#64748b',sinTar?'no se valorizan':'todos valorizados')}
+  </div>
+
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="card-head"><span class="card-title">${A.dim.ic} Venta por ${A.dim.l.toLowerCase()}</span>
+      <span style="font-size:.62rem;color:var(--muted2)">Ordenado de mayor a menor · <span style="color:${_HA_HUE}">▮</span> forman el 80% · <span style="color:var(--muted)">▮</span> el resto</span>
+    </div>
+    <div class="card-body">
+      ${A.arr.length?`<div style="display:flex;flex-direction:column;gap:5px">${barras}</div>${filaResto}
+      <div style="margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--border)">
+        <div style="font-size:.62rem;color:var(--muted2);margin-bottom:.35rem">Composición del monto</div>
+        <div style="display:flex;gap:2px;height:22px;border-radius:5px;overflow:hidden">
+          <div style="width:${p80}%;background:${_HA_HUE};display:flex;align-items:center;justify-content:center;font-size:.63rem;font-weight:800;color:#062">${p80>=14?A.n80+' primeros · '+p80.toFixed(0)+'%':''}</div>
+          <div style="width:${100-p80}%;background:var(--muted);opacity:.45;display:flex;align-items:center;justify-content:center;font-size:.63rem;font-weight:800;color:var(--text)">${(100-p80)>=14?(A.arr.length-A.n80)+' restantes':''}</div>
+        </div>
+      </div>`
+      :'<div style="padding:2.5rem;text-align:center;color:var(--muted2);font-size:.85rem">Sin marcaciones de tareaje en este período</div>'}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">📋 Detalle por ${A.dim.l.toLowerCase()}</span></div>
+    <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:58vh;overflow:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:2">
+        <th style="${TH};text-align:center">#</th>
+        <th style="${TH};text-align:left">${A.dim.l}</th>
+        <th style="${TH};text-align:center">Personas</th>
+        <th style="${TH};text-align:center">Días traj.</th>
+        <th style="${TH};text-align:center">DLT</th>
+        <th style="${TH};text-align:right">Incidencia</th>
+        <th style="${TH};text-align:right">Venta / persona</th>
+        <th style="${TH};text-align:right">Venta S/</th>
+        <th style="${TH};text-align:right">%</th>
+        <th style="${TH};text-align:right">% acum.</th>
+      </tr></thead>
+      <tbody>${tabla||`<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted2);font-size:.8rem">Sin datos</td></tr>`}</tbody>
+      ${A.arr.length?`<tfoot><tr style="border-top:2px solid ${_HA_HUE};background:rgba(16,185,129,.1);position:sticky;bottom:0">
+        <td style="${TD};font-weight:900;color:${_HA_HUE}" colspan="2">TOTAL</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800">${A.D.filas.length}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800">${A.arr.reduce((s,a)=>s+a.trab,0)}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800;color:#84cc16">${A.arr.reduce((s,a)=>s+a.dlt,0)||'—'}</td>
+        <td style="${TD};text-align:right;${MONO};font-weight:800;color:#38bdf8">${A.arr.reduce((s,a)=>s+a.inc,0).toFixed(2)}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;${MONO};font-weight:900;color:${_HA_HUE};font-size:.8rem">${_hhFmt(A.total)}</td>
+        <td style="${TD};text-align:right;${MONO};font-weight:800">100%</td>
+        <td style="${TD}"></td>
+      </tr></tfoot>`:''}
+    </table></div></div>
+  </div>
+
+  <div style="font-size:.62rem;color:var(--muted);margin-top:.7rem;line-height:1.6">
+    Mismo período y filtros que <strong>Venta Real</strong>: los totales siempre cuadran entre los dos tabs.
+    La columna <strong>% acum.</strong> marca en ámbar los que suman el 80% de la venta — son los que mueven la aguja.
+    <strong>Venta / persona</strong> ayuda a comparar grupos de tamaño distinto.
+  </div>`;
+}
+
+// ── Excel del análisis ──────────────────────────────────────────────────────
+function _haExcel(){
+  if(typeof XLSX==='undefined'){toast('Librería de Excel no disponible',true);return;}
+  const A=_haDatos();
+  if(!A.arr.length){toast('No hay datos para exportar',true);return;}
+  const BOR={top:{style:'thin',color:{rgb:'D0D7E2'}},bottom:{style:'thin',color:{rgb:'D0D7E2'}},
+             left:{style:'thin',color:{rgb:'D0D7E2'}},right:{style:'thin',color:{rgb:'D0D7E2'}}};
+  const S=(v,o)=>({v:v==null?'':v,t:typeof v==='number'?'n':'s',s:Object.assign({
+    font:{sz:9,bold:!!(o&&o.b),color:{rgb:(o&&o.col)||'0F172A'}},
+    fill:{fgColor:{rgb:(o&&o.bg)||'FFFFFF'}},
+    alignment:{horizontal:(o&&o.al)||'left',vertical:'center'},border:BOR},
+    (o&&o.numFmt)?{numFmt:o.numFmt}:{})});
+  const HDR=['#',A.dim.l,'Personas','Días traj.','DLT','Incidencia','Venta / persona S/','Venta S/','%','% acum.'];
+  const aoa=[
+    [S('VENTA REAL POR '+A.dim.l.toUpperCase(),{b:1,bg:'065F46',col:'FFFFFF',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'065F46'}))],
+    [S(`Período: ${_hrDMY(_hrDesde)} al ${_hrDMY(_hrHasta)} · ${A.D.nDias} días${_hrProy?' · '+_hrProy:''}`,{bg:'EEF2F8',col:'475569',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'EEF2F8'}))],
+    HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'}))
+  ];
+  A.arr.forEach((a,i)=>{
+    aoa.push([S(i+1,{al:'center'}),S(a.k,{b:1}),S(a.n,{al:'center'}),S(a.trab,{al:'center'}),
+      S(a.dlt||null,{al:'center',col:'65A30D'}),S(a.inc,{al:'right',numFmt:'0.00'}),
+      S(a.prom,{al:'right',numFmt:'#,##0.00'}),S(a.venta,{al:'right',numFmt:'#,##0.00',b:1,col:'059669'}),
+      S(a.pct/100,{al:'right',numFmt:'0.0%'}),S(a.acum/100,{al:'right',numFmt:'0.0%',col:a.acum<=80?'B45309':'64748B'})]);
+  });
+  aoa.push([S('TOTAL',{b:1,bg:'EEF2F8',al:'right'}),...Array(6).fill(S('',{bg:'EEF2F8'})),
+    S(A.total,{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'059669'}),
+    S(1,{b:1,bg:'EEF2F8',al:'right',numFmt:'0.0%'}),S('',{bg:'EEF2F8'})]);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:HDR.length-1}},{s:{r:1,c:0},e:{r:1,c:HDR.length-1}}];
+  ws['!cols']=[{wch:5},{wch:36},{wch:10},{wch:11},{wch:7},{wch:11},{wch:18},{wch:16},{wch:8},{wch:9}];
+  ws['!freeze']={xSplit:2,ySplit:3};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Analisis '+A.dim.l);
+  XLSX.writeFile(wb,`Venta_por_${A.dim.l}_${_hrDesde}_al_${_hrHasta}.xlsx`);
+  toast('✓ Análisis exportado');
 }
