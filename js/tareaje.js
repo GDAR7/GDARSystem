@@ -884,13 +884,46 @@ function _doExportTareaje(){
   const colsVis=_TAR_COLS.filter(c=>c.get());
   const nFix=2+colsVis.length; // N° + Trabajador + columnas visibles
   const headers=['N°','APELLIDOS Y NOMBRES',...colsVis.map(c=>c.l.toUpperCase()),...dayNums,'TD','TN','DL','F','P','DM','OTROS'];
-  const dataRows=persF.map((p,idx)=>{
+  // Una fila por trabajador, con sus días y sus totales
+  const filaDe=(p,num)=>{
     const _mp=r=>!proyFiltro||r.proy===proyFiltro||(!r.proy&&p.proy===proyFiltro);
-    const dayCells=dayNums.map(d=>{const fecha=`${y}-${pad(m)}-${pad(d)}`;const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));return rec?rec.tipo:'';});
+    const dayCells=FECHAS.map(fecha=>{const rec=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha&&_mp(r));return rec?rec.tipo:'';});
     const ct=t=>new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo===t&&_mp(r)).map(r=>r.fecha)).size;
     const otros=['DM','LP','LM','LF','V','DLT','A5','R'].reduce((s,t)=>s+ct(t),0);
-    return[idx+1,`${p.ape}, ${p.nom}`,...colsVis.map(c=>_tarVal(p,c.k)||''),...dayCells,ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
-  });
+    const tot=[ct('TD'),ct('TN'),ct('DL'),ct('F'),ct('P'),ct('DM'),otros];
+    return{fila:[num,`${p.ape}, ${p.nom}`,...colsVis.map(c=>_tarVal(p,c.k)||''),...dayCells,...tot],tot};
+  };
+  // Con el check activo se intercala una fila de cargo antes de su gente,
+  // con los subtotales del grupo para que la cabecera sea útil y no solo un rótulo.
+  const agrupar=!!document.getElementById('tareExportGrp')?.checked;
+  const dataRows=[];const filasCargo=[];
+  if(agrupar){
+    const norm=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();
+    const grupos=new Map();
+    persF.forEach(p=>{
+      const c=(p.cargo||'SIN CARGO').trim();
+      const k=norm(c);
+      if(!grupos.has(k))grupos.set(k,{cargo:c,gente:[]});
+      grupos.get(k).gente.push(p);
+    });
+    const orden=[...grupos.values()].sort((a,b)=>a.cargo.localeCompare(b.cargo,'es'));
+    let num=0;
+    orden.forEach((g,gi)=>{
+      const tots=[0,0,0,0,0,0,0];
+      const filas=g.gente.map(p=>{
+        num++;
+        const r=filaDe(p,num);
+        r.tot.forEach((v,i)=>tots[i]+=v);
+        return r.fila;
+      });
+      filasCargo.push(dataRows.length);
+      dataRows.push([String(gi+1).padStart(2,'0'),g.cargo+'  ('+g.gente.length+')',
+        ...colsVis.map(()=>''),...FECHAS.map(()=>''),...tots]);
+      dataRows.push(...filas);
+    });
+  }else{
+    persF.forEach((p,idx)=>dataRows.push(filaDe(p,idx+1).fila));
+  }
   const titulo=[`TAREAJE DE PERSONAL – ${_tarPeriodoLbl()}  |  Proyecto: ${proyNombre}  |  Generado: ${new Date().toLocaleString('es-PE')}`];
   const wsData=[titulo,[],headers,...dataRows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
@@ -904,8 +937,19 @@ function _doExportTareaje(){
   // Estilo encabezados (fila 2)
   headers.forEach((_,ci)=>{const c=ws[addr(2,ci)];if(c)c.s=_hdrS;});
   // Filas de datos (desde fila 3)
+  const _grpS={fill:{patternType:'solid',fgColor:{rgb:'DBEAFE'}},font:{bold:true,sz:9,color:{rgb:'1E3A5F'}},alignment:{vertical:'center'}};
+  const _esGrp=new Set(filasCargo);
   dataRows.forEach((row,ri)=>{
     const er=3+ri,even=ri%2===0;
+    if(_esGrp.has(ri)){
+      // Fila de cargo: se pinta completa y se salta el formato de trabajador
+      for(let ci=0;ci<headers.length;ci++){
+        let c=ws[addr(er,ci)];
+        if(!c){ws[addr(er,ci)]=c={t:'s',v:''};}
+        c.s={..._grpS,alignment:{vertical:'center',horizontal:ci>=nFix?'center':'left'}};
+      }
+      return;
+    }
     // columnas fijas (N° + Trabajador + informativas visibles)
     for(let ci=0;ci<nFix;ci++){const c=ws[addr(er,ci)];if(c){c.s=_fixS(even);if(ci>=1)c.s.alignment={...c.s.alignment,horizontal:'left'};}}
     // celdas de días
@@ -921,9 +965,12 @@ function _doExportTareaje(){
     for(let ci=nFix+FECHAS.length;ci<nFix+FECHAS.length+7;ci++){const c=ws[addr(er,ci)];if(c)c.s=_totS;}
   });
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,`Tareaje ${_tarPeriodoLbl()}`.substring(0,31));
-  XLSX.writeFile(wb,`Tareaje_${_tarRangoOn()?_tarDesde+"_al_"+_tarHasta:monthStr}_${proyFiltro||'TODOS'}.xlsx`);
-  toast('✓ Excel con colores descargado');
+  // Excel prohíbe / \ ? * [ ] : en el nombre de la hoja — con un rango el rótulo
+  // trae barras (21/07/2026) y el archivo no se generaba.
+  const _hoja=('Tareaje '+_tarPeriodoLbl()).replace(/[\/\\?*\[\]:]/g,'-').substring(0,31);
+  XLSX.utils.book_append_sheet(wb,ws,_hoja);
+  XLSX.writeFile(wb,`Tareaje_${agrupar?'porCargo_':''}${_tarRangoOn()?_tarDesde+"_al_"+_tarHasta:monthStr}_${proyFiltro||'TODOS'}.xlsx`);
+  toast(agrupar?'✓ Excel agrupado por cargo descargado':'✓ Excel con colores descargado');
 }
 
 // ── RESUMEN DIARIO DE TAREAJE ──
