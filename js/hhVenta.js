@@ -146,9 +146,22 @@ function rHhVenta(mantenerFoco){
     </tr>`;
   }).join('');
 
-  pg.innerHTML=`
+  const _tb=(k,lbl)=>{
+    const act=_hhTab===k;
+    return `<button onclick="_hhSetTab('${k}')" style="background:${act?'#10b981':'transparent'};color:${act?'#fff':'var(--muted2)'};border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">${lbl}</button>`;
+  };
+  const _cab=`
   <div class="ph"><div class="ph-title" style="color:#10b981">👷 HH Venta</div>
-    <div class="ph-sub">Tarifa mensual de venta por cargo — alimenta la Venta Personal de Cost Control</div></div>
+    <div class="ph-sub">Tarifa de venta por cargo y venta real según el Tareaje</div></div>
+  <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
+    ${_tb('tarifas','🏷️ Tarifas por cargo')}${_tb('real','📊 Venta Real')}
+  </div>`;
+  if(_hhTab==='real'){
+    pg.innerHTML=_cab+_hrRender();
+    if(mantenerFoco){const b=document.getElementById('hrBuscar');if(b){b.focus();b.setSelectionRange(b.value.length,b.value.length);}}
+    return;
+  }
+  pg.innerHTML=_cab+`
 
   <div class="kpi-row" style="margin-bottom:.9rem">
     ${kpi('Cargos con tarifa',conT,'#10b981',`de ${arr.length} cargos registrados`)}
@@ -235,4 +248,302 @@ function _hhExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'HH Venta');
   XLSX.writeFile(wb,'HH_Venta_tarifas.xlsx');
   toast('✓ Tarifas exportadas');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  TAB "VENTA REAL" — lo que realmente se vende según el Tareaje
+//  Incidencia = días trabajados ÷ días del período, contando TD + TN + A5 + DLT.
+//  El resto (días libres, descansos médicos, faltas, permisos) NO suma: esa
+//  fracción por la tarifa mensual del cargo es la venta real.
+// ══════════════════════════════════════════════════════════════════════════
+
+let _hhTab='tarifas';
+let _hrDesde='', _hrHasta='', _hrBuscar='', _hrProy='', _hrVerDias=false;
+
+const _HR_TRAB=['TD','TN','A5','DLT'];   // días que cuentan como trabajados
+const _HR_LIBRE=['DL'];
+const _HR_DM=['DM'];
+const _HR_SUB=['LP','LM','LF','V'];      // licencias y subsidios
+
+function _hhSetTab(t){_hhTab=t;rHhVenta();}
+function _hrSet(campo,val){
+  if(campo==='desde')_hrDesde=val;
+  else if(campo==='hasta')_hrHasta=val;
+  else if(campo==='buscar')_hrBuscar=val;
+  else if(campo==='proy')_hrProy=val;
+  else if(campo==='verDias')_hrVerDias=!!val;
+  rHhVenta(campo==='buscar');
+}
+// Período contable 21→20 que contiene la fecha dada
+function _hrPer2120(base){
+  const d=base?new Date(base+'T12:00:00'):new Date();
+  const y=d.getFullYear(),m=d.getMonth(),dia=d.getDate();
+  const p=n=>String(n).padStart(2,'0');
+  const ini=dia>=21?new Date(y,m,21):new Date(y,m-1,21);
+  const fin=new Date(ini.getFullYear(),ini.getMonth()+1,20);
+  const iso=x=>`${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
+  return{desde:iso(ini),hasta:iso(fin)};
+}
+function _hrHoy(){const q=_hrPer2120();_hrDesde=q.desde;_hrHasta=q.hasta;rHhVenta();}
+function _hrNav(n){
+  const p=_hrPer2120(_hrDesde||null);
+  const d=new Date(p.desde+'T12:00:00');d.setMonth(d.getMonth()+n);
+  const pd=x=>String(x).padStart(2,'0');
+  const q=_hrPer2120(`${d.getFullYear()}-${pd(d.getMonth()+1)}-21`);
+  _hrDesde=q.desde;_hrHasta=q.hasta;rHhVenta();
+}
+function _hrFechas(){
+  if(!_hrDesde||!_hrHasta||_hrDesde>_hrHasta)return[];
+  const out=[];let d=new Date(_hrDesde+'T12:00:00');const fin=new Date(_hrHasta+'T12:00:00');
+  while(d<=fin){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  return out.slice(0,120);
+}
+const _hrDMY=i=>{if(!i||!i.includes('-'))return i||'—';const[a,b,c]=i.split('-');return`${c}/${b}/${a}`;};
+
+// ── Cálculo ─────────────────────────────────────────────────────────────────
+function _hrDatos(){
+  const F=_hrFechas();
+  const nDias=F.length||1;
+  const set=new Set(F);
+  // Marcas del período, indexadas por persona
+  const porPers=new Map();
+  (DB.tareaje||[]).forEach(r=>{
+    if(!set.has(r.fecha))return;
+    if(_hrProy&&r.proy&&r.proy!==_hrProy)return;
+    let a=porPers.get(+r.personalId);
+    if(!a){a={};porPers.set(+r.personalId,a);}
+    a[r.fecha]=r.tipo;
+  });
+  const q=_hhNorm(_hrBuscar);
+  const filas=[];
+  (DB.personal||[]).forEach(p=>{
+    const marcas=porPers.get(+p.id);
+    if(!marcas)return;                       // sin marcación en el período
+    const cargo=(p.cargo||'SIN CARGO').trim();
+    if(q&&!_hhNorm(`${p.ape} ${p.nom} ${cargo} ${p.dni}`).includes(q))return;
+    let trab=0,libre=0,dm=0,sub=0,otros=0;
+    Object.values(marcas).forEach(t=>{
+      if(_HR_TRAB.includes(t))trab++;
+      else if(_HR_LIBRE.includes(t))libre++;
+      else if(_HR_DM.includes(t))dm++;
+      else if(_HR_SUB.includes(t))sub++;
+      else otros++;                          // F, P, R…
+    });
+    const total=trab;                        // solo TD + TN + A5 + DLT generan venta
+    const inc=+(total/nDias).toFixed(4);
+    const tar=_hhTarifaDe(cargo);
+    const tarifa=tar?+tar.tarifaMes||0:0;
+    filas.push({p,cargo,marcas,trab,libre,dm,sub,otros,total,inc,tarifa,
+      venta:+(inc*tarifa).toFixed(2),sinTarifa:!tarifa});
+  });
+  // Agrupado por cargo, respetando el orden del formato impreso
+  const grupos=new Map();
+  filas.forEach(f=>{
+    const k=_hhNorm(f.cargo);
+    let g=grupos.get(k);
+    if(!g){g={cargo:f.cargo,items:[],inc:0,venta:0,tarifa:f.tarifa};grupos.set(k,g);}
+    g.items.push(f);g.inc+=f.inc;g.venta+=f.venta;
+  });
+  const arr=[...grupos.values()].sort((a,b)=>b.venta-a.venta||a.cargo.localeCompare(b.cargo,'es'));
+  arr.forEach(g=>g.items.sort((a,b)=>`${a.p.ape} ${a.p.nom}`.localeCompare(`${b.p.ape} ${b.p.nom}`,'es')));
+  return{F,nDias,grupos:arr,filas};
+}
+
+// ── Render del tab ──────────────────────────────────────────────────────────
+function _hrRender(){
+  if(!_hrDesde||!_hrHasta){const q=_hrPer2120();_hrDesde=q.desde;_hrHasta=q.hasta;}
+  const D=_hrDatos();
+  const totVenta=D.filas.reduce((s,f)=>s+f.venta,0);
+  const totInc=D.filas.reduce((s,f)=>s+f.inc,0);
+  const sinTar=D.filas.filter(f=>f.sinTarifa).length;
+  const totTrab=D.filas.reduce((s,f)=>s+f.trab,0);
+
+  const selS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.75rem';
+  const btn='background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.22rem .5rem;font-size:.72rem;cursor:pointer;white-space:nowrap';
+  const kpi=(l,v,c,sub)=>`<div class="kpi" style="--kc:${c};border:1px solid ${c};flex:1;min-width:160px">
+    <div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:${String(v).length>12?'1.15rem':'1.5rem'}">${v}</div>
+    <div class="kpi-sub">${sub||''}</div></div>`;
+
+  const TH='padding:5px 7px;font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);white-space:nowrap';
+  const TD='padding:3px 7px;font-size:.72rem;white-space:nowrap;border-bottom:1px solid var(--border)';
+  const MONO='font-family:monospace;font-variant-numeric:tabular-nums';
+
+  // Encabezados de los días (solo si se piden)
+  const dayHdrs=_hrVerDias?D.F.map(f=>{
+    const dow=new Date(f+'T12:00:00').getDay();
+    const DN=['DO','LU','MA','MI','JU','VI','SA'];
+    return`<th style="${TH};text-align:center;padding:2px 0;width:20px;min-width:20px;${dow===0?'color:#f59e0b':''}" title="${f}">${+f.slice(8)}<div style="font-size:.5rem;opacity:.7">${DN[dow]}</div></th>`;
+  }).join(''):'';
+
+  let item=0;
+  const cuerpo=D.grupos.map((g,gi)=>{
+    const cab=`<tr style="background:rgba(59,130,246,.14)">
+      <td style="${TD};font-weight:800;color:#93c5fd" colspan="${_hrVerDias?4+D.F.length:4}">${String(gi+1).padStart(2,'0')} · ${_hhEsc(g.cargo)}
+        ${!g.tarifa?'<span style="font-size:.55rem;font-weight:800;color:#ef4444;border:1px solid #ef444455;border-radius:3px;padding:0 4px;margin-left:.4rem">SIN TARIFA</span>':''}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.trab,0)}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.libre,0)}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.dm,0)||'—'}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.sub,0)||'—'}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.total,0)}</td>
+      <td style="${TD};text-align:right;${MONO};font-weight:800;color:#93c5fd">${g.inc.toFixed(2)}</td>
+      <td style="${TD};text-align:right;${MONO};color:var(--muted2)">${g.tarifa?_hhFmt(g.tarifa):'—'}</td>
+      <td style="${TD};text-align:right;${MONO};font-weight:800;color:#10b981">${_hhFmt(g.venta)}</td>
+    </tr>`;
+    const filas=g.items.map(f=>{
+      item++;
+      const dias=_hrVerDias?D.F.map(fe=>{
+        const t=f.marcas[fe]||'';
+        const c=t?(_TARE_T[t]||{}):null;
+        return`<td style="text-align:center;padding:1px 0;font-size:.52rem;font-weight:700;border-bottom:1px solid var(--border);${c?`background:${c.bg};color:${c.tx}`:'color:var(--muted)'}" title="${fe} ${t}">${t||'·'}</td>`;
+      }).join(''):'';
+      return`<tr>
+        <td style="${TD};text-align:center;color:var(--muted2);${MONO};font-size:.62rem">${item}</td>
+        <td style="${TD};font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis">${_hhEsc(f.p.ape+', '+f.p.nom)}</td>
+        <td style="${TD};${MONO};font-size:.66rem;color:#22d3ee">${_hhEsc(f.p.dni||'—')}</td>
+        <td style="${TD};font-size:.66rem;color:var(--muted2);max-width:170px;overflow:hidden;text-overflow:ellipsis">${_hhEsc(f.cargo)}</td>
+        ${dias}
+        <td style="${TD};text-align:center;${MONO};color:#10b981;font-weight:700">${f.trab||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};color:var(--muted2)">${f.libre||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};color:${f.dm?'#a855f7':'var(--muted)'}">${f.dm||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};color:${f.sub?'#f59e0b':'var(--muted)'}">${f.sub||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:700">${f.total}</td>
+        <td style="${TD};text-align:right;${MONO};font-weight:800;color:${f.inc>=1?'#10b981':'#f59e0b'}">${f.inc.toFixed(2)}</td>
+        <td style="${TD};text-align:right;${MONO};color:var(--muted2)">${f.tarifa?_hhFmt(f.tarifa):'<span style="color:#ef4444">sin tarifa</span>'}</td>
+        <td style="${TD};text-align:right;${MONO};font-weight:700;color:${f.venta?'#10b981':'var(--muted)'}">${f.venta?_hhFmt(f.venta):'—'}</td>
+      </tr>`;
+    }).join('');
+    return cab+filas;
+  }).join('');
+
+  const nCols=(_hrVerDias?4+D.F.length:4);
+  return`
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="card-head"><span class="card-title">🗓️ Período</span>
+      <span style="font-size:.63rem;color:var(--muted2)">${D.nDias} días · ${D.filas.length} trabajadores con marcación · ${D.grupos.length} cargos</span>
+    </div>
+    <div class="card-body"><div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:.15rem">
+        <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Desde</label>
+        <input type="date" class="date-ic-azul" value="${_hrDesde}" onchange="_hrSet('desde',this.value)" style="${selS};width:130px;color-scheme:dark"></div>
+      <div style="display:flex;flex-direction:column;gap:.15rem">
+        <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Hasta</label>
+        <input type="date" class="date-ic-azul" value="${_hrHasta}" onchange="_hrSet('hasta',this.value)" style="${selS};width:130px;color-scheme:dark"></div>
+      <div style="display:flex;gap:.25rem;padding-bottom:.1rem">
+        <button onclick="_hrNav(-1)" title="Período anterior" style="${btn}">◀</button>
+        <button onclick="_hrHoy()" title="Período contable en curso (21 al 20)" style="${btn};background:rgba(16,185,129,.14);border-color:#10b98166;color:#10b981;font-weight:700">21→20</button>
+        <button onclick="_hrNav(1)" title="Período siguiente" style="${btn}">▶</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.15rem">
+        <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Proyecto</label>
+        <select onchange="_hrSet('proy',this.value)" style="${selS};max-width:230px">
+          <option value="">— Todos —</option>
+          ${(DB.proyectos||[]).map(p=>`<option value="${_hhEsc(p.codigo)}" ${_hrProy===p.codigo?'selected':''}>[${_hhEsc(p.codigo)}] ${_hhEsc(p.nombre||'')}</option>`).join('')}
+        </select></div>
+      <div style="display:flex;flex-direction:column;gap:.15rem;flex:1;min-width:180px">
+        <label style="font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Buscar</label>
+        <input id="hrBuscar" value="${_hhEsc(_hrBuscar)}" placeholder="Nombre, DNI o cargo…" oninput="_hrSet('buscar',this.value)" style="${selS};width:100%;box-sizing:border-box"></div>
+      <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted2);cursor:pointer;padding-bottom:.35rem">
+        <input type="checkbox" ${_hrVerDias?'checked':''} onchange="_hrSet('verDias',this.checked)" style="width:auto;margin:0;cursor:pointer"> Ver días
+      </label>
+      <button onclick="_hrExcel()" style="background:#166534;color:#fff;border:none;border-radius:6px;padding:.3rem .8rem;font-size:.72rem;font-weight:700;cursor:pointer">📊 Excel</button>
+    </div></div>
+  </div>
+
+  <div class="kpi-row" style="margin-bottom:.9rem">
+    ${kpi('Venta real',_hhFmt(totVenta),'#10b981',`${_hrDMY(_hrDesde)} → ${_hrDMY(_hrHasta)}`)}
+    ${kpi('Incidencia total',totInc.toFixed(2),'#38bdf8','suma de meses-hombre')}
+    ${kpi('Días trabajados',totTrab,'#f59e0b','TD + TN + A5 + DLT · base del cálculo')}
+    ${kpi('Trabajadores',D.filas.length,'#a855f7',`en ${D.grupos.length} cargos`)}
+    ${kpi('Sin tarifa',sinTar,sinTar?'#ef4444':'#64748b',sinTar?'no se valorizan':'todos valorizados')}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">📋 Venta real por cargo</span>
+      <span style="font-size:.62rem;color:var(--muted2)">Incidencia = días trabajados (TD+TN+A5+DLT) ÷ ${D.nDias} días del período</span>
+    </div>
+    <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:68vh;overflow:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:2">
+        <th style="${TH};text-align:center">#</th>
+        <th style="${TH};text-align:left">Apellidos y Nombres</th>
+        <th style="${TH};text-align:left">DNI</th>
+        <th style="${TH};text-align:left">Cargo</th>
+        ${dayHdrs}
+        <th style="${TH};text-align:center">Días<br>traj.</th>
+        <th style="${TH};text-align:center">Días<br>libres</th>
+        <th style="${TH};text-align:center">DM</th>
+        <th style="${TH};text-align:center">Sub</th>
+        <th style="${TH};text-align:center">Total<br>días</th>
+        <th style="${TH};text-align:right">% Inc.</th>
+        <th style="${TH};text-align:right">Tarifa mes</th>
+        <th style="${TH};text-align:right">Venta S/</th>
+      </tr></thead>
+      <tbody>${cuerpo||`<tr><td colspan="${nCols+9}" style="text-align:center;padding:2rem;color:var(--muted2);font-size:.8rem">Sin marcaciones de tareaje en este período</td></tr>`}</tbody>
+      ${D.filas.length?`<tfoot><tr style="border-top:2px solid #10b981;background:rgba(16,185,129,.1);position:sticky;bottom:0">
+        <td style="${TD};font-weight:900;color:#10b981" colspan="${nCols}">TOTAL</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800">${totTrab}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800">${D.filas.reduce((s,f)=>s+f.libre,0)}</td>
+        <td style="${TD};text-align:center;${MONO}">${D.filas.reduce((s,f)=>s+f.dm,0)||'—'}</td>
+        <td style="${TD};text-align:center;${MONO}">${D.filas.reduce((s,f)=>s+f.sub,0)||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800">${D.filas.reduce((s,f)=>s+f.total,0)}</td>
+        <td style="${TD};text-align:right;${MONO};font-weight:900;color:#38bdf8">${totInc.toFixed(2)}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;${MONO};font-weight:900;color:#10b981;font-size:.8rem">${_hhFmt(totVenta)}</td>
+      </tr></tfoot>`:''}
+    </table></div></div>
+  </div>
+
+  <div style="font-size:.62rem;color:var(--muted);margin-top:.7rem;line-height:1.6">
+    <strong>Días trabajados</strong> = TD + TN + A5 + DLT · <strong>Días libres</strong> = DL ·
+    <strong>DM</strong> = descanso médico · <strong>Sub</strong> = licencias y vacaciones (LP, LM, LF, V).
+    La <strong>incidencia</strong> solo suma los días trabajados: días libres, DM, faltas y permisos <strong>no generan venta</strong>.
+    Quien trabaje los ${D.nDias} días del período da 1.00; la mitad, 0.50.
+    <strong>Venta = incidencia × tarifa mensual del cargo</strong>, configurada en el tab Tarifas.
+  </div>`;
+}
+
+// ── Excel del tab Venta Real ────────────────────────────────────────────────
+function _hrExcel(){
+  if(typeof XLSX==='undefined'){toast('Librería de Excel no disponible',true);return;}
+  const D=_hrDatos();
+  if(!D.filas.length){toast('No hay marcaciones para exportar',true);return;}
+  const BOR={top:{style:'thin',color:{rgb:'D0D7E2'}},bottom:{style:'thin',color:{rgb:'D0D7E2'}},
+             left:{style:'thin',color:{rgb:'D0D7E2'}},right:{style:'thin',color:{rgb:'D0D7E2'}}};
+  const S=(v,o)=>({v:v==null?'':v,t:typeof v==='number'?'n':'s',s:Object.assign({
+    font:{sz:9,bold:!!(o&&o.b),color:{rgb:(o&&o.col)||'0F172A'}},
+    fill:{fgColor:{rgb:(o&&o.bg)||'FFFFFF'}},
+    alignment:{horizontal:(o&&o.al)||'left',vertical:'center'},border:BOR},
+    (o&&o.numFmt)?{numFmt:o.numFmt}:{})});
+  const HDR=['#','Apellidos y Nombres','DNI','Cargo','Días traj.','Días libres','DM','Sub','Total días','% Inc.','Tarifa mes S/','Venta S/'];
+  const aoa=[
+    [S('VENTA REAL DE PERSONAL — SEGÚN TAREAJE',{b:1,bg:'065F46',col:'FFFFFF',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'065F46'}))],
+    [S(`Período: ${_hrDMY(_hrDesde)} al ${_hrDMY(_hrHasta)} · ${D.nDias} días${_hrProy?' · '+_hrProy:''}`,{bg:'EEF2F8',col:'475569',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'EEF2F8'}))],
+    HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'}))
+  ];
+  let it=0,tv=0,ti=0;
+  D.grupos.forEach((g,gi)=>{
+    aoa.push([S(String(gi+1).padStart(2,'0'),{b:1,bg:'DBEAFE'}),S(g.cargo,{b:1,bg:'DBEAFE'}),
+      ...Array(7).fill(S('',{bg:'DBEAFE'})),
+      S(g.inc,{b:1,bg:'DBEAFE',al:'right',numFmt:'0.00'}),
+      S(g.tarifa||null,{b:1,bg:'DBEAFE',al:'right',numFmt:'#,##0.00'}),
+      S(g.venta,{b:1,bg:'DBEAFE',al:'right',numFmt:'#,##0.00'})]);
+    g.items.forEach(f=>{
+      it++;tv+=f.venta;ti+=f.inc;
+      aoa.push([S(it,{al:'center'}),S(f.p.ape+', '+f.p.nom),S(f.p.dni||''),S(f.cargo),
+        S(f.trab,{al:'center'}),S(f.libre,{al:'center'}),S(f.dm||null,{al:'center'}),S(f.sub||null,{al:'center'}),
+        S(f.total,{al:'center',b:1}),S(f.inc,{al:'right',numFmt:'0.00'}),
+        S(f.tarifa||null,{al:'right',numFmt:'#,##0.00',col:f.tarifa?'0F172A':'DC2626'}),
+        S(f.venta||null,{al:'right',numFmt:'#,##0.00',b:1,col:'059669'})]);
+    });
+  });
+  aoa.push([S('TOTAL',{b:1,bg:'EEF2F8',al:'right'}),...Array(8).fill(S('',{bg:'EEF2F8'})),
+    S(ti,{b:1,bg:'EEF2F8',al:'right',numFmt:'0.00'}),S('',{bg:'EEF2F8'}),
+    S(tv,{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'059669'})]);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:HDR.length-1}},{s:{r:1,c:0},e:{r:1,c:HDR.length-1}}];
+  ws['!cols']=[{wch:5},{wch:34},{wch:11},{wch:28},{wch:10},{wch:11},{wch:6},{wch:6},{wch:10},{wch:9},{wch:14},{wch:15}];
+  ws['!freeze']={xSplit:4,ySplit:3};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Venta Real');
+  XLSX.writeFile(wb,`Venta_Real_${_hrDesde}_al_${_hrHasta}.xlsx`);
+  toast('✓ Venta real exportada');
 }
