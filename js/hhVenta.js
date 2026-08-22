@@ -252,15 +252,17 @@ function _hhExcel(){
 
 // ══════════════════════════════════════════════════════════════════════════
 //  TAB "VENTA REAL" — lo que realmente se vende según el Tareaje
-//  Incidencia = días trabajados ÷ días del período, contando TD + TN + A5 + DLT.
-//  El resto (días libres, descansos médicos, faltas, permisos) NO suma: esa
-//  fracción por la tarifa mensual del cargo es la venta real.
+//  Incidencia = (TD + TN + A5 + DL + DLT×2.5) ÷ días del período.
+//  El día libre es parte del ciclo y también se vende; el día libre TRABAJADO
+//  se paga a 2.5 jornadas. No suman los DM, faltas, permisos ni licencias.
 // ══════════════════════════════════════════════════════════════════════════
 
 let _hhTab='tarifas';
 let _hrDesde='', _hrHasta='', _hrBuscar='', _hrProy='', _hrVerDias=false;
 
-const _HR_TRAB=['TD','TN','A5','DLT'];   // días que cuentan como trabajados
+const _HR_TRAB=['TD','TN','A5'];         // jornada normal: cuenta 1
+const _HR_DLT=['DLT'];                   // día libre trabajado: se paga a 2.5
+const _HR_PESO_DLT=2.5;
 const _HR_LIBRE=['DL'];
 const _HR_DM=['DM'];
 const _HR_SUB=['LP','LM','LF','V'];      // licencias y subsidios
@@ -321,19 +323,22 @@ function _hrDatos(){
     if(!marcas)return;                       // sin marcación en el período
     const cargo=(p.cargo||'SIN CARGO').trim();
     if(q&&!_hhNorm(`${p.ape} ${p.nom} ${cargo} ${p.dni}`).includes(q))return;
-    let trab=0,libre=0,dm=0,sub=0,otros=0;
+    let trab=0,dlt=0,libre=0,dm=0,sub=0,otros=0;
     Object.values(marcas).forEach(t=>{
       if(_HR_TRAB.includes(t))trab++;
+      else if(_HR_DLT.includes(t))dlt++;
       else if(_HR_LIBRE.includes(t))libre++;
       else if(_HR_DM.includes(t))dm++;
       else if(_HR_SUB.includes(t))sub++;
       else otros++;                          // F, P, R…
     });
-    const total=trab;                        // solo TD + TN + A5 + DLT generan venta
-    const inc=+(total/nDias).toFixed(4);
+    const total=trab+dlt+libre;              // días efectivos, para mostrar
+    // El día libre trabajado se valoriza a 2.5 jornadas
+    const equiv=+(trab+libre+dlt*_HR_PESO_DLT).toFixed(4);
+    const inc=+(equiv/nDias).toFixed(4);
     const tar=_hhTarifaDe(cargo);
     const tarifa=tar?+tar.tarifaMes||0:0;
-    filas.push({p,cargo,marcas,trab,libre,dm,sub,otros,total,inc,tarifa,
+    filas.push({p,cargo,marcas,trab,dlt,libre,dm,sub,otros,total,equiv,inc,tarifa,
       venta:+(inc*tarifa).toFixed(2),sinTarifa:!tarifa});
   });
   // Agrupado por cargo, respetando el orden del formato impreso
@@ -382,6 +387,7 @@ function _hrRender(){
         ${!g.tarifa?'<span style="font-size:.55rem;font-weight:800;color:#ef4444;border:1px solid #ef444455;border-radius:3px;padding:0 4px;margin-left:.4rem">SIN TARIFA</span>':''}</td>
       <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.trab,0)}</td>
       <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.libre,0)}</td>
+      <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.dlt,0)||'—'}</td>
       <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.dm,0)||'—'}</td>
       <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.sub,0)||'—'}</td>
       <td style="${TD};text-align:center;${MONO};color:#93c5fd">${g.items.reduce((s,f)=>s+f.total,0)}</td>
@@ -404,6 +410,7 @@ function _hrRender(){
         ${dias}
         <td style="${TD};text-align:center;${MONO};color:#10b981;font-weight:700">${f.trab||'—'}</td>
         <td style="${TD};text-align:center;${MONO};color:var(--muted2)">${f.libre||'—'}</td>
+        <td style="${TD};text-align:center;${MONO};color:${f.dlt?'#84cc16':'var(--muted)'};font-weight:${f.dlt?'700':'400'}" title="${f.dlt?f.dlt+' DLT × '+_HR_PESO_DLT+' = '+(f.dlt*_HR_PESO_DLT).toFixed(1)+' jornadas':''}">${f.dlt||'—'}</td>
         <td style="${TD};text-align:center;${MONO};color:${f.dm?'#a855f7':'var(--muted)'}">${f.dm||'—'}</td>
         <td style="${TD};text-align:center;${MONO};color:${f.sub?'#f59e0b':'var(--muted)'}">${f.sub||'—'}</td>
         <td style="${TD};text-align:center;${MONO};font-weight:700">${f.total}</td>
@@ -452,14 +459,14 @@ function _hrRender(){
   <div class="kpi-row" style="margin-bottom:.9rem">
     ${kpi('Venta real',_hhFmt(totVenta),'#10b981',`${_hrDMY(_hrDesde)} → ${_hrDMY(_hrHasta)}`)}
     ${kpi('Incidencia total',totInc.toFixed(2),'#38bdf8','suma de meses-hombre')}
-    ${kpi('Días trabajados',totTrab,'#f59e0b','TD + TN + A5 + DLT · base del cálculo')}
+    ${kpi('Días trabajados',totTrab,'#f59e0b','TD + TN + A5 · sin DL ni DLT')}
     ${kpi('Trabajadores',D.filas.length,'#a855f7',`en ${D.grupos.length} cargos`)}
     ${kpi('Sin tarifa',sinTar,sinTar?'#ef4444':'#64748b',sinTar?'no se valorizan':'todos valorizados')}
   </div>
 
   <div class="card">
     <div class="card-head"><span class="card-title">📋 Venta real por cargo</span>
-      <span style="font-size:.62rem;color:var(--muted2)">Incidencia = días trabajados (TD+TN+A5+DLT) ÷ ${D.nDias} días del período</span>
+      <span style="font-size:.62rem;color:var(--muted2)">Incidencia = (TD + TN + A5 + DL + DLT×${_HR_PESO_DLT}) ÷ ${D.nDias} días del período</span>
     </div>
     <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:68vh;overflow:auto"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:2">
@@ -470,6 +477,7 @@ function _hrRender(){
         ${dayHdrs}
         <th style="${TH};text-align:center">Días<br>traj.</th>
         <th style="${TH};text-align:center">Días<br>libres</th>
+        <th style="${TH};text-align:center" title="Día libre trabajado · se valoriza a ${_HR_PESO_DLT} jornadas">DLT<br>×${_HR_PESO_DLT}</th>
         <th style="${TH};text-align:center">DM</th>
         <th style="${TH};text-align:center">Sub</th>
         <th style="${TH};text-align:center">Total<br>días</th>
@@ -482,6 +490,7 @@ function _hrRender(){
         <td style="${TD};font-weight:900;color:#10b981" colspan="${nCols}">TOTAL</td>
         <td style="${TD};text-align:center;${MONO};font-weight:800">${totTrab}</td>
         <td style="${TD};text-align:center;${MONO};font-weight:800">${D.filas.reduce((s,f)=>s+f.libre,0)}</td>
+        <td style="${TD};text-align:center;${MONO};font-weight:800;color:#84cc16">${D.filas.reduce((s,f)=>s+f.dlt,0)||'—'}</td>
         <td style="${TD};text-align:center;${MONO}">${D.filas.reduce((s,f)=>s+f.dm,0)||'—'}</td>
         <td style="${TD};text-align:center;${MONO}">${D.filas.reduce((s,f)=>s+f.sub,0)||'—'}</td>
         <td style="${TD};text-align:center;${MONO};font-weight:800">${D.filas.reduce((s,f)=>s+f.total,0)}</td>
@@ -493,9 +502,9 @@ function _hrRender(){
   </div>
 
   <div style="font-size:.62rem;color:var(--muted);margin-top:.7rem;line-height:1.6">
-    <strong>Días trabajados</strong> = TD + TN + A5 + DLT · <strong>Días libres</strong> = DL ·
+    <strong>Días trabajados</strong> = TD + TN + A5 · <strong>Días libres</strong> = DL · <strong>DLT</strong> = día libre trabajado, vale <strong>${_HR_PESO_DLT} jornadas</strong> ·
     <strong>DM</strong> = descanso médico · <strong>Sub</strong> = licencias y vacaciones (LP, LM, LF, V).
-    La <strong>incidencia</strong> solo suma los días trabajados: días libres, DM, faltas y permisos <strong>no generan venta</strong>.
+    La <strong>incidencia</strong> suma los días trabajados <strong>y los días libres</strong> (son parte del ciclo). Los DM, faltas, permisos y licencias <strong>no generan venta</strong>.
     Quien trabaje los ${D.nDias} días del período da 1.00; la mitad, 0.50.
     <strong>Venta = incidencia × tarifa mensual del cargo</strong>, configurada en el tab Tarifas.
   </div>`;
@@ -513,7 +522,7 @@ function _hrExcel(){
     fill:{fgColor:{rgb:(o&&o.bg)||'FFFFFF'}},
     alignment:{horizontal:(o&&o.al)||'left',vertical:'center'},border:BOR},
     (o&&o.numFmt)?{numFmt:o.numFmt}:{})});
-  const HDR=['#','Apellidos y Nombres','DNI','Cargo','Días traj.','Días libres','DM','Sub','Total días','% Inc.','Tarifa mes S/','Venta S/'];
+  const HDR=['#','Apellidos y Nombres','DNI','Cargo','Días traj.','Días libres','DLT x'+_HR_PESO_DLT,'DM','Sub','Total días','% Inc.','Tarifa mes S/','Venta S/'];
   const aoa=[
     [S('VENTA REAL DE PERSONAL — SEGÚN TAREAJE',{b:1,bg:'065F46',col:'FFFFFF',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'065F46'}))],
     [S(`Período: ${_hrDMY(_hrDesde)} al ${_hrDMY(_hrHasta)} · ${D.nDias} días${_hrProy?' · '+_hrProy:''}`,{bg:'EEF2F8',col:'475569',al:'center'}),...Array(HDR.length-1).fill(S('',{bg:'EEF2F8'}))],
@@ -522,25 +531,25 @@ function _hrExcel(){
   let it=0,tv=0,ti=0;
   D.grupos.forEach((g,gi)=>{
     aoa.push([S(String(gi+1).padStart(2,'0'),{b:1,bg:'DBEAFE'}),S(g.cargo,{b:1,bg:'DBEAFE'}),
-      ...Array(7).fill(S('',{bg:'DBEAFE'})),
+      ...Array(8).fill(S('',{bg:'DBEAFE'})),
       S(g.inc,{b:1,bg:'DBEAFE',al:'right',numFmt:'0.00'}),
       S(g.tarifa||null,{b:1,bg:'DBEAFE',al:'right',numFmt:'#,##0.00'}),
       S(g.venta,{b:1,bg:'DBEAFE',al:'right',numFmt:'#,##0.00'})]);
     g.items.forEach(f=>{
       it++;tv+=f.venta;ti+=f.inc;
       aoa.push([S(it,{al:'center'}),S(f.p.ape+', '+f.p.nom),S(f.p.dni||''),S(f.cargo),
-        S(f.trab,{al:'center'}),S(f.libre,{al:'center'}),S(f.dm||null,{al:'center'}),S(f.sub||null,{al:'center'}),
+        S(f.trab,{al:'center'}),S(f.libre,{al:'center'}),S(f.dlt||null,{al:'center',col:'65A30D'}),S(f.dm||null,{al:'center'}),S(f.sub||null,{al:'center'}),
         S(f.total,{al:'center',b:1}),S(f.inc,{al:'right',numFmt:'0.00'}),
         S(f.tarifa||null,{al:'right',numFmt:'#,##0.00',col:f.tarifa?'0F172A':'DC2626'}),
         S(f.venta||null,{al:'right',numFmt:'#,##0.00',b:1,col:'059669'})]);
     });
   });
-  aoa.push([S('TOTAL',{b:1,bg:'EEF2F8',al:'right'}),...Array(8).fill(S('',{bg:'EEF2F8'})),
+  aoa.push([S('TOTAL',{b:1,bg:'EEF2F8',al:'right'}),...Array(9).fill(S('',{bg:'EEF2F8'})),
     S(ti,{b:1,bg:'EEF2F8',al:'right',numFmt:'0.00'}),S('',{bg:'EEF2F8'}),
     S(tv,{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'059669'})]);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:HDR.length-1}},{s:{r:1,c:0},e:{r:1,c:HDR.length-1}}];
-  ws['!cols']=[{wch:5},{wch:34},{wch:11},{wch:28},{wch:10},{wch:11},{wch:6},{wch:6},{wch:10},{wch:9},{wch:14},{wch:15}];
+  ws['!cols']=[{wch:5},{wch:34},{wch:11},{wch:28},{wch:10},{wch:11},{wch:8},{wch:6},{wch:6},{wch:10},{wch:9},{wch:14},{wch:15}];
   ws['!freeze']={xSplit:4,ySplit:3};
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Venta Real');
