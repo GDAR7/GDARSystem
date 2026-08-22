@@ -34,7 +34,7 @@ const AREAS={
   otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
     modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'}]},
+    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'},{key:'hhVenta',label:'HH Venta',icon:'👷'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
     modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
 };
@@ -135,7 +135,8 @@ const SUPA_TABLES={
   cursos:'cursos',
   cursosPersonal:'cursos_personal',
   renta5ta:'renta5ta',
-  renta5taCfg:'renta5ta_cfg'
+  renta5taCfg:'renta5ta_cfg',
+  ventaPersonal:'venta_personal'
 };
 
 const ACTION_MAP={
@@ -166,6 +167,7 @@ const ACTION_MAP={
   saveCursoPersonal:'cursosPersonal',
   saveRenta5ta:'renta5ta',
   saveRenta5taCfg:'renta5taCfg',
+  saveVentaPersonal:'ventaPersonal',
   saveRosterConfig:'rosterConfig',
   saveRosterOvr:'rosterOvr',
   savePersonalRosterCfg:'personalRosterCfg',
@@ -288,7 +290,7 @@ async function loadSheetsData(){
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
       tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
-      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc',rosterOvr:'rovr',capasAvance:'cav',personalRosterCfg:'prc',seguimiento:'seg',ventas:'vent',reembolsables:'reemb',histogramaPlan:'hpl',cursos:'cur',cursosPersonal:'curp',renta5ta:'r5',renta5taCfg:'r5c'};
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc',rosterOvr:'rovr',capasAvance:'cav',personalRosterCfg:'prc',seguimiento:'seg',ventas:'vent',reembolsables:'reemb',histogramaPlan:'hpl',cursos:'cur',cursosPersonal:'curp',renta5ta:'r5',renta5taCfg:'r5c',ventaPersonal:'vper'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -411,8 +413,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],histogramaPlan:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1,relem:1,relc:1,rpl:1,edpp:1,frm:1,sleq:1,cur:1,curp:1,r5:1,r5c:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],ventaPersonal:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1,relem:1,relc:1,rpl:1,edpp:1,frm:1,sleq:1,cur:1,curp:1,r5:1,r5c:1,vper:1}
 };
 
 // ══ STATE ══

@@ -315,10 +315,17 @@ function _ccMatchEq(eq){
 }
 
 // ── Coincidencia tarifa personal ──
+// Tarifa de venta del cargo. Manda lo configurado en HH Venta (tabla
+// venta_personal); si ese cargo no está cargado ahí, se usa la lista de
+// referencia del código como respaldo.
 function _ccMatchHH(cargo){
   const c=(cargo||'').toLowerCase();
+  const norm=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();
+  const nc=norm(cargo);
+  const v=(DB.ventaPersonal||[]).find(t=>norm(t.cargo)===nc);
+  if(v&&+v.tarifaMes>0)return{lab:v.cargo,mes:+v.tarifaMes,fuente:'HH Venta'};
   for(const t of _CC_TARIFA_HH){
-    if(t.kw.some(k=>c.includes(k.toLowerCase()))) return t;
+    if(t.kw.some(k=>c.includes(k.toLowerCase())))return{...t,fuente:'referencia'};
   }
   return null;
 }
