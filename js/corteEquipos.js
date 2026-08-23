@@ -22,7 +22,7 @@ const _CE_TIPOS_HORA=['Línea Amarilla','Línea Blanca'];   // los que se valori
 const _CE_AREAS_FIJAS=['R3','MESAPATA'];     // columnas del desglose, aunque vayan en cero
 const _CE_AZ='#1e3a5f';                      // azul de las bandas y cabeceras
 const _CE_ROJO='#c00000';                    // rojo de los títulos
-const _CE_DIA='#0070c0';                     // turno DIA en azul
+const _CE_DIA='#0000ac';                     // turno DIA en azul
 const _CE_NOCHE='#111111';                   // turno NOCHE en negro
 const _ceColTurno=t=>String(t||'').toUpperCase()==='NOCHE'?_CE_NOCHE:_CE_DIA;
 
