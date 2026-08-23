@@ -238,7 +238,7 @@ function _ceHojaHtml(eq,per,num){
       <td style="${TDr};text-align:right;font-family:monospace">${_ceN2(f.hrIni)}</td>
       <td style="${TDr};text-align:right;font-family:monospace">${_ceN2(f.hrFin)}</td>
       <td style="${TDr};text-align:right;font-family:monospace;font-weight:700">${_ceN2(f.horas)}</td>
-      <td style="${TDr};text-align:center;font-weight:700;color:${f.hmin==='NO'?_CE_ROJO:f.hmin==='SUP'?'#166534':_ceColTurno(f.turno)}">${f.hmin}</td>
+      <td style="${TDr};text-align:center;font-weight:700;color:${f.hmin==='NO'?_CE_ROJO:_ceColTurno(f.turno)}">${f.hmin}</td>
       <td style="${TDr};text-align:center">${_ceEsc(f.areaLbl)}</td>
       <td style="${TDr}">${_ceEsc(f.desc)}</td>
       <td style="${TDr}">${_ceEsc(f.obs)||'—'}</td>
