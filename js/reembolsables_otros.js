@@ -1,4 +1,9 @@
-// ══ VIÁTICOS (Bienestar Social) · mismo modelo/columnas que Reembolsables/Gastos ══
+// ══ REEMBOLSABLES B.S. — "Otros" (Bienestar Social) ═════════════════════════
+// Mismo modelo y columnas que Reembolsables/Gastos de Almacén, pero contra la
+// tabla reembolsables_bbss. El archivo se llamaba viaticos.js; por eso las
+// funciones y los ids del modal conservan el prefijo _via / via*. Es solo un
+// prefijo interno: la clave del módulo, el id de la página y la clave de DB
+// siguen siendo 'viaticos' y están registradas así en config.js y utils.js.
 let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaQ='',_viaEditId=null;
 // Tab activo y filtro de período — mismo modelo que Facturas/Boletas de Almacén
 let _viaTab='reg';                 // 'reg' | 'detalle'
