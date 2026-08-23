@@ -198,8 +198,14 @@ function _ceMapa(per){
     tipos[t].h+=h;tipos[t].n++;
     if(!tipos[t].subs[s])tipos[t].subs[s]={h:0,n:0,eqs:{}};
     tipos[t].subs[s].h+=h;tipos[t].subs[s].n++;
-    if(!tipos[t].subs[s].eqs[eq.id])tipos[t].subs[s].eqs[eq.id]={eq,h:0,n:0};
-    tipos[t].subs[s].eqs[eq.id].h+=h;tipos[t].subs[s].eqs[eq.id].n++;
+    if(!tipos[t].subs[s].eqs[eq.id])tipos[t].subs[s].eqs[eq.id]={eq,h:0,n:0,dt:0,fechas:{}};
+    const re=tipos[t].subs[s].eqs[eq.id];
+    re.h+=h;re.n++;
+    // Un 2.º parte en la misma fecha es doble turno (D.T.)
+    re.fechas[p.fecha]=(re.fechas[p.fecha]||0)+1;
+    if(re.fechas[p.fecha]>1)re.dt++;
+    tipos[t].dt=(tipos[t].dt||0)+((re.fechas[p.fecha]>1)?1:0);
+    tipos[t].subs[s].dt=(tipos[t].subs[s].dt||0)+((re.fechas[p.fecha]>1)?1:0);
   });
   return tipos;
 }
@@ -291,7 +297,7 @@ function _ceHojaHtml(eq,per,num){
       <td style="${TDr};text-align:center">${_ceEsc(f.turno)}</td>
       <td style="${TDr}">${_ceEsc(f.tipo)}</td>
       <td style="${TDr};font-weight:700;white-space:nowrap">${_ceEsc(eq.placa||eq.codigo||'')}</td>
-      <td style="${TDr};text-align:center;${f.inoperativo?`color:${_CE_ROJO};font-weight:700`:''}">${_ceEsc(f.cond)}${f.dt?' <b>D.T.</b>':''}</td>
+      <td style="${TDr};text-align:center;${f.inoperativo?`color:${_CE_ROJO};font-weight:700`:''}">${_ceEsc(f.cond)}${f.dt?' <b style="color:#7c3aed">D.T.</b>':''}</td>
       <td style="${TDr};text-align:center">${_ceEsc(f.areaLbl)}</td>
       <td style="${TDr}">${_ceEsc(f.desc)}</td>
       <td style="${TDr}">${_ceEsc(f.obs)||'—'}</td>
@@ -559,13 +565,16 @@ function rCorteEquipos(){
     const D=_ceDatos(eq,per);
     a.horas+=D.totalEfec;a.standby+=D.totalStandby;a.inop+=D.horasInop;
     a.dias+=D.diasOperativos;a.disp.push(D.dispMec);
+    a.dt+=D.filas.filter(f=>f.dt).length;
+    if(D.filas.some(f=>f.dt))a.eqDt++;
     return a;
-  },{horas:0,standby:0,inop:0,dias:0,disp:[]});
+  },{horas:0,standby:0,inop:0,dias:0,disp:[],dt:0,eqDt:0});
   const dispProm=tot.disp.length?tot.disp.reduce((s,v)=>s+v,0)/tot.disp.length:100;
 
   const kpis=[
     {l:'Horas Efectivas',v:_ceN2(tot.horas)+' h',c:'#f97316'},
     {l:'Días Operativos',v:tot.dias,c:'#10b981'},
+    {l:'Días en Doble Turno',v:tot.dt>0?tot.dt+' ('+tot.eqDt+' eq.)':'0',c:'#8b5cf6'},
     {l:'Equipos en el Corte',v:eqs.length,c:'#06b6d4'},
     {l:'Disp. Mecánica Prom.',v:dispProm.toFixed(2)+'%',c:dispProm>=_CE_DISP_MIN?'#10b981':'#ef4444'},
   ];
@@ -600,10 +609,12 @@ function rCorteEquipos(){
     const lista=Object.values(tipos[_ceTipo].subs[_ceSub].eqs).sort((a,b)=>b.h-a.h);
     chipEqs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(249,115,22,.05);border:1px dashed rgba(249,115,22,.35);border-radius:9px">
       <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_ceEsc(_ceSub)}:</span>
-      ${lista.map(({eq,h})=>{
+      ${lista.map(({eq,h,dt})=>{
         const act=+_ceEqId===+eq.id;
+        // ⇄ marca las unidades que trabajaron en doble turno dentro del período
+        const mDt=dt>0?`<span title="${dt} día${dt!==1?'s':''} en doble turno" style="font-size:.6rem;font-weight:900;padding:.05rem .3rem;border-radius:8px;background:${act?'rgba(255,255,255,.25)':'rgba(139,92,246,.22)'};color:${act?'#fff':'#a78bfa'}">⇄${dt}</span>`:'';
         return`<button onclick="_ceSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'#f97316':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
-          ${_ceEsc(eq.codigo||'')} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${h.toFixed(0)}h</span>${act?' ✕':''}
+          ${_ceEsc(eq.codigo||'')} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${h.toFixed(0)}h</span>${mDt}${act?' ✕':''}
         </button>`;
       }).join('')}
     </div>`;
