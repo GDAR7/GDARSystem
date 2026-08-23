@@ -221,7 +221,7 @@ async function _viaSave(){
     const{data:urlData}=supa.storage.from(_VIA_BUCKET).getPublicUrl(path);
     pdfUrl=urlData.publicUrl;pdfName=file.name;
   }
-  const r=editing?existing:{id:nid('via')};
+  const r=editing?existing:{id:nidSeguro('via','viaticos')};
   if(!editing)DB.viaticos.push(r);
   r.proyecto=g('viaProy');r.moneda=g('viaMoneda');r.fecha=g('viaFecha');r.tipoCp=g('viaTipoCp');
   r.serie=g('viaSerie').toUpperCase();r.correlativo=g('viaCorrel');r.ruc=g('viaRuc');r.proveedor=g('viaProv');
