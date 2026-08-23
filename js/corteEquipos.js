@@ -26,8 +26,28 @@ const _CE_DIA='#0000dc';                     // turno DIA en azul · RGB (0,0,22
 const _CE_NOCHE='#111111';                   // turno NOCHE en negro
 const _ceColTurno=t=>String(t||'').toUpperCase()==='NOCHE'?_CE_NOCHE:_CE_DIA;
 
+// ── Formato del Excel ──────────────────────────────────────────────────────
+// Todo en Calibri 11 y con una sola línea negra al pie de cada celda: sin
+// bordes laterales ni superiores, como el formato que usa el cliente.
+const _CE_FUENTE='Calibri', _CE_PT=11;
+const _ceHex=c=>String(c).replace('#','').toUpperCase();
+const _CE_BORDE_INF={bottom:{style:'thin',color:{rgb:'000000'}}};
+const _ceFuente=(o)=>Object.assign({name:_CE_FUENTE,sz:_CE_PT},o||{});
+const _CE_XF={
+  tit:{font:_ceFuente({bold:true,color:{rgb:'C00000'}})},
+  lbl:{font:_ceFuente({bold:true})},
+  th:{fill:{patternType:'solid',fgColor:{rgb:'1E3A5F'}},font:_ceFuente({bold:true,color:{rgb:'FFFFFF'}}),
+      alignment:{horizontal:'center',vertical:'center',wrapText:true},border:_CE_BORDE_INF},
+  tdNoche:{font:_ceFuente({color:{rgb:_ceHex(_CE_NOCHE)}}),alignment:{vertical:'center',wrapText:true},border:_CE_BORDE_INF},
+  tdDia:{font:_ceFuente({color:{rgb:_ceHex(_CE_DIA)}}),alignment:{vertical:'center',wrapText:true},border:_CE_BORDE_INF},
+  tot:{font:_ceFuente({bold:true,color:{rgb:'C00000'}}),alignment:{vertical:'center'},
+       border:_CE_BORDE_INF,fill:{patternType:'solid',fgColor:{rgb:'FDE9D9'}}}
+};
+
 let _ceOffset=0;                 // desplazamiento del período 21→20
 let _ceTipo=null,_ceSub=null,_ceEqId=null,_ceQ='';
+let _ceTab='corte';              // 'corte' | 'resumen'
+function _ceSetTab(t){_ceTab=t;rCorteEquipos();}
 
 const _ceN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _ceDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
@@ -80,6 +100,12 @@ function _ceSelTipo(t){if(_ceTipo===t){_ceTipo=null;_ceSub=null;_ceEqId=null;}el
 function _ceSelSub(s){if(_ceSub===s){_ceSub=null;_ceEqId=null;}else{_ceSub=s;_ceEqId=null;}rCorteEquipos();}
 function _ceSelEq(id){_ceEqId=_ceEqId===id?null:id;rCorteEquipos();}
 function _ceLimpiar(){_ceTipo=null;_ceSub=null;_ceEqId=null;rCorteEquipos();}
+function _ceTabBar(){
+  const b=(t,lbl)=>{const on=_ceTab===t;return`<button onclick="_ceSetTab('${t}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${on?'#059669':'transparent'};color:${on?'#fff':'var(--muted2)'}">${lbl}</button>`;};
+  return`<div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    ${b('corte','✂️ Corte por Equipo')}${b('resumen','📊 Resumen de Horas')}
+  </div>`;
+}
 
 // ── Consolidado de un equipo en el período ─────────────────────────────────
 function _ceDatos(eq,per){
@@ -369,18 +395,8 @@ function _ceExportXls(){
   if(!eqs.length){toast('No hay equipos con partes en el período',true);return;}
 
   const AZ='1E3A5F';
-  const sTit={font:{bold:true,sz:11,color:{rgb:'C00000'}}};
-  const sLbl={font:{bold:true,sz:9}};
-  const sTh={fill:{patternType:'solid',fgColor:{rgb:AZ}},font:{bold:true,sz:8,color:{rgb:'FFFFFF'}},
-    alignment:{horizontal:'center',vertical:'center',wrapText:true},
-    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}};
-  // Igual que en la hoja impresa: el turno DIA va en azul y el NOCHE en negro
-  const sTdN={font:{sz:8.5,color:{rgb:_CE_NOCHE.replace('#','').toUpperCase()}},alignment:{vertical:'center',wrapText:true},
-    border:{top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},
-      left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}}};
-  const sTdD={...sTdN,font:{sz:8.5,color:{rgb:_CE_DIA.replace('#','').toUpperCase()}}};
-  const sTd=sTdN;
-  const sTot={...sTd,font:{bold:true,sz:9,color:{rgb:'C00000'}},fill:{patternType:'solid',fgColor:{rgb:'FDE9D9'}}};
+  const sTit=_CE_XF.tit,sLbl=_CE_XF.lbl,sTh=_CE_XF.th;
+  const sTdN=_CE_XF.tdNoche,sTdD=_CE_XF.tdDia,sTd=sTdN,sTot=_CE_XF.tot;
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
 
   const wb=XLSX.utils.book_new();
@@ -508,7 +524,7 @@ function _ceExportXls(){
     for(let r=1;r<=4;r++){const cl=ws[addr(r,0)];if(cl)cl.s=sLbl;}
     if(ws[addr(4,3)])ws[addr(4,3)].s=sLbl;
     const band=ws[addr(5,0)];
-    if(band)band.s={fill:{patternType:'solid',fgColor:{rgb:AZ}},font:{bold:true,sz:9,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}};
+    if(band)band.s={fill:{patternType:'solid',fgColor:{rgb:AZ}},font:_ceFuente({bold:true,color:{rgb:'FFFFFF'}}),alignment:{horizontal:'center'},border:_CE_BORDE_INF};
     hdr.forEach((_,c)=>{if(ws[addr(rHdr,c)])ws[addr(rHdr,c)].s=sTh;});
     for(let r=rHdr+1;r<rFin;r++){
       const fl=D.filas[r-rHdr-1];
@@ -600,6 +616,7 @@ function rCorteEquipos(){
 
   pg.innerHTML=`
     <div class="ph"><div class="ph-title" style="color:#059669">✂️ Corte de Equipos</div><div class="ph-sub">Valorización de partes diarios por período — formato de horas para línea amarilla y blanca, y de días para coasters, camionetas y cisternas</div></div>
+    ${_ceTabBar()}
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
       <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
       <div style="display:flex;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -618,16 +635,177 @@ function rCorteEquipos(){
       ${chipEqs}
     </div>
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-      <span style="font-size:.78rem;color:var(--muted2)">${_ceEqId?'Corte de <b style="color:#059669">'+_ceEsc(titulo)+'</b>':'Elija un equipo en los filtros de arriba'}</span>
+      <span style="font-size:.78rem;color:var(--muted2)">${_ceTab==='resumen'
+        ?'Línea amarilla y línea blanca · <b style="color:#059669">'+_ceResumenDatos(per).filas.length+' equipos</b>'
+        :(_ceEqId?'Corte de <b style="color:#059669">'+_ceEsc(titulo)+'</b>':'Elija un equipo en los filtros de arriba')}</span>
       <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input class="search-input" placeholder="Buscar equipo..." value="${_ceEsc(_ceQ)}" oninput="_ceQ=this.value;rCorteEquipos()"></div>
-      <button onclick="_cePrint()" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
-      <button onclick="_ceExportXls()" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">📊 Excel</button>
+      <button onclick="${_ceTab==='resumen'?'_ceResumenPrint()':'_cePrint()'}" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
+      <button onclick="${_ceTab==='resumen'?'_ceResumenXls()':'_ceExportXls()'}" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">📊 Excel</button>
     </div>
-    ${_ceEqId
+    ${_ceTab==='resumen'
+      ?`<div style="background:#fff;border-radius:8px;padding:1.2rem 1.4rem;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_ceResumenDocHtml(per)}</div>`
+      :_ceEqId
       ?`<div style="background:#fff;border-radius:8px;padding:1rem 1.2rem;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_ceDocHtml()}</div>`
       :`<div style="text-align:center;padding:3rem 1.2rem;background:var(--panel2);border:1px dashed var(--border);border-radius:10px">
           <div style="font-size:2.2rem;line-height:1;margin-bottom:.6rem">✂️</div>
           <div style="font-size:.95rem;font-weight:800;color:var(--text)">Seleccione un equipo para ver el resumen</div>
           <div style="font-size:.78rem;color:var(--muted2);margin-top:.4rem">Tipo de equipo → subtipo → código, en los filtros de arriba</div>
         </div>`}`;
+}
+
+// ══ TAB: RESUMEN HORAS DE EQUIPO POR ÁREA DE TRABAJO ════════════════════════
+// Un consolidado de toda la flota que se valoriza por horas (línea amarilla y
+// línea blanca): dos líneas por equipo — horas efectivas y standby — abiertas
+// por área de trabajo, y el total general al pie.
+
+// Equipos del período que se valorizan por horas, ordenados por tipo y código.
+// Respeta los chips de tipo/subtipo, pero no el de equipo: esto es un resumen.
+function _ceResumenEquipos(per){
+  const tipos=_ceMapa(per);
+  const out=[];
+  Object.entries(tipos).forEach(([t,dt])=>{
+    if(!_CE_TIPOS_HORA.includes(t))return;
+    if(_ceTipo&&t!==_ceTipo)return;
+    Object.entries(dt.subs).forEach(([sb,ds])=>{
+      if(_ceSub&&sb!==_ceSub)return;
+      Object.values(ds.eqs).forEach(({eq})=>out.push(eq));
+    });
+  });
+  return out.sort((a,b)=>String(a.sub||'').localeCompare(String(b.sub||''),'es')
+    ||String(a.codigo||'').localeCompare(String(b.codigo||''),'es'));
+}
+
+function _ceResumenDatos(per){
+  const eqs=_ceResumenEquipos(per);
+  const areas=[];
+  const filas=eqs.map(eq=>{
+    const D=_ceDatos(eq,per);
+    D.areas.forEach(a=>{if(!areas.includes(a))areas.push(a);});
+    return{eq,D};
+  });
+  // Solo se muestran las áreas con horas — no tiene sentido una columna vacía
+  const areasUsadas=areas.filter(a=>filas.some(f=>(f.D.efec[a]||0)>0||(f.D.standby[a]||0)>0));
+  const cols=areasUsadas.length?areasUsadas:[_CE_AREAS_FIJAS[0]];
+  const total=filas.reduce((s,f)=>s+f.D.totalEfec+f.D.totalStandby,0);
+  return{filas,cols,total};
+}
+
+function _ceResumenDocHtml(per){
+  const{filas,cols,total}=_ceResumenDatos(per);
+  const TH=`background:${_CE_AZ};color:#fff;padding:5px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #000`;
+  const TD='padding:4px 8px;font-size:9.5px;vertical-align:middle;color:#111;border-bottom:1px solid #cbd5e1';
+  const AM='#fff2cc';   // el amarillo suave del sub total, como en el formato
+  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+  const rot='font-size:9px;font-weight:900;color:#111;white-space:nowrap';
+  const cuerpo=filas.map(({eq,D})=>{
+    const lin=(cond,mapa,sub,fuerte)=>`<tr>
+      ${cond==='Horas efectivas'?`<td style="${TD};font-weight:700;color:${_CE_DIA}" rowspan="2">${_ceEsc((eq.sub||eq.tipo||'').toUpperCase())}</td>
+      <td style="${TD};font-weight:700;color:${_CE_DIA}" rowspan="2">${_ceEsc(eq.codigo||'')}</td>`:''}
+      <td style="${TD};color:${fuerte?'#111':'#64748b'}">${cond}</td>
+      ${cols.map(a=>`<td style="${TD};text-align:right;font-family:monospace;color:${fuerte?'#111':'#94a3b8'}">${_ceN2(mapa[a]||0)} hrs</td>`).join('')}
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;background:${AM};color:${fuerte?'#111':'#94a3b8'}">${_ceN2(sub)} hrs</td>
+    </tr>`;
+    return lin('Horas efectivas',D.efec,D.totalEfec,true)+lin('Standby',D.standby,D.totalStandby,D.totalStandby>0);
+  }).join('');
+
+  return`<div style="font-family:Arial,sans-serif;color:#111">
+    <div style="text-align:center;font-size:11px;font-weight:900;color:${_CE_ROJO};text-decoration:underline;margin-bottom:10px">RESUMEN HORAS DE EQUIPO POR AREA DE TRABAJO</div>
+    <table style="border-collapse:collapse;margin-bottom:8px">
+      <tr><td style="${rot};padding:1px 14px 1px 0">PROYECTO:</td><td style="font-size:9px;font-weight:700;padding:1px 22px 1px 0">${_ceEsc(proyecto)}</td><td></td><td></td></tr>
+      <tr><td style="${rot};padding:1px 14px 1px 0">CLIENTE:</td><td style="font-size:9px;font-weight:700;padding:1px 22px 1px 0">${_ceEsc(_CE_CLIENTE)}</td><td></td><td></td></tr>
+      <tr><td style="${rot};padding:1px 14px 1px 0">PROVEEDOR:</td><td style="font-size:9px;font-weight:700;padding:1px 22px 1px 0">${_ceEsc(_CE_PROVEEDOR)}</td>
+          <td style="${rot};padding:1px 10px 1px 0">Fecha:</td><td style="font-size:9px;padding:1px 0">${_ceDmy(today())}</td></tr>
+      <tr><td style="${rot};padding:1px 14px 1px 0">ÁREA:</td><td style="font-size:9px;font-weight:700;padding:1px 22px 1px 0">${_ceEsc(_CE_AREA_DEF)}</td>
+          <td style="${rot};padding:1px 10px 1px 0">Periodo:</td><td style="font-size:9px;padding:1px 0">${_ceDmy(per.desde)} &nbsp;&nbsp; ${_ceDmy(per.hasta)}</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="${TH};text-align:center">Equipo</th><th style="${TH};text-align:center">Código</th>
+        <th style="${TH};text-align:center">Condición</th>
+        ${cols.map(a=>`<th style="${TH};text-align:center">${_ceEsc(a)}</th>`).join('')}
+        <th style="${TH};text-align:right">Sub Total</th>
+      </tr></thead>
+      <tbody>${cuerpo||`<tr><td colspan="${cols.length+4}" style="${TD};text-align:center;color:#777">Sin equipos de línea amarilla o blanca con partes en el período</td></tr>`}</tbody>
+      ${filas.length?`<tfoot><tr>
+        <td colspan="${cols.length+3}" style="${TD};font-weight:900;background:${AM};border-bottom:1px solid #000">TOTAL DE HORAS :</td>
+        <td style="${TD};text-align:right;font-weight:900;font-family:monospace;background:${AM};border-bottom:1px solid #000;color:${_CE_ROJO}">${_ceN2(total)} hrs</td>
+      </tr></tfoot>`:''}
+    </table>
+  </div>`;
+}
+
+function _ceResumenPrint(){
+  const per=_cePeriodo();
+  if(!_ceResumenDatos(per).filas.length){toast('No hay equipos de línea amarilla o blanca en el período',true);return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen_Horas_${per.desde}_${per.hasta}</title>
+  <style>@page{size:A4 portrait;margin:1.2cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  tr{page-break-inside:avoid}</style></head><body>${_ceResumenDocHtml(per)}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
+}
+
+function _ceResumenXls(){
+  if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
+  const per=_cePeriodo();
+  const{filas,cols,total}=_ceResumenDatos(per);
+  if(!filas.length){toast('No hay equipos de línea amarilla o blanca en el período',true);return;}
+  const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
+  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+
+  const aoa=[['RESUMEN HORAS DE EQUIPO POR AREA DE TRABAJO'],
+    ['PROYECTO:',proyecto],
+    ['CLIENTE:',_CE_CLIENTE],
+    ['PROVEEDOR:',_CE_PROVEEDOR,'','Fecha:',_ceDmy(today())],
+    ['ÁREA:',_CE_AREA_DEF,'','Periodo:',_ceDmy(per.desde),_ceDmy(per.hasta)],
+    []];
+  const rHdr=aoa.length;
+  const hdr=['Equipo','Código','Condición',...cols,'Sub Total'];
+  aoa.push(hdr);
+  const xr0=rHdr+2;
+  filas.forEach(({eq,D})=>{
+    aoa.push([(eq.sub||eq.tipo||'').toUpperCase(),eq.codigo||'','Horas efectivas',
+      ...cols.map(a=>+(D.efec[a]||0).toFixed(2)),+D.totalEfec.toFixed(2)]);
+    aoa.push(['','','Standby',
+      ...cols.map(a=>+(D.standby[a]||0).toFixed(2)),+D.totalStandby.toFixed(2)]);
+  });
+  const rTot=aoa.length;
+  aoa.push(['TOTAL DE HORAS :','','',...cols.map(()=>''),+total.toFixed(2)]);
+
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:22},{wch:18},{wch:18},...cols.map(()=>({wch:14})),{wch:14}];
+
+  // Sub Total y TOTAL con fórmula, para que la hoja se pueda auditar
+  const CL=c=>XLSX.utils.encode_col(c);
+  const cSub=CL(3+cols.length);
+  filas.forEach((_,i)=>{
+    [0,1].forEach(k=>{
+      const r=rHdr+1+i*2+k, R=r+1;
+      const cl=ws[addr(r,3+cols.length)];
+      if(cl)cl.f=`SUM(${CL(3)}${R}:${CL(2+cols.length)}${R})`;
+    });
+  });
+  const cT=ws[addr(rTot,3+cols.length)];
+  if(cT)cT.f=`SUM(${cSub}${xr0}:${cSub}${rTot})`;
+
+  // Formato: Calibri 11 y una sola línea negra al pie de cada celda
+  if(ws[addr(0,0)])ws[addr(0,0)].s={..._CE_XF.tit,alignment:{horizontal:'center'}};
+  for(let r=1;r<=4;r++){const cl=ws[addr(r,0)];if(cl)cl.s=_CE_XF.lbl;}
+  if(ws[addr(3,3)])ws[addr(3,3)].s=_CE_XF.lbl;
+  if(ws[addr(4,3)])ws[addr(4,3)].s=_CE_XF.lbl;
+  hdr.forEach((_,c)=>{if(ws[addr(rHdr,c)])ws[addr(rHdr,c)].s=_CE_XF.th;});
+  const sSub={..._CE_XF.tdNoche,font:_ceFuente({bold:true}),fill:{patternType:'solid',fgColor:{rgb:'FFF2CC'}},
+    alignment:{horizontal:'right',vertical:'center'}};
+  for(let r=rHdr+1;r<rTot;r++)hdr.forEach((__,c)=>{
+    const cl=ws[addr(r,c)];if(!cl)return;
+    cl.s=c===3+cols.length?sSub:(c<2?_CE_XF.tdDia:_CE_XF.tdNoche);
+  });
+  hdr.forEach((__,c)=>{const cl=ws[addr(rTot,c)];if(cl)cl.s={..._CE_XF.tot,alignment:{horizontal:c===0?'left':'right',vertical:'center'}};});
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Resumen Horas');
+  XLSX.writeFile(wb,`Resumen_Horas_${per.desde}_${per.hasta}.xlsx`);
+  toast(`✓ ${filas.length} equipo${filas.length!==1?'s':''} en el resumen`);
 }
