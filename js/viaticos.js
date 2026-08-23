@@ -1,5 +1,18 @@
 // ══ VIÁTICOS (Bienestar Social) · mismo modelo/columnas que Reembolsables/Gastos ══
 let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaQ='',_viaEditId=null;
+// Tab activo y filtro de período — mismo modelo que Facturas/Boletas de Almacén
+let _viaTab='reg';                 // 'reg' | 'detalle'
+let _viaFDesde='',_viaFHasta='';
+function _viaSetTab(t){_viaTab=t;rViaticos();}
+function _viaSetFecha(tipo,val){if(tipo==='desde')_viaFDesde=val;else _viaFHasta=val;rViaticos();}
+function _viaLimpiarFecha(){_viaFDesde='';_viaFHasta='';rViaticos();}
+function _viaEnRango(fecha){
+  if(!_viaFDesde&&!_viaFHasta)return true;
+  if(!fecha)return false;
+  if(_viaFDesde&&fecha<_viaFDesde)return false;
+  if(_viaFHasta&&fecha>_viaFHasta)return false;
+  return true;
+}
 const _VIA_BUCKET='Reembolsables_BS_pdf'; // bucket de Supabase Storage para los PDF
 function _viaStoragePath(url){
   if(!url)return null;
@@ -13,7 +26,7 @@ const _viaN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,max
 const _viaN3=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:3,maximumFractionDigits:3});
 
 function _viaRows(){
-  let rows=[...(DB.viaticos||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
+  let rows=[...(DB.viaticos||[])].filter(r=>_viaEnRango(r.fecha)).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
   if(_viaFiltProv)rows=rows.filter(r=>r.proveedor===_viaFiltProv);
   if(_viaFiltProy)rows=rows.filter(r=>r.proyecto===_viaFiltProy);
   if(_viaFiltCod)rows=rows.filter(r=>(r.codigo||'')===_viaFiltCod);
@@ -94,8 +107,7 @@ function rViaticos(){
 
   const cols=['ID','Proyecto','EDP','Moneda','Fecha de Fact.','Observaciones','Tipo CP','Serie','Correlativo','Factura y Fecha','Factura','RUC','Proveedor','Cód. Reemb','Nombre Codif.','Ítem Fac','Descripción','Cantidad','Unidad','P. Unit s/IGV','Subtotal S/ sin IGV','Costo Unit c/IGV','IGV','Total S/ (Inc. IGV)','Total $','TC','Subtotal $ (sin IGV)','PDF'];
 
-  pg.innerHTML=`
-    <div class="ph"><div class="ph-title" style="color:var(--bsw)">🧾 Reembolsables B.S.</div><div class="ph-sub">Reembolsables de Bienestar Social: viáticos, alimentación, hospedaje y habitación</div></div>
+  const _htmlReg=`
     <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${k.v.toString().length>9?'1.2rem':'1.85rem'}">${k.v}</div></div>`).join('')}</div>
     <div class="card">
       <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
@@ -127,6 +139,35 @@ function rViaticos(){
         </table>
       </div></div>
     </div>`;
+
+  pg.innerHTML=`
+    <div class="ph"><div class="ph-title" style="color:var(--bsw)">🧾 Reembolsables B.S.</div><div class="ph-sub">Reembolsables de Bienestar Social: viáticos, alimentación, hospedaje y habitación</div></div>
+    ${_viaTabBar()}
+    ${_viaFechaBar()}
+    ${_viaTab==='detalle'?_viaDetHtml():_htmlReg}`;
+}
+
+// Barra de tabs — activo en el color del módulo (var --bsw)
+function _viaTabBar(){
+  const b=(t,lbl)=>{const on=_viaTab===t;return`<button onclick="_viaSetTab('${t}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${on?'var(--bsw)':'transparent'};color:${on?'#fff':'var(--muted2)'}">${lbl}</button>`;};
+  return`<div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    ${b('reg','🧾 Registro')}${b('detalle','📊 Detalle por Código')}
+  </div>`;
+}
+// Filtro de período — compartido por los dos tabs
+function _viaFechaBar(){
+  const act=_viaFDesde||_viaFHasta;
+  const et=act?`${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} → ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'}`:'';
+  const inp='background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;width:auto';
+  return`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Período</span>
+    <span style="font-size:.7rem;color:var(--muted2)">Desde</span>
+    <input type="date" value="${_viaFDesde}" onchange="_viaSetFecha('desde',this.value)" style="${inp}">
+    <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
+    <input type="date" value="${_viaFHasta}" onchange="_viaSetFecha('hasta',this.value)" style="${inp}">
+    <span style="font-size:.72rem;color:var(--bsw);font-weight:700">${et}</span>
+    ${act?`<button onclick="_viaLimpiarFecha()" style="font-size:.7rem;padding:.22rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar período</button>`:''}
+  </div>`;
 }
 
 // ── Nuevo / Editar ──
@@ -358,4 +399,114 @@ function _viaPrintDetalle(){
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   win.document.write(html);win.document.close();win.focus();
   setTimeout(()=>win.print(),400);
+}
+
+// ══ TAB: DETALLE POR CÓDIGO ═════════════════════════════════════════════════
+// Misma vista que Facturas/Boletas de Almacén: se agrupa Código → Proveedor →
+// Factura → ítems y se pinta en una hoja A4 horizontal lista para imprimir.
+// Filtra por período (barra superior) y por el chip de código; los filtros de
+// proyecto/proveedor/búsqueda son del tab de Registro y aquí no se aplican.
+let _viaDetCod='';
+function _viaDetSetCod(c){_viaDetCod=c;rViaticos();}
+function _viaDetGrupos(){
+  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha));
+  const rows=_viaDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_viaDetCod):all;
+  const byCod={};
+  rows.forEach(r=>{
+    const cod=r.codigo||'(Sin código)';
+    if(!byCod[cod])byCod[cod]={nombre:r.nombreCodif||'',total:0,provs:{}};
+    const g=byCod[cod];g.total+=+r.importe||0;
+    if(!g.nombre&&r.nombreCodif)g.nombre=r.nombreCodif;
+    const prov=r.proveedor||'(Sin proveedor)';
+    if(!g.provs[prov])g.provs[prov]={total:0,facts:{}};
+    const gp=g.provs[prov];gp.total+=+r.importe||0;
+    const fk=(r.serie||'')+' - '+(r.correlativo||'');
+    if(!gp.facts[fk])gp.facts[fk]={fecha:r.fecha||'',total:0,items:[]};
+    const gf=gp.facts[fk];gf.total+=+r.importe||0;gf.items.push(r);
+  });
+  return{rows,byCod,codsOrd:Object.keys(byCod).sort(),totGen:rows.reduce((s,r)=>s+(+r.importe||0),0)};
+}
+function _viaDetTablaHtml(){
+  const{rows,byCod,codsOrd,totGen}=_viaDetGrupos();
+  const AZ='#1e3a5f';
+  const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${AZ}`;
+  const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:9px;vertical-align:middle;color:#111';
+  const fila=(cod,prov,fact,desc,cant,punit,tot,estilo)=>`<tr style="${estilo||''}">
+    <td style="${TD}">${cod||''}</td><td style="${TD}">${prov||''}</td><td style="${TD}">${fact||''}</td>
+    <td style="${TD}">${desc||''}</td><td style="${TD};text-align:center">${cant||''}</td>
+    <td style="${TD};text-align:right">${punit||''}</td><td style="${TD};text-align:right">${tot}</td>
+  </tr>`;
+  let body='';
+  codsOrd.forEach(cod=>{
+    const g=byCod[cod];
+    body+=fila(cod+(g.nombre?' - '+g.nombre.toUpperCase():''),'','','','','',`<b style="color:${AZ}">S/ ${_viaN2(g.total)}</b>`,`background:#c7d2e0;font-weight:900;color:${AZ}`);
+    Object.keys(g.provs).sort().forEach(prov=>{
+      const gp=g.provs[prov];
+      body+=fila('',prov,'','','','',`<b>S/ ${_viaN2(gp.total)}</b>`,'font-weight:700');
+      Object.keys(gp.facts).sort((a,b)=>(gp.facts[a].fecha||'').localeCompare(gp.facts[b].fecha||'')).forEach(fk=>{
+        const gf=gp.facts[fk];
+        body+=fila('','',_viaDmy(gf.fecha)+' // '+fk,'','','',`S/ ${_viaN2(gf.total)}`,'color:#334155');
+        gf.items.forEach(it=>{
+          body+=fila('','','',it.desc||'',(+it.cantidad||0).toLocaleString('es-PE'),'S/ '+_viaN2(it.precioUnit),`<b>S/ ${_viaN2(it.importe)}</b>`);
+        });
+      });
+    });
+  });
+  return`<table style="width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th style="${TH};text-align:left">Código</th><th style="${TH};text-align:left">Proveedor</th>
+      <th style="${TH};text-align:left">Factura y Fecha</th><th style="${TH};text-align:left">Descripción</th>
+      <th style="${TH};text-align:center">Cantidad</th><th style="${TH};text-align:right">Precio Unit. S/IGV</th>
+      <th style="${TH};text-align:right">SubTotal S/. sin IGV</th>
+    </tr></thead>
+    <tbody>${body||`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin registros para este código</td></tr>`}</tbody>
+    ${rows.length?`<tfoot><tr><td style="${TD};background:#dbeafe;font-weight:900" colspan="6">TOTAL GENERAL</td><td style="${TD};background:#dbeafe;font-weight:900;text-align:right;color:${AZ}">S/ ${_viaN2(totGen)}</td></tr></tfoot>`:''}
+  </table>`;
+}
+function _viaDetDocHtml(){
+  const{codsOrd,byCod}=_viaDetGrupos();
+  const AZ='#1e3a5f';
+  const subtitulo=_viaDetCod
+    ?`${_viaDetCod}${byCod[_viaDetCod]&&byCod[_viaDetCod].nombre?' - '+byCod[_viaDetCod].nombre.toUpperCase():''}`
+    :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  return`<div style="font-family:Arial,sans-serif;color:#111">
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
+      <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES B.S.</div>
+        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
+      </div>
+      <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
+    </div>
+    ${_viaDetTablaHtml()}
+    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+  </div>`;
+}
+function _viaDetPrint(){
+  const{rows}=_viaDetGrupos();
+  if(!rows.length){toast('No hay registros para imprimir con este código',true);return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables B.S.</title>
+  <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
+  tr{page-break-inside:avoid}</style></head><body>${_viaDetDocHtml()}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
+}
+function _viaDetHtml(){
+  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha));
+  const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
+  const cods=Object.keys(codMap).sort();
+  if(_viaDetCod&&!cods.includes(_viaDetCod))_viaDetCod='';   // el período pudo dejar fuera ese código
+  const chip=(val,lbl)=>{const sel=_viaDetCod===val;return`<button onclick="_viaDetSetCod('${val.replace(/'/g,"\\'")}')" style="font-size:.72rem;padding:.32rem .8rem;border-radius:20px;border:1px solid ${sel?'var(--bsw)':'var(--border)'};background:${sel?'var(--bsw)':'var(--panel2)'};color:${sel?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'};white-space:nowrap">${lbl}</button>`;};
+  return`
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+      <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Código</span>
+      ${chip('','Todos')}
+      ${cods.map(c=>chip(c,c+(codMap[c]?' — '+codMap[c]:''))).join('')}
+      <button onclick="_viaDetPrint()" style="margin-left:auto;font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
+    </div>
+    <div style="background:#fff;border-radius:8px;padding:1rem 1.2rem;max-width:1200px;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_viaDetDocHtml()}</div>`;
 }
