@@ -13,7 +13,9 @@
 // equipo) y la salida se imprime en PDF o se baja a Excel, una hoja por equipo.
 
 const _CE_CLIENTE='COMPAÑÍA DE MINAS BUENAVENTURA S.A.A.';
-const _CE_PROVEEDOR_DEF='EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON(ECOSERMO)';
+// Esto es la VENTA al cliente: quien presta el servicio siempre es ECOSERMO.
+// La empresa que nos alquila el equipo va en el EDP de proveedores, no aqui.
+const _CE_PROVEEDOR='EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON(ECOSERMO)';
 const _CE_AREA_DEF='PROYECTOS';
 const _CE_DISP_MIN=85;                       // % de disponibilidad que exige el contrato
 const _CE_TIPOS_HORA=['Línea Amarilla','Línea Blanca'];   // los que se valorizan por horas
@@ -28,6 +30,28 @@ const _ceN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maxi
 const _ceDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
 const _ceEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _ceEsHora=eq=>_CE_TIPOS_HORA.includes(eq&&eq.tipo);
+
+// ¿El parte evidencia inoperatividad? Manda la condicion, luego las horas
+// inoperativas registradas y, por ultimo, el texto de observaciones/descripcion
+// (ahi es donde el supervisor anota "equipo inoperativo por falla ...").
+const _CE_RE_INOP=/INOPERAT|FALLA|AVER[ÍI]A|MALOGR|DESPERFECT|SIN\s+OPERAR/i;
+const _CE_RE_NEG=/SIN\s+(FALLA|NOVEDAD|INOPERAT|AVER)|NO\s+PRESENT[OÓ]\s+FALLA/i;
+function _ceInop(cond,texto,im){
+  if(/^INOPERATIVO/i.test(cond||''))return true;
+  if(+im>0)return true;
+  const t=String(texto||'');
+  if(_CE_RE_NEG.test(t))return false;
+  return _CE_RE_INOP.test(t);
+}
+// Columna "Horas Minimas" del formato:
+//   SUP → el equipo supero las horas minimas del dia
+//   SI  → no llego al minimo pero trabajo sin inoperatividad → se le reconoce
+//   NO  → no llego al minimo por estar inoperativo o con falla mecanica
+function _ceMarcaHmin(horas,hminDia,hayInop){
+  if(hminDia<=0)return'—';
+  if(horas>=hminDia)return'SUP';
+  return hayInop?'NO':'SI';
+}
 
 // Período 21→20 con desplazamiento propio (no comparte estado con Combustible)
 function _cePeriodo(){
@@ -58,6 +82,12 @@ function _ceDatos(eq,per){
       ||((a.turno==='NOCHE'?1:0)-(b.turno==='NOCHE'?1:0))
       ||((+a.id||0)-(+b.id||0)));
 
+  // Horas minimas de VENTA al cliente (campo "Hrs Min. Venta" del Master).
+  // No se usa eq.horasMinimas: ese es el minimo del contrato con el PROVEEDOR y
+  // sirve para el EDP, no para valorizarle al cliente.
+  const hminMes=+eq.hrsMinVenta||0;
+  const hminDia=per.dias>0?hminMes/per.dias:0;
+
   // El 2.º parte de una misma fecha es doble turno (D.T.) — así lo separa el cliente
   const vistos={};
   const filas=partes.map(p=>{
@@ -65,22 +95,26 @@ function _ceDatos(eq,per){
     const cond=String(p.condicion||'OPERATIVO').toUpperCase();
     const hrIni=+p.hrIni||0,hrFin=+p.hrFin||0;
     const horas=+p.ef>0?+p.ef:Math.max(0,+(hrFin-hrIni).toFixed(2));
+    const hayInop=_ceInop(cond,(p.observaciones||'')+' '+(p.act||''),p.im);
     return{fecha:p.fecha,turno:p.turno||'DIA',tipo:p.tipoEquipo||eq.tipo||'',
-      hrIni,hrFin,horas,inop:Math.max(0,+p.im||0),cond,dt:n>1,
+      hrIni,hrFin,horas,inop:Math.max(0,+p.im||0),cond,dt:n>1,hayInop,
+      hmin:_ceMarcaHmin(horas,hminDia,hayInop),
       standby:/STAND\s*-?\s*BY|STANBY/i.test(cond),
-      inoperativo:/^INOPERATIVO/i.test(cond),
+      inoperativo:/^INOPERATIVO/i.test(cond),   // solo por condicion: cuenta dias operativos
       area:p.areaT||'',desc:p.act||'',obs:p.observaciones||''};
   });
 
-  // Desglose de horas por área — R3 y MESAPATA siempre presentes, como en el formato
+  // Desglose de horas por área — R3 y MESAPATA siempre presentes, como en el
+  // formato. Los partes sin área no se cuelan en R3: van a su propio grupo, así
+  // el total de la hoja y el SUMIFS del Excel dan exactamente lo mismo.
+  filas.forEach(f=>{f.areaLbl=f.area||'(Sin área)';});
   const areas=[..._CE_AREAS_FIJAS];
-  filas.forEach(f=>{if(f.area&&!areas.includes(f.area))areas.push(f.area);});
+  filas.forEach(f=>{if(!areas.includes(f.areaLbl))areas.push(f.areaLbl);});
   const efec={},standby={};
   areas.forEach(a=>{efec[a]=0;standby[a]=0;});
   filas.forEach(f=>{
-    const a=f.area||areas[0];
-    if(f.standby)standby[a]=(standby[a]||0)+f.horas;
-    else efec[a]=(efec[a]||0)+f.horas;
+    if(f.standby)standby[f.areaLbl]+=f.horas;
+    else efec[f.areaLbl]+=f.horas;
   });
 
   const totalHoras=filas.reduce((s,f)=>s+f.horas,0);
@@ -90,8 +124,6 @@ function _ceDatos(eq,per){
   const horasCalendario=per.dias*24;
   const dispMec=horasCalendario>0?Math.max(0,Math.min(100,(horasCalendario-horasInop)/horasCalendario*100)):100;
 
-  const hminMes=+eq.horasMinimas||0;
-  const hminDia=per.dias>0?hminMes/per.dias:0;
   const cumpleDisp=dispMec>=_CE_DISP_MIN;
   const descuentos=hminMes<=0?'Sin horas mínimas pactadas'
     :cumpleDisp?'Corresponde reconocer horas minimas'
@@ -161,7 +193,6 @@ function _ceHojaHtml(eq,per,num){
   const TH=`background:${_CE_AZ};color:#fff;padding:4px 5px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${_CE_AZ}`;
   const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:8.5px;vertical-align:middle;color:#111';
   const rot='font-size:9px;font-weight:900;color:#111;white-space:nowrap';
-  const proveedor=eq.proveedor||_CE_PROVEEDOR_DEF;
   const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
   const etiqueta=`${eq.sub||eq.tipo||'EQUIPO'} ${eq.codigo||''}`.trim();
 
@@ -177,7 +208,7 @@ function _ceHojaHtml(eq,per,num){
           <td style="${rot};padding:1px 10px 1px 0">Fecha:</td><td style="font-size:9px;color:#111;padding:1px 18px 1px 0">${_ceDmy(today())}</td></tr>
       <tr><td style="${rot};padding:1px 14px 1px 0">CLIENTE:</td><td style="font-size:9px;font-weight:700;color:#111;padding:1px 22px 1px 0">${_ceEsc(_CE_CLIENTE)}</td>
           <td style="${rot};padding:1px 10px 1px 0">Periodo:</td><td style="font-size:9px;color:#111;padding:1px 18px 1px 0">${_ceDmy(per.desde)} &nbsp;&nbsp; ${_ceDmy(per.hasta)}</td></tr>
-      <tr><td style="${rot};padding:1px 14px 1px 0">PROVEEDOR:</td><td colspan="3" style="font-size:9px;font-weight:700;color:#111;padding:1px 0">${_ceEsc(proveedor)}</td></tr>
+      <tr><td style="${rot};padding:1px 14px 1px 0">PROVEEDOR:</td><td colspan="3" style="font-size:9px;font-weight:700;color:#111;padding:1px 0">${_ceEsc(_CE_PROVEEDOR)}</td></tr>
       <tr><td style="${rot};padding:1px 14px 1px 0">ÁREA:</td><td colspan="3" style="font-size:9px;font-weight:700;color:#111;padding:1px 0">${_ceEsc(_CE_AREA_DEF)}</td></tr>
     </table>
     <div style="background:${_CE_AZ};color:#fff;text-align:center;font-size:9px;font-weight:900;padding:3px;letter-spacing:.03em">ALQUILER DE ${_ceEsc(etiqueta.toUpperCase())}</div>`;
@@ -193,8 +224,8 @@ function _ceHojaHtml(eq,per,num){
       <td style="${TD};text-align:right;font-family:monospace">${_ceN2(f.hrIni)}</td>
       <td style="${TD};text-align:right;font-family:monospace">${_ceN2(f.hrFin)}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:700">${_ceN2(f.horas)}</td>
-      <td style="${TD};text-align:center">${D.hminMes>0?'SI':'NO'}</td>
-      <td style="${TD};text-align:center">${_ceEsc(f.area)}</td>
+      <td style="${TD};text-align:center;font-weight:700;color:${f.hmin==='NO'?_CE_ROJO:f.hmin==='SUP'?'#166534':'#111'}">${f.hmin}</td>
+      <td style="${TD};text-align:center">${_ceEsc(f.areaLbl)}</td>
       <td style="${TD}">${_ceEsc(f.desc)}</td>
       <td style="${TD}">${_ceEsc(f.obs)||'—'}</td>
     </tr>`).join('');
@@ -219,7 +250,7 @@ function _ceHojaHtml(eq,per,num){
       <td style="${TD}">${_ceEsc(f.tipo)}</td>
       <td style="${TD};font-weight:700;white-space:nowrap">${_ceEsc(eq.placa||eq.codigo||'')}</td>
       <td style="${TD};text-align:center;${f.inoperativo?`color:${_CE_ROJO};font-weight:700`:''}">${_ceEsc(f.cond)}${f.dt?' <b>D.T.</b>':''}</td>
-      <td style="${TD};text-align:center">${_ceEsc(f.area)}</td>
+      <td style="${TD};text-align:center">${_ceEsc(f.areaLbl)}</td>
       <td style="${TD}">${_ceEsc(f.desc)}</td>
       <td style="${TD}">${_ceEsc(f.obs)||'—'}</td>
     </tr>`).join('');
@@ -285,6 +316,7 @@ function _ceHojaHtml(eq,per,num){
 
 function _ceDocHtml(){
   const per=_cePeriodo();
+  if(!_ceEqId)return'';           // la hoja es por equipo, no un consolidado
   const eqs=_ceEquipos(per);
   if(!eqs.length)return`<div style="font-family:Arial,sans-serif;color:#777;text-align:center;padding:2rem;font-size:12px">Sin equipos con partes diarios en el período ${_ceDmy(per.desde)} al ${_ceDmy(per.hasta)}</div>`;
   return eqs.map((eq,i)=>`<div style="${i?'page-break-before:always;margin-top:26px;border-top:2px dashed #cbd5e1;padding-top:18px':''}">${_ceHojaHtml(eq,per,i+1)}</div>`).join('');
@@ -292,6 +324,7 @@ function _ceDocHtml(){
 
 function _cePrint(){
   const per=_cePeriodo();
+  if(!_ceEqId){toast('Seleccione un equipo para generar el reporte',true);return;}
   if(!_ceEquipos(per).length){toast('No hay equipos con partes en el período',true);return;}
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Corte de Equipos</title>
   <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -308,6 +341,7 @@ function _cePrint(){
 function _ceExportXls(){
   if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
   const per=_cePeriodo();
+  if(!_ceEqId){toast('Seleccione un equipo para exportar',true);return;}
   const eqs=_ceEquipos(per);
   if(!eqs.length){toast('No hay equipos con partes en el período',true);return;}
 
@@ -346,11 +380,18 @@ function _ceExportXls(){
   XLSX.utils.book_append_sheet(wb,wsR,'Resumen');
 
   // — Una hoja por equipo —
+  // "Horas Trabajadas" y "Horas Mínimas" se escriben como FÓRMULA, no como
+  // valor, para que la hoja se pueda auditar y recalcular sola:
+  //     Horas Trabajadas = Hora Final − Hora Inicial
+  //     Horas Mínimas    = SUP / NO / SI contra el mínimo diario de la celda E5
+  // Para que esa segunda fórmula sea verificable se agregan dos columnas
+  // auxiliares al final (Inop. y Standby) con las banderas que usa el sistema.
+  // Los totales y el desglose por área también quedan con SUM / SUMIFS.
   const usados={};
+  const CL=c=>XLSX.utils.encode_col(c);
   eqs.forEach((eq,idx)=>{
     const D=_ceDatos(eq,per);
     const esHora=_ceEsHora(eq);
-    const proveedor=eq.proveedor||_CE_PROVEEDOR_DEF;
     const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
     const titulo=esHora?`VALORIZACIÓN - ${eq.tipo||''} - ${eq.codigo||''}`
       :`${String(idx+1).padStart(2,'0')}.- ${(eq.sub||eq.tipo||'').toUpperCase()} ${eq.codigo||''}`;
@@ -358,34 +399,41 @@ function _ceExportXls(){
     const aoa=[[titulo],
       ['PROYECTO:',proyecto,'','Fecha:',_ceDmy(today())],
       ['CLIENTE:',_CE_CLIENTE,'','Periodo:',_ceDmy(per.desde),_ceDmy(per.hasta)],
-      ['PROVEEDOR:',proveedor],
-      ['ÁREA:',_CE_AREA_DEF],
+      ['PROVEEDOR:',_CE_PROVEEDOR],
+      ['ÁREA:',_CE_AREA_DEF,'','Hrs Mín./día:',+D.hminDia.toFixed(4)],   // ← E5: la referencia de las fórmulas
       [`ALQUILER DE ${(eq.sub||eq.tipo||'EQUIPO')} ${eq.codigo||''}`.toUpperCase()],
       []];
     const rHdr=aoa.length;
     const hdr=esHora
       ?['Fecha','Turno','Tipo de Equipo','Código','Hora Inicial','Hora Final','Horas Trabajadas',
-        'Horas Mínimas','Área del Trabajo','Descripción del Trabajo','Observaciones / Comentarios']
+        'Horas Mínimas','Área del Trabajo','Descripción del Trabajo','Observaciones / Comentarios','Inop.','Standby']
       :['Fecha','Turno','Tipo de Equipo','Código / Placa','Condición de Trabajo','Área del Trabajo',
         'Descripción del Trabajo','Observaciones / Comentarios'];
     aoa.push(hdr);
     D.filas.forEach(f=>{
       aoa.push(esHora
         ?[_ceDmy(f.fecha),f.turno,f.tipo,eq.codigo||'',+f.hrIni.toFixed(2),+f.hrFin.toFixed(2),
-          +f.horas.toFixed(2),D.hminMes>0?'SI':'NO',f.area,f.desc,f.obs]
-        :[_ceDmy(f.fecha),f.turno,f.tipo,eq.placa||eq.codigo||'',f.cond+(f.dt?' D.T.':''),f.area,f.desc,f.obs]);
+          +f.horas.toFixed(2),f.hmin,f.areaLbl,f.desc,f.obs,f.hayInop?1:0,f.standby?1:0]
+        :[_ceDmy(f.fecha),f.turno,f.tipo,eq.placa||eq.codigo||'',f.cond+(f.dt?' D.T.':''),f.areaLbl,f.desc,f.obs]);
     });
-    const rFin=aoa.length;
+    const rFin=aoa.length;                       // fila del TOTAL (0-based)
+    const xr0=rHdr+2;                            // 1.ª fila de datos, numeración Excel
+    const xrN=xr0+D.filas.length-1;              // última fila de datos
     if(esHora&&D.filas.length)aoa.push(['','','','','','TOTAL',+D.totalHoras.toFixed(2)]);
 
     aoa.push([]);
+    let rCuadro=-1,rEfec=-1,rStandby=-1,rTot=-1;
     if(esHora){
       aoa.push(['Dias','Hmin.','Hmin Mes','Disp. Meca','Descuentos']);
-      aoa.push([per.dias,+D.hminDia.toFixed(2),+D.hminMes.toFixed(2),+D.dispMec.toFixed(2)/100,D.descuentos]);
+      rCuadro=aoa.length;
+      aoa.push([per.dias,+D.hminDia.toFixed(4),+D.hminMes.toFixed(2),+(D.dispMec/100).toFixed(4),D.descuentos]);
       aoa.push([]);
       aoa.push(['Descripción',...D.areas,'Total']);
+      rEfec=aoa.length;
       aoa.push(['HORAS EFECT.',...D.areas.map(a=>+(D.efec[a]||0).toFixed(2)),+D.totalEfec.toFixed(2)]);
+      rStandby=aoa.length;
       aoa.push(['HORAS STANDBY A PAGAR',...D.areas.map(a=>+(D.standby[a]||0).toFixed(2)),+D.totalStandby.toFixed(2)]);
+      rTot=aoa.length;
       aoa.push(['Total =',...D.areas.map(()=>''),+(D.totalEfec+D.totalStandby).toFixed(2)]);
     }else{
       aoa.push(['Descripcion','Dias','Inoperatividad','Incidencia']);
@@ -394,10 +442,42 @@ function _ceExportXls(){
 
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols']=esHora
-      ?[{wch:12},{wch:8},{wch:16},{wch:16},{wch:12},{wch:12},{wch:12},{wch:11},{wch:12},{wch:46},{wch:46}]
-      :[{wch:12},{wch:8},{wch:16},{wch:16},{wch:24},{wch:12},{wch:30},{wch:60}];
+      ?[{wch:12},{wch:8},{wch:16},{wch:16},{wch:12},{wch:12},{wch:14},{wch:13},{wch:14},{wch:46},{wch:46},{wch:7},{wch:8}]
+      :[{wch:12},{wch:8},{wch:16},{wch:16},{wch:24},{wch:14},{wch:30},{wch:60}];
+
+    // ── Fórmulas ──
+    if(esHora&&D.filas.length){
+      const nA=D.areas.length,cT=CL(nA+1);
+      D.filas.forEach((f,i)=>{
+        const R=xr0+i;                                   // fila en numeración Excel
+        const cHr=ws[addr(rHdr+1+i,6)];
+        if(cHr)cHr.f=`F${R}-E${R}`;                      // Horas Trabajadas
+        const cMi=ws[addr(rHdr+1+i,7)];
+        if(cMi&&D.hminDia>0)cMi.f=`IF(G${R}>=$E$5,"SUP",IF(L${R}=1,"NO","SI"))`;
+      });
+      const cTot=ws[addr(rFin,6)];
+      if(cTot)cTot.f=`SUM(G${xr0}:G${xrN})`;
+      const cHmD=ws[addr(rCuadro,1)];
+      if(cHmD)cHmD.f='E5';
+      D.areas.forEach((a,i)=>{
+        const col=1+i,lit=String(a).replace(/"/g,'""');
+        const ce=ws[addr(rEfec,col)];
+        if(ce)ce.f=`SUMIFS($G$${xr0}:$G$${xrN},$I$${xr0}:$I$${xrN},"${lit}",$M$${xr0}:$M$${xrN},0)`;
+        const cs=ws[addr(rStandby,col)];
+        if(cs)cs.f=`SUMIFS($G$${xr0}:$G$${xrN},$I$${xr0}:$I$${xrN},"${lit}",$M$${xr0}:$M$${xrN},1)`;
+      });
+      const ceT=ws[addr(rEfec,nA+1)];
+      if(ceT)ceT.f=`SUM(B${rEfec+1}:${CL(nA)}${rEfec+1})`;
+      const csT=ws[addr(rStandby,nA+1)];
+      if(csT)csT.f=`SUM(B${rStandby+1}:${CL(nA)}${rStandby+1})`;
+      const ctT=ws[addr(rTot,nA+1)];
+      if(ctT)ctT.f=`${cT}${rEfec+1}+${cT}${rStandby+1}`;
+    }
+
+    // ── Formato ──
     if(ws[addr(0,0)])ws[addr(0,0)].s=sTit;
     for(let r=1;r<=4;r++){const cl=ws[addr(r,0)];if(cl)cl.s=sLbl;}
+    if(ws[addr(4,3)])ws[addr(4,3)].s=sLbl;
     const band=ws[addr(5,0)];
     if(band)band.s={fill:{patternType:'solid',fgColor:{rgb:AZ}},font:{bold:true,sz:9,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}};
     hdr.forEach((_,c)=>{if(ws[addr(rHdr,c)])ws[addr(rHdr,c)].s=sTh;});
@@ -505,10 +585,16 @@ function rCorteEquipos(){
       ${chipEqs}
     </div>
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
-      <span style="font-size:.78rem;color:var(--muted2)">Corte de <b style="color:#059669">${_ceEsc(titulo)}</b> · ${eqs.length} hoja${eqs.length!==1?'s':''}</span>
+      <span style="font-size:.78rem;color:var(--muted2)">${_ceEqId?'Corte de <b style="color:#059669">'+_ceEsc(titulo)+'</b>':'Elija un equipo en los filtros de arriba'}</span>
       <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input class="search-input" placeholder="Buscar equipo..." value="${_ceEsc(_ceQ)}" oninput="_ceQ=this.value;rCorteEquipos()"></div>
       <button onclick="_cePrint()" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
       <button onclick="_ceExportXls()" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">📊 Excel</button>
     </div>
-    <div style="background:#fff;border-radius:8px;padding:1rem 1.2rem;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_ceDocHtml()}</div>`;
+    ${_ceEqId
+      ?`<div style="background:#fff;border-radius:8px;padding:1rem 1.2rem;overflow-x:auto;box-shadow:0 4px 18px rgba(0,0,0,.45)">${_ceDocHtml()}</div>`
+      :`<div style="text-align:center;padding:3rem 1.2rem;background:var(--panel2);border:1px dashed var(--border);border-radius:10px">
+          <div style="font-size:2.2rem;line-height:1;margin-bottom:.6rem">✂️</div>
+          <div style="font-size:.95rem;font-weight:800;color:var(--text)">Seleccione un equipo para ver el resumen</div>
+          <div style="font-size:.78rem;color:var(--muted2);margin-top:.4rem">Tipo de equipo → subtipo → código, en los filtros de arriba</div>
+        </div>`}`;
 }
