@@ -133,6 +133,8 @@ function rViaticos(){
           ${(_viaFiltProv||_viaFiltProy||_viaFiltCod)?`<button onclick="_viaFiltProv='';_viaFiltProy='';_viaFiltCod='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;rViaticos()"></div>
           <button onclick="_viaPrintDetalle()" style="background:transparent;border:1px solid #ef444460;border-radius:6px;color:#ef4444;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Imprime el detalle agrupado Código → Proveedor → Factura, respetando los filtros activos">🖨 PDF</button>
+          <input type="file" id="riFile" accept=".csv,.txt" style="display:none" onchange="_riArchivo(this)">
+          <button onclick="_riAbrir()" style="background:transparent;border:1px solid #06b6d460;border-radius:6px;color:#06b6d4;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Cargar registros desde un archivo CSV">📥 Importar CSV</button>
           <button onclick="_viaExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
           <button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaNuevo()">＋ Nuevo Registro</button>
         </div>

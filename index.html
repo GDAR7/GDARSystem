@@ -1918,6 +1918,16 @@
   <div class="mf"><button class="btn btn-out" onclick="closeM('mSocial')">Cancelar</button><button class="btn btn-a" style="--ba:var(--bsw)" onclick="gSocial()">Guardar</button></div>
 </div></div>
 
+<!-- Importar CSV a Reembolsables B.S. -->
+<div class="mo" id="mImpCsv"><div class="modal" style="max-width:1040px">
+  <div class="mh"><span class="mttl">📥 Importar CSV — Reembolsables B.S.</span><button class="mx" onclick="closeM('mImpCsv')">✕</button></div>
+  <div id="impCsvBody" style="padding:1rem 1.2rem;max-height:66vh;overflow:auto"></div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mImpCsv')">Cancelar</button>
+    <button class="btn btn-a" id="impCsvBtn" style="--ba:var(--bsw)" onclick="_riConfirmar()">📥 Importar</button>
+  </div>
+</div></div>
+
 <!-- Viático Modal -->
 <div class="mo" id="mViatico"><div class="modal" style="max-width:720px">
   <div class="mh"><span class="mttl" id="viaMtl">Nuevo Registro</span><button class="mx" onclick="closeM('mViatico')">✕</button></div>
@@ -3150,7 +3160,8 @@
 <script src="js/guardiasFbnv.js?v=14"></script>
 <script src="js/combustible.js?v=10"></script>
 <script src="js/requerimientos.js?v=17"></script>
-<script src="js/reembolsables_otros.js?v=10"></script>
+<script src="js/reembolsables_otros.js?v=11"></script>
+<script src="js/importCsv.js?v=1"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
 <script src="js/tareaje.js?v=21"></script>
