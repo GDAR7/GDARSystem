@@ -101,6 +101,24 @@ const _RI_NUM=['cantidad','precioUnit','importeCsv','tc'];
 
 let _riDatos=null;      // resultado del análisis, a la espera de confirmación
 
+// El archivo trae el proyecto abreviado ("RELAVERA - R3") y el sistema lo
+// guarda con su nombre completo. Si el abreviado corresponde sin ambigüedad a
+// UN proyecto del catálogo se usa el nombre completo; si hay varios candidatos
+// o ninguno se respeta lo que dice el archivo y se avisa en la vista previa.
+function _riProyecto(v){
+  const s=String(v||'').trim();
+  if(!s)return{val:'',nota:''};
+  const lista=(DB.proyectos||[]).map(p=>p.nombre).filter(Boolean);
+  if(lista.includes(s))return{val:s,nota:''};
+  const n=_riNorm(s);
+  if(!n)return{val:s,nota:''};
+  const cand=lista.filter(p=>{const q=_riNorm(p);return q===n||q.includes(n)||n.includes(q);});
+  if(cand.length===1)return{val:cand[0],nota:'"'+s+'" → "'+cand[0]+'"'};
+  return{val:s,nota:cand.length>1
+    ?'"'+s+'" coincide con '+cand.length+' proyectos: se deja tal cual'
+    :'"'+s+'" no está en el catálogo de proyectos: se deja tal cual'};
+}
+
 function _riMapear(encabezado){
   const norm=encabezado.map(_riNorm);
   const map={},sinUsar=[];
@@ -136,13 +154,14 @@ function _riAnalizar(texto){
   const vistas=new Set();
 
   const listas=[],problemas=[],duplicadas=[];
+  const notasProy=new Set();
   let vacias=0;
   for(let f=1;f<filas.length;f++){
     const fila=filas[f];
     if(!fila.some(c=>String(c||'').trim())){vacias++;continue;}
     const nLinea=f+1;
     const r={
-      proyecto:val(fila,'proyecto'),
+      proyecto:'',   // se resuelve abajo contra el catálogo
       moneda:(val(fila,'moneda')||'SOLES').toUpperCase(),
       fecha:_csvFecha(map.fecha===undefined?'':fila[map.fecha]),
       tipoCp:(val(fila,'tipoCp')||'FE').toUpperCase(),
@@ -159,6 +178,10 @@ function _riAnalizar(texto){
       obs:val(fila,'obs'),
       tc:val(fila,'tc')
     };
+    const _p=_riProyecto(val(fila,'proyecto'));
+    r.proyecto=_p.val;
+    if(_p.nota)notasProy.add(_p.nota);
+
     let cant=val(fila,'cantidad');
     let punit=val(fila,'precioUnit');
     const subCsv=val(fila,'importeCsv');
@@ -180,7 +203,8 @@ function _riAnalizar(texto){
     vistas.add(k);
     listas.push({linea:nLinea,rec:r});
   }
-  return{delim,total:filas.length-1,map,sinUsar,listas,problemas,duplicadas,vacias};
+  return{delim,total:filas.length-1,map,sinUsar,listas,problemas,duplicadas,vacias,
+    notasProy:[...notasProy]};
 }
 
 // ── Interfaz ───────────────────────────────────────────────────────────────
@@ -255,6 +279,8 @@ function _riPreview(){
       ${kpi('Filas vacías',D.vacias,'#64748b')}
       ${kpi('Total S/ sin IGV','S/ '+totImp.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}),'#06b6d4')}
     </div>
+    ${(D.notasProy&&D.notasProy.length)?`<div style="font-size:.72rem;color:#06b6d4;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.3);border-radius:7px;padding:.45rem .6rem;margin-bottom:.6rem">
+      <b>Proyecto</b> — se ajusta al nombre del catálogo:<br>${D.notasProy.map(esc).join('<br>')}</div>`:''}
     ${D.sinUsar.length?`<div style="font-size:.7rem;color:var(--muted2);margin-bottom:.6rem">Columnas del archivo que no se importan (el sistema las calcula o no están en el formulario): <span style="color:#94a3b8">${esc(D.sinUsar.join(' · '))}</span></div>`:''}
     ${lista('⚠ Líneas con error — no se importan',errores,'#ef4444')}
     ${lista('↻ Líneas que ya existen en el sistema',D.duplicadas,'#f59e0b')}
