@@ -355,6 +355,66 @@ function _hrDatos(){
   return{F,nDias,grupos:arr,filas};
 }
 
+
+// ── Venta real de personal entre dos fechas — REGLA ÚNICA ──────────────────
+// Vive aquí, junto a _hrDatos y a las constantes _HR_*, para que la fórmula no
+// pueda separarse de la del tab "Venta Real":
+//     incidencia = (TD + TN + A5 + DL + DLT×2.5) ÷ días del período
+//     venta      = incidencia × tarifa mes del cargo
+// Cost Control y Costo por m³ la consumen: antes cada uno contaba solo
+// TD + TN + A5 y les salía menos venta que a este módulo.
+function hhPesoMarca(tipo){
+  if(_HR_TRAB.includes(tipo))return 1;     // TD · TN · A5
+  if(_HR_LIBRE.includes(tipo))return 1;    // DL
+  if(_HR_DLT.includes(tipo))return _HR_PESO_DLT;   // DLT = 2.5 jornadas
+  return 0;                                // DM · F · P · licencias
+}
+function hhVentaPeriodo(desde,hasta){
+  const F=[];
+  const d=new Date(desde+'T12:00'),f=new Date(hasta+'T12:00');
+  while(d<=f){F.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  const nDias=F.length||1;
+  const set=new Set(F);
+
+  // Una marca por persona y fecha: dos registros el mismo día no cuentan doble
+  const porPers=new Map();
+  (DB.tareaje||[]).forEach(r=>{
+    if(!set.has(r.fecha))return;
+    let a=porPers.get(+r.personalId);
+    if(!a){a={};porPers.set(+r.personalId,a);}
+    a[r.fecha]=r.tipo;
+  });
+
+  const filas=[],sinTarifa=new Set();
+  (DB.personal||[]).forEach(p=>{
+    const marcas=porPers.get(+p.id);
+    if(!marcas)return;
+    const cargo=(p.cargo||'SIN CARGO').trim();
+    let trab=0,dlt=0,libre=0;
+    Object.values(marcas).forEach(t=>{
+      if(_HR_TRAB.includes(t))trab++;
+      else if(_HR_DLT.includes(t))dlt++;
+      else if(_HR_LIBRE.includes(t))libre++;
+    });
+    const equiv=+(trab+libre+dlt*_HR_PESO_DLT).toFixed(4);
+    const inc=+(equiv/nDias).toFixed(4);
+    // Manda la tabla de HH Venta; si el cargo no está ahí se recurre a la
+    // lista de referencia de Cost Control para no valorizarlo en cero
+    const t1=typeof _hhTarifaDe==='function'?_hhTarifaDe(cargo):null;
+    let tarifa=t1?+t1.tarifaMes||0:0;
+    if(!tarifa&&typeof _ccMatchHH==='function'){
+      const t2=_ccMatchHH(cargo);
+      if(t2)tarifa=+t2.mes||0;
+    }
+    if(!tarifa)sinTarifa.add(cargo);
+    filas.push({p,persona:p,cargo,trab,dlt,libre,equiv,inc,tarifa,
+      venta:+(inc*tarifa).toFixed(2),sinTarifa:!tarifa});
+  });
+  filas.sort((a,b)=>b.venta-a.venta);
+  return{nDias,filas,sinTarifa:[...sinTarifa],
+    total:+filas.reduce((s,r)=>s+r.venta,0).toFixed(2)};
+}
+
 // ── Render del tab ──────────────────────────────────────────────────────────
 function _hrRender(){
   if(!_hrDesde||!_hrHasta){const q=_hrPer2120();_hrDesde=q.desde;_hrHasta=q.hasta;}

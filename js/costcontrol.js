@@ -427,19 +427,14 @@ function rCostControl(){
   const totalMargenEq=eqRows.reduce((s,r)=>s+r.margen,0);
 
   // — Costos de personal —
-  const hhMap={};
-  const personal=(DB.personal||[]).filter(p=>(p.est||'').toLowerCase()==='activo'||(p.est||'')==='');
-  const tareajeP=(DB.tareaje||[]).filter(t=>t.fecha>=per.desde&&t.fecha<=per.hasta&&['TD','TN','A5'].includes(t.tipo||''));
-  tareajeP.forEach(t=>{
-    const per2=personal.find(p=>p.id===t.personalId);if(!per2)return;
-    const tarHH=_ccMatchHH(per2.cargo);if(!tarHH)return;
-    if(!hhMap[per2.id])hhMap[per2.id]={persona:per2,dias:0,tarifa:tarHH};
-    hhMap[per2.id].dias++;
-  });
-  const hhRows=Object.values(hhMap).map(r=>{
-    const costoDia=r.tarifa.mes/per.dias;
-    return{...r,costoDia,costo:costoDia*r.dias};
-  });
+  // Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
+  // aquí solo se contaban los días trabajados y salía menos venta que allá.
+  const hhRows=hhVentaPeriodo(per.desde,per.hasta).filas.map(r=>({
+    persona:r.p,dias:r.trab+r.libre+r.dlt,
+    tarifa:{lab:r.cargo,mes:r.tarifa},
+    costoDia:per.dias>0?r.tarifa/per.dias:0,
+    costo:r.venta
+  }));
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
   const totalGen=totalVentaEq+totalHH;
 
