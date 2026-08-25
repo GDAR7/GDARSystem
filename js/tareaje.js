@@ -27,15 +27,27 @@ let _tarShowTipo=localStorage.getItem('_tarShowTipo')==='1';
 let _tarShowIng=localStorage.getItem('_tarShowIng')==='1';
 let _tarShowAsig=localStorage.getItem('_tarShowAsig')==='1';
 
-function _tarToggleCol(col){
-  if(col==='cargo'){_tarShowCargo=!_tarShowCargo;localStorage.setItem('_tarShowCargo',_tarShowCargo?'1':'0');}
-  else if(col==='dni'){_tarShowDni=!_tarShowDni;localStorage.setItem('_tarShowDni',_tarShowDni?'1':'0');}
-  else if(col==='grd'){_tarShowGrd=!_tarShowGrd;localStorage.setItem('_tarShowGrd',_tarShowGrd?'1':'0');}
-  else if(col==='cat'){_tarShowCat=!_tarShowCat;localStorage.setItem('_tarShowCat',_tarShowCat?'1':'0');}
-  else if(col==='tipo'){_tarShowTipo=!_tarShowTipo;localStorage.setItem('_tarShowTipo',_tarShowTipo?'1':'0');}
-  else if(col==='ing'){_tarShowIng=!_tarShowIng;localStorage.setItem('_tarShowIng',_tarShowIng?'1':'0');}
-  else if(col==='asig'){_tarShowAsig=!_tarShowAsig;localStorage.setItem('_tarShowAsig',_tarShowAsig?'1':'0');}
-  else{_tarShowProc=!_tarShowProc;localStorage.setItem('_tarShowProc',_tarShowProc?'1':'0');}
+// Encender/apagar una columna vive en _TAR_COLS: cada entrada trae su get/set y
+// su clave de localStorage, así no hay que tocar dos sitios al agregar una.
+// Antes una clave desconocida caía en el "else" final y terminaba apagando
+// Procedencia sin que nadie lo pidiera.
+function _tarSetCol(k,on){
+  const c=_TAR_COLS.find(x=>x.k===k);
+  if(!c)return false;
+  c.set(!!on);
+  try{localStorage.setItem(c.ls,on?'1':'0');}catch(e){}
+  return true;
+}
+function _tarToggleCol(k){
+  const c=_TAR_COLS.find(x=>x.k===k);
+  if(!c)return;
+  _tarSetCol(k,!c.get());
+  rTareaje();
+}
+// Todas / Ninguna de un golpe, con un solo repintado
+function _tarColsTodas(on){
+  _TAR_COLS.forEach(c=>_tarSetCol(c.k,on));
+  if(typeof _tarColsPinta==="function")_tarColsPinta();
   rTareaje();
 }
 
@@ -392,58 +404,92 @@ function _tarColFiltLimpiarSinCerrar(k){delete _tarColFilt[k];rTareaje();}
 // ── Selector de columnas visibles (multi-check en un solo botón) ──
 // Procedencia va siempre al final de la lista de columnas informativas
 const _TAR_COLS=[
-  {k:'dni',  l:'DNI',            c:'#22d3ee', get:()=>_tarShowDni},
-  {k:'cargo',l:'Cargo',          c:'#94a3b8', get:()=>_tarShowCargo},
-  {k:'cat',  l:'Categoría',      c:'#38bdf8', get:()=>_tarShowCat},
-  {k:'tipo', l:'Tipo',           c:'#f472b6', get:()=>_tarShowTipo},
-  {k:'ing',  l:'F. Ingreso',     c:'#34d399', get:()=>_tarShowIng},
-  {k:'asig', l:'Asig. Familiar', c:'#fbbf24', get:()=>_tarShowAsig},
-  {k:'grd',  l:'Guardia',        c:'#f59e0b', get:()=>_tarShowGrd},
-  {k:'proc', l:'Procedencia',    c:'#a78bfa', get:()=>_tarShowProc},
+  {k:'dni',  l:'DNI',            c:'#22d3ee', ls:'_tarShowDni',   get:()=>_tarShowDni,   set:v=>_tarShowDni=v},
+  {k:'cargo',l:'Cargo',          c:'#94a3b8', ls:'_tarShowCargo', get:()=>_tarShowCargo, set:v=>_tarShowCargo=v},
+  {k:'cat',  l:'Categoría',      c:'#38bdf8', ls:'_tarShowCat',   get:()=>_tarShowCat,   set:v=>_tarShowCat=v},
+  {k:'tipo', l:'Tipo',           c:'#f472b6', ls:'_tarShowTipo',  get:()=>_tarShowTipo,  set:v=>_tarShowTipo=v},
+  {k:'ing',  l:'F. Ingreso',     c:'#34d399', ls:'_tarShowIng',   get:()=>_tarShowIng,   set:v=>_tarShowIng=v},
+  {k:'asig', l:'Asig. Familiar', c:'#fbbf24', ls:'_tarShowAsig',  get:()=>_tarShowAsig,  set:v=>_tarShowAsig=v},
+  {k:'grd',  l:'Guardia',        c:'#f59e0b', ls:'_tarShowGrd',   get:()=>_tarShowGrd,   set:v=>_tarShowGrd=v},
+  {k:'proc', l:'Procedencia',    c:'#a78bfa', ls:'_tarShowProc',  get:()=>_tarShowProc,  set:v=>_tarShowProc=v}
 ];
-let _tarColsDropEl=null;
+let _tarColsDropEl=null,_tarColsDocH=null,_tarColsEscH=null,_tarColsPinta=null;
+// Cierra y suelta SIEMPRE los listeners. Antes, si el panel se cerraba con el
+// propio botón, el listener de documento quedaba colgado y la referencia podía
+// desincronizarse del DOM: el botón dejaba de responder hasta el segundo clic.
+function _tarColsCerrar(){
+  if(_tarColsDropEl){_tarColsDropEl.remove();_tarColsDropEl=null;}
+  if(_tarColsDocH){document.removeEventListener("click",_tarColsDocH);_tarColsDocH=null;}
+  if(_tarColsEscH){document.removeEventListener("keydown",_tarColsEscH);_tarColsEscH=null;}
+  _tarColsPinta=null;
+}
 function _tarColsPanel(ev){
-  if(_tarColsDropEl){_tarColsDropEl.remove();_tarColsDropEl=null;return;}
-  const div=document.createElement('div');
-  div.style.cssText='position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.45rem .4rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:200px;font-family:inherit';
-  const tit=document.createElement('div');
-  tit.textContent='Columnas visibles';
-  tit.style.cssText='font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem';
+  // Si quedó huérfano (lo sacaron del DOM sin limpiar la referencia) se suelta
+  if(_tarColsDropEl&&!_tarColsDropEl.isConnected)_tarColsCerrar();
+  if(_tarColsDropEl){_tarColsCerrar();return;}
+  const div=document.createElement("div");
+  div.style.cssText="position:fixed;z-index:99990;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.45rem .4rem;box-shadow:0 8px 32px rgba(0,0,0,.55);width:210px;font-family:inherit";
+  div.onclick=e=>e.stopPropagation();   // lo de adentro no cierra el panel
+  const tit=document.createElement("div");
+  tit.textContent="Columnas visibles";
+  tit.style.cssText="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-weight:700;padding:.1rem .35rem .35rem;border-bottom:1px solid var(--border);margin-bottom:.25rem";
   div.appendChild(tit);
+
+  const pintores=[];
   _TAR_COLS.forEach(c=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;padding:.32rem .45rem;border-radius:6px;cursor:pointer';
-    const cb=document.createElement('input');
-    cb.type='checkbox';
-    cb.style.cssText='flex:0 0 15px;width:15px;height:15px;margin:0;cursor:pointer;accent-color:'+c.c;
-    const lbl=document.createElement('span');
+    const row=document.createElement("div");
+    row.style.cssText="display:flex;align-items:center;padding:.32rem .45rem;border-radius:6px;cursor:pointer";
+    const cb=document.createElement("input");
+    cb.type="checkbox";
+    cb.style.cssText="flex:0 0 15px;width:15px;height:15px;margin:0;cursor:pointer;accent-color:"+c.c;
+    const lbl=document.createElement("span");
     lbl.textContent=c.l;
-    lbl.style.marginLeft='9px';lbl.style.flex='1';lbl.style.fontSize='.75rem';
-    // Refresca el aspecto de la fila según el estado actual (el panel NO se cierra al marcar)
+    lbl.style.marginLeft="9px";lbl.style.flex="1";lbl.style.fontSize=".75rem";
     const pinta=()=>{
       const on=c.get();
       cb.checked=on;
-      row.style.background=on?c.c+'1f':'';
-      lbl.style.fontWeight=on?'700':'500';
-      lbl.style.color=on?c.c:'var(--text)';
+      row.style.background=on?c.c+"1f":"";
+      lbl.style.fontWeight=on?"700":"500";
+      lbl.style.color=on?c.c:"var(--text)";
     };
-    pinta();
+    pinta();pintores.push(pinta);
     row.appendChild(cb);row.appendChild(lbl);
     cb.onchange=()=>{_tarToggleCol(c.k);pinta();};
     row.onclick=e=>{if(e.target!==cb)cb.click();};
     div.appendChild(row);
   });
+  _tarColsPinta=()=>pintores.forEach(f=>f());
+
+  // Salida rápida cuando quedaron todas apagadas (o todas encendidas)
+  const pie=document.createElement("div");
+  pie.style.cssText="display:flex;gap:.3rem;padding:.4rem .35rem .1rem;border-top:1px solid var(--border);margin-top:.3rem";
+  const bt=(txt,col,fn)=>{
+    const b=document.createElement("button");
+    b.textContent=txt;
+    b.style.cssText="flex:1;font-size:.68rem;font-weight:700;padding:.25rem 0;border-radius:6px;border:1px solid "+col+"55;background:"+col+"18;color:"+col+";cursor:pointer";
+    b.onclick=fn;
+    return b;
+  };
+  pie.appendChild(bt("Todas","#22d3ee",()=>_tarColsTodas(true)));
+  pie.appendChild(bt("Ninguna","#94a3b8",()=>_tarColsTodas(false)));
+  div.appendChild(pie);
+
   document.body.appendChild(div);
   _tarColsDropEl=div;
   const r=ev.currentTarget.getBoundingClientRect();
   let top=r.bottom+4,left=r.left;
-  if(left+205>window.innerWidth)left=Math.max(8,window.innerWidth-210);
-  if(top+200>window.innerHeight)top=Math.max(8,r.top-205);
-  div.style.top=top+'px';div.style.left=left+'px';
-  setTimeout(()=>document.addEventListener('click',function h(e){
-    if(_tarColsDropEl&&!_tarColsDropEl.contains(e.target)){_tarColsDropEl.remove();_tarColsDropEl=null;document.removeEventListener('click',h);}
-  }),10);
+  if(left+215>window.innerWidth)left=Math.max(8,window.innerWidth-220);
+  if(top+div.offsetHeight>window.innerHeight)top=Math.max(8,r.top-div.offsetHeight-4);
+  div.style.top=top+"px";div.style.left=left+"px";
+
+  _tarColsEscH=e=>{if(e.key==="Escape")_tarColsCerrar();};
+  document.addEventListener("keydown",_tarColsEscH);
+  setTimeout(()=>{
+    _tarColsDocH=e=>{if(!_tarColsDropEl||!_tarColsDropEl.contains(e.target))_tarColsCerrar();};
+    document.addEventListener("click",_tarColsDocH);
+  },10);
 }
+
 let _tarMultiMode=false;
 let _tarHoverMode=false;
 const _tarSel=new Set();
@@ -662,7 +708,12 @@ function rTareaje(){
   const _btnCols=document.getElementById('tarBtnCols');
   if(_btnCols){
     const n=_TAR_COLS.filter(c=>c.get()).length;
-    _btnCols.innerHTML=`🧩 Columnas${n?` <span style="font-size:.62rem;background:rgba(34,211,238,.2);border-radius:8px;padding:0 5px">${n}</span>`:''} ▾`;
+    // El contador se muestra siempre: en 0 avisa en rojo que no hay ninguna,
+    // que es justo el estado en el que parece que el boton no hiciera nada.
+    const _cc=n?"rgba(34,211,238,.2)":"rgba(239,68,68,.25)";
+    const _ct=n?"inherit":"#ef4444";
+    _btnCols.innerHTML=`🧩 Columnas <span style="font-size:.62rem;background:${_cc};color:${_ct};border-radius:8px;padding:0 5px;font-weight:800">${n}</span> ▾`;
+    _btnCols.title=n?`${n} columna${n!==1?"s":""} visible${n!==1?"s":""}`:"Ninguna columna visible · abra el panel y pulse Todas";
   }
   const _mBtn=document.getElementById('tarMultBtn'),_hBtn=document.getElementById('tarHoverBtn');
   if(_mBtn)_mBtn.style.display=_tarRO?'none':'';
