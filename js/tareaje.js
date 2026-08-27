@@ -557,6 +557,7 @@ function clearTareSel(){
   _updateTarMultBar();
 }
 function _tarCellClick(personalId,fecha,cellEl){
+  if(typeof plTareajeBloqueado==='function'&&plTareajeBloqueado(fecha))return plAvisarBloqueo(fecha);
   if(!_tarMultiMode){openTarePicker(personalId,fecha,cellEl);return;}
   const key=`${personalId}|${fecha}`;
   if(_tarSel.has(key)){_tarSel.delete(key);cellEl.style.outline='';}
@@ -768,6 +769,8 @@ function closeTarePicker(){
 }
 function setTareaje(personalId,fecha,tipo){
   closeTarePicker();
+  // Con la planilla del mes cerrada el tareaje queda congelado
+  if(typeof plTareajeBloqueado==='function'&&plTareajeBloqueado(fecha))return plAvisarBloqueo(fecha);
   const existing=DB.tareaje.find(r=>r.personalId===personalId&&r.fecha===fecha);
   if(existing){
     if(!tipo){DB.tareaje=DB.tareaje.filter(r=>r.id!==existing.id);supaDelete('tareaje',existing.id);}

@@ -113,17 +113,31 @@ function _calcPlanRow(p,det){
   const baseSctr       =r2(subtotal2+vacaciones);
   const baseVidaLey    =baseSctr;
 
-  // Pensiones
+  // Pensiones — las tasas salen del módulo Tasas de Pensiones (tabla afp_tasas).
+  // Si esa tabla está vacía se cae a _PL_AFP_RATES, que es la lista del código:
+  // así el cálculo no cambia mientras el usuario no cargue la suya.
   const afpType=p.afp||'SNP';
+  const _tasa=(typeof afpTasaDe==='function')?afpTasaDe(afpType):null;
+  const _esOnp=_tasa?!!+_tasa.esOnp:(afpType==='SNP'||afpType==='ONP');
   let snp=0,obligAfp=0,primaAfp=0,sobreAfp=0,totalPensiones=0;
-  if(afpType==='SNP'){
+  if(_tasa){
+    if(_esOnp){
+      snp=r2(baseLeySociales*(+_tasa.oblig||0));
+      totalPensiones=snp;
+    }else{
+      obligAfp =r2(baseLeySociales*(+_tasa.oblig||0));
+      primaAfp =r2(baseLeySociales*(+_tasa.prima||0));
+      sobreAfp =r2(baseLeySociales*(+_tasa.comision||0));
+      totalPensiones=r2(obligAfp+primaAfp+sobreAfp);
+    }
+  }else if(_esOnp){
     snp=r2(baseLeySociales*0.13);
     totalPensiones=snp;
   }else{
     const rt=_PL_AFP_RATES[afpType];
     if(!rt){
-      // AFP no registrada: no se inventa una tasa. Se aplica solo el aporte
-      // obligatorio (10%, igual para todas) y se marca para avisar al usuario.
+      // Régimen sin tasa: no se inventa nada. Se aplica solo el aporte
+      // obligatorio (10 %, igual para todas) y se avisa al usuario.
       _plAfpDesconocidas.add(afpType);
       obligAfp=r2(baseLeySociales*0.10);
       totalPensiones=obligAfp;
@@ -153,7 +167,7 @@ function _calcPlanRow(p,det){
 
   // Aportes empleador
   const essalud      =r2(baseLeySociales*0.09);
-  const aporteAfpEmpl=afpType!=='SNP'?r2(baseLeySociales*0.12):0;
+  const aporteAfpEmpl=!_esOnp?r2(baseLeySociales*0.12):0;
   const sctrPenSup   =det?.sctrPenSup  ||0;
   const sctrPenMina  =det?.sctrPenMina ||0;
   const segVidaEmpl  =det?.segVidaEmpl ||0;
@@ -224,6 +238,12 @@ const PL_COLS=[
   {k:'asigFam',  g:'remun',l:'Asig.Fam.',    c:c=>_plHs(c.asigFam)},
 
   {k:'diasSub',  g:'dias',l:'Días SubTot.',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18);color:#f59e0b">${c.diasSubTotal||0}</td>`},
+  {k:'cierre',   g:'dias',l:'Cierre',c:c=>{
+    if(!c._cerrada&&!c._sinFoto)return'<td style="padding:2px 4px"></td>';
+    if(c._sinFoto)return'<td class="tc" style="padding:2px 4px" title="Entró después del cierre: esta fila no está en la foto guardada"><span style="font-size:.55rem;font-weight:800;color:#ef4444;border:1px solid #ef444455;border-radius:3px;padding:0 3px">FUERA</span></td>';
+    if(c._recalcEn)return'<td class="tc" style="padding:2px 4px" title="Recalculada después del cierre: '+String(c._recalcEn)+'"><span style="font-size:.55rem;font-weight:800;color:#f97316;border:1px solid #f9731655;border-radius:3px;padding:0 3px">RECALC.</span></td>';
+    return'<td class="tc" style="padding:2px 4px" title="Guardada en el cierre"><span style="font-size:.6rem;color:#fbbf24">🔒</span></td>';
+  }},
   {k:'diasA5',   g:'dias',l:'Anexo 5',th:'color:#f97316',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#f97316">${c.diasA5||0}</td>`},
   {k:'otrosDias',g:'dias',l:'Otros Días',c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)">${c.otrosDias||0}</td>`},
   {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
@@ -294,14 +314,14 @@ const PL_COLS=[
   {k:'totAport',     g:'aport',l:'Tot.Aport.',th:'color:var(--mec);font-weight:800',tot:'aport',
    c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:var(--mec);background:rgba(4,78,100,.1)">${_plS(c.totalAportaciones)}</td>`},
 
-  {k:'acc',g:'acc',l:'✏️',c:(c,p)=>`<td style="padding:2px 4px;text-align:center"><button class="btn btn-sm" style="font-size:.62rem;padding:2px 6px;background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#3b82f6" onclick="openPlanillaDet(${p.id})">✏️</button></td>`}
+  {k:'acc',g:'acc',l:'✏️',c:(c,p)=>`<td style="padding:2px 4px;text-align:center;white-space:nowrap"><button class="btn btn-sm" style="font-size:.62rem;padding:2px 6px;background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#3b82f6" onclick="openPlanillaDet(${p.id})">✏️</button>${c._cerrada?`<button class="btn btn-sm" title="Recalcular solo a este trabajador dentro del mes cerrado" style="font-size:.62rem;padding:2px 6px;margin-left:3px;background:rgba(249,115,22,.15);border:1px solid #f9731660;color:#f97316" onclick="plRecalcularUno(${p.id})">🔄</button>`:''}</td>`}
 ];
 
 // ── Vistas: subconjuntos de columnas para no ver las 75 de golpe ──
 const _PL_IDENT=['n','dni','nom','cargo'];
 const PL_VISTAS=[
   {k:'resumen', l:'📋 Resumen',        cols:[..._PL_IDENT,'afp','diasTotal','sub2','totDed','neto','cuenta','banco']},
-  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','diasSub','diasA5','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
+  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasA5','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
   {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
   {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totDed','neto']},
@@ -377,9 +397,14 @@ function genPlanilla(soloTabla){
   const cols=_plColsVisibles();
   const tot={sub2:0,ded:0,neto:0,ess:0,aport:0};
 
+  // Mes cerrado: manda lo guardado. Si alguien entró al equipo después del
+  // cierre no tiene foto, así que a ese sí se le calcula y se marca aparte.
+  const _cerrado=typeof plMesCerrado==='function'&&plMesCerrado(_plGenMes,_plGenAnio);
   const rows=act.map((p,idx)=>{
     const det=DB.planillaMes.find(d=>d.personalId===p.id&&+d.mes===_plGenMes&&String(d.anio)===String(_plGenAnio));
-    const c=_calcPlanRow(p,det);
+    const _foto=_cerrado?plFilaCerrada(p.id,_plGenMes,_plGenAnio):null;
+    const c=(_foto&&_foto.datos)?_foto.datos:_calcPlanRow(p,det);
+    if(_cerrado){c._cerrada=!!_foto;c._recalcEn=_foto?_foto.recalcEn:null;c._sinFoto=!_foto;}
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
     const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
     const ctx={afpBadge:`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`,
@@ -424,6 +449,7 @@ function genPlanilla(soloTabla){
     ${cellsTot}
   </tr>`;
 
+  if(typeof plRenderCierre==='function')plRenderCierre();
   document.getElementById('planillaResumen').textContent=`${act.length} trabajadores · Neto total: ${Sf(tot.neto)}`;
   document.getElementById('planillaCard').style.display='block';
   _plRenderTabs();
