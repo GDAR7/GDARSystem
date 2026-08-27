@@ -404,7 +404,9 @@ function genPlanilla(soloTabla){
   const rows=act.map((p,idx)=>{
     const det=DB.planillaMes.find(d=>d.personalId===p.id&&+d.mes===_plGenMes&&String(d.anio)===String(_plGenAnio));
     const _foto=_cerrado?plFilaCerrada(p.id,_plGenMes,_plGenAnio):null;
-    const c=(_foto&&_foto.datos)?_foto.datos:_calcPlanRow(p,det);
+    // Copia: las banderas de estado son de la pantalla y no deben terminar
+    // escritas dentro del JSON guardado en planilla_cerrada.
+    const c=(_foto&&_foto.datos)?{..._foto.datos}:_calcPlanRow(p,det);
     if(_cerrado){c._cerrada=!!_foto;c._recalcEn=_foto?_foto.recalcEn:null;c._sinFoto=!_foto;}
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
     const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
