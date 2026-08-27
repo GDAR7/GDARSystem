@@ -137,6 +137,7 @@ const SUPA_TABLES={
   renta5ta:'renta5ta',
   renta5taCfg:'renta5ta_cfg',
   ventaPersonal:'venta_personal',
+  wbsAvance:'wbs_avance',
   viaticos:'reembolsables_bbss'   // Reembolsables de Bienestar Social
 };
 
@@ -170,6 +171,7 @@ const ACTION_MAP={
   saveRenta5taCfg:'renta5taCfg',
   saveVentaPersonal:'ventaPersonal',
   saveViatico:'viaticos',
+  saveWbsAvance:'wbsAvance',
   saveRosterConfig:'rosterConfig',
   saveRosterOvr:'rosterOvr',
   savePersonalRosterCfg:'personalRosterCfg',
@@ -292,7 +294,7 @@ async function loadSheetsData(){
       ambiental:'amb',equipos:'eq',mantenimientos:'mant',planner:'plan',
       facturas:'fact',costos:'cost',frentesTrabajo:'ft',tipoMaterial:'tm',
       tramos:'tr',catalogoItems:'cat',facturasPago:'fpago',proyectos:'proy',auxiliosMecanicos:'auxMec',auxMecInsumos:'auxMecIns',engrase:'eng',tareaje:'tar',subtiposEquipo:'sub',planillaMes:'plm',
-      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc',rosterOvr:'rovr',capasAvance:'cav',personalRosterCfg:'prc',seguimiento:'seg',ventas:'vent',reembolsables:'reemb',histogramaPlan:'hpl',cursos:'cur',cursosPersonal:'curp',renta5ta:'r5',renta5taCfg:'r5c',ventaPersonal:'vper',viaticos:'via'};
+      lpsWbs:'lpsW',lpsLookahead:'lpsL',lpsPlanSemanal:'lpsP',lpsRestricciones:'lpsR',lpsWbsRecursos:'lpsWbsR',lpsSectores:'lpsS',pizarraItems:'piz',lpsWbsDeps:'lpsDep',capas:'cap',planDibujos:'pld',rosterConfig:'rc',rosterOvr:'rovr',capasAvance:'cav',personalRosterCfg:'prc',seguimiento:'seg',ventas:'vent',reembolsables:'reemb',histogramaPlan:'hpl',cursos:'cur',cursosPersonal:'curp',renta5ta:'r5',renta5taCfg:'r5c',ventaPersonal:'vper',viaticos:'via',wbsAvance:'wav'};
     let loaded=false;
     results.forEach(({dbKey,data,error})=>{
       if(!error&&data&&data.length>0){
@@ -415,8 +417,8 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],histogramaPlan:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],ventaPersonal:[],viaticos:[],
-  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1,relem:1,relc:1,rpl:1,edpp:1,frm:1,sleq:1,cur:1,curp:1,r5:1,r5c:1,vper:1,via:1}
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],ventaPersonal:[],viaticos:[],wbsAvance:[],
+  nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1,relem:1,relc:1,rpl:1,edpp:1,frm:1,sleq:1,cur:1,curp:1,r5:1,r5c:1,vper:1,via:1,wav:1}
 };
 
 // ══ STATE ══
