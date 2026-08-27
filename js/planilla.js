@@ -29,6 +29,10 @@ function plDetGoTab(n){
   if(save)save.style.display=n===2?'':'none';
 }
 
+// Tasa diaria de la bonificación por costo de vida (S/ por día).
+// Se aplica sobre los días trabajados + los días libres ganados.
+const _PL_CV_TASA=2.138;
+
 // ── Motor de cálculo por trabajador ──
 function _calcPlanRow(p,det){
   const pad=n=>String(n).padStart(2,'0');
@@ -71,7 +75,11 @@ function _calcPlanRow(p,det){
   const movilidad =p.movilidad||0;
   const reintegro =det?.reintegro  ||0;
   const bAltura   =det?.bAltura    ||0;
-  const bCv       =det?.bCv        ||0;
+  // Bonif. costo de vida = (días trabajados + días libres ganados) × tasa.
+  // Es exactamente diasTotal, que ya suma los dos. Si en el detalle se cargó un
+  // importe a mano, ese manda: sirve para los casos de excepción.
+  const bCvCalc   =r2(diasTotal*_PL_CV_TASA);
+  const bCv       =(det&&+det.bCv)?+det.bCv:bCvCalc;
   const bNocturnas=det?.bNocturnas ||0;
   const refrigerio=det?.refrigerio ||0;
   const licSindical=det?.licSindical||0;
@@ -156,7 +164,7 @@ function _calcPlanRow(p,det){
   return{
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
     jornal,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
-    asigFam,movilidad,reintegro,bAltura,bCv,bNocturnas,refrigerio,licSindical,
+    asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
     tareaOrdinaria,remunDL,totalDM,totalLicPat,
     subtotal2,vacaciones,bono,gratificacion,bonif9,totalGratif,
     gratifTrunca,bonif9Trunca,totalGratifTrunca,heAdicional,
@@ -439,6 +447,14 @@ function openPlanillaDet(personalId){
   const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||0;};
   sv('pdHe25',det?.he25);sv('pdHe35',det?.he35);sv('pdHe100',det?.he100);
   sv('pdReintegro',det?.reintegro);sv('pdBAltura',det?.bAltura);sv('pdBCv',det?.bCv);
+  // Se muestra cuánto sale el cálculo, para que se vea qué se está anulando
+  const _nCv=document.getElementById('pdBCvNota');
+  if(_nCv){
+    const _f=_calcPlanRow(p,det);
+    _nCv.innerHTML=(det&&+det.bCv)
+      ? 'Anulando el cálculo automático de <b>S/ '+Number(_f.bCvCalc||0).toFixed(2)+'</b> · deje 0 para volver a lo automático'
+      : 'Automático: <b>S/ '+Number(_f.bCvCalc||0).toFixed(2)+'</b> = '+(_f.diasTotal||0)+' días × '+_PL_CV_TASA;
+  }
   sv('pdBNocturnas',det?.bNocturnas);sv('pdRefrigerio',det?.refrigerio);
   sv('pdLicSindical',det?.licSindical);sv('pdVacaciones',det?.vacaciones);
   sv('pdBono',det?.bono);sv('pdGratificacion',det?.gratificacion);
