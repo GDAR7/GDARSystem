@@ -449,11 +449,20 @@ function openPlanillaDet(personalId){
   sv('pdReintegro',det?.reintegro);sv('pdBAltura',det?.bAltura);sv('pdBCv',det?.bCv);
   // Se muestra cuánto sale el cálculo, para que se vea qué se está anulando
   const _nCv=document.getElementById('pdBCvNota');
-  if(_nCv){
+  const _iCv=document.getElementById('pdBCv');
+  if(_nCv||_iCv){
     const _f=_calcPlanRow(p,det);
-    _nCv.innerHTML=(det&&+det.bCv)
-      ? 'Anulando el cálculo automático de <b>S/ '+Number(_f.bCvCalc||0).toFixed(2)+'</b> · deje 0 para volver a lo automático'
-      : 'Automático: <b>S/ '+Number(_f.bCvCalc||0).toFixed(2)+'</b> = '+(_f.diasTotal||0)+' días × '+_PL_CV_TASA;
+    const _calc=Number(_f.bCvCalc||0);
+    const _manual=!!(det&&+det.bCv);
+    // Sin importe manual el campo va VACÍO y el monto calculado se ve como
+    // marca de agua: un "0" ahí hacía creer que la bonificación no se aplicaba.
+    if(_iCv){
+      if(!_manual){_iCv.value='';_iCv.placeholder=_calc.toFixed(2);}
+      else _iCv.placeholder='automático';
+    }
+    if(_nCv)_nCv.innerHTML=_manual
+      ? 'Anulando el cálculo automático de <b>S/ '+_calc.toFixed(2)+'</b> · vacíe el campo para volver a lo automático'
+      : 'Se está pagando <b style="color:#10b981">S/ '+_calc.toFixed(2)+'</b> — '+(_f.diasTotal||0)+' días × '+_PL_CV_TASA+' · escriba aquí solo para anularlo';
   }
   sv('pdBNocturnas',det?.bNocturnas);sv('pdRefrigerio',det?.refrigerio);
   sv('pdLicSindical',det?.licSindical);sv('pdVacaciones',det?.vacaciones);
