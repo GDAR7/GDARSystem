@@ -3,11 +3,12 @@ const _PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Ag
 // Tasas AFP · oblig = aporte obligatorio · comision = comisión sobre flujo
 // prima = seguro de invalidez y sobrevivencia (la fija la SBS, es igual para todas)
 // ⚠ Las AFP actualizan sus comisiones periódicamente: revisar al menos una vez al año.
+// Respaldo: solo se usa mientras la tabla afp_tasas esté vacía.
 const _PL_AFP_RATES={
-  'Integra'  :{oblig:0.10,comision:0.0155,prima:0.0174},
-  'Profuturo':{oblig:0.10,comision:0.0169,prima:0.0174},
-  'Prima'    :{oblig:0.10,comision:0.0138,prima:0.0174},
-  'Habitat'  :{oblig:0.10,comision:0.0137,prima:0.0174}
+  'Habitat'  :{oblig:0.10,comision:0.0147,prima:0.0137},   // 12.84 %
+  'Integra'  :{oblig:0.10,comision:0.0155,prima:0.0137},   // 12.92 %
+  'Prima'    :{oblig:0.10,comision:0.0160,prima:0.0137},   // 12.97 %
+  'Profuturo':{oblig:0.10,comision:0.0169,prima:0.0137}    // 13.06 %
 };
 
 let _plGenMes=null,_plGenAnio=null;

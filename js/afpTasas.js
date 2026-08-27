@@ -42,27 +42,49 @@ function _afpHuerfanos(){
 }
 
 // Semilla con lo que estaba escrito en el código, para arrancar sin tipear
+//                         aporte   prima    comisión   total al trabajador
 const _AFP_SEMILLA=[
-  {nombre:'ONP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},
-  {nombre:'SNP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},
-  {nombre:'Integra',   oblig:0.10,  prima:0.0174, comision:0.0155, esOnp:0},
-  {nombre:'Profuturo', oblig:0.10,  prima:0.0174, comision:0.0169, esOnp:0},
-  {nombre:'Prima',     oblig:0.10,  prima:0.0174, comision:0.0138, esOnp:0},
-  {nombre:'Habitat',   oblig:0.10,  prima:0.0174, comision:0.0137, esOnp:0}
+  {nombre:'ONP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},  // 13.00 %
+  {nombre:'SNP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},  // 13.00 %
+  {nombre:'Habitat',   oblig:0.10,  prima:0.0137, comision:0.0147, esOnp:0},  // 12.84 %
+  {nombre:'Integra',   oblig:0.10,  prima:0.0137, comision:0.0155, esOnp:0},  // 12.92 %
+  {nombre:'Prima',     oblig:0.10,  prima:0.0137, comision:0.0160, esOnp:0},  // 12.97 %
+  {nombre:'Profuturo', oblig:0.10,  prima:0.0137, comision:0.0169, esOnp:0}   // 13.06 %
 ];
+// Crea los que faltan y ACTUALIZA los que ya están con otras tasas. Antes solo
+// creaba, así que al cambiar las comisiones no había forma de traerlas sin
+// editar una por una.
 async function _afpSembrar(){
-  if((DB.afpTasas||[]).length&&!confirm('Ya hay regímenes cargados. ¿Agregar igual los que falten de la lista base?'))return;
-  let n=0;
-  for(const s of _AFP_SEMILLA){
-    if(afpTasaDe(s.nombre))continue;
+  const faltan=_AFP_SEMILLA.filter(s=>!afpTasaDe(s.nombre));
+  const difieren=_AFP_SEMILLA.map(s=>({s,t:afpTasaDe(s.nombre)}))
+    .filter(({s,t})=>t&&(
+      +t.oblig!==s.oblig||+t.prima!==s.prima||+t.comision!==s.comision||(+t.esOnp?1:0)!==s.esOnp));
+
+  if(!faltan.length&&!difieren.length){toast('La tabla ya está al día');return;}
+  const det=[
+    faltan.length?`Se crearán: ${faltan.map(f=>f.nombre).join(', ')}`:'',
+    difieren.length?'Se actualizarán:\n'+difieren.map(({s,t})=>
+      `  · ${s.nombre}: ${((+t.oblig+ +t.prima+ +t.comision)*100).toFixed(2)} % → ${((s.oblig+s.prima+s.comision)*100).toFixed(2)} %`).join('\n'):''
+  ].filter(Boolean).join('\n\n');
+  if(!confirm('Tasas de la lista base\n\n'+det+'\n\n¿Continuar?'))return;
+
+  let creados=0,actualizados=0;
+  for(const s of faltan){
     const rec={id:nidSeguro('afpt','afpTasas'),...s};
     (DB.afpTasas=DB.afpTasas||[]).push(rec);
     const err=await supaUpsert('afpTasas',rec);
     if(err){DB.afpTasas=DB.afpTasas.filter(x=>x.id!==rec.id);continue;}
-    n++;
+    creados++;
+  }
+  for(const{s,t}of difieren){
+    const prev={...t};
+    t.oblig=s.oblig;t.prima=s.prima;t.comision=s.comision;t.esOnp=s.esOnp;
+    const err=await supaUpsert('afpTasas',t);
+    if(err){Object.assign(t,prev);continue;}
+    actualizados++;
   }
   rAfpTasas();
-  toast(n?`✓ ${n} régimen${n!==1?'es':''} cargado${n!==1?'s':''}`:'No faltaba ninguno');
+  toast(`✓ ${creados} creado${creados!==1?'s':''} · ${actualizados} actualizado${actualizados!==1?'s':''}`);
 }
 
 // ── Alta / edición ─────────────────────────────────────────────────────────
@@ -204,7 +226,7 @@ function rAfpTasas(){
       <div class="card-head">
         <span class="card-title">🏦 Regímenes previsionales</span>
         <div class="card-head-right">
-          ${lista.length?`<button onclick="_afpSembrar()" class="btn btn-out btn-sm" title="Agregar los que falten de la lista base">📥 Completar base</button>`:''}
+          ${lista.length?`<button onclick="_afpSembrar()" class="btn btn-out btn-sm" title="Crea los que falten y actualiza los que tengan otras tasas">📥 Sincronizar con la lista base</button>`:''}
           <button onclick="_afpNuevo()" class="btn btn-a" style="--ba:${AC}">＋ Nuevo régimen</button>
         </div>
       </div>
