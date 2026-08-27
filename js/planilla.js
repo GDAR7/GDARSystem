@@ -30,6 +30,11 @@ function plDetGoTab(n){
   if(save)save.style.display=n===3?'':'none';
 }
 
+// Aporte del EMPLEADOR a la AFP, sobre la remuneración afecta.
+// Hoy en 0 por indicación de la empresa. El 12 % de ley queda documentado acá:
+// para volver a aplicarlo basta poner 0.12. Solo corre en AFP, nunca en ONP.
+const _PL_APORTE_AFP_EMPL=0;   // 0.12 = 12 %
+
 // Tasa diaria de la bonificación por costo de vida (S/ por día).
 // Se aplica sobre los días trabajados + los días libres ganados.
 const _PL_CV_TASA=2.138;
@@ -168,7 +173,7 @@ function _calcPlanRow(p,det){
 
   // Aportes empleador
   const essalud      =r2(baseLeySociales*0.09);
-  const aporteAfpEmpl=!_esOnp?r2(baseLeySociales*0.12):0;
+  const aporteAfpEmpl=!_esOnp?r2(baseLeySociales*_PL_APORTE_AFP_EMPL):0;
   const sctrPenSup   =det?.sctrPenSup  ||0;
   const sctrPenMina  =det?.sctrPenMina ||0;
   const segVidaEmpl  =det?.segVidaEmpl ||0;
