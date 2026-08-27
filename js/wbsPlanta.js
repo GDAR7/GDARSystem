@@ -20,6 +20,20 @@ const _wbsN=(v,d)=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:d=
 const _wbsNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();
 const _wbsDe=id=>(DB.lpsWbs||[]).find(w=>+w.id===+id)||null;
 const _wbsLbl=w=>w?(w.desc||w.nombre||w.codigo||'Actividad'):'Actividad';
+// En el plano solo entra un código corto. Orden: la abreviatura que puso el
+// usuario → el número de la partida (02.01.02) → las iniciales de las palabras
+// con peso. El texto completo queda en el tooltip y en el panel.
+function _wbsAbrev(w){
+  if(!w)return'WBS';
+  const a=String(w.abrev||'').trim();
+  if(a)return a.toUpperCase().slice(0,12);
+  const num=String(w.codigo||'').match(/^[\d]+(?:\.[\d]+)*/);
+  if(num&&num[0].length>=3)return num[0].replace(/\.$/,'');
+  const IGNORA=['DE','DEL','LA','EL','LOS','LAS','EN','CON','Y','A','POR','PARA','ZONA'];
+  const pal=_wbsNorm(w.desc||w.codigo||'').split(' ').filter(p=>p.length>2&&!IGNORA.includes(p));
+  if(pal.length)return pal.slice(0,3).map(p=>p[0]).join('');
+  return'WBS';
+}
 // Marcadores del dique que se está viendo
 const _wbsEnPlano=()=>(DB.wbsMapa||[]).filter(m=>m.dique===_recDique);
 
@@ -58,10 +72,10 @@ function _wbsPaletaLista(){
       style="cursor:pointer;padding:.22rem .32rem;border-radius:5px;border:1px solid ${sel?_WBS_COL:(ya?_WBS_COL+'50':'var(--border)')};background:${sel?_WBS_COL+'25':(ya?_WBS_COL+'10':'transparent')}">
       <div style="display:flex;align-items:center;gap:.28rem">
         <span style="font-size:.65rem">${ya?'🎯':'⬚'}</span>
-        <span style="font-size:.6rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(w.codigo||'—')}</span>
+        <span style="font-size:.6rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(_wbsAbrev(w))}</span>
         <span style="font-size:.52rem;color:var(--muted2);margin-left:auto;font-family:monospace">${A.total>0?A.pct.toFixed(0)+'%':'—'}</span>
       </div>
-      <div style="font-size:.52rem;color:var(--muted2);padding-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_wbsEsc(_wbsLbl(w))}</div>
+      <div style="font-size:.52rem;color:var(--muted2);padding-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_wbsEsc(w.codigo||_wbsLbl(w))}</div>
     </div>`;
   }).join('');
 }
@@ -70,7 +84,7 @@ function _wbsPanelHTML(){
   const w=_wbsSel?_wbsDe(_wbsSel):null;
   return`<div style="background:var(--panel);border:1px solid ${_wbsSel?_WBS_COL+'60':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem;margin-bottom:.3rem">
     <div style="font-size:.58rem;color:${_wbsSel?_WBS_COL:'var(--muted2)'};margin-bottom:.3rem;font-weight:${_wbsSel?'700':'400'}">
-      ${_wbsSel?'🎯 Clic en el plano para ubicar <b>'+_wbsEsc(w?w.codigo:'')+'</b>':'🎯 Actividades · '+n+' en este dique'}
+      ${_wbsSel?'🎯 Clic en el plano para ubicar <b>'+_wbsEsc(_wbsAbrev(w))+'</b>':'🎯 Actividades · '+n+' en este dique'}
     </div>
     <input placeholder="Buscar código o actividad..." value="${_wbsEsc(_wbsBuscar)}" oninput="_wbsSetBuscar(this.value)"
       style="width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.22rem .4rem;color:var(--text);font-size:.6rem;outline:none;margin-bottom:.3rem">
@@ -83,6 +97,14 @@ function _wbsPanelHTML(){
 async function _wbsCrearEnPlano(xPct,yPct){
   if(!_wbsSel)return;
   const wbsId=+_wbsSel;
+  // Sin abreviatura el rótulo saldría con la descripción entera: se pide aquí
+  const _w=_wbsDe(wbsId);
+  if(_w&&!String(_w.abrev||'').trim()){
+    const v=prompt('Código corto para rotular en el plano (máx. 12):\n\n'+(_w.codigo||''),_wbsAbrev(_w));
+    if(v===null){_wbsSel=null;_recColocando=null;rRecrecimiento();return;}
+    _w.abrev=String(v).trim().toUpperCase().slice(0,12);
+    if(typeof syncSheet==='function')syncSheet('saveLpsWbs',_w);
+  }
   const x=+xPct.toFixed(2),y=+yPct.toFixed(2);
   const ya=(DB.wbsMapa||[]).find(m=>+m.wbsId===wbsId&&m.dique===_recDique);
   if(ya){                                   // ya estaba: se reubica, no se duplica
@@ -137,7 +159,10 @@ function _wbsRenderSvg(){
     txt.setAttribute('paint-order','stroke');
     txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','sans-serif');
     txt.setAttribute('pointer-events','none');
-    txt.textContent=(w.codigo||'WBS')+(A.total>0?' '+A.pct.toFixed(0)+'%':'');
+    txt.textContent=_wbsAbrev(w)+(A.total>0?' '+A.pct.toFixed(0)+'%':'');
+    const tip=document.createElementNS('http://www.w3.org/2000/svg','title');
+    tip.textContent=(w.codigo||'')+(w.desc?' · '+w.desc:'');
+    g.appendChild(tip);
     g.appendChild(txt);
     svg.appendChild(g);
   });
@@ -157,8 +182,9 @@ function _wbsAvancePanel(wbsId){
     <div style="display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--border)">
       <span style="font-size:1.1rem">🎯</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:.9rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(w.codigo||'—')}</div>
-        <div style="font-size:.72rem;color:var(--muted2);overflow:hidden;text-overflow:ellipsis">${_wbsEsc(_wbsLbl(w))}</div>
+        <div style="font-size:.9rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(_wbsAbrev(w))}
+          <button onclick="_wbsCambiarAbrev(${w.id})" title="Cambiar la abreviatura con la que se rotula en el plano" style="background:none;border:1px solid ${_WBS_COL}50;border-radius:5px;color:${_WBS_COL};cursor:pointer;font-size:.6rem;padding:0 .3rem;vertical-align:middle">✏</button></div>
+        <div style="font-size:.72rem;color:var(--muted2);overflow:hidden;text-overflow:ellipsis">${_wbsEsc(w.codigo||_wbsLbl(w))}</div>
       </div>
       <button onclick="document.getElementById('wbsAvPanel').remove()" style="background:none;border:none;color:var(--muted2);font-size:1.1rem;cursor:pointer">✕</button>
     </div>
@@ -230,6 +256,18 @@ function _wbsAvRender(wbsId){
 }
 
 function _wbsAvEditar(id,wbsId){_wbsAvEditId=id;_wbsAvRender(wbsId);}
+
+// Permite corregir la abreviatura sin salir del plano
+function _wbsCambiarAbrev(wbsId){
+  const w=_wbsDe(wbsId);if(!w)return;
+  const v=prompt('Abreviatura con la que se rotula en el plano (máx. 12):',_wbsAbrev(w));
+  if(v===null)return;
+  w.abrev=String(v).trim().toUpperCase().slice(0,12);
+  if(typeof syncSheet==='function')syncSheet('saveLpsWbs',w);
+  _wbsAvRender(wbsId);
+  _wbsRenderSvg();
+  const l=document.getElementById('wbsPalLista');if(l)l.innerHTML=_wbsPaletaLista();
+}
 
 async function _wbsAvGuardar(wbsId){
   const g=id=>(document.getElementById(id)||{}).value||'';

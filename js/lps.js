@@ -706,6 +706,7 @@ function _lpsOpenWbs(id,afterId=null){
   document.getElementById('lpsWbsNombre').value=w?_lpsCodNombre(w.codigo||''):'';
   document.getElementById('lpsWbsDesc').value=w?.desc||'';
   document.getElementById('lpsWbsUnd').value=w?.unidad||'m³';
+  const _ab=document.getElementById('lpsWbsAbrev');if(_ab)_ab.value=w?.abrev||'';
   document.getElementById('lpsWbsCant').value=w?.cantTotal||'';
   const sel=document.getElementById('lpsWbsSect');
   sel.innerHTML=`<option value="">— Seleccionar —</option>`+_lpsSects().map(s=>`<option${w?.sector===s?' selected':''}>${s}</option>`).join('');
@@ -763,11 +764,13 @@ function _lpsSaveWbs(){
   const fechaIni=document.getElementById('lpsWbsIni')?.value||'';
   const fechaFin=document.getElementById('lpsWbsFin')?.value||'';
   const cantDias=Math.round(+document.getElementById('lpsWbsCantDias')?.value||0);
+  // Código corto con el que se rotula la actividad en el plano de Recrecimiento
+  const abrev=(document.getElementById('lpsWbsAbrev')?.value||'').trim().toUpperCase();
   if(!codPrefix||!nombre||!sector){toast('Complete número, descripción y sector',true);return;}
   let savedId=_lpsEditWbsId;
   if(_lpsEditWbsId){
     const w=DB.lpsWbs.find(x=>x.id===_lpsEditWbsId);
-    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias});syncSheet('saveLpsWbs',w);}
+    if(w){Object.assign(w,{codigo,desc,unidad,cantTotal,sector,tipo,fechaIni,fechaFin,cantDias,abrev});syncSheet('saveLpsWbs',w);}
   }else{
     let newOrden;
     if(_lpsWbsAfterId){
@@ -780,7 +783,7 @@ function _lpsSaveWbs(){
       }
     }
     const maxOrden=DB.lpsWbs.length?Math.max(...DB.lpsWbs.map(w=>w.orden||0))+10:0;
-    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias};
+    const rec={id:nid('lpsW'),codigo,desc,unidad,cantTotal,sector,tipo,orden:newOrden??maxOrden,fechaIni,fechaFin,cantDias,abrev};
     DB.lpsWbs.push(rec);syncSheet('saveLpsWbs',rec);
     savedId=rec.id;
   }
