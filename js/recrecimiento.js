@@ -90,7 +90,6 @@ function rRecrecimiento(){
   const pctVol=volTotal>0?Math.round(volAvanz/volTotal*100):0;
 
   const selCapa=_recSelCapaId?(DB.capas||[]).find(c=>c.id===_recSelCapaId):null;
-  const esIso=_recVista==='iso';
   const esSec=_recVista==='seccion';
   const elems=(DB.recElementos||[]).filter(e=>e.dique===_recDique);
 
@@ -118,14 +117,10 @@ function rRecrecimiento(){
       <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
         <button onclick="_recSetVista('seccion')" style="padding:.3rem .8rem;font-size:.7rem;border:none;background:${esSec?dq.color+'33':'transparent'};color:${esSec?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${esSec?'700':'400'}">📐 Sección</button>
         <button onclick="_recSetVista('planta')" style="padding:.3rem .8rem;font-size:.7rem;border:none;border-left:1px solid var(--border);background:${!esSec?dq.color+'33':'transparent'};color:${!esSec?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${!esSec?'700':'400'}">🗺️ Planta</button>
-        <button onclick="_recSetVista('iso')" title="Mapa isométrico de la obra: ubica equipos, personal y actividades del WBS" style="padding:.3rem .8rem;font-size:.7rem;border:none;border-left:1px solid var(--border);background:${_recVista==='iso'?dq.color+'33':'transparent'};color:${_recVista==='iso'?dq.color:'var(--muted2)'};cursor:pointer;font-weight:${_recVista==='iso'?'700':'400'}">🏔️ Isométrico</button>
       </div>
       <button onclick="rRecrecimiento()" style="padding:.3rem .7rem;border-radius:7px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;font-size:.7rem;cursor:pointer">🔄 Actualizar</button>
     </div>
 
-    ${esIso?`
-    <div id="recIsoBody" style="flex:1;min-height:0;overflow:auto"></div>
-    `:`
     <!-- KPIs -->
     <div style="display:flex;gap:.5rem">
       ${[
@@ -172,8 +167,9 @@ function rRecrecimiento(){
         </div>
 
         ${!esSec?`
-        <div style="background:var(--panel);border:1px solid ${_recColocando?'#8b5cf660':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem;margin-bottom:.3rem">
-          <div style="font-size:.58rem;color:${_recColocando?'#8b5cf6':'var(--muted2)'};margin-bottom:.3rem;font-weight:${_recColocando?'700':'400'}">${_recColocando?'📍 Clic en el plano para ubicar':'Elementos verticales'}</div>
+        ${(_recVista==='planta'&&typeof _wbsPanelHTML==='function')?_wbsPanelHTML():''}
+        <div style="background:var(--panel);border:1px solid ${_recColocando&&_recColocando!=='wbs'?'#8b5cf660':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem;margin-bottom:.3rem">
+          <div style="font-size:.58rem;color:${_recColocando&&_recColocando!=='wbs'?'#8b5cf6':'var(--muted2)'};margin-bottom:.3rem;font-weight:${_recColocando&&_recColocando!=='wbs'?'700':'400'}">${_recColocando&&_recColocando!=='wbs'?'📍 Clic en el plano para ubicar':'Elementos verticales'}</div>
           <div style="display:flex;gap:.3rem">
             <button onclick="_recToggleColocar('piezometro')" style="flex:1;padding:.25rem .3rem;border-radius:5px;font-size:.58rem;font-weight:700;cursor:pointer;border:1px solid ${_recColocando==='piezometro'?'#eab308':'#eab30840'};background:${_recColocando==='piezometro'?'rgba(234,179,8,.2)':'rgba(234,179,8,.08)'};color:#eab308">▢ Piezómetro</button>
             <button onclick="_recToggleColocar('kena')" style="flex:1;padding:.25rem .3rem;border-radius:5px;font-size:.58rem;font-weight:700;cursor:pointer;border:1px solid ${_recColocando==='kena'?'#f97316':'#f9731640'};background:${_recColocando==='kena'?'rgba(249,115,22,.2)':'rgba(249,115,22,.08)'};color:#f97316">◯ Kena</button>
@@ -306,10 +302,7 @@ function rRecrecimiento(){
       <!-- HISTORIAL DE AVANCE -->
       <div id="rcHistPanel" style="display:none;margin-top:.7rem;border-top:1px solid var(--border);padding-top:.6rem"></div>
     </div>
-    `}
   </div>`;
-
-  if(esIso){_recRenderIso();return;}   // el mapa se dibuja aparte y no usa nada de lo de abajo
 
   // Event listeners
   const wrap=document.getElementById('recMapWrap');
@@ -331,6 +324,7 @@ function rRecrecimiento(){
     setTimeout(()=>{
       _recRenderCapasSvg();
       _recRenderElementosSvg();
+      if(typeof _wbsRenderSvg==='function')_wbsRenderSvg();
       if(_recDibujando){
         const canvas=document.getElementById('recCanvas');
         if(canvas)canvas.style.cursor='crosshair';
@@ -499,6 +493,9 @@ function _recSvgClick(e){
     const r=canvas.getBoundingClientRect();
     const xPct=(e.clientX-r.left)/r.width*100;
     const yPct=(e.clientY-r.top)/r.height*100;
+    // Las actividades del WBS usan el mismo modo de colocación que los
+    // elementos verticales, pero tienen su propio registro
+    if(_recColocando==='wbs'){_wbsCrearEnPlano(xPct,yPct);return;}
     _recCrearElemento(_recColocando,xPct,yPct);
     return;
   }
@@ -844,18 +841,7 @@ function _recShowCapaPopup(id,svgCx,svgCy){
 // al cambiar de dique o de vista hay que descartarlos, si no el trazo queda deformado sobre la otra imagen.
 function _recSetDique(k){_recDique=k;_recSelCapaId=null;_recDibujando=false;_recAreaPuntos=[];_recColocando=null;rRecrecimiento();}
 function _recSetVista(v){_recVista=v;_recDibujando=false;_recAreaPuntos=[];_recColocando=null;rRecrecimiento();}
-// El mapa isométrico lo dibuja pizarra.js (_pizRenderIso). Se reutiliza tal cual
-// en vez de duplicar 550 líneas: aquí solo se le presta el contenedor.
-function _recRenderIso(){
-  const c=document.getElementById('recIsoBody');
-  if(!c)return;
-  if(typeof _pizRenderIso!=='function'){
-    c.innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted2)">El mapa isométrico no está disponible</div>';
-    return;
-  }
-  _pizActiveTabKey='iso';
-  _pizRenderIso(c);
-}
+
 
 function _recAddCapa(dique){
   document.getElementById('rcId').value='';

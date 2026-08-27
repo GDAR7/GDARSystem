@@ -1,16 +1,17 @@
-// ══ ACTIVIDADES DE TRABAJO EN EL MAPA ═══════════════════════════════════════
-// Define actividades del WBS sobre el mapa isométrico de Recrecimiento. No pasa
-// por los equipos: la actividad es el objeto del mapa.
+// ══ ACTIVIDADES DE TRABAJO EN LA VISTA PLANTA (Recrecimiento) ═══════════════
+// Define actividades del WBS sobre el plano de planta de cada dique:
 //
-//   1 · Panel 🎯 Activid. → se arrastra una actividad al mapa
+//   1 · Panel lateral 🎯 Actividades → se elige una y se hace clic en el plano
 //   2 · Queda un marcador con su CÓDIGO (p. ej. LPF)
 //   3 · Clic en el marcador → panel de avance, igual que el de las capas
 //
-// El marcador se guarda en pizarra_items (tipo 'wbs') sin fecha: marca DÓNDE se
-// trabaja, no qué se hizo un día. Los avances van en su propia tabla wbs_avance,
-// con el mismo patrón que capas_avance.
+// Sigue el mismo patrón que los elementos verticales (piezómetros / kenas): la
+// posición es por dique y relativa a la foto de planta. Dos tablas:
+//   wbs_mapa   → dónde está la actividad   (id, wbs_id, dique, x, y)
+//   wbs_avance → qué se avanzó y cuándo    (id, wbs_id, fecha, cant, guardia, turno, notas)
 
 const _WBS_COL='#f59e0b';
+let _wbsSel=null;          // actividad elegida, a la espera del clic en el plano
 let _wbsBuscar='';
 let _wbsAvEditId=null;
 
@@ -19,9 +20,8 @@ const _wbsN=(v,d)=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:d=
 const _wbsNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();
 const _wbsDe=id=>(DB.lpsWbs||[]).find(w=>+w.id===+id)||null;
 const _wbsLbl=w=>w?(w.desc||w.nombre||w.codigo||'Actividad'):'Actividad';
-
-// Marcadores de actividad ya puestos en el mapa
-const _wbsEnMapa=()=>(DB.pizarraItems||[]).filter(i=>i.tab==='iso'&&i.tipo==='wbs');
+// Marcadores del dique que se está viendo
+const _wbsEnPlano=()=>(DB.wbsMapa||[]).filter(m=>m.dique===_recDique);
 
 // Avance acumulado de una actividad
 function _wbsAcum(wbsId){
@@ -33,53 +33,122 @@ function _wbsAcum(wbsId){
     pct:tot>0?Math.min(100,+(cant/tot*100).toFixed(2)):0};
 }
 
+// ── Panel lateral ──────────────────────────────────────────────────────────
 function _wbsSetBuscar(v){_wbsBuscar=v;const l=document.getElementById('wbsPalLista');if(l)l.innerHTML=_wbsPaletaLista();}
+function _wbsElegir(id){
+  _wbsSel=(+_wbsSel===+id)?null:+id;
+  if(_wbsSel){_recColocando='wbs';if(typeof _recCancelarDraw==='function'&&_recDibujando)_recCancelarDraw();}
+  else if(_recColocando==='wbs')_recColocando=null;
+  rRecrecimiento();
+}
+function _wbsCancelar(){_wbsSel=null;if(_recColocando==='wbs')_recColocando=null;rRecrecimiento();}
 
-// ── Paleta lateral ─────────────────────────────────────────────────────────
 function _wbsPaletaLista(){
   const q=_wbsNorm(_wbsBuscar);
-  const puestas=new Set(_wbsEnMapa().map(i=>+i.refId));
+  const puestas=new Set(_wbsEnPlano().map(m=>+m.wbsId));
   let lista=(DB.lpsWbs||[]).slice();
   if(q)lista=lista.filter(w=>_wbsNorm(`${w.codigo} ${_wbsLbl(w)}`).includes(q));
   lista.sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),'es'));
-  if(!lista.length)return'<div style="color:var(--muted2);font-size:.62rem;text-align:center;padding:.6rem">Sin actividades en el WBS</div>';
+  if(!lista.length)return'<div style="color:var(--muted2);font-size:.58rem;text-align:center;padding:.5rem">Sin actividades en el WBS</div>';
   return lista.map(w=>{
     const A=_wbsAcum(w.id);
     const ya=puestas.has(+w.id);
-    return`<div draggable="true" ondragstart="_pizDragStart(event,'wbs',${w.id},'${_wbsEsc(w.codigo||'WBS').replace(/'/g,"\\'")}','${_WBS_COL}')"
-      title="${_wbsEsc(_wbsLbl(w))}${ya?' · ya está en el mapa (arrástrala para reubicarla)':' · arrástrala al mapa'}"
-      style="cursor:grab;padding:.25rem .35rem;border-radius:5px;border:1px solid ${ya?_WBS_COL+'55':'var(--border)'};background:${ya?_WBS_COL+'12':'var(--panel2)'}">
-      <div style="display:flex;align-items:center;gap:.3rem">
-        <span style="font-size:.7rem">${ya?'🎯':'⬚'}</span>
-        <span style="font-size:.63rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(w.codigo||'—')}</span>
-        <span style="font-size:.55rem;color:var(--muted2);margin-left:auto;font-family:monospace">${A.pct.toFixed(0)}%</span>
+    const sel=+_wbsSel===+w.id;
+    return`<div onclick="_wbsElegir(${w.id})" title="${_wbsEsc(_wbsLbl(w))}${ya?' · ya está en el plano':' · elígela y haz clic en el plano'}"
+      style="cursor:pointer;padding:.22rem .32rem;border-radius:5px;border:1px solid ${sel?_WBS_COL:(ya?_WBS_COL+'50':'var(--border)')};background:${sel?_WBS_COL+'25':(ya?_WBS_COL+'10':'transparent')}">
+      <div style="display:flex;align-items:center;gap:.28rem">
+        <span style="font-size:.65rem">${ya?'🎯':'⬚'}</span>
+        <span style="font-size:.6rem;font-weight:800;color:${_WBS_COL};font-family:monospace">${_wbsEsc(w.codigo||'—')}</span>
+        <span style="font-size:.52rem;color:var(--muted2);margin-left:auto;font-family:monospace">${A.total>0?A.pct.toFixed(0)+'%':'—'}</span>
       </div>
-      <div style="font-size:.55rem;color:var(--muted2);padding-left:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_wbsEsc(_wbsLbl(w))}</div>
-      ${A.total>0?`<div style="height:3px;border-radius:2px;background:var(--border);margin:2px 0 0 16px;overflow:hidden">
-        <div style="width:${A.pct}%;height:100%;background:${_WBS_COL}"></div></div>`:''}
+      <div style="font-size:.52rem;color:var(--muted2);padding-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_wbsEsc(_wbsLbl(w))}</div>
     </div>`;
   }).join('');
 }
-function _wbsPaletaHTML(){
-  const n=_wbsEnMapa().length;
-  return`
-    <div style="font-size:.57rem;color:var(--muted2);margin-bottom:.35rem;line-height:1.35">
-      Arrastra una actividad al mapa. Queda con su código y, al hacerle clic, se ingresa el avance.
+function _wbsPanelHTML(){
+  const n=_wbsEnPlano().length;
+  const w=_wbsSel?_wbsDe(_wbsSel):null;
+  return`<div style="background:var(--panel);border:1px solid ${_wbsSel?_WBS_COL+'60':'rgba(255,255,255,.06)'};border-radius:7px;padding:.4rem .5rem;margin-bottom:.3rem">
+    <div style="font-size:.58rem;color:${_wbsSel?_WBS_COL:'var(--muted2)'};margin-bottom:.3rem;font-weight:${_wbsSel?'700':'400'}">
+      ${_wbsSel?'🎯 Clic en el plano para ubicar <b>'+_wbsEsc(w?w.codigo:'')+'</b>':'🎯 Actividades · '+n+' en este dique'}
     </div>
     <input placeholder="Buscar código o actividad..." value="${_wbsEsc(_wbsBuscar)}" oninput="_wbsSetBuscar(this.value)"
-      style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.28rem .45rem;color:var(--text);font-size:.65rem;outline:none;margin-bottom:.35rem">
-    <div style="font-size:.55rem;color:${_WBS_COL};margin-bottom:.3rem">${n} actividad${n!==1?'es':''} en el mapa</div>
-    <div id="wbsPalLista" style="display:flex;flex-direction:column;gap:.22rem;overflow-y:auto">${_wbsPaletaLista()}</div>`;
+      style="width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.22rem .4rem;color:var(--text);font-size:.6rem;outline:none;margin-bottom:.3rem">
+    <div id="wbsPalLista" style="display:flex;flex-direction:column;gap:.18rem;max-height:150px;overflow-y:auto">${_wbsPaletaLista()}</div>
+    ${_wbsSel?`<button onclick="_wbsCancelar()" style="width:100%;margin-top:.3rem;padding:.2rem;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted2);cursor:pointer;font-size:.58rem">✕ Cancelar</button>`:''}
+  </div>`;
+}
+
+// ── Colocar en el plano ────────────────────────────────────────────────────
+async function _wbsCrearEnPlano(xPct,yPct){
+  if(!_wbsSel)return;
+  const wbsId=+_wbsSel;
+  const x=+xPct.toFixed(2),y=+yPct.toFixed(2);
+  const ya=(DB.wbsMapa||[]).find(m=>+m.wbsId===wbsId&&m.dique===_recDique);
+  if(ya){                                   // ya estaba: se reubica, no se duplica
+    const prev={x:ya.x,y:ya.y};
+    ya.x=x;ya.y=y;
+    const err=await supaUpsert('wbsMapa',ya);
+    if(err){ya.x=prev.x;ya.y=prev.y;return;}
+  }else{
+    const rec={id:nidSeguro('wmap','wbsMapa'),wbsId,dique:_recDique,x,y};
+    (DB.wbsMapa=DB.wbsMapa||[]).push(rec);
+    const err=await supaUpsert('wbsMapa',rec);
+    if(err){DB.wbsMapa=DB.wbsMapa.filter(m=>m.id!==rec.id);return;}
+  }
+  const w=_wbsDe(wbsId);
+  _wbsSel=null;_recColocando=null;
+  rRecrecimiento();
+  toast('✓ '+((w&&w.codigo)||'Actividad')+' ubicada en el plano');
+}
+
+// ── Marcadores sobre el SVG de la planta ───────────────────────────────────
+function _wbsRenderSvg(){
+  const svg=document.getElementById('recSvg');if(!svg)return;
+  svg.querySelectorAll('.wbs-marca').forEach(el=>el.remove());
+  if(_recVista!=='planta')return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  const z=_recZoom||1;
+  _wbsEnPlano().forEach(m=>{
+    const w=_wbsDe(m.wbsId);if(!w)return;
+    const A=_wbsAcum(m.wbsId);
+    const cx=+m.x*W/100,cy=+m.y*H/100;
+    const rad=Math.max(7/z,5);
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('wbs-marca');
+    g.setAttribute('pointer-events','auto');
+    g.style.cursor='pointer';
+    g.addEventListener('click',ev=>{ev.stopPropagation();_wbsAvancePanel(m.wbsId);});
+
+    const rombo=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    rombo.setAttribute('points',`${cx},${cy-rad} ${cx+rad},${cy} ${cx},${cy+rad} ${cx-rad},${cy}`);
+    rombo.setAttribute('fill',A.pct>=100?'#10b981':_WBS_COL);
+    rombo.setAttribute('fill-opacity','.9');
+    rombo.setAttribute('stroke','#fff');
+    rombo.setAttribute('stroke-width',(1.5/z).toFixed(2));
+    g.appendChild(rombo);
+
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',cx);txt.setAttribute('y',cy-rad-4);
+    txt.setAttribute('font-size',Math.max(9/z,7).toFixed(1));
+    txt.setAttribute('font-weight','800');
+    txt.setAttribute('fill',A.pct>=100?'#10b981':_WBS_COL);
+    txt.setAttribute('stroke','#000');txt.setAttribute('stroke-width',(2.5/z).toFixed(2));
+    txt.setAttribute('paint-order','stroke');
+    txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','sans-serif');
+    txt.setAttribute('pointer-events','none');
+    txt.textContent=(w.codigo||'WBS')+(A.total>0?' '+A.pct.toFixed(0)+'%':'');
+    g.appendChild(txt);
+    svg.appendChild(g);
+  });
 }
 
 // ── Panel de avance (mismo modelo que el historial de capas) ───────────────
-function _wbsAvancePanel(itemId){
+function _wbsAvancePanel(wbsId){
   const old=document.getElementById('wbsAvPanel');if(old)old.remove();
-  const item=(DB.pizarraItems||[]).find(i=>+i.id===+itemId);if(!item)return;
-  const w=_wbsDe(item.refId);
+  const w=_wbsDe(wbsId);
   if(!w){toast('La actividad ya no existe en el WBS',true);return;}
   _wbsAvEditId=null;
-
   const ov=document.createElement('div');
   ov.id='wbsAvPanel';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:1rem';
@@ -96,10 +165,10 @@ function _wbsAvancePanel(itemId){
     <div id="wbsAvBody" style="padding:.9rem 1rem"></div>
   </div>`;
   document.body.appendChild(ov);
-  _wbsAvRender(item.refId,itemId);
+  _wbsAvRender(wbsId);
 }
 
-function _wbsAvRender(wbsId,itemId){
+function _wbsAvRender(wbsId){
   const c=document.getElementById('wbsAvBody');if(!c)return;
   const w=_wbsDe(wbsId);
   const A=_wbsAcum(wbsId);
@@ -107,16 +176,16 @@ function _wbsAvRender(wbsId,itemId){
   const inp='width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.32rem .5rem;color:var(--text);font-size:.78rem;outline:none';
   const lb='font-size:.58rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;display:block;margin-bottom:.15rem';
   const ed=_wbsAvEditId?(DB.wbsAvance||[]).find(e=>+e.id===+_wbsAvEditId):null;
-
   const TD='padding:.3rem .45rem;border-bottom:1px solid var(--border);font-size:.72rem';
+
   const hist=A.entradas.slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha))).map(e=>`<tr>
     <td style="${TD};font-family:monospace">${_wbsEsc(e.fecha)}</td>
     <td style="${TD};text-align:center;font-size:.64rem;color:var(--muted2)">${_wbsEsc(e.guardia||'—')}/${_wbsEsc(e.turno||'—')}</td>
     <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${_WBS_COL}">${_wbsN(e.cant)}</td>
     <td style="${TD};max-width:170px;overflow:hidden;text-overflow:ellipsis;color:var(--muted2);font-size:.66rem" title="${_wbsEsc(e.notas||'')}">${_wbsEsc(e.notas||'—')}</td>
     <td style="${TD};text-align:right;white-space:nowrap">
-      <button onclick="_wbsAvEditar(${e.id},${wbsId},${itemId})" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.7rem;padding:.1rem .35rem">✏</button>
-      <button onclick="_wbsAvBorrar(${e.id},${wbsId},${itemId})" style="background:none;border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.7rem;padding:.1rem .35rem;margin-left:.2rem">🗑</button>
+      <button onclick="_wbsAvEditar(${e.id},${wbsId})" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.7rem;padding:.1rem .35rem">✏</button>
+      <button onclick="_wbsAvBorrar(${e.id},${wbsId})" style="background:none;border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.7rem;padding:.1rem .35rem;margin-left:.2rem">🗑</button>
     </td>
   </tr>`).join('');
 
@@ -138,7 +207,7 @@ function _wbsAvRender(wbsId,itemId){
     ${A.total<=0?`<div style="font-size:.66rem;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:.35rem .55rem;margin-bottom:.7rem">⚠ Esta actividad no tiene metrado total en el WBS: se registra la cantidad, pero no se puede calcular el %</div>`:''}
 
     <div style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:.7rem;margin-bottom:.8rem">
-      <div style="font-size:.68rem;font-weight:800;color:var(--text);margin-bottom:.5rem">${ed?'✏️ Editando el avance del '+_wbsEsc(ed.fecha):'＋ Registrar avance'}</div>
+      <div style="font-size:.68rem;font-weight:800;margin-bottom:.5rem">${ed?'✏️ Editando el avance del '+_wbsEsc(ed.fecha):'＋ Registrar avance'}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:.5rem">
         <div><label style="${lb}">Fecha</label><input type="date" id="wbsAvFecha" value="${ed?_wbsEsc(ed.fecha):today()}" style="${inp}"></div>
         <div><label style="${lb}">Cantidad (${_wbsEsc(un)})</label><input type="number" step="0.01" id="wbsAvCant" value="${ed?ed.cant:''}" placeholder="0.00" style="${inp}"></div>
@@ -147,24 +216,22 @@ function _wbsAvRender(wbsId,itemId){
         <div style="grid-column:1/-1"><label style="${lb}">Notas</label><input id="wbsAvNotas" value="${ed?_wbsEsc(ed.notas||''):''}" placeholder="Opcional" style="${inp}"></div>
       </div>
       <div style="display:flex;gap:.4rem;margin-top:.6rem">
-        <button onclick="_wbsAvGuardar(${wbsId},${itemId})" style="flex:1;background:${_WBS_COL};border:none;border-radius:7px;color:#111;padding:.35rem;font-size:.75rem;font-weight:800;cursor:pointer">💾 ${ed?'Actualizar':'Guardar avance'}</button>
-        ${ed?`<button onclick="_wbsAvEditId=null;_wbsAvRender(${wbsId},${itemId})" style="background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted2);padding:.35rem .8rem;font-size:.75rem;cursor:pointer">Cancelar</button>`:''}
+        <button onclick="_wbsAvGuardar(${wbsId})" style="flex:1;background:${_WBS_COL};border:none;border-radius:7px;color:#111;padding:.35rem;font-size:.75rem;font-weight:800;cursor:pointer">💾 ${ed?'Actualizar':'Guardar avance'}</button>
+        ${ed?`<button onclick="_wbsAvEditId=null;_wbsAvRender(${wbsId})" style="background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted2);padding:.35rem .8rem;font-size:.75rem;cursor:pointer">Cancelar</button>`:''}
       </div>
     </div>
 
     <div style="font-size:.66rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Historial · ${A.entradas.length} registro(s)</div>
     <div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px">
-      <table style="width:100%;border-collapse:collapse">
-        <tbody>${hist||`<tr><td style="${TD};text-align:center;color:var(--muted2);padding:1.2rem">Todavía sin avances registrados</td></tr>`}</tbody>
-      </table>
+      <table style="width:100%;border-collapse:collapse"><tbody>${hist||`<tr><td style="${TD};text-align:center;color:var(--muted2);padding:1.2rem">Todavía sin avances registrados</td></tr>`}</tbody></table>
     </div>
 
-    <button onclick="_wbsQuitarDelMapa(${itemId})" style="width:100%;margin-top:.7rem;background:transparent;border:1px solid #ef444440;border-radius:7px;color:#ef4444;padding:.3rem;font-size:.68rem;cursor:pointer">✕ Quitar la actividad del mapa (los avances se conservan)</button>`;
+    <button onclick="_wbsQuitarDelPlano(${wbsId})" style="width:100%;margin-top:.7rem;background:transparent;border:1px solid #ef444440;border-radius:7px;color:#ef4444;padding:.3rem;font-size:.68rem;cursor:pointer">✕ Quitar del plano (los avances se conservan)</button>`;
 }
 
-function _wbsAvEditar(id,wbsId,itemId){_wbsAvEditId=id;_wbsAvRender(wbsId,itemId);}
+function _wbsAvEditar(id,wbsId){_wbsAvEditId=id;_wbsAvRender(wbsId);}
 
-async function _wbsAvGuardar(wbsId,itemId){
+async function _wbsAvGuardar(wbsId){
   const g=id=>(document.getElementById(id)||{}).value||'';
   const fecha=g('wbsAvFecha');
   const cant=+g('wbsAvCant');
@@ -180,8 +247,7 @@ async function _wbsAvGuardar(wbsId,itemId){
     Object.assign(e,datos);
     const err=await supaUpsert('wbsAvance',e);
     if(err){Object.assign(e,prev);return;}
-    _wbsAvEditId=null;
-    toast('Avance actualizado');
+    _wbsAvEditId=null;toast('Avance actualizado');
   }else{
     const rec={id:nidSeguro('wav','wbsAvance'),...datos};
     (DB.wbsAvance=DB.wbsAvance||[]).push(rec);
@@ -190,17 +256,17 @@ async function _wbsAvGuardar(wbsId,itemId){
     toast('Avance registrado');
   }
   _wbsSyncPct(wbsId);
-  _wbsAvRender(wbsId,itemId);
-  if(typeof _pizRenderTab==='function')_pizRenderTab();
+  _wbsAvRender(wbsId);
+  _wbsRenderSvg();
 }
 
-async function _wbsAvBorrar(id,wbsId,itemId){
+async function _wbsAvBorrar(id,wbsId){
   if(!confirm('¿Eliminar este registro de avance?'))return;
   DB.wbsAvance=(DB.wbsAvance||[]).filter(x=>+x.id!==+id);
   await supaDelete('wbsAvance',id);
   _wbsSyncPct(wbsId);
-  _wbsAvRender(wbsId,itemId);
-  if(typeof _pizRenderTab==='function')_pizRenderTab();
+  _wbsAvRender(wbsId);
+  _wbsRenderSvg();
 }
 
 // El % de la actividad queda en el propio WBS para que el LPS lo vea
@@ -212,8 +278,13 @@ function _wbsSyncPct(wbsId){
   if(typeof syncSheet==='function')syncSheet('saveLpsWbs',w);
 }
 
-function _wbsQuitarDelMapa(itemId){
-  if(!confirm('¿Quitar la actividad del mapa? Los avances registrados se conservan.'))return;
+async function _wbsQuitarDelPlano(wbsId){
+  if(!confirm('¿Quitar la actividad del plano? Los avances registrados se conservan.'))return;
+  const m=(DB.wbsMapa||[]).find(x=>+x.wbsId===+wbsId&&x.dique===_recDique);
+  if(m){
+    DB.wbsMapa=DB.wbsMapa.filter(x=>x.id!==m.id);
+    await supaDelete('wbsMapa',m.id);
+  }
   const p=document.getElementById('wbsAvPanel');if(p)p.remove();
-  if(typeof _pizRemoveItem==='function')_pizRemoveItem(itemId);
+  rRecrecimiento();
 }

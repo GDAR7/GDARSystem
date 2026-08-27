@@ -99,10 +99,7 @@ let _isoPlanDibujando=false, _isoPlanPuntos=[], _isoPlanSelId=null;
 function _pizRenderIso(c){
   const items=(DB.pizarraItems||[]).filter(x=>
     x.tab==='iso'&&x.tipo!=='frente'&&
-    // Una actividad marca DÓNDE se trabaja, no qué se hizo ese día: se ve
-    // siempre, sin importar la fecha elegida arriba. Equipos y personal sí
-    // pertenecen al plan del día.
-    (x.tipo==='wbs' || (_isoFecha ? x.fecha===_isoFecha : !x.fecha))
+    (_isoFecha ? x.fecha===_isoFecha : !x.fecha)
   );
   const equipos=(DB.equipos||[]).filter(e=>e.est!=='Baja');
 
@@ -127,11 +124,7 @@ function _pizRenderIso(c){
     const cant=item.cant||1;
     const cantLabel=esPersonal&&cant>1?`<span style="background:rgba(0,0,0,.25);border-radius:3px;padding:0 3px;margin-right:1px;font-size:.58rem">${cant}×</span>`:'';
     const dblClick=esPersonal?`ondblclick="event.stopPropagation();_pizMarkerDblClick(${item.id})"`:'';
-    const isoWbsClick=item.tipo==='equipo'
-      ?`onclick="event.stopPropagation();if(!_rutaDidPan)_isoShowWbsPopup(${item.id},event.clientX,event.clientY)"`
-      :item.tipo==='wbs'
-      ?`onclick="event.stopPropagation();if(!_rutaDidPan)_wbsAvancePanel(${item.id})"`
-      :'';
+    const isoWbsClick=item.tipo==='equipo'?`onclick="event.stopPropagation();if(!_rutaDidPan)_isoShowWbsPopup(${item.id},event.clientX,event.clientY)"`:'';
     const wbsLinked=(DB.lpsWbs||[]).find(w=>w.id===item.wbsId);
     const wbsBadge=wbsLinked
       ?`<div style="background:rgba(16,185,129,.9);color:#fff;border-radius:3px;padding:1px 5px;font-size:.5rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;max-width:90px" title="${wbsLinked.nombre||wbsLinked.desc||''}">${wbsLinked.codigo||'WBS'}</div>`
@@ -144,7 +137,7 @@ function _pizRenderIso(c){
         ?`<div style="width:52px;height:38px;flex-shrink:0;background-image:url('${_pizSpriteUrl()}');background-size:500% 300%;background-position:${sp};background-repeat:no-repeat"></div>`
         :`<span style="font-size:.8rem">🚜</span>`;
     } else {
-      icHtml=`<span style="font-size:.8rem">${{personal:'👷',nota:'📝',wbs:'🎯'}[item.tipo]||'📌'}</span>`;
+      icHtml=`<span style="font-size:.8rem">${{personal:'👷',nota:'📝'}[item.tipo]||'📌'}</span>`;
     }
     const hasSp=item.tipo==='equipo'&&(eqByCode[item.etiqueta]?!!_pizEqSprite(eqByCode[item.etiqueta].sub):false);
     return`<div id="piz-m-${item.id}" class="eq-marker"
@@ -225,8 +218,6 @@ function _pizRenderIso(c){
         </div>
       </div>`;
     }).join('')||'<div style="font-size:.62rem;color:var(--muted2);text-align:center;padding:.5rem">Sin personal en WBS</div>';
-  } else if(_isoPanel==='wbs'){
-    panelContent=_wbsPaletaHTML();
   } else if(_isoPanel==='areas'){
     const frentesAll=(DB.frentesTrabajo||[]).sort((a,b)=>(a.nombre||a.nom||'').localeCompare(b.nombre||b.nom||''));
     panelContent=`
@@ -351,7 +342,6 @@ function _pizRenderIso(c){
       <div style="display:flex;gap:.2rem;flex-wrap:wrap">
         ${btnTab('equipos','🚜','Equipos')}
         ${btnTab('personal','👷','Personal')}
-        ${btnTab('wbs','🎯','Activid.')}
         ${btnTab('areas','📍','Áreas')}
         ${btnTab('dibujos','📐','Dibujos')}
         ${btnTab('notas','📝','Notas')}
@@ -1016,10 +1006,9 @@ function _pizDrop(e){
   if(tipo!=='personal'&&tipo!=='nota'){
     const existing=(DB.pizarraItems||[]).find(i=>
       i.tipo===tipo&&i.refId===refId&&i.tab===_pizActiveTabKey&&
-      // La actividad es única en el mapa: se reubica, no se duplica por fecha
-      (tipo==='wbs'||_pizActiveTabKey!=='iso'
-        ? true
-        : (_isoFecha ? i.fecha===_isoFecha : !i.fecha))
+      (_pizActiveTabKey==='iso'
+        ? (_isoFecha ? i.fecha===_isoFecha : !i.fecha)
+        : true)
     );
     if(existing){
       existing.x=x;existing.y=y;syncSheet('savePizItem',existing);_pizRenderTab();
@@ -1028,7 +1017,7 @@ function _pizDrop(e){
     }
   }
   const rec={id:nid('piz'),tipo,refId,etiqueta:label,x,y,color,tab:_pizActiveTabKey,cant:1};
-  if(_pizActiveTabKey==='iso'&&_isoFecha&&tipo!=='wbs')rec.fecha=_isoFecha;
+  if(_pizActiveTabKey==='iso'&&_isoFecha)rec.fecha=_isoFecha;
   DB.pizarraItems.push(rec);
   syncSheet('savePizItem',rec);
   _pizRenderTab();
