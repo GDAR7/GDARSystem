@@ -18,15 +18,15 @@ let _plDetPersonalId=null,_plDetMes=null,_plDetAnio=null,_plDetCurTab=0;
 // ── Tabs modal datos mensuales ──
 function plDetGoTab(n){
   _plDetCurTab=n;
-  [0,1,2].forEach(i=>{
+  [0,1,2,3].forEach(i=>{
     const p=document.getElementById('plDetP'+i),t=document.getElementById('plDetTab'+i);
     if(p)p.style.display=i===n?'grid':'none';
     if(t)t.classList.toggle('eq-tab-act',i===n);
   });
   const prev=document.getElementById('plDetBPrev'),next=document.getElementById('plDetBNext'),save=document.getElementById('plDetBSave');
   if(prev)prev.style.display=n>0?'':'none';
-  if(next)next.style.display=n<2?'':'none';
-  if(save)save.style.display=n===2?'':'none';
+  if(next)next.style.display=n<3?'':'none';
+  if(save)save.style.display=n===3?'':'none';
 }
 
 // Tasa diaria de la bonificación por costo de vida (S/ por día).
@@ -446,6 +446,16 @@ function openPlanillaDet(personalId){
   if(info)info.textContent=`${p.ape}, ${p.nom}  ·  ${p.cargo||''}  ·  ${_PL_MESES[_plGenMes]} ${_plGenAnio}`;
   const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||0;};
   sv('pdHe25',det?.he25);sv('pdHe35',det?.he35);sv('pdHe100',det?.he100);
+  // Tab D — datos fijos de la ficha, no del mes
+  const sf=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v==null?'':v);};
+  sf('pdSue',p.sue||'');
+  sf('pdAsig',p.asig?'1':'0');
+  sf('pdMovilidad',p.movilidad||0);
+  sf('pdAfp',p.afp||'');
+  sf('pdCuspp',p.cuspp||'');
+  sf('pdBanco',p.banco||'');
+  sf('pdCuenta',p.cuenta||'');
+
   sv('pdReintegro',det?.reintegro);sv('pdBAltura',det?.bAltura);sv('pdBCv',det?.bCv);
   // Se muestra cuánto sale el cálculo, para que se vea qué se está anulando
   const _nCv=document.getElementById('pdBCvNota');
@@ -498,6 +508,28 @@ function gPlanillaDet(){
   };
   if(existing){Object.assign(existing,rec);}else{DB.planillaMes.push(rec);}
   syncSheet('savePlanillaMes',rec);
+
+  // Tab D: lo que cambió en la ficha del trabajador va a DB.personal, no al mes.
+  // Solo se guarda si algo cambió de verdad, para no reescribir la ficha en vano.
+  const per=DB.personal.find(x=>x.id===_plDetPersonalId);
+  const txt=id=>{const el=document.getElementById(id);return el?(el.value||'').trim():null;};
+  if(per&&document.getElementById('pdSue')){
+    const nuevo={
+      sue:+g('pdSue')||0,
+      asig:txt('pdAsig')==='1'?1:0,
+      movilidad:+g('pdMovilidad')||0,
+      afp:txt('pdAfp')||'',
+      cuspp:txt('pdCuspp')||'',
+      banco:txt('pdBanco')||'',
+      cuenta:txt('pdCuenta')||''
+    };
+    const cambio=Object.keys(nuevo).some(k=>String(per[k]==null?'':per[k])!==String(nuevo[k]));
+    if(cambio){
+      Object.assign(per,nuevo);
+      syncSheet('savePersonal',per);
+    }
+  }
+
   closeM('mPlanillaDet');
   genPlanilla();
   toast('Datos mensuales guardados');

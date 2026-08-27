@@ -213,6 +213,7 @@
     <button class="eq-tab eq-tab-act" id="plDetTab0" onclick="plDetGoTab(0)">A · Ingresos</button>
     <button class="eq-tab" id="plDetTab1" onclick="plDetGoTab(1)">B · Deducciones</button>
     <button class="eq-tab" id="plDetTab2" onclick="plDetGoTab(2)">C · Aportes Empl.</button>
+    <button class="eq-tab" id="plDetTab3" onclick="plDetGoTab(3)">D · Datos de Planilla</button>
   </div>
   <div class="mb">
     <!-- TAB A: Ingresos adicionales -->
@@ -253,6 +254,19 @@
       <div class="fg"><label>Seguro Vida Empleados S/</label><input id="pdSegVidaEmpl" type="number" value="0" min="0"></div>
       <div class="fg"><label>S. Vida Obreros Ley S/</label><input id="pdSegVidaLey" type="number" value="0" min="0"></div>
       <div class="fg"><label>SCTR Salud S/</label><input id="pdSctrSalud" type="number" value="0" min="0"></div>
+    </div>
+    <!-- TAB D: datos fijos del trabajador — no son del mes, son de su ficha -->
+    <div id="plDetP3" class="fg-grid" style="display:none">
+      <div style="grid-column:1/-1;font-size:.72rem;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:.4rem .6rem">
+        ⚠ Estos datos son de la <b>ficha del trabajador</b>, no del mes: al guardarlos cambian para todos los períodos.
+      </div>
+      <div class="fg"><label>Sueldo Base S/</label><input id="pdSue" type="number" min="0" step="0.01" placeholder="1800"></div>
+      <div class="fg"><label>Asig. Familiar</label><select id="pdAsig"><option value="1">Sí (S/ 113.00)</option><option value="0">No</option></select></div>
+      <div class="fg"><label>Movilidad S/</label><input id="pdMovilidad" type="number" min="0" step="0.01" value="0" title="No es afecta a ningún descuento ni base: se paga íntegra en el neto"></div>
+      <div class="fg"><label>AFP / SNP</label><select id="pdAfp"><option value="">— Seleccionar —</option><option>SNP</option><option>Integra</option><option>Profuturo</option><option>Prima</option><option>Habitat</option></select></div>
+      <div class="fg"><label>CUSPP</label><input id="pdCuspp" placeholder="Ej: 671241LAREO9"></div>
+      <div class="fg"><label>Banco</label><select id="pdBanco"><option value="">— Seleccionar —</option><option>BCP</option><option>BBVA</option><option>Interbank</option><option>Scotiabank</option><option>BanBif</option><option>Mibanco</option><option>Caja Huancayo</option><option>Caja Piura</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>N° Cuenta</label><input id="pdCuenta" placeholder="Ej: 00110104840200456451"></div>
     </div>
   </div>
   <div class="mf">
@@ -1888,12 +1902,12 @@
       <div class="fg"><label>Tipo</label><select id="wTipo"><option value="">— Seleccionar —</option><option>Staff</option><option>Obrero</option></select></div>
       <div class="fg"><label>Guardia</label><select id="wGuardia"><option value="">— Seleccionar —</option><option>A</option><option>B</option><option>C</option></select></div>
       <div class="fg"><label>F. Ingreso</label><input id="wIng" type="date"></div>
-      <div class="fg"><label>Sueldo Base S/</label><input id="wSue" type="number" placeholder="1800"></div>
-      <div class="fg"><label>Asig. Familiar</label><select id="wAsig"><option value="1">Sí (S/ 113.00)</option><option value="0">No</option></select></div>
       <div class="fg"><label>Estado</label><select id="wEst"><option>Activo</option><option>De Permiso</option><option>Inactivo</option></select></div>
       <div class="fg" style="grid-column:1/-1"><label>Notas</label><textarea id="wNotas" rows="2" style="resize:vertical" placeholder="Observaciones, condiciones especiales..."></textarea></div>
     </div>
     <div id="perP1" class="fg-grid" style="display:none">
+      <div class="fg"><label>Sueldo Base S/</label><input id="wSue" type="number" placeholder="1800"></div>
+      <div class="fg"><label>Asig. Familiar</label><select id="wAsig"><option value="1">Sí (S/ 113.00)</option><option value="0">No</option></select></div>
       <div class="fg"><label>AFP / SNP</label><select id="wAfp"><option value="">— Seleccionar —</option><option>SNP</option><option>Integra</option><option>Profuturo</option><option>Prima</option><option>Habitat</option></select></div>
       <div class="fg"><label>CUSPP</label><input id="wCuspp" placeholder="Ej: 671241LAREO9"></div>
       <div class="fg"><label>Banco</label><select id="wBanco"><option value="">— Seleccionar —</option><option>BCP</option><option>BBVA</option><option>Interbank</option><option>Scotiabank</option><option>BanBif</option><option>Mibanco</option><option>Caja Huancayo</option><option>Caja Piura</option></select></div>
@@ -3154,7 +3168,7 @@
 <script src="js/config.js?v=45"></script>
 <script src="js/utils.js?v=25"></script>
 <script src="js/personal.js?v=21"></script>
-<script src="js/planilla.js?v=8"></script>
+<script src="js/planilla.js?v=9"></script>
 <script src="js/renta5ta.js?v=1"></script>
 <script src="js/almacen.js?v=3"></script>
 <script src="js/analisisAbc.js?v=7"></script>
