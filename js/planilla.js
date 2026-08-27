@@ -36,17 +36,23 @@ function _calcPlanRow(p,det){
   const r2=n=>Math.round(n*100)/100;
 
   // Días desde Tareaje
-  const tr=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha&&r.fecha.startsWith(monthStr));
-  const diasTD =tr.filter(r=>r.tipo==='TD').length;
-  const diasTN =tr.filter(r=>r.tipo==='TN').length;
-  const diasDLT=tr.filter(r=>r.tipo==='DLT').length;
-  const diasDL =tr.filter(r=>r.tipo==='DL').length;
-  const diasDM =tr.filter(r=>r.tipo==='DM').length;
-  const diasLP =tr.filter(r=>r.tipo==='LP').length;
-  const diasLM =tr.filter(r=>r.tipo==='LM').length;
-  const diasLF =tr.filter(r=>r.tipo==='LF').length;
-  const diasF  =tr.filter(r=>r.tipo==='F').length;
-  const diasSubTotal=diasTD+diasTN+diasDLT;
+  const tr=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha&&String(r.fecha).startsWith(monthStr));
+  // Se cuentan FECHAS ÚNICAS, no registros: si un día quedó marcado dos veces
+  // (pasa al corregir el tareaje a mano) contaba doble y pagaba de más.
+  const nDias=t=>new Set(tr.filter(r=>r.tipo===t).map(r=>String(r.fecha).slice(0,10))).size;
+  const diasTD =nDias('TD');
+  const diasA5 =nDias('A5');     // Anexo 5: se paga como jornada trabajada
+  const diasTN =nDias('TN');
+  const diasDLT=nDias('DLT');
+  const diasDL =nDias('DL');
+  const diasDM =nDias('DM');
+  const diasLP =nDias('LP');
+  const diasLM =nDias('LM');
+  const diasLF =nDias('LF');
+  const diasF  =nDias('F');
+  // El Anexo 5 entra en el subtotal, igual que en Tareaje, HH Venta y Corte de
+  // Equipos. Antes quedaba fuera y los días de A5 no se pagaban ni se veían.
+  const diasSubTotal=diasTD+diasA5+diasTN+diasDLT;
   const otrosDias   =diasDM+diasLP+diasLM+diasLF;
   const diasTotal   =diasSubTotal+diasDL;
 
@@ -148,7 +154,7 @@ function _calcPlanRow(p,det){
   const totalAportaciones=r2(essalud+aporteAfpEmpl+sctrPenSup+sctrPenMina+segVidaEmpl+segVidaLey+sctrSalud);
 
   return{
-    diasTD,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
+    diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
     jornal,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bNocturnas,refrigerio,licSindical,
     tareaOrdinaria,remunDL,totalDM,totalLicPat,
@@ -210,6 +216,7 @@ const PL_COLS=[
   {k:'asigFam',  g:'remun',l:'Asig.Fam.',    c:c=>_plHs(c.asigFam)},
 
   {k:'diasSub',  g:'dias',l:'Días SubTot.',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18);color:#f59e0b">${c.diasSubTotal||0}</td>`},
+  {k:'diasA5',   g:'dias',l:'Anexo 5',th:'color:#f97316',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#f97316">${c.diasA5||0}</td>`},
   {k:'otrosDias',g:'dias',l:'Otros Días',c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)">${c.otrosDias||0}</td>`},
   {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
   {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)">${c.diasTotal||0}</td>`},
@@ -286,7 +293,7 @@ const PL_COLS=[
 const _PL_IDENT=['n','dni','nom','cargo'];
 const PL_VISTAS=[
   {k:'resumen', l:'📋 Resumen',        cols:[..._PL_IDENT,'afp','diasTotal','sub2','totDed','neto','cuenta','banco']},
-  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','diasSub','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
+  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','diasSub','diasA5','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
   {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
   {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totDed','neto']},
@@ -341,7 +348,9 @@ function _plFijarCols(){
 }
 
 // ── Generador principal ──
-function genPlanilla(){
+// soloTabla = true → no se vuelve a dibujar la barra de filtros, para que el
+// buscador conserve el texto y el cursor mientras se escribe.
+function genPlanilla(soloTabla){
   _plGenMes =+document.getElementById('plMes').value;
   _plGenAnio= document.getElementById('plAnio').value;
   const proyFiltro=document.getElementById('plProy')?.value||'';
@@ -350,8 +359,10 @@ function genPlanilla(){
   const ps=document.getElementById('plProy');
   if(ps){const cur=ps.value;ps.innerHTML='<option value="">— Todos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');ps.value=cur;}
 
-  const act=DB.personal.filter(p=>p.est==='Activo'&&(!proyFiltro||p.proy===proyFiltro));
-  if(!act.length){toast('No hay trabajadores activos',true);return;}
+  const base=DB.personal.filter(p=>p.est==='Activo'&&(!proyFiltro||p.proy===proyFiltro));
+  if(!base.length){toast('No hay trabajadores activos',true);return;}
+  if(!soloTabla)_plRenderFiltros(base);
+  const act=base.filter(_plPasa);
   _plAfpDesconocidas.clear();
 
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
@@ -386,7 +397,10 @@ function genPlanilla(){
     ${cols.map(c=>`<th style="${th}${c.th?';'+c.th:''}">${c.l}</th>`).join('')}
   </tr>`;
 
-  document.getElementById('tbPlanillaBody').innerHTML=rows;
+  // Con un filtro que no deja a nadie, la tabla vacía no dice nada: se avisa
+  document.getElementById('tbPlanillaBody').innerHTML=rows||
+    ('<tr><td colspan="'+cols.length+'" style="text-align:center;padding:2rem;color:var(--muted2);font-size:.8rem">'+
+     'Ningún trabajador coincide con el filtro · <span onclick="_plLimpiarFiltros()" style="color:var(--adm);cursor:pointer;text-decoration:underline">limpiar filtros</span></td></tr>');
 
   // Totales: se emiten en las columnas visibles que tengan acumulador
   const Sf=n=>'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2});
@@ -467,3 +481,112 @@ function gPlanillaDet(){
 function printPlanilla(){
   toast('Función PDF de planilla próximamente');
 }
+
+// ══ FILTROS DE LA PLANILLA ══════════════════════════════════════════════════
+// Chips en cascada Tipo → Cargo, como el dashboard de Combustible, más un
+// buscador. Toda la barra se pliega para no comerse la pantalla.
+//
+// El buscador NO se vuelve a dibujar mientras se escribe: al teclear solo se
+// rehace el cuerpo de la tabla (genPlanilla en modo "solo tabla"), así el input
+// nunca se destruye y no se pierden ni el texto ni el cursor.
+let _plFiltTipo=null, _plFiltCargo=null, _plBuscar='';
+let _plFiltOpen=localStorage.getItem('_plFiltOpen')!=='0';
+
+const _plNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+const _plTipoDe =p=>(p.tipo ||'Sin tipo').trim()||'Sin tipo';
+const _plCargoDe=p=>(p.cargo||'Sin cargo').trim()||'Sin cargo';
+
+function _plFiltToggle(){
+  _plFiltOpen=!_plFiltOpen;
+  localStorage.setItem('_plFiltOpen',_plFiltOpen?'1':'0');
+  genPlanilla();
+}
+function _plSetTipo(t){
+  _plFiltTipo=(_plFiltTipo===t)?null:t;
+  _plFiltCargo=null;                       // el cargo depende del tipo
+  genPlanilla();
+}
+function _plSetCargo(c){
+  _plFiltCargo=(_plFiltCargo===c)?null:c;
+  genPlanilla();
+}
+function _plLimpiarFiltros(){
+  _plFiltTipo=null;_plFiltCargo=null;_plBuscar='';
+  genPlanilla();
+}
+// Al teclear solo se rehace la tabla: la barra (y con ella el input) queda intacta
+function _plSetBuscar(v){_plBuscar=v;genPlanilla(true);}
+
+// ¿El trabajador pasa los filtros activos?
+function _plPasa(p){
+  if(_plFiltTipo &&_plTipoDe(p) !==_plFiltTipo )return false;
+  if(_plFiltCargo&&_plCargoDe(p)!==_plFiltCargo)return false;
+  if(_plBuscar){
+    const q=_plNorm(_plBuscar);
+    if(!q)return true;
+    const txt=_plNorm(`${p.ape||''} ${p.nom||''} ${p.dni||''} ${_plCargoDe(p)} ${_plTipoDe(p)}`);
+    // Todas las palabras tienen que aparecer: "juan peon" encuentra al peón Juan
+    return q.split(' ').every(w=>txt.includes(w));
+  }
+  return true;
+}
+
+function _plRenderFiltros(base){
+  const cont=document.getElementById('plFiltros');if(!cont)return;
+  const AC='var(--adm)';
+
+  // Conteos: los chips de Tipo miran toda la base; los de Cargo, el tipo elegido
+  const porTipo={};
+  base.forEach(p=>{const t=_plTipoDe(p);porTipo[t]=(porTipo[t]||0)+1;});
+  const tipos=Object.keys(porTipo).sort((a,b)=>porTipo[b]-porTipo[a]||a.localeCompare(b,'es'));
+  if(_plFiltTipo&&!porTipo[_plFiltTipo]){_plFiltTipo=null;_plFiltCargo=null;}
+
+  const baseCargo=_plFiltTipo?base.filter(p=>_plTipoDe(p)===_plFiltTipo):base;
+  const porCargo={};
+  baseCargo.forEach(p=>{const c=_plCargoDe(p);porCargo[c]=(porCargo[c]||0)+1;});
+  const cargos=Object.keys(porCargo).sort((a,b)=>porCargo[b]-porCargo[a]||a.localeCompare(b,'es'));
+  if(_plFiltCargo&&!porCargo[_plFiltCargo])_plFiltCargo=null;
+
+  const nFiltrados=base.filter(_plPasa).length;
+  const hayFiltro=!!(_plFiltTipo||_plFiltCargo||_plBuscar);
+
+  const chip=(txt,n,act,fn,col)=>`<button onclick="${fn}" style="display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;white-space:nowrap;border:1.5px solid ${act?col:'var(--border)'};background:${act?col+'26':'var(--panel2)'};color:${act?col:'var(--text)'}">
+    ${txt}<span style="font-family:monospace;font-size:.62rem;font-weight:900;color:${act?col:'var(--muted2)'}">${n}</span>${act?' ✕':''}</button>`;
+
+  // Resumen de una línea cuando está plegado
+  const resumen=hayFiltro
+    ? [_plFiltTipo,_plFiltCargo,_plBuscar?`"${_plBuscar}"`:''].filter(Boolean).join(' · ')
+    : 'sin filtros';
+
+  cont.innerHTML=`
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.35rem .8rem;border-bottom:${_plFiltOpen?'1px solid var(--border)':'none'}">
+      <button onclick="_plFiltToggle()" title="${_plFiltOpen?'Plegar los filtros':'Desplegar los filtros'}"
+        style="display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:6px;cursor:pointer;font-size:.7rem;font-weight:700;border:1px solid ${hayFiltro?AC:'var(--border)'};background:${hayFiltro?'rgba(59,130,246,.12)':'transparent'};color:${hayFiltro?AC:'var(--muted2)'}">
+        <span style="display:inline-block;transform:rotate(${_plFiltOpen?'90':'0'}deg);transition:transform .15s">▸</span>
+        🎚️ Filtros${hayFiltro?` <span style="font-family:monospace;font-size:.62rem">${nFiltrados}/${base.length}</span>`:''}
+      </button>
+      ${!_plFiltOpen?`<span style="font-size:.68rem;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_plEsc(resumen)}</span>`:''}
+      <div style="display:flex;align-items:center;gap:.3rem;margin-left:auto;background:var(--panel2);border:1px solid ${_plBuscar?AC:'var(--border)'};border-radius:7px;padding:.12rem .45rem">
+        <span style="font-size:.72rem">🔍</span>
+        <input id="plBuscar" value="${_plEsc(_plBuscar)}" placeholder="Nombre, DNI o cargo..."
+          oninput="_plSetBuscar(this.value)" autocomplete="off"
+          style="background:none;border:none;outline:none;color:var(--text);font-size:.72rem;width:190px;padding:.15rem 0">
+        ${_plBuscar?`<span onclick="_plSetBuscar('');document.getElementById('plBuscar').focus()" title="Limpiar" style="cursor:pointer;color:#ef4444;font-size:.7rem;font-weight:700">✕</span>`:''}
+      </div>
+      ${hayFiltro?`<button onclick="_plLimpiarFiltros()" style="font-size:.66rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap">✕ Limpiar</button>`:''}
+    </div>
+    ${_plFiltOpen?`
+    <div style="padding:.45rem .8rem;display:flex;flex-direction:column;gap:.35rem">
+      <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;min-width:44px">Tipo</span>
+        ${chip('Todos',base.length,!_plFiltTipo,'_plSetTipo(null)','#06b6d4')}
+        ${tipos.map(t=>chip(_plEsc(t),porTipo[t],_plFiltTipo===t,`_plSetTipo('${_plEsc(t).replace(/'/g,"\\'")}')`,'#3b82f6')).join('')}
+      </div>
+      <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;padding-top:.3rem;border-top:1px dashed var(--border)">
+        <span style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;min-width:44px">Cargo</span>
+        ${chip('Todos',baseCargo.length,!_plFiltCargo,'_plSetCargo(null)','#06b6d4')}
+        ${cargos.map(c=>chip(_plEsc(c),porCargo[c],_plFiltCargo===c,`_plSetCargo('${_plEsc(c).replace(/'/g,"\\'")}')`,'#a78bfa')).join('')}
+      </div>
+    </div>`:''}`;
+}
+const _plEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
