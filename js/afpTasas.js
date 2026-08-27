@@ -17,6 +17,9 @@ let _afpEditId=null;
 const _afpEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _afpPct=v=>(Number(v||0)*100).toFixed(2)+' %';
 const _afpNorm=s=>String(s||'').trim().toUpperCase();
+// Tasa con la que la planilla calcula hoy el aporte del empleador: mostrar un
+// 12 % fijo mentía cuando la planilla lo tiene en 0.
+const _afpTasaEmpl=()=>typeof _PL_APORTE_AFP_EMPL!=='undefined'?_PL_APORTE_AFP_EMPL:0.12;
 
 // Régimen por nombre — la planilla entra por aquí
 function afpTasaDe(nombre){
@@ -193,7 +196,7 @@ function rAfpTasas(){
       <td style="${TD};text-align:right;font-family:monospace;color:${onp?'var(--muted)':'inherit'}">${_afpPct(t.prima)}</td>
       <td style="${TD};text-align:right;font-family:monospace;color:${onp?'var(--muted)':'inherit'}">${_afpPct(t.comision)}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#ef4444">${_afpPct(total)}</td>
-      <td style="${TD};text-align:center;font-family:monospace;color:${onp?'var(--muted)':'#10b981'}">${onp?'—':'12.00 %'}</td>
+      <td style="${TD};text-align:center;font-family:monospace;color:${onp||!_afpTasaEmpl()?'var(--muted)':'#10b981'}">${(onp||!_afpTasaEmpl())?'—':_afpPct(_afpTasaEmpl())}</td>
       <td style="${TD};text-align:center">
         <span style="font-family:monospace;font-weight:800;color:${n?'var(--text)':'var(--muted)'}">${n}</span>
         <span style="font-size:.62rem;color:var(--muted2)"> trab.</span>
@@ -243,11 +246,5 @@ function rAfpTasas(){
         </tr></thead>
         <tbody>${filas||`<tr><td colspan="8" style="${TD};text-align:center;padding:2.5rem;color:var(--muted2)">Sin regímenes cargados</td></tr>`}</tbody>
       </table></div></div>
-    </div>
-
-    <div style="font-size:.72rem;color:var(--muted2);margin-top:.8rem;line-height:1.7">
-      <b>Total al trabajador</b> = aporte obligatorio + prima + comisión · se descuenta sobre la remuneración afecta.<br>
-      <b>Aporte empleador</b> = 12 % adicional que paga la empresa, solo en AFP.<br>
-      Las AFP actualizan sus comisiones periódicamente: conviene revisarlas al menos una vez al año.
     </div>`;
 }
