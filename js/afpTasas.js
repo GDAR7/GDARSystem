@@ -46,13 +46,16 @@ function _afpHuerfanos(){
 
 // Semilla con lo que estaba escrito en el código, para arrancar sin tipear
 //                         aporte   prima    comisión   total al trabajador
+// Todo en mayúsculas, igual que la lista de los formularios y que lo que
+// llega por CSV. El nombre no se usa para comparar — para eso está _afpNorm —
+// pero verlo escrito igual en todos lados evita dudas.
 const _AFP_SEMILLA=[
   {nombre:'ONP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},  // 13.00 %
   {nombre:'SNP',       oblig:0.13,  prima:0,      comision:0,      esOnp:1},  // 13.00 %
-  {nombre:'Habitat',   oblig:0.10,  prima:0.0137, comision:0.0147, esOnp:0},  // 12.84 %
-  {nombre:'Integra',   oblig:0.10,  prima:0.0137, comision:0.0155, esOnp:0},  // 12.92 %
-  {nombre:'Prima',     oblig:0.10,  prima:0.0137, comision:0.0160, esOnp:0},  // 12.97 %
-  {nombre:'Profuturo', oblig:0.10,  prima:0.0137, comision:0.0169, esOnp:0}   // 13.06 %
+  {nombre:'HABITAT',   oblig:0.10,  prima:0.0137, comision:0.0147, esOnp:0},  // 12.84 %
+  {nombre:'INTEGRA',   oblig:0.10,  prima:0.0137, comision:0.0155, esOnp:0},  // 12.92 %
+  {nombre:'PRIMA',     oblig:0.10,  prima:0.0137, comision:0.0160, esOnp:0},  // 12.97 %
+  {nombre:'PROFUTURO', oblig:0.10,  prima:0.0137, comision:0.0169, esOnp:0}   // 13.06 %
 ];
 // Crea los que faltan y ACTUALIZA los que ya están con otras tasas. Antes solo
 // creaba, así que al cambiar las comisiones no había forma de traerlas sin
@@ -61,7 +64,8 @@ async function _afpSembrar(){
   const faltan=_AFP_SEMILLA.filter(s=>!afpTasaDe(s.nombre));
   const difieren=_AFP_SEMILLA.map(s=>({s,t:afpTasaDe(s.nombre)}))
     .filter(({s,t})=>t&&(
-      +t.oblig!==s.oblig||+t.prima!==s.prima||+t.comision!==s.comision||(+t.esOnp?1:0)!==s.esOnp));
+      +t.oblig!==s.oblig||+t.prima!==s.prima||+t.comision!==s.comision||(+t.esOnp?1:0)!==s.esOnp||
+      t.nombre!==s.nombre));
 
   if(!faltan.length&&!difieren.length){toast('La tabla ya está al día');return;}
   const det=[
@@ -81,7 +85,7 @@ async function _afpSembrar(){
   }
   for(const{s,t}of difieren){
     const prev={...t};
-    t.oblig=s.oblig;t.prima=s.prima;t.comision=s.comision;t.esOnp=s.esOnp;
+    t.nombre=s.nombre;t.oblig=s.oblig;t.prima=s.prima;t.comision=s.comision;t.esOnp=s.esOnp;
     const err=await supaUpsert('afpTasas',t);
     if(err){Object.assign(t,prev);continue;}
     actualizados++;

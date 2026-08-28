@@ -5,11 +5,22 @@ const _PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Ag
 // ⚠ Las AFP actualizan sus comisiones periódicamente: revisar al menos una vez al año.
 // Respaldo: solo se usa mientras la tabla afp_tasas esté vacía.
 const _PL_AFP_RATES={
-  'Habitat'  :{oblig:0.10,comision:0.0147,prima:0.0137},   // 12.84 %
-  'Integra'  :{oblig:0.10,comision:0.0155,prima:0.0137},   // 12.92 %
-  'Prima'    :{oblig:0.10,comision:0.0160,prima:0.0137},   // 12.97 %
-  'Profuturo':{oblig:0.10,comision:0.0169,prima:0.0137}    // 13.06 %
+  'HABITAT'  :{oblig:0.10,comision:0.0147,prima:0.0137},   // 12.84 %
+  'INTEGRA'  :{oblig:0.10,comision:0.0155,prima:0.0137},   // 12.92 %
+  'PRIMA'    :{oblig:0.10,comision:0.0160,prima:0.0137},   // 12.97 %
+  'PROFUTURO':{oblig:0.10,comision:0.0169,prima:0.0137}    // 13.06 %
 };
+// La AFP se escribe de mil maneras según de dónde venga: "Profuturo" a mano,
+// "PROFUTURO" desde el CSV, a veces con espacios. La tasa se busca sin
+// importar eso — antes un nombre en otra caja no encontraba su tasa y se
+// aplicaba solo el 10 % obligatorio, sin prima ni comisión.
+const _plAfpNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,'').trim();
+function _plTasaCodigo(afp){
+  const n=_plAfpNorm(afp);
+  if(!n)return null;
+  const k=Object.keys(_PL_AFP_RATES).find(x=>_plAfpNorm(x)===n);
+  return k?_PL_AFP_RATES[k]:null;
+}
 
 let _plGenMes=null,_plGenAnio=null;
 // AFPs encontradas en el personal que no están en _PL_AFP_RATES
@@ -140,7 +151,7 @@ function _calcPlanRow(p,det){
     snp=r2(baseLeySociales*0.13);
     totalPensiones=snp;
   }else{
-    const rt=_PL_AFP_RATES[afpType];
+    const rt=_plTasaCodigo(afpType);
     if(!rt){
       // Régimen sin tasa: no se inventa nada. Se aplica solo el aporte
       // obligatorio (10 %, igual para todas) y se avisa al usuario.
