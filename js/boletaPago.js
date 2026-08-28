@@ -210,8 +210,12 @@ function _blCss(){
   +'.pagina{page-break-after:always}.pagina:last-child{page-break-after:auto}';
 }
 
-// Documento completo, con encabezado y firmas que se repiten por página
-function _blDoc(filas){
+// Documento completo, con encabezado y firmas que se repiten por página.
+// El formato lo decide _blFormato: 'gdar' (el de los RQ) u 'oficial'
+// (D.S. 001-98-TR). Cambia la presentación, nunca los importes.
+function _blDoc(filas,formato){
+  const fmt=(formato||_blFormato)==='oficial'?'oficial':'gdar';
+  const ofi=fmt==='oficial';
   const base=window.location.href.replace(/[^\/\\]+$/,'');
   const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
   const uno=f=>{
@@ -219,14 +223,16 @@ function _blDoc(filas){
     let h='<table class="doc pagina"><thead><tr><td>';
     h+='<div class=ph><div class=ph-inner>';
     h+='<img src="'+logo+'" class=ph-logo alt="Ecosermo">';
-    h+='<div class=ph-center><div class=ph-title>Boleta de Pago</div><div class=ph-rq>'+_blEsc(mesLbl.toUpperCase())+'</div></div>';
+    h+=ofi
+      ?'<div></div>'
+      :'<div class=ph-center><div class=ph-title>Boleta de Pago</div><div class=ph-rq>'+_blEsc(mesLbl.toUpperCase())+'</div></div>';
     h+='<div class=ph-right>Documento de uso interno<br>Generado por GDAR</div>';
     h+='</div></div></td></tr></thead>';
     h+='<tfoot><tr><td><div class=pf><div class=vb-wrap>';
     h+='<div class=vb><div class=vb-space></div><div class=vb-line></div><div class=vb-label>Empleador</div><div class=vb-sub>Firma y sello</div></div>';
     h+='<div class=vb><div class=vb-space></div><div class=vb-line></div><div class=vb-label>'+_blEsc(`${f.p.ape||''}, ${f.p.nom||''}`.trim())+'</div><div class=vb-sub>DNI '+_blEsc(f.p.dni||'—')+' · recibí conforme</div></div>';
     h+='</div></div></td></tr></tfoot>';
-    h+='<tbody><tr><td>'+_blCuerpo(f)+'</td></tr></tbody></table>';
+    h+='<tbody><tr><td>'+(ofi?_blCuerpoOficial(f):_blCuerpo(f))+'</td></tr></tbody></table>';
     return h;
   };
   const S='<'+'/';
@@ -234,7 +240,7 @@ function _blDoc(filas){
     ? `Boleta ${filas[0].p.ape||''} ${filas[0].p.nom||''}`.trim()
     : `Boletas ${(typeof _PL_MESES!=='undefined'?_PL_MESES[filas[0].mes]:'')} ${filas[0].anio}`;
   return '<!DOCTYPE html><html><head><meta charset=utf-8><title>'+_blEsc(tit)+S+'title><style>'
-    +_blCss()+S+'style>'+S+'head><body>'+filas.map(uno).join('')+S+'body>'+S+'html>';
+    +(ofi?_blCssOficial():_blCss())+S+'style>'+S+'head><body>'+filas.map(uno).join('')+S+'body>'+S+'html>';
 }
 
 // ── Acciones ───────────────────────────────────────────────────────────────
@@ -366,7 +372,15 @@ function blRender(){
           oninput="_blSetBuscar(this.value)" onsearch="_blSetBuscar(this.value)" autocomplete="off"
           style="${inp};padding-left:1.7rem;width:230px">
       </span>
-      <button onclick="blPdfTodas()" class="btn btn-out btn-sm" style="margin-left:auto;color:#3b82f6;border-color:#3b82f660">📄 Todas en un PDF</button>
+      <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.35rem">
+        <span style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:700">Formato</span>
+        <select onchange="blSetFormato(this.value)" title="Cómo se ve la boleta impresa"
+          style="${inp};padding:.24rem .4rem;font-size:.72rem">
+          <option value="gdar"    ${_blFormato!=='oficial'?'selected':''}>GDAR · como los RQ</option>
+          <option value="oficial" ${_blFormato==='oficial'?'selected':''}>Oficial · D.S. 001-98-TR</option>
+        </select>
+      </span>
+      <button onclick="blPdfTodas()" class="btn btn-out btn-sm" style="color:#3b82f6;border-color:#3b82f660">📄 Todas en un PDF</button>
     </div>
     <div id="blLista" style="padding:.6rem .8rem">${_blTabla()}</div>`;
 }
@@ -390,4 +404,144 @@ function blVer(personalId){
   const bc=document.getElementById('mBoletaMail');
   if(bc)bc.onclick=()=>blCorreo(personalId);
   openM('mBoleta');
+}
+
+// ══ FORMATO OFICIAL · D.S. 001-98-TR ════════════════════════════════════════
+// El modelo de ley: tres bloques de datos arriba y, abajo, las tres columnas
+// clásicas — Remuneraciones · Retenciones y Descuentos · Aportaciones del
+// Empleador. Es el mismo cálculo que el otro formato; solo cambia la forma.
+//
+// Algunos campos del modelo oficial no están en la ficha del trabajador
+// (fecha de nacimiento, hijos, dirección, vacaciones). Se imprimen en blanco,
+// que es lo correcto: la boleta no puede inventarlos.
+
+const _BL_MORADO='#5b2c8f';
+// Datos de la empresa. El RUC es el mismo que ya usa el EDP de proveedores.
+const _BL_EMPRESA={
+  ruc:'20571533180',
+  razon:'EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON (ECOSERMO)',
+  rubro:'TRANSPORTE, MINERÍA Y CONSTRUCCIÓN',
+  direccion:''
+};
+
+let _blFormato=(function(){try{return localStorage.getItem('_blFormato')||'gdar';}catch(e){return'gdar';}})();
+function blSetFormato(v){
+  _blFormato=(v==='oficial')?'oficial':'gdar';
+  try{localStorage.setItem('_blFormato',_blFormato);}catch(e){}
+  const t=document.getElementById('blPanel');
+  if(t&&t.style.display!=='none')blRender();
+}
+
+function _blCuerpoOficial(f){
+  const{p,c}=f;
+  const K=_blConceptos(c);
+  const mesLbl=((typeof _PL_MESES!=='undefined'?_PL_MESES[f.mes]:f.mes)+'').toUpperCase()+' '+f.anio;
+  const E=_blEsc;
+  const cel=v=>E(v==null||v===''?'':v);
+
+  const bloque=t=>`<div class=obt>${E(t)}</div>`;
+  const tabla=(cab,val)=>`<table class=ob><thead><tr>${cab.map(x=>`<th>${E(x)}</th>`).join('')}</tr></thead>`
+    +`<tbody><tr>${val.map(x=>`<td>${x}</td>`).join('')}</tr></tbody></table>`;
+
+  let h='';
+  h+=`<div class=obtit>BOLETA DE PAGO<div class=obsub>Art. 19 del Decreto Supremo N.º 001-98-TR del 22-01-98</div><div class=obmes>MES DE ${E(mesLbl)}</div></div>`;
+
+  h+=bloque('Datos de la empresa');
+  h+=tabla(['RUC','Razón social','Rubro de la empresa','Dirección'],
+    [`<b class=m>${cel(_BL_EMPRESA.ruc)}</b>`,cel(_BL_EMPRESA.razon),cel(_BL_EMPRESA.rubro),cel(_BL_EMPRESA.direccion)]);
+
+  h+=bloque('Datos del trabajador');
+  h+=tabla(['Código','Nombres','Apellidos','D.N.I.','F. nac.','Hijos','Dirección'],
+    [`<b class="m cod">${cel(p.codigoQr||p.id)}</b>`,cel(p.nom),cel(p.ape),`<span class=m>${cel(p.dni)}</span>`,
+     cel(p.fNac),cel(p.hijos),cel(p.direccion||p.proc)]);
+
+  h+=bloque('Datos del trabajador vinculados a la relación laboral');
+  h+=tabla(['Cargo','Categoría','Periodic.','ONP','A.F.P.','C.U.S.P.P.','F. ing.','F. cese','Ini. vac.','Fin vac.','Días vac.'],
+    [cel(p.cargo),cel(p.cat),'MENS.',c.esOnp?'SÍ':'',c.esOnp?'':cel(c.afpType),
+     `<span class=m>${cel(p.cuspp)}</span>`,cel(p.ing),cel(p.fCese),'','','']);
+
+  h+=tabla(['Días laborados','Total horas laboradas','Horas extras','Días no laborados','Otro empleador','Importe remun.','Cta. ahorro de depósito'],
+    [`<b>${c.diasTotal||0}</b>`,cel(c.horasLab),
+     `<span class=m>${_blN((+c.he25||0)+(+c.he35||0)+(+c.he100||0))}</span>`,
+     cel(c.diasF||0),'','<span class=m>0.00</span>',
+     `<span class=m>${cel(p.cuenta)}</span>${p.banco?' · '+cel(p.banco):''}`]);
+
+  const li=(n,v)=>`<tr><td>${E(n)}</td><td align=right class=m>${_blN(v)}</td></tr>`;
+  const rell=n=>Array.from({length:Math.max(0,n)},()=>'<tr><td>&nbsp;</td><td></td></tr>').join('');
+
+  // En el modelo oficial la movilidad figura dentro de Remuneraciones, como
+  // "Mov. sup. asistencia", aunque no sea afecta a aportes.
+  let cRem=K.ing.map(([n,v])=>li(n,v)).join('');
+  const nRem=K.ing.length+(+c.movilidad?1:0);
+  if(+c.movilidad)cRem+=li('Mov. sup. asistencia',c.movilidad);
+  const totRem=+((+c.subtotal2||0)+(+c.movilidad||0)).toFixed(2);
+
+  let cDes=K.pens.map(([n,v])=>li(n,v)).join('')+K.otr.map(([n,v])=>li(n,v)).join('');
+  const nDes=K.pens.length+K.otr.length;
+
+  const ap=[['Essalud',c.essalud],['S.C.T.R. pensión sup.',c.sctrPenSup],['S.C.T.R. pensión mina',c.sctrPenMina],
+    ['S.C.T.R. salud',c.sctrSalud],['Seguro de vida',c.segVidaEmpl],['Seguro vida ley',c.segVidaLey],
+    ['Aporte AFP empleador',c.aporteAfpEmpl]].filter(([,v])=>Math.abs(+v||0)>0.004);
+  let cApo=ap.map(([n,v])=>li(n,v)).join('');
+
+  // Las tres columnas se igualan en alto para que los totales queden alineados
+  const nMax=Math.max(nRem,nDes,ap.length);
+  cRem+=rell(nMax-nRem);cDes+=rell(nMax-nDes);cApo+=rell(nMax-ap.length);
+
+  const col=(tit,cuerpo)=>`<table class=obc><thead><tr><th colspan=2>${E(tit)}</th></tr></thead><tbody>${cuerpo}</tbody></table>`;
+  h+='<div class=ob3>'+col('Remuneraciones',cRem)+col('Retenciones / Descuentos',cDes)+col('Aportaciones del empleador',cApo)+'</div>';
+
+  h+='<table class=obtot><tr>'
+   +`<td class=l>Total remuneraciones</td><td class=v>${_blN(totRem)}</td>`
+   +`<td class=l>Total descuentos</td><td class=v>${_blN(c.totalDeduccion)}</td>`
+   +`<td class=l>Neto a pagar</td><td class="v big">${_blN(c.neto)}</td>`
+   +'</tr></table>';
+
+  if(f.cerrada)h+='<div class=obnota>Planilla del período cerrada — los importes son los que se pagaron.</div>';
+  return h;
+}
+
+function _blCssOficial(){
+  const M=_BL_MORADO;
+  return '*{margin:0;padding:0;box-sizing:border-box}'
+  +'@page{margin:14px 0}'
+  +'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;padding:0 26px;background:#fff}'
+  +'.doc{width:100%;border-collapse:collapse}'
+  +'.doc>thead>tr>td,.doc>tbody>tr>td,.doc>tfoot>tr>td{padding:0;border:none;vertical-align:top}'
+  +'.ph{padding:6px 0;margin-bottom:6px}'
+  +'.ph-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}'
+  +'.ph-logo{height:38px;max-width:150px;object-fit:contain}'
+  +'.ph-right{text-align:right;font-size:7.5px;color:#999;line-height:1.6}'
+  +'.obtit{text-align:center;margin-bottom:8px;font-size:16px;font-weight:800;letter-spacing:.02em}'
+  +'.obsub{font-size:8.5px;font-weight:700;color:#444;margin-top:2px}'
+  +'.obmes{font-size:10px;font-weight:800;text-decoration:underline;margin-top:3px}'
+  +'.obt{background:'+M+';color:#fff;font-size:8.5px;font-weight:700;text-transform:uppercase;'
+      +'letter-spacing:.05em;padding:3px 10px;display:inline-block;margin:8px 0 0;border-radius:2px 2px 0 0}'
+  +'.ob{width:100%;border-collapse:collapse;margin-bottom:2px;table-layout:fixed}'
+  +'.ob th{background:'+M+';color:#fff;font-size:7.5px;text-transform:uppercase;font-weight:700;'
+      +'padding:3px 4px;border:1px solid #fff;letter-spacing:.03em}'
+  +'.ob td{border:1px solid #c9b6dd;padding:3px 5px;font-size:10px;height:17px;overflow:hidden;'
+      +'text-overflow:ellipsis;white-space:nowrap}'
+  +'.ob .cod{background:#fff9c4;padding:0 3px;border-radius:2px}'
+  +'.ob3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:10px}'
+  +'.obc{width:100%;border-collapse:collapse;table-layout:fixed}'
+  +'.obc th{background:'+M+';color:#fff;font-size:8.5px;text-transform:uppercase;font-weight:700;'
+      +'padding:4px 6px;border:1px solid #fff;letter-spacing:.04em}'
+  +'.obc td{border-left:1px solid #c9b6dd;border-right:1px solid #c9b6dd;padding:2px 6px;font-size:10px;height:16px}'
+  +'.obc tr:last-child td{border-bottom:1px solid #c9b6dd}'
+  +'.obc tr{page-break-inside:avoid}'
+  +'.obtot{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:-1px}'
+  +'.obtot td{background:'+M+';color:#fff;font-size:9.5px;font-weight:700;padding:5px 8px;border:1px solid #fff}'
+  +'.obtot td.l{text-align:left;text-transform:uppercase;letter-spacing:.04em}'
+  +'.obtot td.v{text-align:right;font-family:Courier New,monospace;font-size:11px}'
+  +'.obtot td.v.big{font-size:13px;background:#3f1d66}'
+  +'.obnota{font-size:8.5px;color:#7a5aa0;margin-top:6px;font-style:italic}'
+  +'.m{font-family:Courier New,monospace}'
+  +'.pf{padding:10px 0 4px;border-top:1px solid '+M+';margin-top:14px}'
+  +'.vb-wrap{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}'
+  +'.vb{text-align:center}.vb-space{height:34px}'
+  +'.vb-line{border-top:1px solid #333;margin:0 14px 4px}'
+  +'.vb-label{font-size:8px;text-transform:uppercase;font-weight:700;color:'+M+';letter-spacing:.05em}'
+  +'.vb-sub{font-size:7.5px;color:#aaa;margin-top:2px}'
+  +'.pagina{page-break-after:always}.pagina:last-child{page-break-after:auto}';
 }
