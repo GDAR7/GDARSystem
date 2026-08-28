@@ -186,6 +186,9 @@
       <div class="fg"><label>Proyecto</label><select id="plProy"><option value="">— Todos —</option></select></div>
       <button class="btn btn-a" style="--ba:var(--adm)" onclick="genPlanilla()">⚙️ Generar Planilla</button>
       <button class="btn btn-out" onclick="printPlanilla()" style="color:var(--adm);border-color:var(--adm)60">🖨️ PDF</button>
+      <input type="file" id="ipFile" accept=".csv,.txt" style="display:none" onchange="_ipArchivo(this)">
+      <button class="btn btn-out" onclick="_ipAbrir()" style="color:#06b6d4;border-color:#06b6d460" title="Cargar sueldos, bonos y descuentos desde un archivo CSV">📥 Importar CSV</button>
+      <button class="btn btn-out" onclick="_ipPlantilla()" style="color:var(--muted2);border-color:var(--border)" title="Bajar un CSV con los encabezados que se reconocen y el personal ya cargado">📄 Plantilla</button>
     </div>
   </div>
   <div class="card" id="planillaCard" style="display:none">
@@ -1950,6 +1953,15 @@
   </div>
 </div></div>
 
+<div class="mo" id="mImpPla"><div class="modal" style="max-width:1180px">
+  <div class="mh"><span class="mttl">📥 Importar CSV — Planilla</span><button class="mx" onclick="closeM('mImpPla')">✕</button></div>
+  <div id="impPlaBody" style="padding:1rem 1.2rem;max-height:68vh;overflow:auto"></div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mImpPla')">Cancelar</button>
+    <button class="btn btn-a" id="impPlaBtn" style="--ba:var(--adm)" onclick="_ipConfirmar()">📥 Importar</button>
+  </div>
+</div></div>
+
 <!-- Viático Modal -->
 <div class="mo" id="mViatico"><div class="modal" style="max-width:720px">
   <div class="mh"><span class="mttl" id="viaMtl">Nuevo Registro</span><button class="mx" onclick="closeM('mViatico')">✕</button></div>
@@ -3187,6 +3199,7 @@
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/reembolsables_otros.js?v=11"></script>
 <script src="js/importCsv.js?v=2"></script>
+<script src="js/importPlanilla.js?v=1"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
 <script src="js/tareaje.js?v=23"></script>
