@@ -166,7 +166,11 @@ function _calcPlanRow(p,det){
   const otrosDesc  =det?.otrosDesc  ||0;
   const retJudicial=det?.retJudicial||0;
   const quintaCat  =det?.quintaCat  ||0;
-  const totalDeduccion=r2(totalPensiones+fondoMina+masVida+adelanto+vacDesc+cts+sindicato+rimac+otrosDesc+retJudicial+quintaCat);
+  // Las deducciones son de dos clases y conviene verlas por separado: lo que
+  // se va al sistema de pensiones (ONP o AFP) y todo lo demás, que son
+  // descuentos de distinta naturaleza y no aportes del trabajador.
+  const totalOtrasDed=r2(fondoMina+masVida+adelanto+vacDesc+cts+sindicato+rimac+otrosDesc+retJudicial+quintaCat);
+  const totalDeduccion=r2(totalPensiones+totalOtrasDed);
 
   // Neto — aquí sí se suma la movilidad, después de calcular aportes y descuentos
   const neto=r2(subtotal2+vacaciones+bono+totalGratif+totalGratifTrunca+heAdicional+movilidad-totalDeduccion);
@@ -191,7 +195,7 @@ function _calcPlanRow(p,det){
     baseLeySociales,baseRenta5,baseSctr,baseVidaLey,
     afpType,esOnp:_esOnp,snp,obligAfp,primaAfp,sobreAfp,totalPensiones,
     fondoMina,masVida,adelanto,vacDesc,cts,sindicato,rimac,otrosDesc,retJudicial,quintaCat,
-    totalDeduccion,neto,
+    totalOtrasDed,totalDeduccion,neto,
     essalud,aporteAfpEmpl,sctrPenSup,sctrPenMina,segVidaEmpl,segVidaLey,sctrSalud,totalAportaciones,
     banco:p.banco||'',cuenta:p.cuenta||'',cuspp:p.cuspp||''
   };
@@ -213,7 +217,9 @@ const PL_GRUPOS={
   sub2  :{l:'SUB TOTAL 2',        bg:'#044e64'},
   gratif:{l:'GRATIFICACIONES',    bg:'#374151'},
   bases :{l:'AFECTOS BASE',       bg:'#1e3a8a'},
-  ded   :{l:'DEDUCCIONES',        bg:'#1f2937'},
+  dedApo:{l:'DEDUCCIÓN PENSIÓN',bg:'#334155'},
+  dedOtr:{l:'DEDUCCIÓN OTROS',    bg:'#1f2937'},
+  ded   :{l:'TOTAL DEDUCCIONES',  bg:'#7f1d1d'},
   neto  :{l:'NETO / PAGO',        bg:'#065f46'},
   aport :{l:'APORTES EMPLEADOR',  bg:'#1e3a8a'},
   acc   :{l:'',                   bg:'#111827'}
@@ -288,23 +294,26 @@ const PL_COLS=[
   // Sistema nacional (ONP o SNP) contra AFP: se mira el régimen calculado, no
   // el nombre. Con solo comparar contra 'SNP' un afiliado a la ONP pagaba su
   // 13 % pero el monto aparecía en las columnas de AFP.
-  {k:'snp',      g:'ded',l:'ONP/SNP 13%',th:'color:#ef4444',c:c=>c.esOnp?_plHs(c.snp,'text-red'):_plVacio},
-  {k:'obligAfp', g:'ded',l:'Oblig.AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.obligAfp,'text-red'):_plVacio},
-  {k:'primaAfp', g:'ded',l:'Prima AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.primaAfp,'text-red'):_plVacio},
-  {k:'sobreAfp', g:'ded',l:'SobreFlujo',th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.sobreAfp,'text-red'):_plVacio},
-  {k:'totPens',  g:'ded',l:'Tot.Pensiones',th:'color:#ef4444;font-weight:800',c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${_plS(c.totalPensiones)}</td>`},
-  {k:'tipo',     g:'ded',l:'Tipo',  c:(c,p,i,x)=>`<td style="padding:2px 5px;text-align:center">${x.afpBadge}</td>`},
-  {k:'cuspp',    g:'ded',l:'CUSPP', c:c=>`<td class="mono" style="padding:2px 5px;font-size:.62rem">${c.cuspp||'—'}</td>`},
-  {k:'ley29741', g:'ded',l:'Ley29741',   th:'color:#ef4444',c:c=>_plHs(c.fondoMina,'text-red')},
-  {k:'masVida',  g:'ded',l:'MásVida',    th:'color:#ef4444',c:c=>_plHs(c.masVida,'text-red')},
-  {k:'adelantos',g:'ded',l:'Adelantos',  th:'color:#ef4444',c:c=>_plHs(c.adelanto,'text-red')},
-  {k:'vacDesc',  g:'ded',l:'Vacac.',     th:'color:#ef4444',c:c=>_plHs(c.vacDesc,'text-red')},
-  {k:'cts',      g:'ded',l:'CTS',        th:'color:#ef4444',c:c=>_plHs(c.cts,'text-red')},
-  {k:'sindicato',g:'ded',l:'Sindicato',  th:'color:#ef4444',c:c=>_plHs(c.sindicato,'text-red')},
-  {k:'rimac',    g:'ded',l:'RIMAC',      th:'color:#ef4444',c:c=>_plHs(c.rimac,'text-red')},
-  {k:'otrosDesc',g:'ded',l:'Otros',      th:'color:#ef4444',c:c=>_plHs(c.otrosDesc,'text-red')},
-  {k:'retJud',   g:'ded',l:'Ret.Judicial',th:'color:#ef4444',c:c=>_plHs(c.retJudicial,'text-red')},
-  {k:'quinta',   g:'ded',l:'5ta Cat.',   th:'color:#ef4444',c:c=>_plHs(c.quintaCat,'text-red')},
+  {k:'snp',      g:'dedApo',l:'ONP/SNP 13%',th:'color:#ef4444',c:c=>c.esOnp?_plHs(c.snp,'text-red'):_plVacio},
+  {k:'obligAfp', g:'dedApo',l:'Oblig.AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.obligAfp,'text-red'):_plVacio},
+  {k:'primaAfp', g:'dedApo',l:'Prima AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.primaAfp,'text-red'):_plVacio},
+  {k:'sobreAfp', g:'dedApo',l:'SobreFlujo',th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.sobreAfp,'text-red'):_plVacio},
+  {k:'totPens',  g:'dedApo',l:'Tot.Pensiones',th:'color:#ef4444;font-weight:800',tot:'dedApo',c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${_plS(c.totalPensiones)}</td>`},
+  {k:'tipo',     g:'dedApo',l:'Tipo',  c:(c,p,i,x)=>`<td style="padding:2px 5px;text-align:center">${x.afpBadge}</td>`},
+  {k:'cuspp',    g:'dedApo',l:'CUSPP', c:c=>`<td class="mono" style="padding:2px 5px;font-size:.62rem">${c.cuspp||'—'}</td>`},
+  {k:'ley29741', g:'dedOtr',l:'Ley29741',   th:'color:#ef4444',c:c=>_plHs(c.fondoMina,'text-red')},
+  {k:'masVida',  g:'dedOtr',l:'MásVida',    th:'color:#ef4444',c:c=>_plHs(c.masVida,'text-red')},
+  {k:'adelantos',g:'dedOtr',l:'Adelantos',  th:'color:#ef4444',c:c=>_plHs(c.adelanto,'text-red')},
+  {k:'vacDesc',  g:'dedOtr',l:'Vacac.',     th:'color:#ef4444',c:c=>_plHs(c.vacDesc,'text-red')},
+  {k:'cts',      g:'dedOtr',l:'CTS',        th:'color:#ef4444',c:c=>_plHs(c.cts,'text-red')},
+  {k:'sindicato',g:'dedOtr',l:'Sindicato',  th:'color:#ef4444',c:c=>_plHs(c.sindicato,'text-red')},
+  {k:'rimac',    g:'dedOtr',l:'RIMAC',      th:'color:#ef4444',c:c=>_plHs(c.rimac,'text-red')},
+  {k:'otrosDesc',g:'dedOtr',l:'Otros',      th:'color:#ef4444',c:c=>_plHs(c.otrosDesc,'text-red')},
+  {k:'retJud',   g:'dedOtr',l:'Ret.Judicial',th:'color:#ef4444',c:c=>_plHs(c.retJudicial,'text-red')},
+  {k:'quinta',   g:'dedOtr',l:'5ta Cat.',   th:'color:#ef4444',c:c=>_plHs(c.quintaCat,'text-red')},
+  {k:'totOtrDed',g:'dedOtr',l:'Tot.Otros',th:'color:#ef4444;font-weight:800',tot:'dedOtr',
+   c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${_plS(c.totalOtrasDed)}</td>`},
+
   {k:'totDed',   g:'ded',l:'TOTAL DED.', th:'color:#ef4444;font-weight:800',tot:'ded',
    c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444;background:rgba(239,68,68,.08)">${_plS(c.totalDeduccion)}</td>`},
 
@@ -333,7 +342,7 @@ const PL_VISTAS=[
   {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasA5','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
   {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
-  {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totDed','neto']},
+  {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totOtrDed','totDed','neto']},
   {k:'aportes', l:'🏢 Aportes Empresa',cols:[..._PL_IDENT,'afp','essalud','aporteAfpEmpl','sctrPenSup','sctrPenMina','segVidaEmpl','segVidaLey','sctrSalud','totAport']},
   {k:'todo',    l:'📊 Todo',           cols:null}
 ];
@@ -404,7 +413,7 @@ function genPlanilla(soloTabla){
 
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
   const cols=_plColsVisibles();
-  const tot={sub2:0,ded:0,neto:0,ess:0,aport:0};
+  const tot={sub2:0,dedApo:0,dedOtr:0,ded:0,neto:0,ess:0,aport:0};
 
   // Mes cerrado: manda lo guardado. Si alguien entró al equipo después del
   // cierre no tiene foto, así que a ese sí se le calcula y se marca aparte.
@@ -417,6 +426,7 @@ function genPlanilla(soloTabla){
     const c=(_foto&&_foto.datos)?{..._foto.datos}:_calcPlanRow(p,det);
     if(_cerrado){c._cerrada=!!_foto;c._recalcEn=_foto?_foto.recalcEn:null;c._sinFoto=!_foto;}
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
+    tot.dedApo+=c.totalPensiones;tot.dedOtr+=c.totalOtrasDed;
     const afpBg=c.esOnp?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
     const ctx={afpBadge:`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`,
                mes:_PL_MESES[_plGenMes]};
@@ -448,7 +458,7 @@ function genPlanilla(soloTabla){
 
   // Totales: se emiten en las columnas visibles que tengan acumulador
   const Sf=n=>'S/ '+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2});
-  const colTot={sub2:'var(--mec)',ded:'#ef4444',neto:'#10b981',ess:'var(--muted2)',aport:'var(--mec)'};
+  const colTot={sub2:'var(--mec)',dedApo:'#ef4444',dedOtr:'#ef4444',ded:'#ef4444',neto:'#10b981',ess:'var(--muted2)',aport:'var(--mec)'};
   let saltados=0;
   const cellsTot=cols.map((c,i)=>{
     if(i<nFx){saltados++;return'';}                       // se cubren con el colspan del rótulo
