@@ -23,6 +23,11 @@ const _iplNorm=s=>String(s==null?'':s).toUpperCase().normalize('NFD').replace(/[
   .replace(/[^A-Z0-9]+/g,' ').trim();
 const _iplEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _iplDni=s=>String(s==null?'':s).replace(/\D/g,'');
+// Excel guarda el DNI como número y se come el cero de la izquierda: en el
+// archivo dice 4067511 y en el sistema 04067511, y son la misma persona. Por
+// eso se comparan siempre a 8 dígitos. Los carnés de extranjería, más largos,
+// no se tocan.
+const _iplDni8=v=>{const d=_iplDni(v);return(d&&d.length<8)?d.padStart(8,'0'):d;};
 const _iplN=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 // Las palabras del nombre, ordenadas: así "PEREZ LOPEZ, JUAN" y "JUAN PEREZ
 // LOPEZ" son la misma persona sin depender del orden ni de la coma.
@@ -46,8 +51,8 @@ const _IPL_FICHA=[
   {campo:'sue',      rot:'Sueldo base',   tipo:'num',  alias:['SUELDO BASE','SUELDO BASICO','SUELDO','BASICO','REMUNERACION BASICA','REMUNERACION','HABER BASICO','SUELDO MENSUAL']},
   {campo:'asig',     rot:'Asig. familiar',tipo:'bool', alias:['ASIGNACION FAMILIAR','ASIG FAMILIAR','ASIG FAM','ASIGNACION FAM','AF']},
   {campo:'movilidad',rot:'Movilidad',     tipo:'num',  alias:['MOVILIDAD','BONO MOVILIDAD','B MOVILIDAD','BONO DE MOVILIDAD','MOVILIDAD SUPEDITADA']},
-  {campo:'afp',      rot:'AFP / ONP',     tipo:'txt',  alias:['AFP','AFP ONP','SISTEMA PENSIONARIO','REGIMEN PENSIONARIO','SISTEMA DE PENSIONES','PENSION']},
-  {campo:'cuspp',    rot:'CUSPP',         tipo:'txt',  alias:['CUSPP','CODIGO CUSPP']},
+  {campo:'afp',      rot:'AFP / ONP',     tipo:'txt',  alias:['AFP','AFP ONP','AFP SNP','SNP AFP','AFP O SNP','AFP ONP SNP','SISTEMA PENSIONARIO','REGIMEN PENSIONARIO','SISTEMA DE PENSIONES','SISTEMA DE PENSION','PENSION','FONDO DE PENSIONES']},
+  {campo:'cuspp',    rot:'CUSPP',         tipo:'txt',  alias:['CUSPP','CUSSP','CUPPS','CODIGO CUSPP','COD CUSPP','NRO CUSPP','N CUSPP','NUMERO CUSPP']},
   {campo:'banco',    rot:'Banco',         tipo:'txt',  alias:['BANCO','ENTIDAD FINANCIERA']},
   {campo:'cuenta',   rot:'Cuenta',        tipo:'txt',  alias:['CUENTA','NRO CUENTA','N CUENTA','NUMERO DE CUENTA','CTA','CUENTA BANCARIA','CCI']},
   {campo:'cargo',    rot:'Cargo',         tipo:'txt',  alias:['CARGO','PUESTO','OCUPACION']}
@@ -93,8 +98,8 @@ const _IPL_MES=[
 // C · Cómo se identifica al trabajador
 const _IPL_ID=[
   {campo:'dni',   alias:['DNI','D N I','DOCUMENTO','NRO DOCUMENTO','N DOCUMENTO','NUMERO DE DOCUMENTO','CI','DNI CE']},
-  {campo:'cuspp', alias:['CUSPP','CODIGO CUSPP']},
-  {campo:'nombre',alias:['APELLIDOS Y NOMBRES','APELLIDOS Y NOMBRE','TRABAJADOR','NOMBRE COMPLETO','NOMBRES Y APELLIDOS','NOMBRE DEL TRABAJADOR','PERSONAL','COLABORADOR']},
+  {campo:'cuspp', alias:['CUSPP','CUSSP','CUPPS','CODIGO CUSPP','COD CUSPP','NRO CUSPP','N CUSPP','NUMERO CUSPP']},
+  {campo:'nombre',alias:['APELLIDOS Y NOMBRES','APELLIDOS Y NOMBRE','TRABAJADOR','NOMBRE COMPLETO','NOMBRES Y APELLIDOS','NOMBRE DEL TRABAJADOR','NOMBRE DE TRABAJADOR','NOMBRE DE TRABAJADORES','NOMBRE TRABAJADOR','PERSONAL','COLABORADOR']},
   {campo:'ape',   alias:['APELLIDOS','APELLIDO','APELLIDO PATERNO Y MATERNO']},
   {campo:'nom',   alias:['NOMBRES','NOMBRE']}
 ];
@@ -182,11 +187,11 @@ function _iplPer(){
 // avisa, en vez de elegir por sorteo.
 function _iplEmparejar(id){
   const gente=(DB.personal||[]).filter(p=>p&&p.id!=null);
-  const dni=_iplDni(id.dni);
+  const dni=_iplDni(id.dni), dni8=_iplDni8(id.dni);
   if(dni.length>=6){
-    const c=gente.filter(p=>_iplDni(p.dni)===dni);
+    const c=gente.filter(p=>_iplDni8(p.dni)===dni8);
     if(c.length===1)return{p:c[0],como:'DNI'};
-    if(c.length>1)return{p:null,motivo:`el DNI ${dni} está repetido en ${c.length} trabajadores`};
+    if(c.length>1)return{p:null,motivo:`el DNI ${dni8} está repetido en ${c.length} trabajadores`};
   }
   const cus=_iplNorm(id.cuspp);
   if(cus){
@@ -274,9 +279,25 @@ function _iplAnalizar(texto){
 
   const ficha=_IPL_FICHA.filter(c=>map['f_'+c.campo]!=null);
   const mes  =_IPL_MES  .filter(c=>map['m_'+c.campo]!=null);
-  if(!ficha.length&&!mes.length)return{error:'El archivo identifica a la gente pero no trae ningún dato que importar (sueldo, bonos o descuentos).'};
 
   const val=(f,i)=>i==null?'':String(f[i]==null?'':f[i]).trim();
+  // Un ejemplo de lo que trae cada columna suelta: sin verlo no se puede
+  // decidir a qué campo mandarla.
+  const muestrear=()=>libres.forEach(c=>{
+    for(let i=iEnc+1;i<Math.min(filas.length,iEnc+60);i++){
+      const v=val(filas[i],c.i);
+      if(v){c.muestra=v;break;}
+    }
+  });
+  const base=()=>({delim,iEnc,total:filas.length-iEnc-1,map,sinUsar,libres,manual,enc,ficha,mes,
+    per:PER,mesLbl:PER.lbl,mesArch:_iplMesDelNombre(_iplNombreArch)});
+
+  // Reconoce a la gente pero ninguna columna de datos. No se recorren las filas
+  // (saldrían 154 avisos de "sin cambios"): se muestra el panel para asignar.
+  if(!ficha.length&&!mes.length){
+    muestrear();
+    return{...base(),listas:[],problemas:[],vacias:0,sinDatos:true};
+  }
   const listas=[],problemas=[],vistos=new Map();
   let vacias=0;
 
@@ -320,16 +341,8 @@ function _iplAnalizar(texto){
     listas.push({linea,p:em.p,como:em.como,camF,camM});
   }
 
-  // Un ejemplo de lo que trae cada columna suelta: sin verlo no se puede
-  // decidir a qué campo mandarla.
-  libres.forEach(c=>{
-    for(let i=iEnc+1;i<Math.min(filas.length,iEnc+60);i++){
-      const v=String((filas[i]||[])[c.i]==null?'':filas[i][c.i]).trim();
-      if(v){c.muestra=v;break;}
-    }
-  });
-  return{delim,iEnc,total:filas.length-iEnc-1,map,sinUsar,libres,manual,enc,ficha,mes,listas,problemas,vacias,
-    per:PER,mesLbl:PER.lbl,mesArch:_iplMesDelNombre(_iplNombreArch)};
+  muestrear();
+  return{...base(),listas,problemas,vacias};
 }
 
 // ── Interfaz ───────────────────────────────────────────────────────────────
@@ -421,6 +434,10 @@ function _iplPreview(){
     <div style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.35);border-radius:8px;padding:.5rem .7rem;margin-bottom:.7rem;font-size:.74rem;color:var(--muted2)">
       Los conceptos del mes entran en <b style="color:#8b5cf6">${_iplEsc(D.mesLbl)}</b> — el mes elegido arriba. Los datos de la ficha (sueldo, AFP, banco…) valen para todos los meses.
     </div>
+
+    ${D.sinDatos?`<div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b70;border-radius:8px;padding:.7rem .9rem;margin-bottom:.7rem;font-size:.8rem;color:#f59e0b">
+      <b>Se reconoció a la gente, pero ninguna columna de datos.</b><br>
+      <span style="color:var(--muted2);font-size:.75rem">El archivo las llama de otra manera. Abajo, en <b>Columnas del archivo</b>, indique a qué campo va cada una — se recuerda para las próximas veces.</span></div>`:''}
 
     ${(D.mesArch&&D.mesArch!==D.per.mes)?`<div style="background:rgba(245,158,11,.1);border:1px solid #f59e0b60;border-radius:8px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.78rem;color:#f59e0b">
       ⚠ El archivo se llama <b>${_iplEsc(_PL_MESES[D.mesArch])}</b> pero los conceptos van a entrar en <b>${_iplEsc(D.mesLbl)}</b>. Si no es lo que quiere, cambie el mes arriba y vuelva a abrir el archivo.</div>`:''}
@@ -542,7 +559,7 @@ function _iplPlantilla(){
   const gente=(DB.personal||[]).filter(p=>(p.est||'Activo')==='Activo')
     .sort((a,b)=>String(a.ape||'').localeCompare(String(b.ape||'')));
   if(!gente.length){toast('No hay personal activo para armar la plantilla',true);return;}
-  const filas=gente.map(p=>[p.dni||'',(p.ape||'')+', '+(p.nom||''),p.sue||'',+p.asig?'SI':'NO',p.movilidad||'',
+  const filas=gente.map(p=>[_iplDni8(p.dni)||'',(p.ape||'')+', '+(p.nom||''),p.sue||'',+p.asig?'SI':'NO',p.movilidad||'',
     p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||''].concat(new Array(cols.length-9).fill('')));
   const csv='﻿'+[cols,...filas].map(f=>f.map(q).join(';')).join('\r\n');
   const a=document.createElement('a');
