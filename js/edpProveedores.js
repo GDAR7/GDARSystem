@@ -461,6 +461,10 @@ function rEdpProveedores(){
         </div>
       </div>
     </div>
+    <details style="margin-top:.7rem;border:1px solid var(--border);border-radius:8px;padding:.4rem .6rem" ${(DB.atencionRecursos||[]).length?'':'open'}>
+      <summary style="cursor:pointer;font-size:.74rem;font-weight:700;color:var(--muted2)">🔧 Recursos de la atención mecánica ${(DB.atencionRecursos||[]).length?'<span style="font-size:.64rem;font-weight:400">· '+(DB.atencionRecursos||[]).length+' recursos</span>':'<span style="color:#fbbf24;font-size:.64rem;font-weight:700">· sin cargar, el cuadro sale en cero</span>'}</summary>
+      <div id="arPanel" style="margin-top:.5rem"></div>
+    </details>
     <div style="margin-top:.6rem">
       <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Descuento manual</button>
       ${_edpDescManual.map((r,i)=>`<div style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem">
@@ -479,6 +483,8 @@ function rEdpProveedores(){
   </div>`;
 
   pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  // El panel de recursos se dibuja aparte: su contenedor recién existe ahora
+  if(typeof _arRender==='function')_arRender();
 }
 
 // ══ EDPs GUARDADOS ══════════════════════════════════════════════════════════
