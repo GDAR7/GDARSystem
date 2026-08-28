@@ -189,7 +189,7 @@ function _calcPlanRow(p,det){
     subtotal2,vacaciones,bono,gratificacion,bonif9,totalGratif,
     gratifTrunca,bonif9Trunca,totalGratifTrunca,heAdicional,
     baseLeySociales,baseRenta5,baseSctr,baseVidaLey,
-    afpType,snp,obligAfp,primaAfp,sobreAfp,totalPensiones,
+    afpType,esOnp:_esOnp,snp,obligAfp,primaAfp,sobreAfp,totalPensiones,
     fondoMina,masVida,adelanto,vacDesc,cts,sindicato,rimac,otrosDesc,retJudicial,quintaCat,
     totalDeduccion,neto,
     essalud,aporteAfpEmpl,sctrPenSup,sctrPenMina,segVidaEmpl,segVidaLey,sctrSalud,totalAportaciones,
@@ -285,10 +285,13 @@ const PL_COLS=[
   {k:'baseVidaLey', g:'bases',l:'Base V.Ley',    c:c=>_plHs(c.baseVidaLey)},
   {k:'baseLeyes',   g:'bases',l:'Base LeyesSoc.',c:c=>_plHs(c.baseLeySociales)},
 
-  {k:'snp',      g:'ded',l:'SNP 13%',   th:'color:#ef4444',c:c=>c.afpType==='SNP'?_plHs(c.snp,'text-red'):_plVacio},
-  {k:'obligAfp', g:'ded',l:'Oblig.AFP', th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.obligAfp,'text-red'):_plVacio},
-  {k:'primaAfp', g:'ded',l:'Prima AFP', th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.primaAfp,'text-red'):_plVacio},
-  {k:'sobreAfp', g:'ded',l:'SobreFlujo',th:'color:#ef4444',c:c=>c.afpType!=='SNP'?_plHs(c.sobreAfp,'text-red'):_plVacio},
+  // Sistema nacional (ONP o SNP) contra AFP: se mira el régimen calculado, no
+  // el nombre. Con solo comparar contra 'SNP' un afiliado a la ONP pagaba su
+  // 13 % pero el monto aparecía en las columnas de AFP.
+  {k:'snp',      g:'ded',l:'ONP/SNP 13%',th:'color:#ef4444',c:c=>c.esOnp?_plHs(c.snp,'text-red'):_plVacio},
+  {k:'obligAfp', g:'ded',l:'Oblig.AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.obligAfp,'text-red'):_plVacio},
+  {k:'primaAfp', g:'ded',l:'Prima AFP', th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.primaAfp,'text-red'):_plVacio},
+  {k:'sobreAfp', g:'ded',l:'SobreFlujo',th:'color:#ef4444',c:c=>!c.esOnp?_plHs(c.sobreAfp,'text-red'):_plVacio},
   {k:'totPens',  g:'ded',l:'Tot.Pensiones',th:'color:#ef4444;font-weight:800',c:c=>`<td class="tr mono" style="padding:2px 5px;font-weight:700;color:#ef4444">${_plS(c.totalPensiones)}</td>`},
   {k:'tipo',     g:'ded',l:'Tipo',  c:(c,p,i,x)=>`<td style="padding:2px 5px;text-align:center">${x.afpBadge}</td>`},
   {k:'cuspp',    g:'ded',l:'CUSPP', c:c=>`<td class="mono" style="padding:2px 5px;font-size:.62rem">${c.cuspp||'—'}</td>`},
@@ -414,7 +417,7 @@ function genPlanilla(soloTabla){
     const c=(_foto&&_foto.datos)?{..._foto.datos}:_calcPlanRow(p,det);
     if(_cerrado){c._cerrada=!!_foto;c._recalcEn=_foto?_foto.recalcEn:null;c._sinFoto=!_foto;}
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
-    const afpBg=c.afpType==='SNP'?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
+    const afpBg=c.esOnp?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
     const ctx={afpBadge:`<span style="background:${afpBg};color:#fff;font-size:.57rem;font-weight:700;padding:1px 5px;border-radius:3px">${c.afpType}</span>`,
                mes:_PL_MESES[_plGenMes]};
     return`<tr style="border-bottom:1px solid var(--border)">${cols.map(col=>col.c(c,p,idx,ctx)).join('')}</tr>`;

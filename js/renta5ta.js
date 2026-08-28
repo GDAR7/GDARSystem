@@ -24,12 +24,40 @@ const R5_BONIF_GRATIF=0.09;    // bonificación extraordinaria sobre gratificaci
 
 let _r5Mes=new Date().getMonth()+1, _r5Anio=String(new Date().getFullYear());
 let _r5SoloAfectos=true, _r5DetId=null;
+let _r5Buscar='';
 
 const _r5N=(n,d=2)=>Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const _r5S=n=>'S/ '+_r5N(n);
 const _r5r2=n=>Math.round(n*100)/100;
 const _r5Esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function _r5RO(){return isModuleReadOnly('renta5ta');}
+
+// ── Buscador ───────────────────────────────────────────────────────────────
+// Cada palabra escrita tiene que aparecer en algún lado del trabajador, sin
+// importar el orden ni las tildes: "rossy alcoser" y "alcoser rossy" encuentran
+// a la misma persona, y "volquete" lista a todos los de ese cargo.
+const _r5NormB=s=>String(s==null?'':s).toLowerCase().normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+function _r5Coincide(p){
+  const q=_r5NormB(_r5Buscar);
+  if(!q)return true;
+  const heno=_r5NormB([p.ape,p.nom,p.dni,p.cargo,p.cat,p.proy].filter(Boolean).join(' '));
+  return q.split(' ').every(w=>heno.includes(w));
+}
+// Solo se redibuja la tabla. Si se volviera a pintar toda la pantalla el input
+// se recrearía en cada tecla y el cursor saltaría fuera: por eso el buscador
+// vive aparte del bloque que cambia.
+function _r5SetBuscar(v){
+  _r5Buscar=v;
+  const t=document.getElementById('r5Tabla');
+  if(t)t.innerHTML=_r5Tabla();
+}
+function _r5LimpiarBuscar(){
+  _r5Buscar='';
+  const i=document.getElementById('r5Buscar');
+  if(i){i.value='';i.focus();}
+  _r5SetBuscar('');
+}
 
 // ── UIT del año ──
 function _r5Uit(anio){
@@ -270,6 +298,15 @@ function rRenta5ta(){
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer;margin-left:.3rem">
         <input type="checkbox" ${_r5SoloAfectos?'checked':''} onchange="_r5Set('afectos',this.checked)" style="width:auto;margin:0;cursor:pointer"> Solo afectos
       </label>
+      <span style="width:1px;height:18px;background:var(--border)"></span>
+      <span style="position:relative;display:inline-flex;align-items:center">
+        <span style="position:absolute;left:.45rem;font-size:.78rem;opacity:.6;pointer-events:none">🔍</span>
+        <input id="r5Buscar" type="search" value="${_r5Esc(_r5Buscar)}" placeholder="Buscar nombre, DNI o cargo…"
+          oninput="_r5SetBuscar(this.value)" onsearch="_r5SetBuscar(this.value)" autocomplete="off"
+          style="${inpS};padding-left:1.7rem;width:230px">
+        ${''}
+      </span>
+      <button onclick="_r5LimpiarBuscar()" title="Limpiar la búsqueda" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted2);cursor:pointer;font-size:.72rem;padding:.24rem .5rem">✕</button>
       ${RO?'':`<button onclick="_r5Calcular()" style="margin-left:auto;background:#7c3aed;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">⚙️ Calcular mes</button>
       <button onclick="_r5AplicarPlanilla()" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer" title="Escribe la retención en el campo 5ta Categoría de la planilla">📥 Aplicar a Planilla</button>`}
       <button onclick="_r5Excel()" style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:.32rem .8rem;font-size:.76rem;color:#10b981;font-weight:700;cursor:pointer">📊 Excel</button>
@@ -277,12 +314,52 @@ function rRenta5ta(){
 
     ${!uit?`<div style="padding:1rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:.8rem;color:#fca5a5;margin-bottom:.8rem">⚠️ Falta configurar la <strong>UIT del año ${_r5Anio}</strong>. Sin ese valor no se puede calcular la deducción de 7 UIT ni los tramos.</div>`:''}
 
+    <div id="r5Tabla">${_r5Tabla()}</div>
+
+    <div style="margin-top:.7rem;padding:.6rem .8rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;font-size:.72rem;color:var(--muted2);line-height:1.6">
+      <strong style="color:var(--text)">Cómo se calcula</strong> — Proyección = remuneración × meses que faltan + lo ya percibido + 2 gratificaciones con su bonificación del ${(R5_BONIF_GRATIF*100).toFixed(0)}%.
+      A eso se le restan ${R5_DEDUC_UIT} UIT y se aplica la escala progresiva (8% · 14% · 17% · 20% · 30%).
+      El impuesto anual menos lo ya retenido se divide entre las cuotas que faltan según el mes (art. 40 del Reglamento).<br>
+      <strong style="color:#f59e0b">Queda fuera del cálculo automático:</strong> trabajadores con más de un empleador (requiere declaración jurada) y la deducción adicional de 3 UIT por gastos, que se aplica en la regularización anual.
+    </div>`;
+}
+
+
+// ── La tabla, aparte ───────────────────────────────────────────────────────
+// Vive en su propia función porque es lo único que el buscador vuelve a pintar.
+// Rehace el cálculo en vez de recibirlo hecho: es barato y así nunca queda
+// desfasado respecto de lo que muestran los KPI de arriba.
+function _r5Tabla(){
+  const uit=_r5Uit();
+  const RO=_r5RO();
+  const TH='background:var(--panel2);color:var(--muted2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:5px 6px;white-space:nowrap';
+  const TD='padding:3px 6px;border-bottom:1px solid var(--border);font-size:.75rem';
+
+  const filas=_r5Personal().map(p=>{
+    const reg=_r5Reg(p.id,_r5Mes,_r5Anio);
+    return{p,c:_r5Calc(p,_r5Mes,_r5Anio,reg?reg.otrosIng:0,reg?reg.retenidoPrevio:0),reg};
+  });
+  const porAfecto=_r5SoloAfectos?filas.filter(f=>f.c.afecto):filas;
+  const vis=porAfecto.filter(f=>_r5Coincide(f.p));
+  // Los totales del pie son de lo que se ve: con un filtro puesto sirven de
+  // subtotal, y el rótulo aclara que no son los del mes completo.
+  const afectos=vis.filter(f=>f.c.afecto);
+  const totRet=afectos.reduce((s,f)=>s+f.c.retencion,0);
+  const totImp=afectos.reduce((s,f)=>s+f.c.impAnual,0);
+  const filtrando=!!_r5NormB(_r5Buscar);
+
+  const vacio=filtrando
+    ? 'Ningún trabajador coincide con <strong>'+_r5Esc(_r5Buscar)+'</strong>.'+(_r5SoloAfectos?' · puede estar entre los no afectos: destilde «Solo afectos».':'')
+    : (_r5SoloAfectos?'Ningún trabajador supera las 7 UIT proyectadas — nadie está afecto este mes.':'Sin trabajadores activos.')
+  ;
+
+  return `
     <div class="card">
       <div class="card-head"><span class="card-title">Cálculo de Retención — ${R5_MESES[_r5Mes]} ${_r5Anio}</span>
-        <span style="font-size:.7rem;color:var(--muted2)">divisor del mes: ${R5_DIVISOR[_r5Mes]===1?'regularización':R5_DIVISOR[_r5Mes]+' cuotas'}</span>
+        <span style="font-size:.7rem;color:var(--muted2)">${_r5BuscarNota()}divisor del mes: ${R5_DIVISOR[_r5Mes]===1?'regularización':R5_DIVISOR[_r5Mes]+' cuotas'}</span>
       </div>
       <div class="card-body" style="overflow-x:auto;padding:0">
-        ${!vis.length?`<div style="padding:2.5rem;text-align:center;color:var(--muted)">${_r5SoloAfectos?'Ningún trabajador supera las 7 UIT proyectadas — nadie está afecto este mes.':'Sin trabajadores activos.'}</div>`
+        ${!vis.length?`<div style="padding:2.5rem;text-align:center;color:var(--muted)">${vacio}</div>`
         :`<table style="border-collapse:collapse;min-width:100%">
           <thead><tr>
             <th style="${TH}">#</th><th style="${TH};text-align:left">Trabajador</th><th style="${TH}">DNI</th>
@@ -310,7 +387,7 @@ function rRenta5ta(){
             </td>
           </tr>`).join('')}</tbody>
           <tfoot><tr style="background:rgba(4,78,100,.14);border-top:2px solid var(--border)">
-            <td colspan="7" style="${TD};text-align:right;font-weight:800;font-size:.72rem;color:var(--muted2)">TOTALES · ${afectos.length} afectos</td>
+            <td colspan="7" style="${TD};text-align:right;font-weight:800;font-size:.72rem;color:var(--muted2)">TOTALES · ${afectos.length} afecto${afectos.length===1?'':'s'}${filtrando?' · solo lo filtrado':''}</td>
             <td style="${TD};text-align:right;font-family:monospace;font-weight:800;color:#8b5cf6">${_r5N(totImp)}</td>
             <td colspan="2"></td>
             <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#ef4444">${_r5N(totRet)}</td>
@@ -319,13 +396,20 @@ function rRenta5ta(){
         </table>`}
       </div>
     </div>
+`;
+}
 
-    <div style="margin-top:.7rem;padding:.6rem .8rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;font-size:.72rem;color:var(--muted2);line-height:1.6">
-      <strong style="color:var(--text)">Cómo se calcula</strong> — Proyección = remuneración × meses que faltan + lo ya percibido + 2 gratificaciones con su bonificación del ${(R5_BONIF_GRATIF*100).toFixed(0)}%.
-      A eso se le restan ${R5_DEDUC_UIT} UIT y se aplica la escala progresiva (8% · 14% · 17% · 20% · 30%).
-      El impuesto anual menos lo ya retenido se divide entre las cuotas que faltan según el mes (art. 40 del Reglamento).<br>
-      <strong style="color:#f59e0b">Queda fuera del cálculo automático:</strong> trabajadores con más de un empleador (requiere declaración jurada) y la deducción adicional de 3 UIT por gastos, que se aplica en la regularización anual.
-    </div>`;
+// Cuántos quedaron a la vista. Se pinta aparte del input para que escribir no
+// vuelva a crear la caja de texto y el cursor no se escape.
+function _r5BuscarNota(){
+  if(!_r5NormB(_r5Buscar))return '';
+  const filas=_r5Personal().map(p=>{
+    const reg=_r5Reg(p.id,_r5Mes,_r5Anio);
+    return{p,c:_r5Calc(p,_r5Mes,_r5Anio,reg?reg.otrosIng:0,reg?reg.retenidoPrevio:0)};
+  });
+  const base=_r5SoloAfectos?filas.filter(f=>f.c.afecto):filas;
+  const n=base.filter(f=>_r5Coincide(f.p)).length;
+  return `<b style="color:#22d3ee">${n}</b> de ${base.length} · `;
 }
 
 // ── Excel ──
@@ -334,9 +418,11 @@ function _r5Excel(){
   const filas=pers.map(p=>{
     const reg=_r5Reg(p.id,_r5Mes,_r5Anio);
     return{p,c:_r5Calc(p,_r5Mes,_r5Anio,reg?reg.otrosIng:0,reg?reg.retenidoPrevio:0)};
-  }).filter(f=>!_r5SoloAfectos||f.c.afecto);
-  if(!filas.length){toast('No hay datos que exportar',true);return;}
-  const tit=`RENTA DE QUINTA CATEGORÍA · ${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(_r5Uit())}`;
+  }).filter(f=>(!_r5SoloAfectos||f.c.afecto)&&_r5Coincide(f.p));
+  if(!filas.length){toast(_r5NormB(_r5Buscar)?'La búsqueda no deja nada que exportar':'No hay datos que exportar',true);return;}
+  // Que el archivo diga que está filtrado, para no confundirlo con la nómina
+  const filtro=_r5NormB(_r5Buscar)?' · filtrado: "'+_r5Buscar.trim()+'"':'';
+  const tit=`RENTA DE QUINTA CATEGORÍA · ${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(_r5Uit())}${filtro}`;
   const head=['#','DNI','APELLIDOS Y NOMBRES','CARGO','REM. MENSUAL','MESES REST.','PROYECCIÓN','PERCIBIDO','GRATIFICACIONES','OTROS','RENTA BRUTA','DEDUCCIÓN 7 UIT','RENTA NETA','IMPUESTO ANUAL','RET. PREVIAS','DIVISOR','RETENCIÓN DEL MES'];
   const rows=filas.map((f,i)=>[i+1,f.p.dni||'',`${f.p.ape}, ${f.p.nom}`,f.p.cargo||'',
     f.c.base,f.c.mesesRest,f.c.proyeccion,f.c.percibido,f.c.gratif,f.c.otros,f.c.rentaBruta,
