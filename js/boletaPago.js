@@ -36,13 +36,12 @@ function blFila(personalId,mes,anio){
 // El sueldo base y los días van siempre, aunque el resto esté vacío.
 function _blConceptos(c){
   const ing=[
-    ['Jornal básico',                 c.jornal,     1],
+    ['Tarea ordinaria',               c.tareaOrdinaria],
     ['Horas extra 25 %',              c.impHE25],
     ['Horas extra 35 %',              c.impHE35],
     ['Horas extra 100 %',             c.impHE100],
     ['Reintegro',                     c.reintegro],
     ['Asignación familiar',           c.asigFam],
-    ['Tarea ordinaria',               c.tareaOrdinaria],
     ['Remuneración día libre',        c.remunDL],
     ['Descanso médico',               c.totalDM],
     ['Licencia con goce',             c.totalLicPat],
@@ -93,6 +92,7 @@ function _blCuerpo(f){
   const dato=(l,v)=>`<div><div class=lbl>${_blEsc(l)}</div><div class=val>${_blEsc(v==null||v===''?'—':v)}</div></div>`;
 
   let h='';
+  if(c.sinDias)h+='<div class=aviso>⚠ Este trabajador no tiene ningún día tareado en el período: no le corresponde ningún pago automático.</div>';
   h+=`<div class=proy><div class=lbl>Período</div><div class=val>${_blEsc(mesLbl)}${f.cerrada?' <span style="font-size:9px;color:'+_BL_AMBAR+'">· planilla cerrada</span>':''}</div></div>`;
 
   h+='<div class=grid>';
@@ -125,7 +125,8 @@ function _blCuerpo(f){
   h+='<div class=cols>';
 
   h+='<div><div class=sec>Ingresos</div><table class=ct><thead><tr><th class=l>Concepto</th><th class=r>Importe S/</th></tr></thead><tbody>';
-  h+=K.ing.map(([n,v])=>fila(n,v)).join('');
+  h+=(K.ing.length?K.ing.map(([n,v])=>fila(n,v)).join('')
+                 :`<tr><td colspan=2 style="color:#999">Sin días tareados en el período — no corresponde ningún pago</td></tr>`);
   h+=`</tbody><tfoot><tr class=tt><td>Total ingresos</td><td align=right class=m>${_blN(c.subtotal2)}</td></tr></tfoot></table>`;
   if(+c.movilidad)h+=`<div class=nota><b>Movilidad ${_blS(c.movilidad)}</b> — se paga íntegra: no es afecta a aportes ni descuentos, y por eso va fuera del total de ingresos.</div>`;
   h+='</div>';
@@ -201,6 +202,7 @@ function _blCss(){
   +'.ct tfoot tr.tt td{background:'+_BL_AZUL+';color:#fff;font-weight:700;font-size:11px;padding:5px 8px}'
   +'.m{font-family:Courier New,monospace}'
   +'.sec{font-size:9.5px;text-transform:uppercase;color:'+_BL_AZUL+';margin:10px 0 6px;font-weight:700;border-left:3px solid '+_BL_AMBAR+';padding-left:7px}'
+  +'.aviso{font-size:10px;color:#92400e;background:#fef3c7;border:1px solid #fbbf24;padding:7px 10px;border-radius:4px;margin-bottom:10px;font-weight:700}'
   +'.nota{font-size:9px;color:#666;background:#fafafa;border-left:3px solid #ccc;padding:6px 8px;border-radius:0 4px 4px 0;margin-bottom:10px}'
   +'.neto{width:100%;border-collapse:collapse;margin:6px 0 12px;table-layout:fixed}'
   +'.neto td{border:1px solid #e2e6f0;padding:8px 10px;font-size:9px;text-transform:uppercase;color:#888;font-weight:700;letter-spacing:.05em;text-align:center}'
@@ -446,19 +448,20 @@ function _blCuerpoOficial(f){
   let h='';
   h+=`<div class=obtit>BOLETA DE PAGO<div class=obsub>Art. 19 del Decreto Supremo N.º 001-98-TR del 22-01-98</div><div class=obmes>MES DE ${E(mesLbl)}</div></div>`;
 
+  if(c.sinDias)h+='<div class=obaviso>⚠ Sin días tareados en el período — no corresponde ningún pago automático.</div>';
   h+=bloque('Datos de la empresa');
   h+=tabla(['RUC','Razón social','Rubro de la empresa','Dirección'],
     [`<b class=m>${cel(_BL_EMPRESA.ruc)}</b>`,cel(_BL_EMPRESA.razon),cel(_BL_EMPRESA.rubro),cel(_BL_EMPRESA.direccion)]);
 
   h+=bloque('Datos del trabajador');
-  h+=tabla(['Código','Nombres','Apellidos','D.N.I.','F. nac.','Hijos','Dirección'],
+  h+=tabla(['Código','Nombres','Apellidos','D.N.I.','Jornal mes','Dirección'],
     [`<b class="m cod">${cel(p.codigoQr||p.id)}</b>`,cel(p.nom),cel(p.ape),`<span class=m>${cel(p.dni)}</span>`,
-     cel(p.fNac),cel(p.hijos),cel(p.direccion||p.proc)]);
+     `<span class=m>${_blN(c.jornalMes!=null?c.jornalMes:p.sue)}</span>`,cel(p.direccion||p.proc)]);
 
   h+=bloque('Datos del trabajador vinculados a la relación laboral');
-  h+=tabla(['Cargo','Categoría','Periodic.','ONP','A.F.P.','C.U.S.P.P.','F. ing.','F. cese','Ini. vac.','Fin vac.','Días vac.'],
+  h+=tabla(['Cargo','Categoría','Periodic.','ONP','A.F.P.','C.U.S.P.P.','F. ing.','F. cese','Días vac.'],
     [cel(p.cargo),cel(p.cat),'MENS.',c.esOnp?'SÍ':'',c.esOnp?'':cel(c.afpType),
-     `<span class=m>${cel(p.cuspp)}</span>`,cel(p.ing),cel(p.fCese),'','','']);
+     `<span class=m>${cel(p.cuspp)}</span>`,cel(p.ing),cel(p.fCese),'']);
 
   h+=tabla(['Días laborados','Total horas laboradas','Horas extras','Días no laborados','Otro empleador','Importe remun.','Cta. ahorro de depósito'],
     [`<b>${c.diasTotal||0}</b>`,cel(c.horasLab),
@@ -535,6 +538,7 @@ function _blCssOficial(){
   +'.obtot td.l{text-align:left;text-transform:uppercase;letter-spacing:.04em}'
   +'.obtot td.v{text-align:right;font-family:Courier New,monospace;font-size:11px}'
   +'.obtot td.v.big{font-size:13px;background:#00538f}'
+  +'.obaviso{font-size:10px;color:#92400e;background:#fef3c7;border:1px solid #fbbf24;padding:6px 10px;border-radius:3px;margin-bottom:8px;font-weight:700}'
   +'.obnota{font-size:8.5px;color:#0d5a8a;margin-top:6px;font-style:italic}'
   +'.m{font-family:Courier New,monospace}'
   +'.pf{padding:10px 0 4px;border-top:1px solid '+M+';margin-top:14px}'

@@ -87,9 +87,16 @@ function _calcPlanRow(p,det){
   const he35 =det?.he35 ||0; const impHE35 =r2(he35 *jHora*1.35);
   const he100=det?.he100||0; const impHE100=r2(he100*jHora*2.0);
 
+  // Sin ningún día que pagar en el mes no corresponde ningún concepto
+  // automático. Lo que se haya cargado a mano en el detalle (una gratificación
+  // trunca, un reintegro de liquidación) sí se respeta: alguien lo escribió a
+  // propósito.
+  const diasPagables=diasTotal+otrosDias;
+  const sinDias     =diasPagables===0;
+
   // Ingresos fijos
-  const asigFam   =p.asig?113.0:0;
-  const movilidad =p.movilidad||0;
+  const asigFam   =(!sinDias&&p.asig)?113.0:0;
+  const movilidad =sinDias?0:(p.movilidad||0);
   const reintegro =det?.reintegro  ||0;
   const bAltura   =det?.bAltura    ||0;
   // Bonif. costo de vida = (días trabajados + días libres ganados) × tasa.
@@ -198,7 +205,8 @@ function _calcPlanRow(p,det){
 
   return{
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
-    jornal,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
+    diasPagables,sinDias,
+    jornal,jornalMes:jornal_mes,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
     tareaOrdinaria,remunDL,totalDM,totalLicPat,
     subtotal2,vacaciones,bono,gratificacion,bonif9,totalGratif,

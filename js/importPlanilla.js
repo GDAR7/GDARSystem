@@ -56,7 +56,8 @@ const _IPL_FICHA=[
   {campo:'banco',    rot:'Banco',         tipo:'txt',  alias:['BANCO','ENTIDAD FINANCIERA']},
   {campo:'cuenta',   rot:'Cuenta',        tipo:'txt',  alias:['CUENTA','NRO CUENTA','N CUENTA','NUMERO DE CUENTA','CTA','CUENTA BANCARIA','CCI']},
   {campo:'cargo',    rot:'Cargo',         tipo:'txt',  alias:['CARGO','PUESTO','OCUPACION']},
-  {campo:'email',    rot:'Correo',        tipo:'txt',  alias:['CORREO ELECTRONICO','CORREO','EMAIL','E MAIL','MAIL','CORREO PERSONAL']}
+  {campo:'email',    rot:'Correo',        tipo:'txt',  alias:['CORREO ELECTRONICO','CORREO','EMAIL','E MAIL','MAIL','CORREO PERSONAL']},
+  {campo:'fechaNac', rot:'F. nacimiento', tipo:'fecha',alias:['FECHA DE NACIMIENTO','FECHA NACIMIENTO','F NAC','FEC NAC','NACIMIENTO','F DE NACIMIENTO']}
 ];
 
 // B · Conceptos del mes (DB.planillaMes)
@@ -325,8 +326,12 @@ function _iplAnalizar(texto){
     ficha.forEach(c=>{
       const crudo=val(f,map['f_'+c.campo]);
       if(crudo==='')return;
-      const nuevo=c.tipo==='num'?_csvNum(crudo):c.tipo==='bool'?_iplBool(crudo):crudo.trim();
+      // Las fechas llegan como serial de Excel, dd/mm/aaaa o aaaa-mm-dd; el
+      // sistema las guarda siempre como aaaa-mm-dd.
+      const nuevo=c.tipo==='num'?_csvNum(crudo):c.tipo==='bool'?_iplBool(crudo)
+                 :c.tipo==='fecha'?_csvFecha(crudo):crudo.trim();
       const viejo=c.tipo==='num'?(+em.p[c.campo]||0):c.tipo==='bool'?(+em.p[c.campo]?1:0):String(em.p[c.campo]||'').trim();
+      if(c.tipo==='fecha'&&!nuevo)return;      // una fecha ilegible no se importa
       if(String(viejo)!==String(nuevo))camF.push({...c,viejo,nuevo});
     });
     const det=(DB.planillaMes||[]).find(d=>d.personalId===em.p.id&&+d.mes===+PER.mes&&String(d.anio)===String(PER.anio));
@@ -553,7 +558,7 @@ async function _iplConfirmar(){
 // Un CSV con los encabezados que el importador reconoce y la gente que ya está
 // cargada, para llenarlo en Excel y devolverlo sin adivinar nombres.
 function _iplPlantilla(){
-  const cols=['DNI','Apellidos y Nombres','Sueldo base','Asignación familiar','Movilidad','AFP','CUSPP','Banco','Cuenta','Correo electrónico',
+  const cols=['DNI','Apellidos y Nombres','Sueldo base','Asignación familiar','Movilidad','AFP','CUSPP','Banco','Cuenta','Correo electrónico','Fecha de nacimiento',
     'HE 25','HE 35','HE 100','Reintegro','Bonificación altura','Bonificación nocturna','Refrigerio','Bono','Gratificación',
     'Adelanto','CTS','Sindicato','Rímac','Más Vida','Fondo minero','Otros descuentos','Retención judicial','Quinta categoría'];
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
@@ -561,7 +566,7 @@ function _iplPlantilla(){
     .sort((a,b)=>String(a.ape||'').localeCompare(String(b.ape||'')));
   if(!gente.length){toast('No hay personal activo para armar la plantilla',true);return;}
   const filas=gente.map(p=>[_iplDni8(p.dni)||'',(p.ape||'')+', '+(p.nom||''),p.sue||'',+p.asig?'SI':'NO',p.movilidad||'',
-    p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||'',p.email||''].concat(new Array(cols.length-10).fill('')));
+    p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||'',p.email||'',p.fechaNac||''].concat(new Array(cols.length-11).fill('')));
   const csv='﻿'+[cols,...filas].map(f=>f.map(q).join(';')).join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
