@@ -56,13 +56,13 @@ const _IPL_FICHA=[
 // B · Conceptos del mes (DB.planillaMes)
 const _IPL_MES=[
   // Horas extra
-  {campo:'he25',        rot:'H.E. 25 %',      g:'Horas extra', alias:['HE 25','H E 25','HORAS EXTRAS 25','HORA EXTRA 25','HE25','EXTRAS 25']},
-  {campo:'he35',        rot:'H.E. 35 %',      g:'Horas extra', alias:['HE 35','H E 35','HORAS EXTRAS 35','HORA EXTRA 35','HE35','EXTRAS 35']},
-  {campo:'he100',       rot:'H.E. 100 %',     g:'Horas extra', alias:['HE 100','H E 100','HORAS EXTRAS 100','HORA EXTRA 100','HE100','EXTRAS 100']},
+  {campo:'he25',        rot:'H.E. 25 %',      g:'Horas extra', alias:['HE 25','H E 25','HORAS EXTRAS 25','HORA EXTRA 25','HE25','EXTRAS 25','HRS EXT 25','HORAS EXT 25','HS EXT 25']},
+  {campo:'he35',        rot:'H.E. 35 %',      g:'Horas extra', alias:['HE 35','H E 35','HORAS EXTRAS 35','HORA EXTRA 35','HE35','EXTRAS 35','HRS EXT 35','HORAS EXT 35','HS EXT 35']},
+  {campo:'he100',       rot:'H.E. 100 %',     g:'Horas extra', alias:['HE 100','H E 100','HORAS EXTRAS 100','HORA EXTRA 100','HE100','EXTRAS 100','HRS EXT 100','HORAS EXT 100','HS EXT 100']},
   {campo:'heAdicional', rot:'H.E. adicional', g:'Horas extra', alias:['HE ADICIONAL','HORAS EXTRAS ADICIONALES','EXTRA ADICIONAL']},
   // Ingresos y bonos
   {campo:'reintegro',   rot:'Reintegro',      g:'Ingresos',    alias:['REINTEGRO','REINTEGROS']},
-  {campo:'bAltura',     rot:'Bonif. altura',  g:'Ingresos',    alias:['BONIFICACION ALTURA','BONIF ALTURA','B ALTURA','BONO ALTURA','ALTURA']},
+  {campo:'bAltura',     rot:'Bonif. altura',  g:'Ingresos',    alias:['BONIFICACION ALTURA','BONIF ALTURA','B ALTURA','BONO ALTURA','ALTURA','COND ALTURA','CONDICION ALTURA','CONDICION DE ALTURA','BONO CONDICION','BONO CONDICION ALTURA']},
   {campo:'bCv',         rot:'Bonif. C. vida', g:'Ingresos',    alias:['BONIFICACION COSTO DE VIDA','BONIF COSTO DE VIDA','B COSTO DE VIDA','BONO COSTO DE VIDA','COSTO DE VIDA','BCV']},
   {campo:'bNocturnas',  rot:'Bonif. nocturna',g:'Ingresos',    alias:['BONIFICACION NOCTURNA','BONIF NOCTURNAS','B NOCTURNAS','NOCTURNAS','SOBRETASA NOCTURNA']},
   {campo:'refrigerio',  rot:'Refrigerio',     g:'Ingresos',    alias:['REFRIGERIO','REFRIGERIOS','ALIMENTACION']},
@@ -99,7 +99,71 @@ const _IPL_ID=[
   {campo:'nom',   alias:['NOMBRES','NOMBRE']}
 ];
 
-let _iplDatos=null;    // el análisis, esperando confirmación
+let _iplDatos=null;      // el análisis, esperando confirmación
+let _iplTexto='';        // el archivo en crudo, para re-analizar al reasignar
+let _iplNombreArch='';
+
+// ── Columnas que el sistema no adivina ─────────────────────────────────────
+// El archivo del cliente llama a las cosas a su manera ("COND. ALTURA",
+// "DSCTO MERCANTIL"). En la vista previa se puede decir a mano a qué campo va
+// cada columna suelta, y esa decisión queda guardada: el CSV del mes siguiente
+// trae los mismos encabezados raros y ya no hay que repetirla.
+let _IPL_MANUAL={};
+try{_IPL_MANUAL=JSON.parse(localStorage.getItem('_iplManual')||'{}')||{};}catch(e){_IPL_MANUAL={};}
+
+// "REMUNERACION JULIO" es la remuneración de siempre con el mes pegado al
+// nombre. Se prueba primero el encabezado tal cual y recién después sin el mes,
+// para que una columna con nombre exacto nunca pierda contra una aproximada.
+const _IPL_RE_MES=/\s+(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|SETIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)(\s+\d{2,4})?$/;
+const _iplSinMes=n=>String(n||'').replace(_IPL_RE_MES,'').trim();
+
+// El campo al que apunta una clave del mapa ('f_sue', 'm_bono')
+function _iplDestino(clave){
+  const k=String(clave||'');
+  if(k.slice(0,2)==='f_')return _IPL_FICHA.find(c=>c.campo===k.slice(2))||null;
+  if(k.slice(0,2)==='m_')return _IPL_MES.find(c=>c.campo===k.slice(2))||null;
+  return null;
+}
+// Asignar (o soltar) una columna a mano y volver a leer el archivo
+function _iplAsignar(col,destino){
+  const k=_iplNorm(col);
+  if(destino)_IPL_MANUAL[k]=destino;else delete _IPL_MANUAL[k];
+  try{localStorage.setItem('_iplManual',JSON.stringify(_IPL_MANUAL));}catch(e){}
+  if(!_iplTexto)return;
+  _iplDatos=_iplAnalizar(_iplTexto);
+  _iplDatos.nombre=_iplNombreArch;
+  _iplPreview();
+}
+function _iplOlvidarManual(){
+  if(!Object.keys(_IPL_MANUAL).length){toast('No hay asignaciones guardadas');return;}
+  if(!confirm('Se van a olvidar las '+Object.keys(_IPL_MANUAL).length+' asignaciones de columnas hechas a mano. ¿Continuar?'))return;
+  _IPL_MANUAL={};
+  try{localStorage.removeItem('_iplManual');}catch(e){}
+  if(_iplTexto){_iplDatos=_iplAnalizar(_iplTexto);_iplDatos.nombre=_iplNombreArch;_iplPreview();}
+  else toast('✓ Asignaciones olvidadas');
+}
+// Las opciones del selector, agrupadas como en el formulario
+function _iplOpcDestino(sel){
+  const op=(v,t)=>`<option value="${v}"${sel===v?' selected':''}>${_iplEsc(t)}</option>`;
+  let h=op('','— no importar —');
+  h+='<optgroup label="Ficha del trabajador">'+_IPL_FICHA.map(c=>op('f_'+c.campo,c.rot)).join('')+'</optgroup>';
+  const g={};
+  _IPL_MES.forEach(c=>{(g[c.g]=g[c.g]||[]).push(c);});
+  Object.entries(g).forEach(([n,cs])=>{
+    h+=`<optgroup label="${_iplEsc(n)} · del mes">`+cs.map(c=>op('m_'+c.campo,c.rot)).join('')+'</optgroup>';
+  });
+  return h;
+}
+// De qué mes habla el archivo, según su nombre. Sirve para avisar cuando se
+// está por cargar julio dentro de agosto.
+function _iplMesDelNombre(n){
+  const t=_iplNorm(n);
+  for(let i=1;i<=12;i++){
+    const m=_iplNorm(_PL_MESES[i]);
+    if(m&&new RegExp('(^| )'+m+'( |$)').test(t))return i;
+  }
+  return 0;
+}
 
 // ── El mes al que va lo importado ──────────────────────────────────────────
 // Si ya se generó la planilla manda ese mes; si no, el que esté elegido en los
@@ -143,14 +207,15 @@ function _iplEmparejar(id){
 // ── Análisis del archivo ───────────────────────────────────────────────────
 function _iplMapear(enc){
   const norm=enc.map(_iplNorm);
+  const sinMes=norm.map(_iplSinMes);
   const map={},usados=[],ids=[];
   // Una columna se reparte entre los campos: la primera que la pida se la
   // queda. Los identificadores son la excepción — no la consumen. El CUSPP
   // sirve para reconocer a quien ya lo tiene y, a la vez, para cargárselo a
   // quien todavía no lo tiene; escribir el mismo valor no cuenta como cambio.
-  const tomar=(clave,alias,exclusiva)=>{
+  const tomar=(clave,alias,exclusiva,fuente)=>{
     for(const a of alias){
-      const i=norm.indexOf(_iplNorm(a));
+      const i=fuente.indexOf(_iplNorm(a));
       if(i>-1&&map[clave]==null&&(!exclusiva||!usados.includes(i))){
         map[clave]=i;
         if(exclusiva)usados.push(i);else ids.push(i);
@@ -158,12 +223,33 @@ function _iplMapear(enc){
       }
     }
   };
-  _IPL_ID.forEach(c=>tomar('id_'+c.campo,c.alias,false));
-  _IPL_FICHA.forEach(c=>tomar('f_'+c.campo,c.alias,true));
-  _IPL_MES.forEach(c=>tomar('m_'+c.campo,c.alias,true));
-  const sinUsar=[];
-  norm.forEach((n,i)=>{if(n&&!usados.includes(i)&&!ids.includes(i))sinUsar.push(String(enc[i]).trim());});
-  return{map,sinUsar};
+  // Pasada 1 · el encabezado tal cual  ·  Pasada 2 · sin el mes al final
+  [norm,sinMes].forEach(fuente=>{
+    _IPL_ID.forEach(c=>tomar('id_'+c.campo,c.alias,false,fuente));
+    _IPL_FICHA.forEach(c=>tomar('f_'+c.campo,c.alias,true,fuente));
+    _IPL_MES.forEach(c=>tomar('m_'+c.campo,c.alias,true,fuente));
+  });
+  // Pasada 3 · lo asignado a mano manda sobre todo lo anterior
+  const manual=[];
+  norm.forEach((n,i)=>{
+    const d=_IPL_MANUAL[n];
+    if(!d)return;
+    const campo=_iplDestino(d);
+    if(!campo)return;                       // apunta a un campo que ya no existe
+    Object.keys(map).forEach(k=>{if(map[k]===i)delete map[k];});   // suelta la columna
+    map[d]=i;
+    manual.push({col:String(enc[i]).trim(),destino:d,rot:campo.rot});
+  });
+  // Qué columna quedó de verdad en uso, ya con lo manual aplicado
+  const enUso=[],idsUso=[];
+  Object.entries(map).forEach(([k,i])=>{(k.slice(0,3)==='id_'?idsUso:enUso).push(i);});
+  const sinUsar=[],libres=[];
+  norm.forEach((n,i)=>{
+    if(!n||enUso.includes(i)||idsUso.includes(i))return;
+    sinUsar.push(String(enc[i]).trim());
+    libres.push({i,col:String(enc[i]).trim()});
+  });
+  return{map,sinUsar,libres,manual,enc};
 }
 
 function _iplAnalizar(texto){
@@ -182,7 +268,7 @@ function _iplAnalizar(texto){
   }
   if(iEnc<0)return{error:'No se reconoció ninguna columna. Se esperaba al menos el DNI (o el nombre) y un dato como el sueldo base.'};
 
-  const{map,sinUsar}=mejor;
+  const{map,sinUsar,libres,manual,enc}=mejor;
   const hayId=['id_dni','id_cuspp','id_nombre','id_ape','id_nom'].some(k=>map[k]!=null);
   if(!hayId)return{error:'Falta la columna que identifica al trabajador: DNI, CUSPP o Apellidos y Nombres.'};
 
@@ -234,8 +320,16 @@ function _iplAnalizar(texto){
     listas.push({linea,p:em.p,como:em.como,camF,camM});
   }
 
-  return{delim,iEnc,total:filas.length-iEnc-1,map,sinUsar,ficha,mes,listas,problemas,vacias,
-    per:PER,mesLbl:PER.lbl};
+  // Un ejemplo de lo que trae cada columna suelta: sin verlo no se puede
+  // decidir a qué campo mandarla.
+  libres.forEach(c=>{
+    for(let i=iEnc+1;i<Math.min(filas.length,iEnc+60);i++){
+      const v=String((filas[i]||[])[c.i]==null?'':filas[i][c.i]).trim();
+      if(v){c.muestra=v;break;}
+    }
+  });
+  return{delim,iEnc,total:filas.length-iEnc-1,map,sinUsar,libres,manual,enc,ficha,mes,listas,problemas,vacias,
+    per:PER,mesLbl:PER.lbl,mesArch:_iplMesDelNombre(_iplNombreArch)};
 }
 
 // ── Interfaz ───────────────────────────────────────────────────────────────
@@ -259,6 +353,8 @@ function _iplArchivo(input){
       txt=new TextDecoder('utf-8',{fatal:false}).decode(buf);
       if(txt.indexOf('�')>-1)txt=new TextDecoder('windows-1252').decode(buf);
     }catch(e){toast('No se pudo leer el archivo',true);return;}
+    _iplTexto=txt;
+    _iplNombreArch=file.name;
     _iplDatos=_iplAnalizar(txt);
     _iplDatos.nombre=file.name;
     _iplPreview();
@@ -326,6 +422,9 @@ function _iplPreview(){
       Los conceptos del mes entran en <b style="color:#8b5cf6">${_iplEsc(D.mesLbl)}</b> — el mes elegido arriba. Los datos de la ficha (sueldo, AFP, banco…) valen para todos los meses.
     </div>
 
+    ${(D.mesArch&&D.mesArch!==D.per.mes)?`<div style="background:rgba(245,158,11,.1);border:1px solid #f59e0b60;border-radius:8px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.78rem;color:#f59e0b">
+      ⚠ El archivo se llama <b>${_iplEsc(_PL_MESES[D.mesArch])}</b> pero los conceptos van a entrar en <b>${_iplEsc(D.mesLbl)}</b>. Si no es lo que quiere, cambie el mes arriba y vuelva a abrir el archivo.</div>`:''}
+
     <div class="kpi-row" style="margin-bottom:.8rem">
       ${kpi('Trabajadores a actualizar',D.listas.length,'#10b981')}
       ${kpi('Datos de ficha',nF,'#8b5cf6')}
@@ -339,7 +438,7 @@ function _iplPreview(){
       ${D.ficha.map(c=>chip(c.rot,'#8b5cf6')).join('')}${D.mes.map(c=>chip(c.rot,'#06b6d4')).join('')}
       ${(!D.ficha.length&&!D.mes.length)?'ninguna':''}
     </div>
-    ${D.sinUsar.length?`<div style="font-size:.7rem;color:var(--muted2);margin-bottom:.6rem">Columnas que no se importan (el sistema las calcula o no las maneja): <span style="color:#94a3b8">${_iplEsc(D.sinUsar.join(' · '))}</span></div>`:''}
+    ${_iplPanelCols(D)}
 
     ${lista('⚠ Filas que no se pudieron emparejar — no se importan',errores,'#ef4444')}
     ${lista('✓ Filas que ya tienen esos mismos valores',sinCambio,'#64748b')}
@@ -452,4 +551,53 @@ function _iplPlantilla(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   toast(`✓ Plantilla con ${gente.length} trabajador(es)`);
+}
+
+// ── Panel de columnas del archivo ──────────────────────────────────────────
+// Lo que antes era una línea gris con los nombres que no se reconocían ahora
+// es la parte útil de la pantalla: cada columna suelta se ve con un ejemplo de
+// su contenido y un selector para mandarla al campo que corresponda. Lo que se
+// elija queda guardado para los archivos siguientes.
+function _iplPanelCols(D){
+  const TD='padding:.28rem .45rem;border-bottom:1px solid var(--border);font-size:.7rem;vertical-align:middle';
+  const TH='background:var(--panel2);color:var(--muted2);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.3rem .45rem;text-align:left';
+  const selEst='background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.66rem;padding:2px .3rem;max-width:230px';
+
+  // Lo ya asignado a mano, para poder deshacerlo
+  const manual=(D.manual||[]).map(m=>`<tr>
+    <td style="${TD};font-weight:700;color:#f59e0b">${_iplEsc(m.col)}</td>
+    <td style="${TD};color:var(--muted2)">—</td>
+    <td style="${TD}"><select style="${selEst};border-color:#f59e0b70" onchange="_iplAsignar('${_iplEsc(m.col).replace(/'/g,"\'")}',this.value)">${_iplOpcDestino(m.destino)}</select></td>
+  </tr>`).join('');
+
+  const libres=(D.libres||[]).map(c=>`<tr>
+    <td style="${TD};font-weight:700">${_iplEsc(c.col)}</td>
+    <td style="${TD};color:var(--muted2);font-family:monospace;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_iplEsc(c.muestra||'')}">${_iplEsc(c.muestra||'(vacía)')}</td>
+    <td style="${TD}"><select style="${selEst}" onchange="_iplAsignar('${_iplEsc(c.col).replace(/'/g,"\'")}',this.value)">${_iplOpcDestino('')}</select></td>
+  </tr>`).join('');
+
+  const nRec=(D.ficha||[]).length+(D.mes||[]).length;
+  const nMan=(D.manual||[]).length;
+  const nLib=(D.libres||[]).length;
+
+  return `<details style="margin-bottom:.7rem;border:1px solid var(--border);border-radius:8px" ${nRec<=3?'open':''}>
+    <summary style="cursor:pointer;font-size:.76rem;font-weight:700;color:var(--text);padding:.45rem .7rem">
+      🧩 Columnas del archivo
+      <span style="font-weight:400;color:var(--muted2);font-size:.7rem">·
+        ${nRec} reconocida${nRec===1?'':'s'}${nMan?' · <span style="color:#f59e0b">'+nMan+' asignada'+(nMan===1?'':'s')+' a mano</span>':''}${nLib?' · <span style="color:#06b6d4">'+nLib+' sin usar</span>':''}
+      </span>
+    </summary>
+    <div style="padding:0 .7rem .7rem">
+      <div style="font-size:.7rem;color:var(--muted2);margin:.3rem 0 .5rem">
+        Si el archivo llama a una columna de otra manera, elija aquí a qué campo va. Se recuerda para los archivos siguientes.
+        ${nMan?`<button onclick="_iplOlvidarManual()" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.62rem;padding:1px .4rem;margin-left:.3rem">olvidar asignaciones</button>`:''}
+      </div>
+      ${(manual||libres)?`<div style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:7px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="${TH}">Columna del archivo</th><th style="${TH}">Ejemplo</th><th style="${TH}">Va a</th></tr></thead>
+          <tbody>${manual}${libres}</tbody>
+        </table>
+      </div>`:`<div style="font-size:.72rem;color:#10b981;font-weight:700">✓ Todas las columnas del archivo están reconocidas</div>`}
+    </div>
+  </details>`;
 }
