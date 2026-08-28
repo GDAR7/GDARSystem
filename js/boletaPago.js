@@ -415,7 +415,7 @@ function blVer(personalId){
 // (fecha de nacimiento, hijos, dirección, vacaciones). Se imprimen en blanco,
 // que es lo correcto: la boleta no puede inventarlos.
 
-const _BL_MORADO='#5b2c8f';
+const _BL_OFI='#0070c0';        // RGB (0,112,192) — encabezados del formato oficial
 // Datos de la empresa. El RUC es el mismo que ya usa el EDP de proveedores.
 const _BL_EMPRESA={
   ruc:'20571533180',
@@ -502,7 +502,7 @@ function _blCuerpoOficial(f){
 }
 
 function _blCssOficial(){
-  const M=_BL_MORADO;
+  const M=_BL_OFI;
   return '*{margin:0;padding:0;box-sizing:border-box}'
   +'@page{margin:14px 0}'
   +'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;padding:0 26px;background:#fff}'
@@ -520,22 +520,22 @@ function _blCssOficial(){
   +'.ob{width:100%;border-collapse:collapse;margin-bottom:2px;table-layout:fixed}'
   +'.ob th{background:'+M+';color:#fff;font-size:7.5px;text-transform:uppercase;font-weight:700;'
       +'padding:3px 4px;border:1px solid #fff;letter-spacing:.03em}'
-  +'.ob td{border:1px solid #c9b6dd;padding:3px 5px;font-size:10px;height:17px;overflow:hidden;'
+  +'.ob td{border:1px solid #9dc8e8;padding:3px 5px;font-size:10px;height:17px;overflow:hidden;'
       +'text-overflow:ellipsis;white-space:nowrap}'
   +'.ob .cod{background:#fff9c4;padding:0 3px;border-radius:2px}'
   +'.ob3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:10px}'
   +'.obc{width:100%;border-collapse:collapse;table-layout:fixed}'
   +'.obc th{background:'+M+';color:#fff;font-size:8.5px;text-transform:uppercase;font-weight:700;'
       +'padding:4px 6px;border:1px solid #fff;letter-spacing:.04em}'
-  +'.obc td{border-left:1px solid #c9b6dd;border-right:1px solid #c9b6dd;padding:2px 6px;font-size:10px;height:16px}'
-  +'.obc tr:last-child td{border-bottom:1px solid #c9b6dd}'
+  +'.obc td{border-left:1px solid #9dc8e8;border-right:1px solid #9dc8e8;padding:2px 6px;font-size:10px;height:16px}'
+  +'.obc tr:last-child td{border-bottom:1px solid #9dc8e8}'
   +'.obc tr{page-break-inside:avoid}'
   +'.obtot{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:-1px}'
   +'.obtot td{background:'+M+';color:#fff;font-size:9.5px;font-weight:700;padding:5px 8px;border:1px solid #fff}'
   +'.obtot td.l{text-align:left;text-transform:uppercase;letter-spacing:.04em}'
   +'.obtot td.v{text-align:right;font-family:Courier New,monospace;font-size:11px}'
-  +'.obtot td.v.big{font-size:13px;background:#3f1d66}'
-  +'.obnota{font-size:8.5px;color:#7a5aa0;margin-top:6px;font-style:italic}'
+  +'.obtot td.v.big{font-size:13px;background:#00538f}'
+  +'.obnota{font-size:8.5px;color:#0d5a8a;margin-top:6px;font-style:italic}'
   +'.m{font-family:Courier New,monospace}'
   +'.pf{padding:10px 0 4px;border-top:1px solid '+M+';margin-top:14px}'
   +'.vb-wrap{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}'
