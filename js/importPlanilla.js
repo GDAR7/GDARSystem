@@ -55,7 +55,8 @@ const _IPL_FICHA=[
   {campo:'cuspp',    rot:'CUSPP',         tipo:'txt',  alias:['CUSPP','CUSSP','CUPPS','CODIGO CUSPP','COD CUSPP','NRO CUSPP','N CUSPP','NUMERO CUSPP']},
   {campo:'banco',    rot:'Banco',         tipo:'txt',  alias:['BANCO','ENTIDAD FINANCIERA']},
   {campo:'cuenta',   rot:'Cuenta',        tipo:'txt',  alias:['CUENTA','NRO CUENTA','N CUENTA','NUMERO DE CUENTA','CTA','CUENTA BANCARIA','CCI']},
-  {campo:'cargo',    rot:'Cargo',         tipo:'txt',  alias:['CARGO','PUESTO','OCUPACION']}
+  {campo:'cargo',    rot:'Cargo',         tipo:'txt',  alias:['CARGO','PUESTO','OCUPACION']},
+  {campo:'email',    rot:'Correo',        tipo:'txt',  alias:['CORREO ELECTRONICO','CORREO','EMAIL','E MAIL','MAIL','CORREO PERSONAL']}
 ];
 
 // B · Conceptos del mes (DB.planillaMes)
@@ -552,7 +553,7 @@ async function _iplConfirmar(){
 // Un CSV con los encabezados que el importador reconoce y la gente que ya está
 // cargada, para llenarlo en Excel y devolverlo sin adivinar nombres.
 function _iplPlantilla(){
-  const cols=['DNI','Apellidos y Nombres','Sueldo base','Asignación familiar','Movilidad','AFP','CUSPP','Banco','Cuenta',
+  const cols=['DNI','Apellidos y Nombres','Sueldo base','Asignación familiar','Movilidad','AFP','CUSPP','Banco','Cuenta','Correo electrónico',
     'HE 25','HE 35','HE 100','Reintegro','Bonificación altura','Bonificación nocturna','Refrigerio','Bono','Gratificación',
     'Adelanto','CTS','Sindicato','Rímac','Más Vida','Fondo minero','Otros descuentos','Retención judicial','Quinta categoría'];
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
@@ -560,7 +561,7 @@ function _iplPlantilla(){
     .sort((a,b)=>String(a.ape||'').localeCompare(String(b.ape||'')));
   if(!gente.length){toast('No hay personal activo para armar la plantilla',true);return;}
   const filas=gente.map(p=>[_iplDni8(p.dni)||'',(p.ape||'')+', '+(p.nom||''),p.sue||'',+p.asig?'SI':'NO',p.movilidad||'',
-    p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||''].concat(new Array(cols.length-9).fill('')));
+    p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||'',p.email||''].concat(new Array(cols.length-10).fill('')));
   const csv='﻿'+[cols,...filas].map(f=>f.map(q).join(';')).join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));

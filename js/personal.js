@@ -258,6 +258,7 @@ function openPersonalNew(){
   document.getElementById('wAfp').value='';
   document.getElementById('wBanco').value='';
   document.getElementById('wMovilidad').value='0';
+  document.getElementById('wEmail').value='';
   const ps=document.getElementById('wProy');if(ps){_poblarProyPersonal(ps);ps.value='';}
   document.querySelector('#mPersonal .mttl').textContent='Agregar Trabajador';
   perGoTab(0);
@@ -286,6 +287,7 @@ function openPersonalEdit(id){
   document.getElementById('wBanco').value=p.banco||'';
   document.getElementById('wCuenta').value=p.cuenta||'';
   document.getElementById('wMovilidad').value=p.movilidad||0;
+  document.getElementById('wEmail').value=p.email||'';
   const ps=document.getElementById('wProy');if(ps){_poblarProyPersonal(ps);ps.value=p.proy||'';}
   document.querySelector('#mPersonal .mttl').textContent='Editar Trabajador';
   perGoTab(0);
@@ -295,10 +297,21 @@ function openPersonalEdit(id){
 function _refrescarTareajeSiActivo(){
   if(document.getElementById('page-tareaje')?.classList.contains('active')&&typeof rTareaje==='function')rTareaje();
 }
+// El correo es opcional, pero si se escribe algo tiene que parecer un correo:
+// un dato de contacto mal copiado no sirve para nada y nadie lo vuelve a mirar.
+function _perEmail(){
+  const el=document.getElementById('wEmail');
+  return el?String(el.value||'').trim():'';
+}
+function _perEmailValido(v){
+  const s=String(v||'').trim();
+  return !s||/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
+}
 function gPersonal(){
   const dni=document.getElementById('wDni').value.trim(),nom=document.getElementById('wNom').value.trim();
   if(!dni||!nom){toast('Ingrese DNI y nombre',true);return;}
-  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0,codigoQr:document.getElementById('wCodigoQr').value.trim()};
+  if(!_perEmailValido(_perEmail())){toast('El correo no parece válido: revise que tenga @ y dominio',true);return;}
+  const rec={dni,ape:document.getElementById('wApe').value,nom,cargo:document.getElementById('wCargo').value,cat:document.getElementById('wCat').value,proy:document.getElementById('wProy').value,proc:document.getElementById('wProc').value,tipo:document.getElementById('wTipo').value,guardia:document.getElementById('wGuardia').value,ing:document.getElementById('wIng').value,sue:+document.getElementById('wSue').value||0,asig:+document.getElementById('wAsig').value,est:document.getElementById('wEst').value,notas:document.getElementById('wNotas').value,afp:document.getElementById('wAfp').value,cuspp:document.getElementById('wCuspp').value,banco:document.getElementById('wBanco').value,cuenta:document.getElementById('wCuenta').value,movilidad:+document.getElementById('wMovilidad').value||0,codigoQr:document.getElementById('wCodigoQr').value.trim(),email:_perEmail()};
   if(_editPersonalId){
     const idx=DB.personal.findIndex(x=>x.id===_editPersonalId);
     if(idx>-1){

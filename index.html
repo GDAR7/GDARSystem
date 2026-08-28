@@ -199,7 +199,8 @@
     <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;padding:.5rem .8rem;border-bottom:1px solid var(--border);background:var(--panel2)" id="plVistas"></div>
     <div id="plCierreBar"></div>
     <div id="plFiltros" style="background:var(--panel2);border-bottom:1px solid var(--border)"></div>
-    <div class="card-body" style="overflow-x:auto;padding:0">
+    <div id="blPanel" style="display:none"></div>
+    <div id="plTablaWrap" class="card-body" style="overflow-x:auto;padding:0">
       <table id="tbPlanilla" style="border-collapse:collapse;min-width:100%;white-space:nowrap;font-size:.72rem">
         <thead id="thPlanilla"></thead>
         <tbody id="tbPlanillaBody"></tbody>
@@ -1909,6 +1910,7 @@
       <div class="fg"><label>Guardia</label><select id="wGuardia"><option value="">— Seleccionar —</option><option>A</option><option>B</option><option>C</option></select></div>
       <div class="fg"><label>F. Ingreso</label><input id="wIng" type="date"></div>
       <div class="fg"><label>Estado</label><select id="wEst"><option>Activo</option><option>De Permiso</option><option>Inactivo</option></select></div>
+      <div class="fg"><label>Correo electrónico</label><input id="wEmail" type="email" autocomplete="off" placeholder="nombre@correo.com"></div>
       <div class="fg" style="grid-column:1/-1"><label>Notas</label><textarea id="wNotas" rows="2" style="resize:vertical" placeholder="Observaciones, condiciones especiales..."></textarea></div>
     </div>
     <div id="perP1" class="fg-grid" style="display:none">
@@ -1950,6 +1952,16 @@
   <div class="mf">
     <button class="btn btn-out" onclick="closeM('mImpCsv')">Cancelar</button>
     <button class="btn btn-a" id="impCsvBtn" style="--ba:var(--bsw)" onclick="_riConfirmar()">📥 Importar</button>
+  </div>
+</div></div>
+
+<div class="mo" id="mBoleta"><div class="modal" style="max-width:1000px">
+  <div class="mh"><span class="mttl" id="mBoletaTtl">Boleta de pago</span><button class="mx" onclick="closeM('mBoleta')">✕</button></div>
+  <div id="mBoletaBody" style="padding:.8rem 1rem;background:var(--panel2)"></div>
+  <div class="mf">
+    <button class="btn btn-out" onclick="closeM('mBoleta')">Cerrar</button>
+    <button class="btn btn-out" id="mBoletaMail" style="color:#10b981;border-color:#10b98160">✉️ Enviar por correo</button>
+    <button class="btn btn-a" id="mBoletaPdf" style="--ba:var(--adm)">📄 Imprimir / PDF</button>
   </div>
 </div></div>
 
@@ -3182,11 +3194,12 @@
 
 <script src="js/config.js?v=45"></script>
 <script src="js/utils.js?v=25"></script>
-<script src="js/personal.js?v=21"></script>
-<script src="js/planilla.js?v=17"></script>
+<script src="js/personal.js?v=22"></script>
+<script src="js/planilla.js?v=18"></script>
 <script src="js/afpTasas.js?v=4"></script>
 <script src="js/atencionRecursos.js?v=6"></script>
 <script src="js/planillaCierre.js?v=1"></script>
+<script src="js/boletaPago.js?v=1"></script>
 <script src="js/renta5ta.js?v=2"></script>
 <script src="js/almacen.js?v=3"></script>
 <script src="js/analisisAbc.js?v=7"></script>
@@ -3199,7 +3212,7 @@
 <script src="js/requerimientos.js?v=17"></script>
 <script src="js/reembolsables_otros.js?v=11"></script>
 <script src="js/importCsv.js?v=2"></script>
-<script src="js/importPlanilla.js?v=4"></script>
+<script src="js/importPlanilla.js?v=5"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
 <script src="js/tareaje.js?v=23"></script>

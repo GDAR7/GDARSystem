@@ -355,10 +355,31 @@ const PL_VISTAS=[
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
   {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totOtrDed','totDed','neto']},
   {k:'aportes', l:'🏢 Aportes Empresa',cols:[..._PL_IDENT,'afp','essalud','aporteAfpEmpl','sctrPenSup','sctrPenMina','segVidaEmpl','segVidaLey','sctrSalud','totAport']},
-  {k:'todo',    l:'📊 Todo',           cols:null}
+  {k:'todo',    l:'📊 Todo',           cols:null},
+  // No es una vista de columnas: cambia la tabla entera por el listado de
+  // boletas. genPlanilla lo detecta por la bandera y no arma la grilla.
+  {k:'boletas', l:'🧾 Boletas',         cols:[],boletas:true}
 ];
 let _plVista='resumen';
 
+// ¿Estamos en el tab de boletas? Ahí no hay grilla que armar.
+function _plEsVistaBoletas(){
+  const v=PL_VISTAS.find(x=>x.k===_plVista);
+  return !!(v&&v.boletas);
+}
+// Enciende el listado de boletas o la tabla, nunca los dos a la vez.
+function _plMostrarBloques(){
+  const esBol=_plEsVistaBoletas();
+  const bol=document.getElementById('blPanel');
+  const tab=document.getElementById('plTablaWrap');
+  const fil=document.getElementById('plFiltros');
+  if(bol)bol.style.display=esBol?'block':'none';
+  if(tab)tab.style.display=esBol?'none':'block';
+  // Los filtros de tipo y cargo siguen valiendo para las boletas; el buscador
+  // de la tabla no, porque las boletas tienen el suyo.
+  if(fil)fil.style.display=esBol?'none':'block';
+  if(esBol&&typeof blRender==='function')blRender();
+}
 function _plColsVisibles(){
   const v=PL_VISTAS.find(x=>x.k===_plVista)||PL_VISTAS[0];
   if(!v.cols)return PL_COLS;
@@ -375,7 +396,7 @@ function _plRenderTabs(){
   el.innerHTML=PL_VISTAS.map(v=>{
     const act=v.k===_plVista;
     return`<button onclick="plSetVista('${v.k}')" style="padding:.3rem .8rem;border-radius:7px;cursor:pointer;font-size:.75rem;font-weight:700;white-space:nowrap;border:1.5px solid ${act?'var(--adm)':'var(--border)'};background:${act?'rgba(59,130,246,.16)':'var(--panel2)'};color:${act?'var(--adm)':'var(--muted2)'}">${v.l}</button>`;
-  }).join('')+`<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">${_plColsVisibles().length} de ${PL_COLS.length} columnas</span>`;
+  }).join('')+(_plEsVistaBoletas()?'':`<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">${_plColsVisibles().length} de ${PL_COLS.length} columnas</span>`);
 }
 
 // Congela #, DNI y Nombre al desplazarse a la derecha
@@ -421,6 +442,17 @@ function genPlanilla(soloTabla){
   if(!soloTabla)_plRenderFiltros(base);
   const act=base.filter(_plPasa);
   _plAfpDesconocidas.clear();
+
+  // El tab de boletas no usa la grilla: se muestra su propio listado y se
+  // sale antes de construir 77 columnas por 155 filas para nada.
+  if(_plEsVistaBoletas()){
+    document.getElementById('planillaCard').style.display='block';
+    if(typeof plRenderCierre==='function')plRenderCierre();
+    document.getElementById('planillaResumen').textContent=`${act.length} trabajadores`;
+    _plRenderTabs();
+    _plMostrarBloques();
+    return;
+  }
 
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
   const cols=_plColsVisibles();
@@ -485,6 +517,7 @@ function genPlanilla(soloTabla){
   document.getElementById('planillaResumen').textContent=`${act.length} trabajadores · Neto total: ${Sf(tot.neto)}`;
   document.getElementById('planillaCard').style.display='block';
   _plRenderTabs();
+  _plMostrarBloques();
   _plFijarCols();
   if(_plAfpDesconocidas.size){
     const lista=[..._plAfpDesconocidas].join(', ');
