@@ -389,6 +389,13 @@ function _plMostrarBloques(){
   if(esBol&&typeof blRender==='function')blRender();
 }
 function _plColsVisibles(){
+  // La cascada manda sobre las vistas: si hay un grupo elegido se muestran sus
+  // columnas (menos las apagadas a mano), siempre con quién es quién delante.
+  if(_plGrupo){
+    const set=new Set([..._PL_IDENT,'acc']);
+    PL_COLS.forEach(c=>{if(c.g===_plGrupo&&!_plColOff.has(c.k))set.add(c.k);});
+    return PL_COLS.filter(c=>set.has(c.k));
+  }
   const v=PL_VISTAS.find(x=>x.k===_plVista)||PL_VISTAS[0];
   if(!v.cols)return PL_COLS;
   const set=new Set([...v.cols,'acc']);
@@ -396,15 +403,18 @@ function _plColsVisibles(){
 }
 function plSetVista(k){
   _plVista=k;
+  _plGrupo=null;_plColOff.clear();   // las vistas y la cascada no se mezclan
   if(document.getElementById('planillaCard')?.style.display!=='none')genPlanilla();
   else _plRenderTabs();
 }
 function _plRenderTabs(){
   const el=document.getElementById('plVistas');if(!el)return;
   el.innerHTML=PL_VISTAS.map(v=>{
-    const act=v.k===_plVista;
+    const act=!_plGrupo&&v.k===_plVista;
     return`<button onclick="plSetVista('${v.k}')" style="padding:.3rem .8rem;border-radius:7px;cursor:pointer;font-size:.75rem;font-weight:700;white-space:nowrap;border:1.5px solid ${act?'var(--adm)':'var(--border)'};background:${act?'rgba(59,130,246,.16)':'var(--panel2)'};color:${act?'var(--adm)':'var(--muted2)'}">${v.l}</button>`;
-  }).join('')+(_plEsVistaBoletas()?'':`<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">${_plColsVisibles().length} de ${PL_COLS.length} columnas</span>`);
+  }).join('')+(_plEsVistaBoletas()?'':`<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">${
+    _plGrupo?'<b style="color:var(--adm)">'+_plEscC(PL_GRUPOS[_plGrupo].l)+'</b> · ':''
+  }${_plColsVisibles().length} de ${PL_COLS.length} columnas</span>`);
 }
 
 // Congela #, DNI y Nombre al desplazarse a la derecha
@@ -454,6 +464,7 @@ function genPlanilla(soloTabla){
   // El tab de boletas no usa la grilla: se muestra su propio listado y se
   // sale antes de construir 77 columnas por 155 filas para nada.
   if(_plEsVistaBoletas()){
+    _plRenderCascada([]);
     document.getElementById('planillaCard').style.display='block';
     if(typeof plRenderCierre==='function')plRenderCierre();
     document.getElementById('planillaResumen').textContent=`${act.length} trabajadores`;
@@ -465,6 +476,7 @@ function genPlanilla(soloTabla){
   const th=`padding:4px 5px;font-size:.58rem;white-space:nowrap;text-align:center;border:1px solid rgba(255,255,255,.08);font-weight:700`;
   const cols=_plColsVisibles();
   const tot={sub2:0,dedApo:0,dedOtr:0,ded:0,neto:0,ess:0,aport:0};
+  const calcs=[];                       // para contar cuántos tienen dato en cada columna
 
   // Mes cerrado: manda lo guardado. Si alguien entró al equipo después del
   // cierre no tiene foto, así que a ese sí se le calcula y se marca aparte.
@@ -476,6 +488,7 @@ function genPlanilla(soloTabla){
     // escritas dentro del JSON guardado en planilla_cerrada.
     const c=(_foto&&_foto.datos)?{..._foto.datos}:_calcPlanRow(p,det);
     if(_cerrado){c._cerrada=!!_foto;c._recalcEn=_foto?_foto.recalcEn:null;c._sinFoto=!_foto;}
+    calcs.push(c);
     tot.neto+=c.neto;tot.sub2+=c.subtotal2;tot.ded+=c.totalDeduccion;tot.ess+=c.essalud;tot.aport+=c.totalAportaciones;
     tot.dedApo+=c.totalPensiones;tot.dedOtr+=c.totalOtrasDed;
     const afpBg=c.esOnp?'#065f46':c.afpType==='Integra'?'#1e40af':c.afpType==='Profuturo'?'#7c3aed':c.afpType==='Habitat'?'#0e7490':c.afpType==='Prima'?'#b45309':'#7f1d1d';
@@ -525,6 +538,7 @@ function genPlanilla(soloTabla){
   document.getElementById('planillaResumen').textContent=`${act.length} trabajadores · Neto total: ${Sf(tot.neto)}`;
   document.getElementById('planillaCard').style.display='block';
   _plRenderTabs();
+  _plRenderCascada(calcs);
   _plMostrarBloques();
   _plFijarCols();
   if(_plAfpDesconocidas.size){
@@ -746,3 +760,124 @@ function _plRenderFiltros(base){
     </div>`:''}`;
 }
 const _plEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ══ FILTRO DE COLUMNAS EN CASCADA ═══════════════════════════════════════════
+// El mismo patrón de Combustible, pero sobre las columnas: se elige un GRUPO
+// (Gratificaciones, Afectos Base, Deducción Pensión…) y debajo aparecen sus
+// columnas, cada una con cuántos trabajadores tienen dato ahí. Sirve para
+// llegar a lo que se busca sin recorrer 78 columnas de lado a lado.
+//
+// Convive con las vistas de arriba: elegir una vista limpia la cascada, y usar
+// la cascada deja la vista en "personalizada".
+
+let _plGrupo=null;              // grupo elegido, o null = ninguno
+let _plColOff=new Set();        // columnas del grupo que se apagaron a mano
+
+// Los grupos que de verdad tienen columnas, en el orden en que aparecen en la
+// tabla. 'acc' es la columna de botones: no es un grupo que interese filtrar.
+function _plGruposConCols(){
+  const vis=new Map();
+  PL_COLS.forEach(c=>{
+    if(c.g==='acc'||c.g==='datos')return;
+    if(!vis.has(c.g))vis.set(c.g,[]);
+    vis.get(c.g).push(c);
+  });
+  return [...vis.entries()].filter(([g])=>PL_GRUPOS[g]);
+}
+
+// De qué campo del cálculo sale cada columna. Se deduce del propio código de
+// la celda: `c=>_plHs(c.asigFam)` habla de "asigFam". Los nombres que no son
+// importes (el régimen, las banderas de estado) se descartan.
+const _PL_NO_VALOR=new Set(['esOnp','afpType','cuspp','banco','cuenta','_cerrada','_recalcEn','_sinFoto','sinDias','diasPagables']);
+const _plCampoCache={};
+function _plCampoDe(col){
+  if(_plCampoCache[col.k]!==undefined)return _plCampoCache[col.k];
+  const src=String(col.c||'');
+  const nombres=[...src.matchAll(/\bc\.([A-Za-z_][\w]*)/g)].map(m=>m[1]);
+  const campo=nombres.find(n=>!_PL_NO_VALOR.has(n))||null;
+  return _plCampoCache[col.k]=campo;
+}
+// Cuántos de los trabajadores a la vista tienen algo en esa columna
+function _plConDato(col,calcs){
+  const campo=_plCampoDe(col);
+  if(!campo)return null;
+  let n=0;
+  for(const c of calcs){const v=c[campo];if(typeof v==='number'&&Math.abs(v)>0.004)n++;}
+  return n;
+}
+
+function plSetGrupo(g){
+  _plGrupo=(_plGrupo===g)?null:g;
+  _plColOff.clear();
+  _plVista='';                  // la cascada manda: ya no es ninguna vista fija
+  genPlanilla();
+}
+function plToggleColCascada(k){
+  if(_plColOff.has(k))_plColOff.delete(k);else _plColOff.add(k);
+  genPlanilla();
+}
+function plLimpiarCascada(){
+  _plGrupo=null;_plColOff.clear();
+  if(!_plVista)_plVista='resumen';
+  genPlanilla();
+}
+
+// Pinta las dos filas de chips. `calcs` son los cálculos ya hechos de los
+// trabajadores visibles, para poder contar sin recalcular nada.
+function _plRenderCascada(calcs){
+  const el=document.getElementById('plCascada');if(!el)return;
+  if(_plEsVistaBoletas()){el.innerHTML='';return;}
+  const grupos=_plGruposConCols();
+
+  const chip=(txt,badge,act,onclick,col,mono)=>`<button onclick="${onclick}"
+    style="display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .7rem;border-radius:18px;cursor:pointer;
+    font-size:.72rem;font-weight:700;${mono?'font-family:monospace;':''}white-space:nowrap;
+    border:1.5px solid ${act?col:'var(--border)'};background:${act?col+'26':'var(--panel2)'};
+    color:${act?col:'var(--muted2)'};transition:all .15s">${txt}${
+    badge!=null?`<span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?col:'var(--muted)'}">${badge}</span>`:''}${act?' ✕':''}</button>`;
+
+  const todos=`<button onclick="plLimpiarCascada()" style="display:inline-flex;align-items:center;padding:.28rem .8rem;
+    border-radius:18px;cursor:pointer;font-size:.72rem;font-weight:700;
+    border:1.5px solid ${!_plGrupo?'#06b6d4':'var(--border)'};background:${!_plGrupo?'rgba(6,182,212,.15)':'var(--panel2)'};
+    color:${!_plGrupo?'#06b6d4':'var(--muted2)'}">Todos</button>`;
+
+  const chipsG=grupos.map(([g,cols])=>{
+    const G=PL_GRUPOS[g];
+    // Cuántas columnas del grupo tienen algún dato: da una idea de si vale la
+    // pena entrar antes de hacer clic.
+    const conDato=cols.filter(c=>{const n=_plConDato(c,calcs);return n===null||n>0;}).length;
+    return chip(_plEscC(G.l),conDato+'/'+cols.length,_plGrupo===g,`plSetGrupo('${g}')`,_plColorG(g));
+  }).join('');
+
+  let sub='';
+  if(_plGrupo){
+    const cols=(grupos.find(([g])=>g===_plGrupo)||[null,[]])[1];
+    const col=_plColorG(_plGrupo);
+    sub=`<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.45rem;padding:.5rem .65rem;
+      background:${col}0d;border:1px dashed ${col}55;border-radius:9px">
+      <span style="font-size:.62rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">
+        ↳ ${_plEscC(PL_GRUPOS[_plGrupo].l)}:</span>
+      ${cols.map(c=>{
+        const n=_plConDato(c,calcs);
+        return chip(_plEscC(c.l),n==null?null:(n||'—'),!_plColOff.has(c.k),`plToggleColCascada('${c.k}')`,col,true);
+      }).join('')}
+      <span style="font-size:.62rem;color:var(--muted);align-self:center;margin-left:.3rem">
+        el número es cuántos trabajadores tienen dato</span>
+    </div>`;
+  }
+
+  el.innerHTML=`<div style="padding:.5rem .8rem;border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+      <span style="font-size:.62rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Grupo:</span>
+      ${todos}${chipsG}
+    </div>${sub}</div>`;
+}
+
+const _plEscC=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// El color de cada grupo sale de su franja de cabecera; los grises muy oscuros
+// no se ven como chip, así que esos usan el color de administración.
+function _plColorG(g){
+  const bg=(PL_GRUPOS[g]||{}).bg||'';
+  const oscuros=['#1f2937','#374151','#111827'];
+  return oscuros.includes(bg)?'#94a3b8':(bg.startsWith('#')?bg:'#3b82f6');
+}
