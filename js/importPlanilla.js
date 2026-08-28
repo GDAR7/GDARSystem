@@ -19,19 +19,19 @@
 //
 // El parser (_csvParse, _csvDelim, _csvNum) vive en js/importCsv.js.
 
-const _ipNorm=s=>String(s==null?'':s).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+const _iplNorm=s=>String(s==null?'':s).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
   .replace(/[^A-Z0-9]+/g,' ').trim();
-const _ipEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const _ipDni=s=>String(s==null?'':s).replace(/\D/g,'');
-const _ipN=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _iplEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const _iplDni=s=>String(s==null?'':s).replace(/\D/g,'');
+const _iplN=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 // Las palabras del nombre, ordenadas: así "PEREZ LOPEZ, JUAN" y "JUAN PEREZ
 // LOPEZ" son la misma persona sin depender del orden ni de la coma.
-const _ipClaveNom=s=>_ipNorm(s).split(' ').filter(Boolean).sort().join(' ');
+const _iplClaveNom=s=>_iplNorm(s).split(' ').filter(Boolean).sort().join(' ');
 // Sí/No tolerante — acepta SI, X, TRUE, 1 y también un monto (113.00 → sí)
-function _ipBool(v){
+function _iplBool(v){
   const s=String(v==null?'':v).trim();
   if(!s)return 0;
-  const n=_ipNorm(s);
+  const n=_iplNorm(s);
   if(['SI','S','X','TRUE','VERDADERO','V','Y','YES'].includes(n))return 1;
   if(['NO','N','FALSE','FALSO','F'].includes(n))return 0;
   return _csvNum(s)>0?1:0;
@@ -42,7 +42,7 @@ function _ipBool(v){
 // igual y las columnas que no reconoce se listan como ignoradas.
 
 // A · Datos de la ficha del trabajador (DB.personal)
-const _IP_FICHA=[
+const _IPL_FICHA=[
   {campo:'sue',      rot:'Sueldo base',   tipo:'num',  alias:['SUELDO BASE','SUELDO BASICO','SUELDO','BASICO','REMUNERACION BASICA','REMUNERACION','HABER BASICO','SUELDO MENSUAL']},
   {campo:'asig',     rot:'Asig. familiar',tipo:'bool', alias:['ASIGNACION FAMILIAR','ASIG FAMILIAR','ASIG FAM','ASIGNACION FAM','AF']},
   {campo:'movilidad',rot:'Movilidad',     tipo:'num',  alias:['MOVILIDAD','BONO MOVILIDAD','B MOVILIDAD','BONO DE MOVILIDAD','MOVILIDAD SUPEDITADA']},
@@ -54,7 +54,7 @@ const _IP_FICHA=[
 ];
 
 // B · Conceptos del mes (DB.planillaMes)
-const _IP_MES=[
+const _IPL_MES=[
   // Horas extra
   {campo:'he25',        rot:'H.E. 25 %',      g:'Horas extra', alias:['HE 25','H E 25','HORAS EXTRAS 25','HORA EXTRA 25','HE25','EXTRAS 25']},
   {campo:'he35',        rot:'H.E. 35 %',      g:'Horas extra', alias:['HE 35','H E 35','HORAS EXTRAS 35','HORA EXTRA 35','HE35','EXTRAS 35']},
@@ -91,7 +91,7 @@ const _IP_MES=[
 ];
 
 // C · Cómo se identifica al trabajador
-const _IP_ID=[
+const _IPL_ID=[
   {campo:'dni',   alias:['DNI','D N I','DOCUMENTO','NRO DOCUMENTO','N DOCUMENTO','NUMERO DE DOCUMENTO','CI','DNI CE']},
   {campo:'cuspp', alias:['CUSPP','CODIGO CUSPP']},
   {campo:'nombre',alias:['APELLIDOS Y NOMBRES','APELLIDOS Y NOMBRE','TRABAJADOR','NOMBRE COMPLETO','NOMBRES Y APELLIDOS','NOMBRE DEL TRABAJADOR','PERSONAL','COLABORADOR']},
@@ -99,29 +99,40 @@ const _IP_ID=[
   {campo:'nom',   alias:['NOMBRES','NOMBRE']}
 ];
 
-let _ipDatos=null;    // el análisis, esperando confirmación
+let _iplDatos=null;    // el análisis, esperando confirmación
+
+// ── El mes al que va lo importado ──────────────────────────────────────────
+// Si ya se generó la planilla manda ese mes; si no, el que esté elegido en los
+// selectores de arriba. De esa forma el importador sirve apenas se entra a la
+// pantalla, sin obligar a generar antes.
+function _iplPer(){
+  const sel=id=>{const el=document.getElementById(id);return el?+el.value||0:0;};
+  const mes =+_plGenMes ||sel('plMes');
+  const anio=+_plGenAnio||sel('plAnio')||new Date().getFullYear();
+  return{mes,anio,lbl:(_PL_MESES[mes]||'—')+' '+anio};
+}
 
 // ── Emparejar con el personal del sistema ──────────────────────────────────
 // Tres intentos, del más confiable al menos: DNI, CUSPP y nombre. El nombre
 // solo vale si apunta a UNA sola persona; con dos homónimos se deja fuera y se
 // avisa, en vez de elegir por sorteo.
-function _ipEmparejar(id){
+function _iplEmparejar(id){
   const gente=(DB.personal||[]).filter(p=>p&&p.id!=null);
-  const dni=_ipDni(id.dni);
+  const dni=_iplDni(id.dni);
   if(dni.length>=6){
-    const c=gente.filter(p=>_ipDni(p.dni)===dni);
+    const c=gente.filter(p=>_iplDni(p.dni)===dni);
     if(c.length===1)return{p:c[0],como:'DNI'};
     if(c.length>1)return{p:null,motivo:`el DNI ${dni} está repetido en ${c.length} trabajadores`};
   }
-  const cus=_ipNorm(id.cuspp);
+  const cus=_iplNorm(id.cuspp);
   if(cus){
-    const c=gente.filter(p=>_ipNorm(p.cuspp)===cus);
+    const c=gente.filter(p=>_iplNorm(p.cuspp)===cus);
     if(c.length===1)return{p:c[0],como:'CUSPP'};
   }
   const nom=(id.nombre||[id.ape,id.nom].filter(Boolean).join(' ')).trim();
-  const k=_ipClaveNom(nom);
+  const k=_iplClaveNom(nom);
   if(k){
-    const c=gente.filter(p=>_ipClaveNom(p.ape+' '+p.nom)===k);
+    const c=gente.filter(p=>_iplClaveNom(p.ape+' '+p.nom)===k);
     if(c.length===1)return{p:c[0],como:'nombre'};
     if(c.length>1)return{p:null,motivo:`"${nom}" coincide con ${c.length} trabajadores: precise el DNI`};
   }
@@ -130,8 +141,8 @@ function _ipEmparejar(id){
 }
 
 // ── Análisis del archivo ───────────────────────────────────────────────────
-function _ipMapear(enc){
-  const norm=enc.map(_ipNorm);
+function _iplMapear(enc){
+  const norm=enc.map(_iplNorm);
   const map={},usados=[],ids=[];
   // Una columna se reparte entre los campos: la primera que la pida se la
   // queda. Los identificadores son la excepción — no la consumen. El CUSPP
@@ -139,7 +150,7 @@ function _ipMapear(enc){
   // quien todavía no lo tiene; escribir el mismo valor no cuenta como cambio.
   const tomar=(clave,alias,exclusiva)=>{
     for(const a of alias){
-      const i=norm.indexOf(_ipNorm(a));
+      const i=norm.indexOf(_iplNorm(a));
       if(i>-1&&map[clave]==null&&(!exclusiva||!usados.includes(i))){
         map[clave]=i;
         if(exclusiva)usados.push(i);else ids.push(i);
@@ -147,15 +158,16 @@ function _ipMapear(enc){
       }
     }
   };
-  _IP_ID.forEach(c=>tomar('id_'+c.campo,c.alias,false));
-  _IP_FICHA.forEach(c=>tomar('f_'+c.campo,c.alias,true));
-  _IP_MES.forEach(c=>tomar('m_'+c.campo,c.alias,true));
+  _IPL_ID.forEach(c=>tomar('id_'+c.campo,c.alias,false));
+  _IPL_FICHA.forEach(c=>tomar('f_'+c.campo,c.alias,true));
+  _IPL_MES.forEach(c=>tomar('m_'+c.campo,c.alias,true));
   const sinUsar=[];
   norm.forEach((n,i)=>{if(n&&!usados.includes(i)&&!ids.includes(i))sinUsar.push(String(enc[i]).trim());});
   return{map,sinUsar};
 }
 
-function _ipAnalizar(texto){
+function _iplAnalizar(texto){
+  const PER=_iplPer();
   const delim=_csvDelim(texto);
   const filas=_csvParse(texto,delim);
   if(!filas.length)return{error:'El archivo está vacío'};
@@ -164,7 +176,7 @@ function _ipAnalizar(texto){
   // líneas en blanco arriba. Se busca la primera fila que reconozca algo.
   let iEnc=-1,mejor=null;
   for(let i=0;i<Math.min(15,filas.length);i++){
-    const m=_ipMapear(filas[i]);
+    const m=_iplMapear(filas[i]);
     const n=Object.keys(m.map).length;
     if(n>=1&&(!mejor||n>mejor.n)){mejor={...m,n};iEnc=i;}
   }
@@ -174,8 +186,8 @@ function _ipAnalizar(texto){
   const hayId=['id_dni','id_cuspp','id_nombre','id_ape','id_nom'].some(k=>map[k]!=null);
   if(!hayId)return{error:'Falta la columna que identifica al trabajador: DNI, CUSPP o Apellidos y Nombres.'};
 
-  const ficha=_IP_FICHA.filter(c=>map['f_'+c.campo]!=null);
-  const mes  =_IP_MES  .filter(c=>map['m_'+c.campo]!=null);
+  const ficha=_IPL_FICHA.filter(c=>map['f_'+c.campo]!=null);
+  const mes  =_IPL_MES  .filter(c=>map['m_'+c.campo]!=null);
   if(!ficha.length&&!mes.length)return{error:'El archivo identifica a la gente pero no trae ningún dato que importar (sueldo, bonos o descuentos).'};
 
   const val=(f,i)=>i==null?'':String(f[i]==null?'':f[i]).trim();
@@ -188,10 +200,10 @@ function _ipAnalizar(texto){
 
     const id={dni:val(f,map.id_dni),cuspp:val(f,map.id_cuspp),
       nombre:val(f,map.id_nombre),ape:val(f,map.id_ape),nom:val(f,map.id_nom)};
-    if(!_ipDni(id.dni)&&!_ipNorm(id.cuspp)&&!_ipNorm(id.nombre)&&!_ipNorm(id.ape)&&!_ipNorm(id.nom)){vacias++;continue;}
+    if(!_iplDni(id.dni)&&!_iplNorm(id.cuspp)&&!_iplNorm(id.nombre)&&!_iplNorm(id.ape)&&!_iplNorm(id.nom)){vacias++;continue;}
 
     const quien=(id.nombre||[id.ape,id.nom].filter(Boolean).join(' ')||id.dni||'—').trim();
-    const em=_ipEmparejar(id);
+    const em=_iplEmparejar(id);
     if(!em.p){problemas.push({linea,quien,motivo:em.motivo});continue;}
 
     // Una persona, una fila. Si el archivo la repite se avisa y manda la primera.
@@ -205,11 +217,11 @@ function _ipAnalizar(texto){
     ficha.forEach(c=>{
       const crudo=val(f,map['f_'+c.campo]);
       if(crudo==='')return;
-      const nuevo=c.tipo==='num'?_csvNum(crudo):c.tipo==='bool'?_ipBool(crudo):crudo.trim();
+      const nuevo=c.tipo==='num'?_csvNum(crudo):c.tipo==='bool'?_iplBool(crudo):crudo.trim();
       const viejo=c.tipo==='num'?(+em.p[c.campo]||0):c.tipo==='bool'?(+em.p[c.campo]?1:0):String(em.p[c.campo]||'').trim();
       if(String(viejo)!==String(nuevo))camF.push({...c,viejo,nuevo});
     });
-    const det=(DB.planillaMes||[]).find(d=>d.personalId===em.p.id&&+d.mes===+_plGenMes&&String(d.anio)===String(_plGenAnio));
+    const det=(DB.planillaMes||[]).find(d=>d.personalId===em.p.id&&+d.mes===+PER.mes&&String(d.anio)===String(PER.anio));
     mes.forEach(c=>{
       const crudo=val(f,map['m_'+c.campo]);
       if(crudo==='')return;
@@ -223,16 +235,18 @@ function _ipAnalizar(texto){
   }
 
   return{delim,iEnc,total:filas.length-iEnc-1,map,sinUsar,ficha,mes,listas,problemas,vacias,
-    mesLbl:`${_PL_MESES[_plGenMes]} ${_plGenAnio}`};
+    per:PER,mesLbl:PER.lbl};
 }
 
 // ── Interfaz ───────────────────────────────────────────────────────────────
-function _ipAbrir(){
-  if(!_plGenMes||!_plGenAnio){toast('Primero genere la planilla del mes que va a cargar',true);return;}
-  const inp=document.getElementById('ipFile');
+function _iplAbrir(){
+  const per=_iplPer();
+  if(!per.mes){toast('Elija el mes al que va la información',true);return;}
+  if(!(DB.personal||[]).length){toast('No hay personal cargado con quien emparejar el archivo',true);return;}
+  const inp=document.getElementById('iplFile');
   if(inp){inp.value='';inp.click();}
 }
-function _ipArchivo(input){
+function _iplArchivo(input){
   const file=input.files&&input.files[0];
   if(!file)return;
   const rd=new FileReader();
@@ -245,26 +259,26 @@ function _ipArchivo(input){
       txt=new TextDecoder('utf-8',{fatal:false}).decode(buf);
       if(txt.indexOf('�')>-1)txt=new TextDecoder('windows-1252').decode(buf);
     }catch(e){toast('No se pudo leer el archivo',true);return;}
-    _ipDatos=_ipAnalizar(txt);
-    _ipDatos.nombre=file.name;
-    _ipPreview();
+    _iplDatos=_iplAnalizar(txt);
+    _iplDatos.nombre=file.name;
+    _iplPreview();
   };
   rd.onerror=()=>toast('No se pudo leer el archivo',true);
   rd.readAsArrayBuffer(file);
 }
 
-function _ipPreview(){
+function _iplPreview(){
   const cont=document.getElementById('impPlaBody');if(!cont)return;
   const btn=document.getElementById('impPlaBtn');
-  const D=_ipDatos;
+  const D=_iplDatos;
   if(D.error){
-    cont.innerHTML=`<div style="padding:2rem;text-align:center;color:#ef4444;font-weight:700">${_ipEsc(D.error)}</div>`;
+    cont.innerHTML=`<div style="padding:2rem;text-align:center;color:#ef4444;font-weight:700">${_iplEsc(D.error)}</div>`;
     if(btn)btn.style.display='none';
     openM('mImpPla');return;
   }
 
   // Un mes cerrado no se toca: para eso se cerró.
-  const cerrado=typeof plMesCerrado==='function'&&plMesCerrado(_plGenMes,_plGenAnio);
+  const cerrado=typeof plMesCerrado==='function'&&plMesCerrado(D.per.mes,D.per.anio);
   if(btn){btn.style.display='';btn.disabled=!D.listas.length||cerrado;}
 
   const kpi=(l,v,c)=>`<div class="kpi" style="--kc:${c};min-width:150px"><div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:1.5rem">${v}</div></div>`;
@@ -273,17 +287,17 @@ function _ipPreview(){
 
   const pinta=(c,color)=>{
     const num=c.tipo!=='txt';
-    const v=x=>c.tipo==='bool'?(+x?'Sí':'No'):num?_ipN(x):(String(x||'')||'—');
+    const v=x=>c.tipo==='bool'?(+x?'Sí':'No'):num?_iplN(x):(String(x||'')||'—');
     return`<span style="display:inline-block;background:${color}14;border:1px solid ${color}40;border-radius:5px;padding:0 .3rem;margin:1px 2px 1px 0;white-space:nowrap">
-      <span style="color:${color};font-weight:700">${_ipEsc(c.rot)}</span>
-      <span style="color:var(--muted2);text-decoration:line-through;opacity:.65;margin:0 .2rem">${_ipEsc(v(c.viejo))}</span>
-      <span style="font-weight:700;font-family:monospace">${_ipEsc(v(c.nuevo))}</span></span>`;
+      <span style="color:${color};font-weight:700">${_iplEsc(c.rot)}</span>
+      <span style="color:var(--muted2);text-decoration:line-through;opacity:.65;margin:0 .2rem">${_iplEsc(v(c.viejo))}</span>
+      <span style="font-weight:700;font-family:monospace">${_iplEsc(v(c.nuevo))}</span></span>`;
   };
   const COMO={DNI:'#10b981',CUSPP:'#06b6d4',nombre:'#f59e0b'};
   const muestra=D.listas.slice(0,60).map(x=>`<tr>
     <td style="${TD};font-family:monospace;color:var(--muted2)">${x.linea}</td>
-    <td style="${TD};font-weight:700;white-space:nowrap">${_ipEsc(x.p.ape+', '+x.p.nom)}
-      <div style="font-size:.58rem;font-weight:400;color:var(--muted2)">${_ipEsc(x.p.dni||'')} · ${_ipEsc(x.p.cargo||'')}</div></td>
+    <td style="${TD};font-weight:700;white-space:nowrap">${_iplEsc(x.p.ape+', '+x.p.nom)}
+      <div style="font-size:.58rem;font-weight:400;color:var(--muted2)">${_iplEsc(x.p.dni||'')} · ${_iplEsc(x.p.cargo||'')}</div></td>
     <td style="${TD};text-align:center"><span style="background:${COMO[x.como]}18;color:${COMO[x.como]};border:1px solid ${COMO[x.como]}40;border-radius:4px;padding:1px 6px;font-size:.58rem;font-weight:700">${x.como}</span></td>
     <td style="${TD}">${x.camF.map(c=>pinta(c,'#8b5cf6')).join('')||'<span style="color:var(--muted2)">—</span>'}</td>
     <td style="${TD}">${x.camM.map(c=>pinta(c,'#06b6d4')).join('')||'<span style="color:var(--muted2)">—</span>'}</td>
@@ -294,22 +308,22 @@ function _ipPreview(){
   const lista=(tit,arr,color)=>arr.length?`
     <details style="margin-top:.7rem"><summary style="cursor:pointer;font-size:.76rem;font-weight:700;color:${color}">${tit} (${arr.length})</summary>
       <div style="max-height:170px;overflow:auto;margin-top:.4rem;font-size:.7rem;color:var(--muted2);line-height:1.6">
-        ${arr.slice(0,100).map(p=>`<div>Línea <b>${p.linea}</b> · ${_ipEsc(p.quien)} — ${_ipEsc(p.motivo)}</div>`).join('')}
+        ${arr.slice(0,100).map(p=>`<div>Línea <b>${p.linea}</b> · ${_iplEsc(p.quien)} — ${_iplEsc(p.motivo)}</div>`).join('')}
         ${arr.length>100?`<div style="opacity:.6">… y ${arr.length-100} más</div>`:''}
       </div></details>`:'';
 
   const nF=D.listas.reduce((s,x)=>s+x.camF.length,0);
   const nM=D.listas.reduce((s,x)=>s+x.camM.length,0);
-  const chip=(t,c)=>`<span style="background:${c}14;border:1px solid ${c}40;color:${c};border-radius:5px;padding:1px .4rem;font-size:.64rem;font-weight:700;margin:2px 3px 2px 0;display:inline-block">${_ipEsc(t)}</span>`;
+  const chip=(t,c)=>`<span style="background:${c}14;border:1px solid ${c}40;color:${c};border-radius:5px;padding:1px .4rem;font-size:.64rem;font-weight:700;margin:2px 3px 2px 0;display:inline-block">${_iplEsc(t)}</span>`;
 
   cont.innerHTML=`
-    <div style="font-size:.76rem;color:var(--muted2);margin-bottom:.6rem">📄 <b style="color:var(--text)">${_ipEsc(D.nombre||'archivo.csv')}</b> · separador <span class="mono">${D.delim===';'?'punto y coma':D.delim===','?'coma':'tabulación'}</span> · encabezado en la línea ${D.iEnc+1} · ${D.total} filas de datos</div>
+    <div style="font-size:.76rem;color:var(--muted2);margin-bottom:.6rem">📄 <b style="color:var(--text)">${_iplEsc(D.nombre||'archivo.csv')}</b> · separador <span class="mono">${D.delim===';'?'punto y coma':D.delim===','?'coma':'tabulación'}</span> · encabezado en la línea ${D.iEnc+1} · ${D.total} filas de datos</div>
 
     ${cerrado?`<div style="background:rgba(239,68,68,.1);border:1px solid #ef444460;border-radius:8px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.78rem;color:#ef4444;font-weight:700">
-      🔒 La planilla de ${_ipEsc(D.mesLbl)} está cerrada. Reábrala para poder importar.</div>`:''}
+      🔒 La planilla de ${_iplEsc(D.mesLbl)} está cerrada. Reábrala para poder importar.</div>`:''}
 
     <div style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.35);border-radius:8px;padding:.5rem .7rem;margin-bottom:.7rem;font-size:.74rem;color:var(--muted2)">
-      Los conceptos del mes entran en <b style="color:#8b5cf6">${_ipEsc(D.mesLbl)}</b> — el mes elegido arriba. Los datos de la ficha (sueldo, AFP, banco…) valen para todos los meses.
+      Los conceptos del mes entran en <b style="color:#8b5cf6">${_iplEsc(D.mesLbl)}</b> — el mes elegido arriba. Los datos de la ficha (sueldo, AFP, banco…) valen para todos los meses.
     </div>
 
     <div class="kpi-row" style="margin-bottom:.8rem">
@@ -325,13 +339,13 @@ function _ipPreview(){
       ${D.ficha.map(c=>chip(c.rot,'#8b5cf6')).join('')}${D.mes.map(c=>chip(c.rot,'#06b6d4')).join('')}
       ${(!D.ficha.length&&!D.mes.length)?'ninguna':''}
     </div>
-    ${D.sinUsar.length?`<div style="font-size:.7rem;color:var(--muted2);margin-bottom:.6rem">Columnas que no se importan (el sistema las calcula o no las maneja): <span style="color:#94a3b8">${_ipEsc(D.sinUsar.join(' · '))}</span></div>`:''}
+    ${D.sinUsar.length?`<div style="font-size:.7rem;color:var(--muted2);margin-bottom:.6rem">Columnas que no se importan (el sistema las calcula o no las maneja): <span style="color:#94a3b8">${_iplEsc(D.sinUsar.join(' · '))}</span></div>`:''}
 
     ${lista('⚠ Filas que no se pudieron emparejar — no se importan',errores,'#ef4444')}
     ${lista('✓ Filas que ya tienen esos mismos valores',sinCambio,'#64748b')}
 
     <label style="display:flex;align-items:center;gap:.4rem;margin-top:.7rem;font-size:.74rem;color:var(--muted2);cursor:pointer">
-      <input type="checkbox" id="ipSoloMes" style="width:auto" onchange="_ipPreview()"> Importar solo los conceptos del mes, sin tocar la ficha de los trabajadores
+      <input type="checkbox" id="iplSoloMes" style="width:auto" onchange="_iplPreview()"> Importar solo los conceptos del mes, sin tocar la ficha de los trabajadores
     </label>
 
     <div style="margin-top:.9rem;font-size:.72rem;color:var(--muted2);font-weight:700">Qué va a cambiar — primeros ${Math.min(60,D.listas.length)} de ${D.listas.length}</div>
@@ -339,26 +353,26 @@ function _ipPreview(){
       <table style="width:100%;border-collapse:collapse">
         <thead><tr>
           <th style="${TH}">Línea</th><th style="${TH}">Trabajador</th><th style="${TH};text-align:center">Match</th>
-          <th style="${TH}">Ficha</th><th style="${TH}">Conceptos de ${_ipEsc(D.mesLbl)}</th>
+          <th style="${TH}">Ficha</th><th style="${TH}">Conceptos de ${_iplEsc(D.mesLbl)}</th>
         </tr></thead>
         <tbody>${muestra||`<tr><td colspan="5" style="${TD};text-align:center;padding:1.5rem;color:var(--muted2)">Nada que actualizar</td></tr>`}</tbody>
       </table>
     </div>
-    <div id="ipProgreso" style="margin-top:.7rem;font-size:.76rem;color:var(--adm);font-weight:700"></div>`;
+    <div id="iplProgreso" style="margin-top:.7rem;font-size:.76rem;color:var(--adm);font-weight:700"></div>`;
 
-  const chk=document.getElementById('ipSoloMes');
-  if(chk&&_ipDatos._soloMes)chk.checked=true;
+  const chk=document.getElementById('iplSoloMes');
+  if(chk&&_iplDatos._soloMes)chk.checked=true;
   openM('mImpPla');
 }
 
 // ── Guardar ────────────────────────────────────────────────────────────────
-async function _ipConfirmar(){
-  const D=_ipDatos;
+async function _iplConfirmar(){
+  const D=_iplDatos;
   if(!D||D.error)return;
-  if(typeof plMesCerrado==='function'&&plMesCerrado(_plGenMes,_plGenAnio)){
+  if(typeof plMesCerrado==='function'&&plMesCerrado(D.per.mes,D.per.anio)){
     toast('La planilla de ese mes está cerrada',true);return;
   }
-  const soloMes=!!(document.getElementById('ipSoloMes')||{}).checked;
+  const soloMes=!!(document.getElementById('iplSoloMes')||{}).checked;
   D._soloMes=soloMes;
   const cola=D.listas.filter(x=>x.camM.length||(!soloMes&&x.camF.length));
   if(!cola.length){toast('No hay nada que importar',true);return;}
@@ -371,7 +385,7 @@ async function _ipConfirmar(){
     +`\nLo que el archivo no menciona se queda como está. ¿Continuar?`))return;
 
   const btn=document.getElementById('impPlaBtn');
-  const prog=document.getElementById('ipProgreso');
+  const prog=document.getElementById('iplProgreso');
   if(btn){btn.disabled=true;btn.textContent='Importando...';}
 
   let okP=0,okM=0,fallos=0,ultimo='';
@@ -392,9 +406,9 @@ async function _ipConfirmar(){
     // B · Conceptos del mes
     if(x.camM.length){
       DB.planillaMes=DB.planillaMes||[];
-      let det=DB.planillaMes.find(d=>d.personalId===x.p.id&&+d.mes===+_plGenMes&&String(d.anio)===String(_plGenAnio));
+      let det=DB.planillaMes.find(d=>d.personalId===x.p.id&&+d.mes===+D.per.mes&&String(d.anio)===String(D.per.anio));
       const nuevo=!det;
-      if(nuevo)det={id:nidSeguro('plm','planillaMes'),personalId:x.p.id,mes:+_plGenMes,anio:_plGenAnio};
+      if(nuevo)det={id:nidSeguro('plm','planillaMes'),personalId:x.p.id,mes:+D.per.mes,anio:D.per.anio};
       const prev={...det};
       x.camM.forEach(c=>{det[c.campo]=c.nuevo;});
       if(nuevo)DB.planillaMes.push(det);
@@ -411,29 +425,30 @@ async function _ipConfirmar(){
 
   if(btn){btn.disabled=false;btn.textContent='📥 Importar';}
   closeM('mImpPla');
-  if(typeof genPlanilla==='function')genPlanilla();
+  if(typeof genPlanilla==='function'&&_plGenMes)genPlanilla();
   if(typeof rPersonal==='function'&&document.getElementById('page-personal')?.classList.contains('active'))rPersonal();
   if(fallos)toast(`Actualizados ${okP+okM} · ${fallos} con error: ${ultimo}`,true);
   else toast(`✓ ${okP} ficha(s) y ${okM} mes(es) actualizados`);
-  _ipDatos=null;
+  _iplDatos=null;
 }
 
 // ── Plantilla de ejemplo ───────────────────────────────────────────────────
 // Un CSV con los encabezados que el importador reconoce y la gente que ya está
 // cargada, para llenarlo en Excel y devolverlo sin adivinar nombres.
-function _ipPlantilla(){
+function _iplPlantilla(){
   const cols=['DNI','Apellidos y Nombres','Sueldo base','Asignación familiar','Movilidad','AFP','CUSPP','Banco','Cuenta',
     'HE 25','HE 35','HE 100','Reintegro','Bonificación altura','Bonificación nocturna','Refrigerio','Bono','Gratificación',
     'Adelanto','CTS','Sindicato','Rímac','Más Vida','Fondo minero','Otros descuentos','Retención judicial','Quinta categoría'];
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const gente=(DB.personal||[]).filter(p=>(p.est||'Activo')==='Activo')
     .sort((a,b)=>String(a.ape||'').localeCompare(String(b.ape||'')));
+  if(!gente.length){toast('No hay personal activo para armar la plantilla',true);return;}
   const filas=gente.map(p=>[p.dni||'',(p.ape||'')+', '+(p.nom||''),p.sue||'',+p.asig?'SI':'NO',p.movilidad||'',
     p.afp||'',p.cuspp||'',p.banco||'',p.cuenta||''].concat(new Array(cols.length-9).fill('')));
   const csv='﻿'+[cols,...filas].map(f=>f.map(q).join(';')).join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`Plantilla_Planilla_${_PL_MESES[_plGenMes]||''}_${_plGenAnio||''}.csv`;
+  a.download='Plantilla_Planilla_'+_iplPer().lbl.replace(/ /g,'_')+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   toast(`✓ Plantilla con ${gente.length} trabajador(es)`);
