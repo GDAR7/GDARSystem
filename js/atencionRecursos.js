@@ -34,7 +34,16 @@ const _AR_DEF=[
   {nombre:'Desg. de H. Manuales', cargo:'',                    eqCodigo:'', cantidad:1, participacion:0.05, cuhManual:23.90, usaManual:1, orden:50}
 ];
 
+// Lo que hay configurado en la base. Solo esto se edita en el panel.
 const _arLista=()=>[...(DB.atencionRecursos||[])].sort((a,b)=>(+a.orden||0)-(+b.orden||0));
+// Lo que USA el cálculo: si todavía no se configuró nada, cae en la lista base.
+// Así el cuadro del EDP se ve igual que el formato desde el primer día, sin
+// obligar a cargar nada primero.
+function _arListaCalc(){
+  const g=_arLista();
+  if(g.length)return g;
+  return _AR_DEF.map((d,i)=>({id:-(i+1),...d})).sort((a,b)=>(+a.orden||0)-(+b.orden||0));
+}
 
 // ── C.U.H. de un recurso ───────────────────────────────────────────────────
 // Devuelve el valor y de dónde salió, para poder mostrarlo en pantalla.
@@ -94,7 +103,7 @@ function arCalcular(atenciones,per){
     : [{horas:+atenciones||0,nMec:0,nAyu:0}];
   const H=lista.reduce((s,a)=>s+a.horas,0);
 
-  const filas=_arLista().map(r=>{
+  const filas=_arListaCalc().map(r=>{
     const c=arCuh(r,per);
     const part=+r.participacion||0;
     // fuenteCant: de dónde sale la cantidad. '' = la escrita a mano;
