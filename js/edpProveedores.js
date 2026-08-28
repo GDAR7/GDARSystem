@@ -278,8 +278,13 @@ function _edpDescAuto(eq,desde,hasta){
   // Atención mecánica: monto por auxilio = T. Parada (h) × tarifa S//hh
   const atenciones=auxs.filter(a=>(+a.tiempoParada||0)>0).map(a=>{
     const horas=+a.tiempoParada||0;
-    return{auxCod:a.cod,fecha:a.fecha,tipo:a.tipo||'—',desc:a.desc||'—',mec:[a.mec,a.mec2].filter(Boolean).join(' / ')||'—',
-      horas,precio:_edpTarifaAtencion,total:+(horas*_edpTarifaAtencion).toFixed(2)};
+    // Cuántos atendieron ESTA atención. El auxilio ya los distingue, así que
+    // las cantidades del cuadro de recursos NO se digitan: salen de aquí.
+    const nMec=[a.mec,a.mec2].filter(Boolean).length;
+    const nAyu=[a.ayudante].filter(Boolean).length;
+    return{auxCod:a.cod,fecha:a.fecha,tipo:a.tipo||'—',desc:a.desc||'—',
+      mec:[a.mec,a.mec2,a.ayudante].filter(Boolean).join(' / ')||'—',
+      horas,nMec,nAyu,precio:_edpTarifaAtencion,total:+(horas*_edpTarifaAtencion).toFixed(2)};
   });
   const horasAtencion=auxs.reduce((s,a)=>s+(+a.tiempoParada||0),0);
   return{insumos,horasAtencion,auxs,atenciones};
@@ -932,7 +937,13 @@ function _edpDocHtml(eq,H,D,F){
   const hayDesc=(D.insumos&&D.insumos.length)||(D.atenciones&&D.atenciones.length)||_edpDescManual.length;
   if(hayDesc){
     const totIns=D.insumos.reduce((s,i)=>s+i.total,0);
-    const totAten=D.atenciones.reduce((s,a)=>s+a.total,0);
+    // El total de la atención sale del cuadro de recursos (paso 2), no de
+    // multiplicar las horas por una tarifa única como antes.
+    const _arPerT={desde:_edpDesde,hasta:_edpHasta,
+      dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
+    const totAten=(typeof arCalcular==='function')
+      ? arCalcular(D.atenciones,_arPerT).total
+      : D.atenciones.reduce((s,a)=>s+a.total,0);
     const totManual=_edpDescManual.reduce((s,r)=>s+(+r.cant||0)*(+r.precio||0),0);
 
     const secIns=D.insumos.length?`
@@ -957,13 +968,18 @@ function _edpDocHtml(eq,H,D,F){
         <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="8" style="${TD};text-align:right">SUBTOTAL INSUMOS</td><td style="${TD};text-align:right;color:#b91c1c">${SIM} ${_edpN2(totIns)}</td></tr></tfoot>
       </table>`:'';
 
+    // Atención mecánica en dos pasos: primero las horas atendidas y quién las
+    // atendió, después el costo de los recursos empleados en esas horas.
+    const _arPer={desde:_edpDesde,hasta:_edpHasta,
+      dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
+    const _arC=(typeof arCalcular==='function')?arCalcular(D.atenciones,_arPer):{filas:[],total:0};
     const secAten=D.atenciones.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">B. ATENCIÓN MECÁNICA — ECOSERMO (según tiempo de parada)</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
         <thead><tr>
           <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Tipo Falla</th>
           <th style="${TH};text-align:left">Descripción del Problema</th><th style="${TH};text-align:left">Mecánico(s)</th>
-          <th style="${TH}">T. Parada (h)</th><th style="${TH}">Tarifa ${SIM}/hh</th><th style="${TH}">Total ${SIM}</th>
+          <th style="${TH}">T. Parada (h)</th>
         </tr></thead>
         <tbody>${D.atenciones.map((a,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td>
@@ -973,10 +989,26 @@ function _edpDocHtml(eq,H,D,F){
           <td style="${TD}">${a.desc}</td>
           <td style="${TD};font-size:9px">${a.mec}</td>
           <td style="${TD};text-align:right;font-weight:700">${_edpN2(a.horas)}</td>
-          <td style="${TD};text-align:right">${_edpN2(a.precio)}${a.precio?'':' <span style="color:#b91c1c;font-size:8px">(sin tarifa)</span>'}</td>
-          <td style="${TD};text-align:right;font-weight:700;color:#b91c1c">${_edpN2(a.total)}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(D.horasAtencion)}</td><td style="${TD}"></td><td style="${TD};text-align:right;color:#b91c1c">${SIM} ${_edpN2(totAten)}</td></tr></tfoot>
+        <tfoot><tr style="font-weight:800"><td colspan="6" style="${TD};text-align:right;border:none">Total (1)</td><td style="${TD};text-align:right;border-top:2px solid ${AZ};border-bottom:2px double ${AZ}">${_edpN2(D.horasAtencion)}</td></tr></tfoot>
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin:8px 0 6px;max-width:640px">
+        <thead><tr>
+          <th style="${TH};text-align:left">Tipo de recurso</th>
+          <th style="${TH}">Cantidad (2)</th><th style="${TH}">Participación (3)</th>
+          <th style="${TH}">C.U.H. (4)</th><th style="${TH}">Parcial (5)=(1)*(2)*(3)*(4)</th>
+        </tr></thead>
+        <tbody>${_arC.filas.map(f=>`<tr>
+          <td style="${TD}">${f.nombre}</td>
+          <td style="${TD};text-align:center">${_edpN2(f.cantidad)}${f.auto&&f.rango.length>1?' <span style="font-size:8px;color:#555">('+f.rango.join('/')+')</span>':''}</td>
+          <td style="${TD};text-align:center">${(f.participacion*100).toFixed(0)}%</td>
+          <td style="${TD};text-align:right">${_edpN2(f.cuh)}${f.cuh?'':' <span style="color:#b91c1c;font-size:8px">('+f.fuente+')</span>'}</td>
+          <td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(f.parcial)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr style="background:#ffff00;font-weight:900">
+          <td colspan="4" style="${TD};text-align:right">Total</td>
+          <td style="${TD};text-align:right">${SIM} ${_edpN2(_arC.total)}</td>
+        </tr></tfoot>
       </table>`:'';
 
     const secMan=_edpDescManual.length?`
