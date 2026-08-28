@@ -27,12 +27,21 @@ const _arNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g
 
 // Lista por defecto, con la estructura del formato del cliente
 const _AR_DEF=[
-  {nombre:'Jefe de Equipos',      cargo:'JEFE DE EQUIPOS',     eqCodigo:'', cantidad:1, participacion:0.10, cuhManual:0, usaManual:0, orden:10},
-  {nombre:'Mecánico',             cargo:'MECANICO',            eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0, usaManual:0, orden:20, fuenteCant:'mec'},
-  {nombre:'Ayudante mecánico',    cargo:'AYUDANTE MECANICO',   eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0, usaManual:0, orden:30, fuenteCant:'ayudante'},
-  {nombre:'Camioneta Full',       cargo:'',                    eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0, usaManual:0, orden:40},
-  {nombre:'Desg. de H. Manuales', cargo:'',                    eqCodigo:'', cantidad:1, participacion:0.05, cuhManual:23.90, usaManual:1, orden:50}
+  {nombre:'Jefe de Equipos',      cargo:'ING. SUPERVISOR DE MANTTO DE EQUIPOS', tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:0.10, cuhManual:0,     usaManual:0, orden:10},
+  {nombre:'Mecánico',             cargo:'MECANICO',                             tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0,     usaManual:0, orden:20, fuenteCant:'mec'},
+  {nombre:'Ayudante mecánico',    cargo:'AYUDANTE MECANICO',                    tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0,     usaManual:0, orden:30, fuenteCant:'ayudante'},
+  {nombre:'Camioneta Full',       cargo:'',  tarifaDesc:'Camioneta 4 Pasajeros', tarifaCol:'full', eqCodigo:'', cantidad:1, participacion:1, cuhManual:0,     usaManual:0, orden:40},
+  {nombre:'Desg. de H. Manuales', cargo:'',                                     tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:0.05, cuhManual:23.90, usaManual:1, orden:50}
 ];
+
+// El mismo puesto se escribe distinto en cada sitio. Estos son los nombres con
+// los que puede aparecer en HH Venta; el primero que exista manda.
+const _AR_ALIAS={
+  'JEFE DE EQUIPOS':['ING SUPERVISOR DE MANTTO DE EQUIPOS','SUPERVISOR DE MANTTO DE EQUIPOS','JEFE DE MANTENIMIENTO','JEFE DE MANTTO'],
+  'ING SUPERVISOR DE MANTTO DE EQUIPOS':['JEFE DE EQUIPOS','JEFE DE MANTENIMIENTO','JEFE DE MANTTO'],
+  'MECANICO':['MECANICO DE EQUIPOS','TECNICO MECANICO'],
+  'AYUDANTE MECANICO':['AYUDANTE DE MECANICO','AUXILIAR MECANICO','AYUDANTE DE MANTENIMIENTO']
+};
 
 // Lo que hay configurado en la base. Solo esto se edita en el panel.
 const _arLista=()=>[...(DB.atencionRecursos||[])].sort((a,b)=>(+a.orden||0)-(+b.orden||0));
@@ -54,11 +63,24 @@ function arCuh(r,per){
 
   // Personal: tarifa de venta del cargo (HH Venta) × incidencia ÷ horas
   if(r.cargo){
-    const inc=_arIncidencia(r.cargo,per);
-    const tar=_arTarifaCargo(r.cargo);
-    if(!tar)return{cuh:0,fuente:'sin tarifa',detalle:'el cargo no está en HH Venta'};
-    return{cuh:+(tar*inc/horasPer).toFixed(4),fuente:'HH Venta',
-      detalle:`${_arN(tar)} × inc ${inc.toFixed(4)} ÷ ${horasPer} h`};
+    const t=_arTarifaCargo(r.cargo);
+    if(!t)return{cuh:0,fuente:'sin tarifa',detalle:'el cargo no está en HH Venta'};
+    const inc=_arIncidencia(t.cargo,per);
+    const otro=_arNorm(t.cargo)!==_arNorm(r.cargo)?_arEsc(t.cargo)+' · ':'';
+    return{cuh:+(t.mes*inc/horasPer).toFixed(4),fuente:'HH Venta',
+      detalle:otro+`${_arN(t.mes)} × inc ${inc.toFixed(4)} ÷ ${horasPer} h`};
+  }
+  // Tarifa del cuadro de Tarifas de Equipos, elegida a dedo (p. ej. la
+  // camioneta: no es una unidad del Máster, es la tarifa contractual)
+  if(r.tarifaDesc){
+    const t=_arTarifaEqDesc(r.tarifaDesc);
+    if(!t)return{cuh:0,fuente:'sin tarifa',detalle:'esa tarifa no está en Tarifas de Equipos'};
+    const col=String(r.tarifaCol||'full')==='seca'?'seca':'full';
+    const val=col==='seca'?(+t.tarifaSeca||0):(+t.tarifaFull||0);
+    if(!val)return{cuh:0,fuente:'sin tarifa',detalle:'la tarifa '+col+' está en cero'};
+    const un=t.unidad||'HM';
+    if(un!=='MES')return{cuh:+val.toFixed(4),fuente:'Tarifas Eq.',detalle:col+' · por hora'};
+    return{cuh:+(val/horasPer).toFixed(4),fuente:'Tarifas Eq.',detalle:`${col} ${_arN(val)} ÷ ${horasPer} h`};
   }
   // Equipo: tarifa de venta del Máster
   if(r.eqCodigo){
@@ -71,16 +93,37 @@ function arCuh(r,per){
     if(un==='HM')return{cuh:+tarifa.toFixed(4),fuente:'Tarifas Eq.',detalle:'tarifa por hora'};
     return{cuh:+(tarifa/horasPer).toFixed(4),fuente:'Tarifas Eq.',detalle:`${_arN(tarifa)} ÷ ${horasPer} h`};
   }
-  return{cuh:0,fuente:'sin origen',detalle:'sin cargo ni equipo · fije un C.U.H.'};
+  return{cuh:0,fuente:'sin origen',detalle:'elija de dónde sale su costo'};
 }
 
+// El cargo tal como está escrito en HH Venta: primero el nombre exacto, luego
+// los alias conocidos y al final por contenido, para no fallar por un "ING."
+// de más o de menos.
+function _arResolverCargo(cargo){
+  const lista=(DB.ventaPersonal||[]).filter(t=>+t.tarifaMes>0);
+  if(!cargo||!lista.length)return null;
+  const n=_arNorm(cargo);
+  let v=lista.find(t=>_arNorm(t.cargo)===n);
+  if(v)return v;
+  for(const a of(_AR_ALIAS[n]||[])){
+    v=lista.find(t=>_arNorm(t.cargo)===_arNorm(a));
+    if(v)return v;
+  }
+  return lista.find(t=>{const c=_arNorm(t.cargo);return c&&(c.includes(n)||n.includes(c));})||null;
+}
 // Tarifa mes de venta del cargo, de HH Venta
 function _arTarifaCargo(cargo){
-  const n=_arNorm(cargo);
-  const v=(DB.ventaPersonal||[]).find(t=>_arNorm(t.cargo)===n);
-  if(v&&+v.tarifaMes>0)return +v.tarifaMes;
-  if(typeof _ccMatchHH==='function'){const m=_ccMatchHH(cargo);if(m&&+m.mes>0)return +m.mes;}
-  return 0;
+  const v=_arResolverCargo(cargo);
+  if(v)return{mes:+v.tarifaMes,cargo:v.cargo};
+  if(typeof _ccMatchHH==='function'){const m=_ccMatchHH(cargo);if(m&&+m.mes>0)return{mes:+m.mes,cargo:m.lab||cargo};}
+  return null;
+}
+// Una tarifa del cuadro de Tarifas de Equipos, por su descripción
+function _arTarifaEqDesc(desc){
+  const l=DB.tarifasEq||[];
+  if(!desc||!l.length)return null;
+  const n=_arNorm(desc);
+  return l.find(t=>_arNorm(t.desc)===n)||l.find(t=>_arNorm(t.desc).includes(n))||null;
 }
 // Incidencia media del cargo en el período — misma regla que HH Venta
 function _arIncidencia(cargo,per){
@@ -150,21 +193,53 @@ function _arSetHorasDia(v){
 
 async function _arGuardarCampo(id,campo,valor){
   const r=(DB.atencionRecursos||[]).find(x=>+x.id===+id);if(!r)return;
-  const prev=r[campo];
+  const prev={...r};                       // el origen toca varios campos a la vez
   if(campo==='participacion')r[campo]=+(+valor/100).toFixed(6);
   else if(campo==='cantidad'||campo==='cuhManual'||campo==='orden')r[campo]=+valor||0;
   else if(campo==='usaManual')r[campo]=valor?1:0;
   else if(campo==='fuenteCant')r[campo]=String(valor||'');
+  else if(campo==='origen'){
+    const s=String(valor||'');
+    r.cargo='';r.tarifaDesc='';r.tarifaCol='';r.eqCodigo='';r.usaManual=0;
+    if(s==='f')r.usaManual=1;
+    else if(s.slice(0,2)==='c:')r.cargo=s.slice(2);
+    else if(s.slice(0,2)==='t:'){const p=s.slice(2),i=p.indexOf(':');r.tarifaCol=p.slice(0,i);r.tarifaDesc=p.slice(i+1);}
+    else if(s.slice(0,2)==='e:')r.eqCodigo=s.slice(2);
+  }
   else r[campo]=String(valor||'').trim();
   const err=await supaUpsert('atencionRecursos',r);
-  if(err){r[campo]=prev;return;}
+  if(err){Object.assign(r,prev);return;}
   _arRender();
+}
+
+// ── De dónde sale el costo del recurso, en un solo valor ───────────────────
+function _arOrigenVal(r){
+  if(+r.usaManual)return'f';
+  if(r.cargo)return'c:'+r.cargo;
+  if(r.tarifaDesc)return't:'+(String(r.tarifaCol||'full'))+':'+r.tarifaDesc;
+  if(r.eqCodigo)return'e:'+r.eqCodigo;
+  return'';
+}
+function _arOrigenOpts(r){
+  const v=_arOrigenVal(r);
+  const op=(val,txt)=>`<option value="${_arEsc(val)}"${v===val?' selected':''}>${_arEsc(txt)}</option>`;
+  let h=op('','— elegir origen —')+op('f','Valor fijo (a mano)');
+  const cargos=[...new Set((DB.ventaPersonal||[]).filter(t=>+t.tarifaMes>0).map(t=>t.cargo))].sort();
+  if(cargos.length)h+='<optgroup label="HH Venta · cargo">'+cargos.map(c=>op('c:'+c,c)).join('')+'</optgroup>';
+  const tf=[...(DB.tarifasEq||[])].sort((a,b)=>String(a.desc||'').localeCompare(String(b.desc||'')));
+  if(tf.length){
+    h+='<optgroup label="Tarifas Eq. · Full">'+tf.map(t=>op('t:full:'+t.desc,t.desc+' · '+_arN(t.tarifaFull)+' '+(t.unidad||'HM'))).join('')+'</optgroup>';
+    h+='<optgroup label="Tarifas Eq. · Seca">'+tf.map(t=>op('t:seca:'+t.desc,t.desc+' · '+_arN(t.tarifaSeca)+' '+(t.unidad||'HM'))).join('')+'</optgroup>';
+  }
+  // Si apunta a algo que ya no está en las listas, no perderlo de vista
+  if(v&&h.indexOf('value="'+_arEsc(v)+'"')<0)h+=op(v,v.replace(/^[cte]:/,'')+' (ya no existe)');
+  return h;
 }
 async function _arNuevo(){
   const nombre=prompt('Nombre del recurso:','');
   if(!nombre||!nombre.trim())return;
   const max=Math.max(0,..._arLista().map(r=>+r.orden||0));
-  const rec={id:nidSeguro('arec','atencionRecursos'),nombre:nombre.trim(),cargo:'',eqCodigo:'',
+  const rec={id:nidSeguro('arec','atencionRecursos'),nombre:nombre.trim(),cargo:'',tarifaDesc:'',tarifaCol:'',eqCodigo:'',
     cantidad:1,participacion:1,cuhManual:0,usaManual:1,fuenteCant:'',orden:max+10};
   (DB.atencionRecursos=DB.atencionRecursos||[]).push(rec);
   const err=await supaUpsert('atencionRecursos',rec);
@@ -195,7 +270,11 @@ function _arRender(){
     const malo=!cu.cuh&&!+r.usaManual;
     return`<tr>
       <td style="${TD};font-weight:700">${_arEsc(r.nombre)}
-        <div style="font-size:.58rem;color:var(--muted2);font-weight:400">${_arEsc(r.cargo||r.eqCodigo||(+r.usaManual?'valor fijo':'sin origen'))}</div></td>
+        <div style="margin-top:2px">
+          <select onchange="_arGuardarCampo(${r.id},'origen',this.value)" title="De dónde sale el C.U.H." style="background:var(--panel);border:1px solid ${_arOrigenVal(r)?'var(--border)':'#ef444470'};border-radius:5px;color:var(--muted2);font-size:.58rem;padding:1px .2rem;max-width:230px">
+            ${_arOrigenOpts(r)}
+          </select>
+        </div></td>
       <td style="${TD};text-align:right">
         ${(()=>{const fte=String(r.fuenteCant||'');const auto=fte==='mec'||fte==='ayudante';
           return auto
@@ -215,9 +294,6 @@ function _arRender(){
           ?`<input type="number" step="0.01" min="0" value="${+r.cuhManual||0}" onchange="_arGuardarCampo(${r.id},'cuhManual',this.value)" style="${inp}">`
           :`<span style="font-family:monospace;font-weight:700;color:${malo?'#ef4444':'inherit'}">${_arN(cu.cuh)}</span>`}
         <div style="font-size:.55rem;color:${malo?'#ef4444':'var(--muted2)'}">${_arEsc(cu.detalle||cu.fuente)}</div>
-      </td>
-      <td style="${TD};text-align:center">
-        <input type="checkbox" ${+r.usaManual?'checked':''} onchange="_arGuardarCampo(${r.id},'usaManual',this.checked)" title="Fijar el C.U.H. a mano" style="width:auto">
       </td>
       <td style="${TD};text-align:right">
         <button onclick="_arBorrar(${r.id})" style="background:none;border:1px solid #ef444450;border-radius:5px;color:#ef4444;cursor:pointer;font-size:.7rem;padding:.1rem .35rem">🗑</button>
@@ -240,10 +316,9 @@ function _arRender(){
           <th style="${TH};text-align:right">Cant. (2)</th>
           <th style="${TH};text-align:right">Particip. (3)</th>
           <th style="${TH};text-align:right">C.U.H. (4)</th>
-          <th style="${TH};text-align:center">Fijo</th>
           <th style="${TH}"></th>
         </tr></thead>
-        <tbody>${filas||`<tr><td colspan="6" style="${TD};text-align:center;padding:1.5rem;color:var(--muted2)">Sin recursos · cargue la lista base</td></tr>`}</tbody>
+        <tbody>${filas||`<tr><td colspan="5" style="${TD};text-align:center;padding:1.5rem;color:var(--muted2)">Sin recursos · cargue la lista base</td></tr>`}</tbody>
       </table>
     </div>`;
 }
