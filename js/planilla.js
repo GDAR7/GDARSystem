@@ -49,6 +49,9 @@ const _PL_APORTE_AFP_EMPL=0;   // 0.12 = 12 %
 // Tasa diaria de la bonificación por costo de vida (S/ por día).
 // Se aplica sobre los días trabajados + los días libres ganados.
 const _PL_CV_TASA=2.138;
+// Las marcas del tareaje que el cálculo trata una por una. Cualquier otra
+// (permiso, vacaciones, retén…) cae en "Otros días" y así no se pierde.
+const _PL_TIPOS_CONOCIDOS=['TD','A5','TN','DLT','DL','DM','LP','LM','LF','F'];
 
 // ── Motor de cálculo por trabajador ──
 function _calcPlanRow(p,det){
@@ -71,11 +74,29 @@ function _calcPlanRow(p,det){
   const diasLM =nDias('LM');
   const diasLF =nDias('LF');
   const diasF  =nDias('F');
+
+  // Licencias con goce: paternidad, maternidad y fallecimiento. Se pagan (ya
+  // salían en "Licencia con goce"), pero no se veían por ningún lado.
+  const diasLic=diasLP+diasLM+diasLF;
+  // El tareaje admite más marcas de las que el cálculo nombra una por una
+  // (permiso, vacaciones, retén…). Antes desaparecían: ni se pagaban ni se
+  // contaban, y por eso los días no cuadraban con el tareaje.
+  const diasOtroTipo=new Set(
+    tr.filter(r=>!_PL_TIPOS_CONOCIDOS.includes(r.tipo)).map(r=>String(r.fecha).slice(0,10))
+  ).size;
   // El Anexo 5 entra en el subtotal, igual que en Tareaje, HH Venta y Corte de
   // Equipos. Antes quedaba fuera y los días de A5 no se pagaban ni se veían.
   const diasSubTotal=diasTD+diasA5+diasTN+diasDLT;
-  const otrosDias   =diasDM+diasLP+diasLM+diasLF;
-  const diasTotal   =diasSubTotal+diasDL;
+  // "Otros días" pasa a ser el descanso médico y las marcas sueltas; las
+  // licencias tienen su propia columna.
+  const otrosDias   =diasDM+diasOtroTipo;
+  // Días total = todo lo que el mes tiene marcado y se paga. Ahora la fila
+  // cuadra de verdad: subtotal + libres + licencias + otros.
+  const diasTotal   =diasSubTotal+diasDL+diasLic+otrosDias;
+  // La bonificación por costo de vida se sigue calculando sobre lo de siempre
+  // (trabajados + libres ganados). Ampliar los días totales es un cambio de
+  // presentación: no debe mover por su cuenta lo que se paga.
+  const diasCv      =diasSubTotal+diasDL;
 
   // Jornal
   const jornal_mes=p.sue||0;
@@ -91,7 +112,7 @@ function _calcPlanRow(p,det){
   // automático. Lo que se haya cargado a mano en el detalle (una gratificación
   // trunca, un reintegro de liquidación) sí se respeta: alguien lo escribió a
   // propósito.
-  const diasPagables=diasTotal+otrosDias;
+  const diasPagables=diasTotal;
   const sinDias     =diasPagables===0;
 
   // Ingresos fijos
@@ -102,7 +123,7 @@ function _calcPlanRow(p,det){
   // Bonif. costo de vida = (días trabajados + días libres ganados) × tasa.
   // Es exactamente diasTotal, que ya suma los dos. Si en el detalle se cargó un
   // importe a mano, ese manda: sirve para los casos de excepción.
-  const bCvCalc   =r2(diasTotal*_PL_CV_TASA);
+  const bCvCalc   =r2(diasCv*_PL_CV_TASA);
   const bCv       =(det&&+det.bCv)?+det.bCv:bCvCalc;
   const bNocturnas=det?.bNocturnas ||0;
   const refrigerio=det?.refrigerio ||0;
@@ -205,6 +226,7 @@ function _calcPlanRow(p,det){
 
   return{
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
+    diasLP,diasLM,diasLF,diasLic,diasOtroTipo,diasCv,
     diasPagables,sinDias,
     jornal,jornalMes:jornal_mes,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
@@ -276,9 +298,18 @@ const PL_COLS=[
     return'<td class="tc" style="padding:2px 4px" title="Guardada en el cierre"><span style="font-size:.6rem;color:#fbbf24">🔒</span></td>';
   }},
   {k:'diasA5',   g:'dias',l:'Anexo 5',th:'color:#f97316',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#f97316">${c.diasA5||0}</td>`},
-  {k:'otrosDias',g:'dias',l:'Otros Días',c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)">${c.otrosDias||0}</td>`},
+  // Licencias con goce, con el desglose a un clic en la cascada
+  {k:'diasLic',  g:'dias',l:'Licencias',th:'color:#22d3ee',
+   c:c=>`<td class="tc mono" style="padding:2px 4px;color:${c.diasLic?'#22d3ee':'inherit'}" title="Paternidad ${c.diasLP||0} · Maternidad ${c.diasLM||0} · Fallecimiento ${c.diasLF||0}">${c.diasLic||0}</td>`},
+  {k:'diasLP',   g:'dias',l:'Paternidad',c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasLP||0}</td>`},
+  {k:'diasLM',   g:'dias',l:'Maternidad',c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasLM||0}</td>`},
+  {k:'diasLF',   g:'dias',l:'Fallecim.', c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasLF||0}</td>`},
+  {k:'diasDM',   g:'dias',l:'D. Médico',c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasDM||0}</td>`},
+  {k:'otrosDias',g:'dias',l:'Otros Días',
+   c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)" title="D. médico ${c.diasDM||0}${c.diasOtroTipo?' · otras marcas '+c.diasOtroTipo:''}">${c.otrosDias||0}</td>`},
   {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
-  {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)">${c.diasTotal||0}</td>`},
+  {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',
+   c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)" title="${c.diasSubTotal||0} subtotal + ${c.diasDL||0} libres + ${c.diasLic||0} licencias + ${c.otrosDias||0} otros">${c.diasTotal||0}</td>`},
 
   {k:'tareaOrd',g:'tarea',l:'Tarea Ord.', c:c=>_plHs(c.tareaOrdinaria,'text-acc')},
   {k:'diasDL',  g:'tarea',l:'Días Lib.',  c:c=>_plHd(c.diasDL)},
@@ -358,7 +389,7 @@ const PL_COLS=[
 const _PL_IDENT=['n','dni','nom','cargo'];
 const PL_VISTAS=[
   {k:'resumen', l:'📋 Resumen',        cols:[..._PL_IDENT,'afp','diasTotal','sub2','totDed','neto','cuenta','banco']},
-  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasA5','otrosDias','faltas','diasTotal','diasDL','he25','he35','he100']},
+  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasDL','diasLic','otrosDias','faltas','diasTotal','he25','he35','he100']},
   {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
   {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totOtrDed','totDed','neto']},
