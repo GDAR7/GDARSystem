@@ -530,10 +530,14 @@ function rEdpProveedores(){
           <span style="font-size:.64rem;color:var(--muted2)">${H.diasReportados} reportados${H.diasInoperativos?` · ${H.diasInoperativos} inoperativos`:''}</span>
           <span style="margin-left:auto;font-size:.85rem;font-weight:800;color:${H.incidencia>=1?'#10b981':'#f59e0b'};white-space:nowrap">${(H.incidencia*100).toFixed(2)} % · ${_sim} ${_edpN2(+(H.incidencia*tarifa).toFixed(2))}</span>
         </div></div>`:''}
-      ${_edpNecesitaTC(eq)?`<div class="fg">
+      ${/* oninput solo guarda; el repintado va en onchange. Repintar en cada
+           tecla recreaba el input y mandaba el cursor al inicio: al escribir
+           3.44 salía 0.443. */
+        _edpNecesitaTC(eq)?`<div class="fg">
         <label>Tipo de cambio S/ → ${_sim}</label>
         <input type="number" step="0.0001" min="0" id="edp_tc" value="${_edpTC||''}"
-          placeholder="Ej: 3.75" oninput="_edpSet('tc',this.value,1)"
+          placeholder="Ej: 3.75"
+          oninput="_edpSet('tc',this.value)" onchange="_edpSet('tc',this.value,1)"
           style="${inpS}${(_edpTCFalta(eq)?';border-color:#ef4444':';border-color:#10b981')}">
         <span style="font-size:.62rem;color:${(_edpTCFalta(eq)?'#ef4444':'var(--muted2)')};margin-top:.15rem;display:block">
           ${_edpTCFalta(eq)
