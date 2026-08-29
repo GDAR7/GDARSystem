@@ -2,6 +2,22 @@
 // Página 1: EDP (horas efectivas × tarifa − descuentos de Auxilios Mecánicos, IGV, detracción)
 // Página 2: Consolidado de Horas Trabajadas (Partes Diarios del equipo en el período)
 let _edpEqId='', _edpNum='', _edpDesde='', _edpHasta='';
+// Período aparte para los auxilios mecánicos. Los repuestos y las atenciones
+// suelen venir de más atrás que las horas máquina del EDP, y mezclarlos en un
+// solo rango obligaba a estirar el período de las horas.
+//   _edpAuxSync = true  → sigue al período de horas máquina
+//   _edpAuxSync = false → se escribe a mano (así arranca)
+let _edpAuxDesde='', _edpAuxHasta='', _edpAuxSync=false;
+// El período que de verdad se usa para buscar auxilios
+function _edpPerAux(){
+  if(_edpAuxSync)return{desde:_edpDesde,hasta:_edpHasta};
+  return{desde:_edpAuxDesde||_edpDesde,hasta:_edpAuxHasta||_edpHasta};
+}
+// ¿Está mirando un rango distinto al de las horas?
+function _edpAuxDistinto(){
+  const p=_edpPerAux();
+  return p.desde!==_edpDesde||p.hasta!==_edpHasta;
+}
 // Cliente fijo (abreviado): ECOSERMO · RUC 20571533180
 let _edpCliente='ECOSERMO', _edpRuc='20571533180', _edpDireccion='';
 let _edpTarifaOv=null, _edpHminOv=null, _edpTarifaAtencion=0;
@@ -113,8 +129,24 @@ function _edpSet(campo,val,inmediato){
     if(val)_edpNum=_edpSiguienteNum(val);
   }
   else if(campo==='num')_edpNum=val;
-  else if(campo==='desde')_edpDesde=val;
-  else if(campo==='hasta')_edpHasta=val;
+  else if(campo==='desde'){
+    _edpDesde=val;
+    // Con el candado puesto, el período de auxilios va detrás
+    if(_edpAuxSync)_edpAuxDesde=val;
+  }
+  else if(campo==='hasta'){
+    _edpHasta=val;
+    if(_edpAuxSync)_edpAuxHasta=val;
+  }
+  else if(campo==='auxDesde')_edpAuxDesde=val;
+  else if(campo==='auxHasta')_edpAuxHasta=val;
+  else if(campo==='auxSync'){
+    _edpAuxSync=!!val;
+    // Al enlazarlo se copia el período de horas; al soltarlo se queda con lo
+    // que ya mostraba, para poder retocarlo desde ahí.
+    if(_edpAuxSync){_edpAuxDesde=_edpDesde;_edpAuxHasta=_edpHasta;}
+    else if(!_edpAuxDesde&&!_edpAuxHasta){_edpAuxDesde=_edpDesde;_edpAuxHasta=_edpHasta;}
+  }
   else if(campo==='cliente')_edpCliente=val;
   else if(campo==='ruc')_edpRuc=val;
   else if(campo==='direccion')_edpDireccion=val;
@@ -286,7 +318,11 @@ function _edpHoras(eq,desde,hasta){
 
 // Descuentos: insumos de Almacén ECO usados en Auxilios Mecánicos del equipo + horas de atención mecánica (T. Parada)
 function _edpDescAuto(eq,desde,hasta){
-  const auxs=(DB.auxiliosMecanicos||[]).filter(a=>a.eqId===eq.id&&a.fecha>=desde&&a.fecha<=hasta&&a.est!=='Anulado');
+  // Los auxilios tienen su propio rango: el que llega por parámetro es el de
+  // las horas máquina y aquí no manda.
+  const _pa=_edpPerAux();
+  const _aDes=_pa.desde||desde, _aHas=_pa.hasta||hasta;
+  const auxs=(DB.auxiliosMecanicos||[]).filter(a=>a.eqId===eq.id&&a.fecha>=_aDes&&a.fecha<=_aHas&&a.est!=='Anulado');
   const insumos=[];
   auxs.forEach(a=>{
     (DB.auxMecInsumos||[]).filter(i=>i.auxilioId===a.id&&/ALMAC/i.test(i.origen||'')).forEach(i=>{
@@ -338,6 +374,33 @@ function rEdpProveedores(){
       })()}
       <div class="fg"><label>Desde</label><input type="date" class="date-ic-azul" id="edp_desde" value="${_edpDesde}" onchange="_edpSet('desde',this.value,1)" style="${inpS};color-scheme:dark"></div>
       <div class="fg"><label>Hasta</label><input type="date" class="date-ic-azul" id="edp_hasta" value="${_edpHasta}" onchange="_edpSet('hasta',this.value,1)" style="${inpS};color-scheme:dark"></div>
+      <!-- Período de los auxilios mecánicos: normalmente hay que ir más atrás
+           que las horas máquina, así que va aparte. El candado lo ata al de
+           arriba; suelto (como arranca) se escribe a mano. -->
+      <div class="fg" style="grid-column:span 2">
+        <label style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span>Auxilios mecánicos · período</span>
+          <label style="display:inline-flex;align-items:center;gap:.25rem;cursor:pointer;font-size:.62rem;
+            text-transform:none;letter-spacing:0;color:${_edpAuxSync?'#10b981':'var(--muted2)'}">
+            <input type="checkbox" ${_edpAuxSync?'checked':''}
+              onchange="_edpSet('auxSync',this.checked,1)" style="width:auto;margin:0;cursor:pointer;accent-color:#10b981">
+            ${_edpAuxSync?'🔒 igual que horas máquina':'🔓 fechas propias'}
+          </label>
+        </label>
+        <div style="display:flex;gap:.4rem">
+          <input type="date" class="date-ic-azul" id="edp_aux_desde" value="${_edpPerAux().desde}"
+            ${_edpAuxSync?'disabled':''} onchange="_edpSet('auxDesde',this.value,1)"
+            style="${inpS};color-scheme:dark;flex:1${_edpAuxSync?';opacity:.5;cursor:not-allowed':''}">
+          <input type="date" class="date-ic-azul" id="edp_aux_hasta" value="${_edpPerAux().hasta}"
+            ${_edpAuxSync?'disabled':''} onchange="_edpSet('auxHasta',this.value,1)"
+            style="${inpS};color-scheme:dark;flex:1${_edpAuxSync?';opacity:.5;cursor:not-allowed':''}">
+        </div>
+        <span style="font-size:.62rem;color:${_edpAuxDistinto()?'#f59e0b':'var(--muted2)'};margin-top:.15rem;display:block">
+          ${_edpAuxDistinto()
+            ?'⚠ Repuestos y atenciones se buscan en este rango, no en el de las horas'
+            :'Repuestos y atenciones del equipo en este rango'}
+        </span>
+      </div>
       <div class="fg"><label>Cliente</label><input id="edp_cliente" value="${_edpCliente}" placeholder="Nombre del cliente final" oninput="_edpSet('cliente',this.value)" style="${inpS}"></div>
       <div class="fg"><label>RUC Cliente</label><input id="edp_ruc" value="${_edpRuc}" placeholder="20xxxxxxxxx" oninput="_edpSet('ruc',this.value)" style="${inpS}"></div>
     </div></div>
@@ -595,6 +658,9 @@ async function _edpGuardar(){
     id:prev?prev.id:_edpNuevoId(),
     eqId:eq.id,proveedor:eq.proveedor||'',numEdp:_edpNum.trim(),
     desde:_edpDesde,hasta:_edpHasta,
+    // Período propio de los auxilios: sin esto, al reabrir el EDP los
+    // repuestos se buscarían otra vez en el rango de las horas.
+    auxDesde:_edpPerAux().desde,auxHasta:_edpPerAux().hasta,auxSync:_edpAuxSync?1:0,
     moneda:eq.moneda||'SOLES',tarifaUn,tarifa,
     cantEquipo,montoEquipo,montoDesc,subtotal,igv,total,detraccion,aAbonar,
     estado:prev?prev.estado||'Emitido':'Emitido',
@@ -625,6 +691,10 @@ async function _edpGuardar(){
 function _edpCargar(id){
   const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);if(!r)return;
   _edpEqId=String(r.eqId);_edpNum=r.numEdp||'';_edpDesde=r.desde||'';_edpHasta=r.hasta||'';
+  // Los EDP guardados antes de que existiera el período de auxilios no lo
+  // traen: se cae al de las horas, que es como se emitieron.
+  _edpAuxSync=!!(+r.auxSync);
+  _edpAuxDesde=r.auxDesde||r.desde||'';_edpAuxHasta=r.auxHasta||r.hasta||'';
   _edpTarifaOv=+r.tarifa||0;
   const d=r.detalle||{};
   _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
@@ -1055,7 +1125,7 @@ function _edpDocHtml(eq,H,D,F){
       </table>`:'';
 
     pagina3=`<div style="font-family:Arial,sans-serif;color:#111">
-      ${headerHoja('DETALLE DE DESCUENTOS',`${eqDesc} · Período: ${_edpFmtDMY(_edpDesde)} al ${_edpFmtDMY(_edpHasta)} · EDP N° ${_edpNum||'—'}`)}
+      ${headerHoja('DETALLE DE DESCUENTOS',`${eqDesc} · Período: ${_edpFmtDMY(_edpPerAux().desde)} al ${_edpFmtDMY(_edpPerAux().hasta)}${_edpAuxDistinto()?' (auxilios · las horas van del '+_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta)+')':''} · EDP N° ${_edpNum||'—'}`)}
       ${secIns}${secAten}${secMan}
       <table style="width:100%;border-collapse:collapse;margin-top:8px;max-width:420px;margin-left:auto">
         <tbody>

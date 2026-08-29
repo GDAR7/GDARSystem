@@ -56,6 +56,14 @@ function _arListaCalc(){
 
 // ── C.U.H. de un recurso ───────────────────────────────────────────────────
 // Devuelve el valor y de dónde salió, para poder mostrarlo en pantalla.
+// La incidencia de un recurso: la escrita a mano si la hay, y si no la que
+// sale de HH Venta. Vacía o cero = automática, así nada cambia hasta que
+// alguien decida cambiarlo.
+function arIncidenciaDe(r,per,auto){
+  const m=+((r&&r.incidencia)||0);
+  if(m>0)return{inc:m,manual:true};
+  return{inc:auto==null?1:auto,manual:false};
+}
 function arCuh(r,per){
   if(+r.usaManual)return{cuh:+r.cuhManual||0,fuente:'fijo'};
   const dias=Math.max(1,+(per&&per.dias)||30);
@@ -65,10 +73,10 @@ function arCuh(r,per){
   if(r.cargo){
     const t=_arTarifaCargo(r.cargo);
     if(!t)return{cuh:0,fuente:'sin tarifa',detalle:'el cargo no está en HH Venta'};
-    const inc=_arIncidencia(t.cargo,per);
+    const I=arIncidenciaDe(r,per,_arIncidencia(t.cargo,per));
     const otro=_arNorm(t.cargo)!==_arNorm(r.cargo)?_arEsc(t.cargo)+' · ':'';
-    return{cuh:+(t.mes*inc/horasPer).toFixed(4),fuente:'HH Venta',
-      detalle:otro+`${_arN(t.mes)} × inc ${inc.toFixed(4)} ÷ ${horasPer} h`};
+    return{cuh:+(t.mes*I.inc/horasPer).toFixed(4),fuente:'HH Venta',inc:I.inc,incManual:I.manual,
+      detalle:otro+`${_arN(t.mes)} × inc ${I.inc.toFixed(4)}${I.manual?' (fijada)':''} ÷ ${horasPer} h`};
   }
   // Tarifa del cuadro de Tarifas de Equipos, elegida a dedo (p. ej. la
   // camioneta: no es una unidad del Máster, es la tarifa contractual)
@@ -79,8 +87,12 @@ function arCuh(r,per){
     const val=col==='seca'?(+t.tarifaSeca||0):(+t.tarifaFull||0);
     if(!val)return{cuh:0,fuente:'sin tarifa',detalle:'la tarifa '+col+' está en cero'};
     const un=t.unidad||'HM';
-    if(un!=='MES')return{cuh:+val.toFixed(4),fuente:'Tarifas Eq.',detalle:col+' · por hora'};
-    return{cuh:+(val/horasPer).toFixed(4),fuente:'Tarifas Eq.',detalle:`${col} ${_arN(val)} ÷ ${horasPer} h`};
+    const I=arIncidenciaDe(r,per,1);
+    const _ix=I.manual?' × inc '+I.inc.toFixed(4):'';
+    if(un!=='MES')return{cuh:+(val*I.inc).toFixed(4),fuente:'Tarifas Eq.',inc:I.inc,incManual:I.manual,
+      detalle:col+' · por hora'+_ix};
+    return{cuh:+(val*I.inc/horasPer).toFixed(4),fuente:'Tarifas Eq.',inc:I.inc,incManual:I.manual,
+      detalle:`${col} ${_arN(val)}${_ix} ÷ ${horasPer} h`};
   }
   // Equipo: tarifa de venta del Máster
   if(r.eqCodigo){
@@ -90,8 +102,12 @@ function arCuh(r,per){
     const tarifa=t?(+t.seca||+t.full||0):(+eq.tarifa||0);
     const un=(t&&t.un)||eq.tarifaUn||'HM';
     if(!tarifa)return{cuh:0,fuente:'sin tarifa',detalle:'el equipo no tiene tarifa de venta'};
-    if(un==='HM')return{cuh:+tarifa.toFixed(4),fuente:'Tarifas Eq.',detalle:'tarifa por hora'};
-    return{cuh:+(tarifa/horasPer).toFixed(4),fuente:'Tarifas Eq.',detalle:`${_arN(tarifa)} ÷ ${horasPer} h`};
+    const I=arIncidenciaDe(r,per,1);
+    const _ix=I.manual?' × inc '+I.inc.toFixed(4):'';
+    if(un==='HM')return{cuh:+(tarifa*I.inc).toFixed(4),fuente:'Tarifas Eq.',inc:I.inc,incManual:I.manual,
+      detalle:'tarifa por hora'+_ix};
+    return{cuh:+(tarifa*I.inc/horasPer).toFixed(4),fuente:'Tarifas Eq.',inc:I.inc,incManual:I.manual,
+      detalle:`${_arN(tarifa)}${_ix} ÷ ${horasPer} h`};
   }
   return{cuh:0,fuente:'sin origen',detalle:'elija de dónde sale su costo'};
 }
@@ -196,6 +212,7 @@ async function _arGuardarCampo(id,campo,valor){
   const prev={...r};                       // el origen toca varios campos a la vez
   if(campo==='participacion')r[campo]=+(+valor/100).toFixed(6);
   else if(campo==='cantidad'||campo==='cuhManual'||campo==='orden')r[campo]=+valor||0;
+  else if(campo==='incidencia')r[campo]=Math.max(0,+valor||0);   // 0 = automática
   else if(campo==='usaManual')r[campo]=valor?1:0;
   else if(campo==='fuenteCant')r[campo]=String(valor||'');
   else if(campo==='origen'){
@@ -240,7 +257,7 @@ async function _arNuevo(){
   if(!nombre||!nombre.trim())return;
   const max=Math.max(0,..._arLista().map(r=>+r.orden||0));
   const rec={id:nidSeguro('arec','atencionRecursos'),nombre:nombre.trim(),cargo:'',tarifaDesc:'',tarifaCol:'',eqCodigo:'',
-    cantidad:1,participacion:1,cuhManual:0,usaManual:1,fuenteCant:'',orden:max+10};
+    cantidad:1,participacion:1,cuhManual:0,usaManual:1,fuenteCant:'',incidencia:0,orden:max+10};
   (DB.atencionRecursos=DB.atencionRecursos||[]).push(rec);
   const err=await supaUpsert('atencionRecursos',rec);
   if(err){DB.atencionRecursos=DB.atencionRecursos.filter(x=>x.id!==rec.id);return;}
@@ -290,6 +307,20 @@ function _arRender(){
       </td>
       <td style="${TD};text-align:right"><input type="number" step="1" min="0" value="${((+r.participacion||0)*100).toFixed(0)}" onchange="_arGuardarCampo(${r.id},'participacion',this.value)" style="${inp}"> %</td>
       <td style="${TD};text-align:right">
+        ${(()=>{
+          if(+r.usaManual)return '<span style="color:var(--muted2);font-size:.62rem">no aplica</span>';
+          // La automática se muestra de marca de agua: así se ve qué se está
+          // anulando antes de escribir encima.
+          const auto=cu.inc!=null&&!cu.incManual?cu.inc:(r.cargo?_arIncidencia(r.cargo,per):1);
+          const man=+r.incidencia||0;
+          return `<input type="number" step="0.0001" min="0" value="${man>0?man:''}"
+            placeholder="${Number(auto||1).toFixed(4)}" title="Vacío = la que calcula HH Venta"
+            onchange="_arGuardarCampo(${r.id},'incidencia',this.value)"
+            style="${inp};width:72px${man>0?';border-color:#f59e0b;color:#f59e0b':''}">`;
+        })()}
+        <div style="font-size:.55rem;color:${(+r.incidencia>0?'#f59e0b':'var(--muted2)')}">${(+r.incidencia>0?'fijada':'automática')}</div>
+      </td>
+      <td style="${TD};text-align:right">
         ${+r.usaManual
           ?`<input type="number" step="0.01" min="0" value="${+r.cuhManual||0}" onchange="_arGuardarCampo(${r.id},'cuhManual',this.value)" style="${inp}">`
           :`<span style="font-family:monospace;font-weight:700;color:${malo?'#ef4444':'inherit'}">${_arN(cu.cuh)}</span>`}
@@ -315,10 +346,11 @@ function _arRender(){
           <th style="${TH};text-align:left">Tipo de recurso</th>
           <th style="${TH};text-align:right">Cant. (2)</th>
           <th style="${TH};text-align:right">Particip. (3)</th>
+          <th style="${TH};text-align:right" title="Vacía = la que calcula HH Venta">Incidencia</th>
           <th style="${TH};text-align:right">C.U.H. (4)</th>
           <th style="${TH}"></th>
         </tr></thead>
-        <tbody>${filas||`<tr><td colspan="5" style="${TD};text-align:center;padding:1.5rem;color:var(--muted2)">Sin recursos · cargue la lista base</td></tr>`}</tbody>
+        <tbody>${filas||`<tr><td colspan="6" style="${TD};text-align:center;padding:1.5rem;color:var(--muted2)">Sin recursos · cargue la lista base</td></tr>`}</tbody>
       </table>
     </div>`;
 }
