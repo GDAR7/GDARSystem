@@ -5,10 +5,29 @@ let _edpEqId='', _edpNum='', _edpDesde='', _edpHasta='';
 // Período aparte para los auxilios mecánicos. Los repuestos y las atenciones
 // suelen venir de más atrás que las horas máquina del EDP, y mezclarlos en un
 // solo rango obligaba a estirar el período de las horas.
-//   _edpAuxSync = true  → sigue al período de horas máquina
-//   _edpAuxSync = false → se escribe a mano (así arranca)
-let _edpAuxDesde='', _edpAuxHasta='', _edpAuxSync=false;
+//   _edpAuxSync = true  → sigue al período de horas máquina (así arranca)
+//   _edpAuxSync = false → se escribe a mano
+let _edpAuxDesde='', _edpAuxHasta='', _edpAuxSync=true;
 // El período que de verdad se usa para buscar auxilios
+// Tarjetas plegadas. Se guarda en el navegador para no tener que volver a
+// cerrarlas cada vez que se entra.
+let _edpPlegado={};
+try{_edpPlegado=JSON.parse(localStorage.getItem('_edpPlegado')||'{}')||{};}catch(e){_edpPlegado={};}
+function edpPlegar(k){
+  _edpPlegado[k]=!_edpPlegado[k];
+  try{localStorage.setItem('_edpPlegado',JSON.stringify(_edpPlegado));}catch(e){}
+  rEdpProveedores();
+}
+// La cabecera de una tarjeta plegable: el título entero es el interruptor.
+function _edpCabPleg(k,titulo,resumen){
+  const off=!!_edpPlegado[k];
+  return`<div class="card-head" onclick="edpPlegar('${k}')" title="${off?'Mostrar':'Ocultar'}"
+    style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:.5rem">
+    <span style="color:var(--muted2);font-size:.7rem;transition:transform .15s;display:inline-block;${off?'':'transform:rotate(90deg)'}">▶</span>
+    <span class="card-title">${titulo}</span>
+    ${off&&resumen?`<span style="font-size:.7rem;color:var(--muted2);font-weight:400">· ${resumen}</span>`:''}
+  </div>`;
+}
 function _edpPerAux(){
   if(_edpAuxSync)return{desde:_edpDesde,hasta:_edpHasta};
   return{desde:_edpAuxDesde||_edpDesde,hasta:_edpAuxHasta||_edpHasta};
@@ -353,8 +372,10 @@ function rEdpProveedores(){
 
   const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.32rem .55rem;color:var(--text);font-size:.76rem';
   const filtroBar=`<div class="card" style="margin-bottom:.9rem">
-    <div class="card-head"><span class="card-title">🧾 Datos del EDP</span></div>
-    <div class="card-body"><div class="fg-grid">
+    ${_edpCabPleg('datos','🧾 Datos del EDP',
+      (eq?eq.codigo+' · ':'')+(_edpNum?'EDP N° '+_edpNum+' · ':'')+
+      (_edpDesde&&_edpHasta?_edpFmtDMY(_edpDesde)+' al '+_edpFmtDMY(_edpHasta):'sin período'))}
+    <div class="card-body" style="${_edpPlegado.datos?'display:none':''}"><div class="fg-grid">
       <div class="fg"><label>Equipo</label><select id="edp_eq" onchange="_edpSet('eq',this.value,1)" style="${inpS}">
         <option value="">— Seleccionar —</option>
         ${eqs.map(e=>`<option value="${e.id}" ${e.id===+_edpEqId?'selected':''}>${e.codigo} — ${(e.nombre||'').split(' ').slice(0,4).join(' ')}${e.proveedor?' · '+e.proveedor:''}</option>`).join('')}
@@ -436,8 +457,9 @@ function rEdpProveedores(){
   const aAbonar=+(total-detraccion).toFixed(2);
 
   const editBar=`<div class="card" style="margin-bottom:.9rem">
-    <div class="card-head"><span class="card-title">⚙️ Ajustes antes de imprimir</span></div>
-    <div class="card-body"><div class="fg-grid">
+    ${_edpCabPleg('ajustes','⚙️ Ajustes antes de imprimir',
+      'tarifa '+_sim+' '+_edpN2(tarifa)+' · '+_edpN2(cantEquipo)+' '+_edpUnLbl(tarifaUn))}
+    <div class="card-body" style="${_edpPlegado.ajustes?'display:none':''}"><div class="fg-grid">
       <div class="fg"><label>Tarifa Equipo ${_sim} por ${_edpUnLbl(tarifaUn)}</label>
         <input type="number" step="0.01" id="edp_tarifa" value="${tarifa}" oninput="_edpSet('tarifa',this.value)" style="${inpS}${+tarifa!==+(eq.tarifa||0)?';border-color:#f59e0b':''}">
         <span style="font-size:.6rem;color:${+tarifa!==+(eq.tarifa||0)?'#f59e0b':'var(--muted2)'};margin-top:.15rem">
