@@ -207,8 +207,38 @@ function _arSetHorasDia(v){
   _arRender();
 }
 
+// Los recursos de la lista base todavía no están en la tabla: llevan id
+// negativo. La primera vez que se toca uno se guarda la lista entera y desde
+// ahí se trabaja sobre lo guardado.
+async function _arMaterializar(){
+  if((DB.atencionRecursos||[]).length)return true;
+  const nuevos=[];
+  for(const d of _AR_DEF){
+    const rec={id:nidSeguro('arec','atencionRecursos'),...d};
+    (DB.atencionRecursos=DB.atencionRecursos||[]).push(rec);
+    const err=await supaUpsert('atencionRecursos',rec);
+    if(err){
+      // Lo más probable: falta crear la tabla en Supabase. Se deshace todo para
+      // no dejar media lista guardada.
+      DB.atencionRecursos=(DB.atencionRecursos||[]).filter(x=>x.id!==rec.id&&!nuevos.includes(x.id));
+      toast('No se pudo guardar: revise que exista la tabla atencion_recursos en Supabase · '+(err.message||err),true);
+      return false;
+    }
+    nuevos.push(rec.id);
+  }
+  toast('✓ Lista de recursos guardada · ya se puede editar');
+  return true;
+}
 async function _arGuardarCampo(id,campo,valor){
-  const r=(DB.atencionRecursos||[]).find(x=>+x.id===+id);if(!r)return;
+  let r=(DB.atencionRecursos||[]).find(x=>+x.id===+id);
+  if(!r){
+    // Id negativo = viene de la lista base y aún no está guardada
+    const base=_AR_DEF[Math.abs(+id)-1];
+    if(!base){toast('No se encontró ese recurso',true);return;}
+    if(!await _arMaterializar())return;
+    r=(DB.atencionRecursos||[]).find(x=>_arNorm(x.nombre)===_arNorm(base.nombre));
+    if(!r){toast('No se encontró ese recurso',true);return;}
+  }
   const prev={...r};                       // el origen toca varios campos a la vez
   if(campo==='participacion')r[campo]=+(+valor/100).toFixed(6);
   else if(campo==='cantidad'||campo==='cuhManual'||campo==='orden')r[campo]=+valor||0;
@@ -264,7 +294,19 @@ async function _arNuevo(){
   _arRender();
 }
 async function _arBorrar(id){
-  const r=(DB.atencionRecursos||[]).find(x=>+x.id===+id);if(!r)return;
+  let r=(DB.atencionRecursos||[]).find(x=>+x.id===+id);
+  if(!r){
+    const base=_AR_DEF[Math.abs(+id)-1];
+    if(!base)return;
+    if(!confirm(`¿Quitar "${base.nombre}" del cuadro de recursos?`))return;
+    if(!await _arMaterializar())return;
+    r=(DB.atencionRecursos||[]).find(x=>_arNorm(x.nombre)===_arNorm(base.nombre));
+    if(!r)return;
+    DB.atencionRecursos=(DB.atencionRecursos||[]).filter(x=>+x.id!==+r.id);
+    await supaDelete('atencionRecursos',r.id);
+    _arRender();
+    return;
+  }
   if(!confirm(`¿Quitar "${r.nombre}" del cuadro de recursos?`))return;
   DB.atencionRecursos=(DB.atencionRecursos||[]).filter(x=>+x.id!==+id);
   await supaDelete('atencionRecursos',id);
@@ -277,7 +319,11 @@ function _arRender(){
   const per=(typeof _edpDesde!=='undefined'&&_edpDesde&&_edpHasta)
     ? {desde:_edpDesde,hasta:_edpHasta,dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)}
     : null;
-  const lista=_arLista();
+  // Lo mismo que se imprime: si la tabla está vacía se ven igual los cinco de
+  // la lista base. Antes el cuadro los mostraba y el panel salía en blanco, así
+  // que no había forma de tocarlos.
+  const lista=_arListaCalc();
+  const _sinGuardar=!_arLista().length;
   const inp='background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.15rem .3rem;font-size:.7rem;width:64px;text-align:right;font-family:monospace';
   const TD='padding:.3rem .45rem;border-bottom:1px solid var(--border);font-size:.72rem';
   const TH='background:var(--panel2);color:var(--muted2);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.3rem .45rem';
@@ -337,8 +383,9 @@ function _arRender(){
       <span style="font-size:.62rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Horas por día</span>
       <input type="number" min="1" max="24" value="${_arHorasDia}" onchange="_arSetHorasDia(this.value)" style="${inp}">
       <span style="font-size:.66rem;color:var(--muted2)">${per?`· período de ${per.dias} días = <b>${per.dias*_arHorasDia} h</b> para prorratear`:'· elija un período'}</span>
+      ${_sinGuardar?`<span style="font-size:.62rem;color:#f59e0b;font-weight:700">⚠ lista base sin guardar · se guardará al primer cambio</span>`:''}
       <button onclick="_arNuevo()" class="btn btn-out btn-sm" style="margin-left:auto">＋ Recurso</button>
-      ${lista.length?'':'<button onclick="_arSembrar()" class="btn btn-a btn-sm" style="--ba:var(--adm)">📥 Cargar lista base</button>'}
+      ${_sinGuardar?'<button onclick="_arSembrar()" class="btn btn-a btn-sm" style="--ba:var(--adm)">📥 Guardar lista base</button>':''}
     </div>
     <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
       <table style="width:100%;border-collapse:collapse">

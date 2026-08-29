@@ -134,9 +134,29 @@ const _edpN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,max
 // Al re-renderizar se recrea el panel completo, así que hay que devolver el foco y el cursor
 // al campo que se estaba escribiendo; el debounce evita reconstruir en cada tecla.
 let _edpTimer=null;
+// ¿Se está tecleando dentro de un campo de la barra? En un <input type=number>
+// el navegador no deja leer ni reponer la posición del cursor, así que al
+// repintar el foco vuelve al inicio del campo: escribir "3.44" iba dando
+// "0.443". Mientras el campo tenga el foco no se repinta; se repinta en cuanto
+// se sale. Los select, checkbox y fechas no tienen ese problema y siguen
+// actualizando al instante.
+function _edpTecleando(){
+  const a=document.activeElement;
+  if(!a||!a.id||!a.id.startsWith('edp_'))return null;
+  if(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')return null;
+  const t=(a.type||'text').toLowerCase();
+  return (t==='number'||t==='text'||t==='search'||a.tagName==='TEXTAREA')?a:null;
+}
 function _edpRerender(inmediato){
   clearTimeout(_edpTimer);
   const run=()=>{
+    const esperando=_edpTecleando();
+    if(esperando){
+      // Se pospone hasta que el campo pierda el foco, sin encolar dos veces
+      esperando.removeEventListener('blur',_edpRerenderAlSalir);
+      esperando.addEventListener('blur',_edpRerenderAlSalir,{once:true});
+      return;
+    }
     const a=document.activeElement;
     const id=a&&a.id&&a.id.startsWith('edp_')?a.id:null;
     const ss=id&&a.type!=='number'?a.selectionStart:null,se=id&&a.type!=='number'?a.selectionEnd:null;
@@ -146,7 +166,14 @@ function _edpRerender(inmediato){
       if(el){el.focus();if(ss!=null&&el.setSelectionRange)try{el.setSelectionRange(ss,se);}catch(e){}}
     }
   };
+  _edpRunPendiente=run;
   if(inmediato)run();else _edpTimer=setTimeout(run,350);
+}
+// El repintado que quedó pendiente mientras se escribía
+let _edpRunPendiente=null;
+function _edpRerenderAlSalir(){
+  const f=_edpRunPendiente;
+  if(f)setTimeout(f,0);      // ya sin foco en el campo, se repinta de verdad
 }
 function _edpSet(campo,val,inmediato){
   // Al cambiar de equipo se arma otro EDP: el checkbox vuelve a su estado por
