@@ -2975,6 +2975,18 @@
 
     <!-- TAB 1 -->
     <div class="mb" id="tabContent1">
+      <!-- A quién se valoriza el parte: arriba y a la derecha, porque manda
+           sobre todo lo que se cargue debajo -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+        <div class="fg" style="min-width:210px;margin:0">
+          <label>Valoriza para 🔴</label>
+          <select id="rpValoriza" title="A quién se le valoriza este parte">
+            <option>Ambos</option>
+            <option>Cliente</option>
+            <option>Proveedor</option>
+          </select>
+        </div>
+      </div>
       <!-- ROJO: combos de master data -->
       <div style="font-size:.6rem;letter-spacing:.12em;color:var(--ceq);text-transform:uppercase;margin-bottom:.6rem;font-weight:700">▸ Datos del Equipo</div>
       <div class="fg-grid">
@@ -3220,10 +3232,10 @@
 <script src="js/tareaje.js?v=23"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=57"></script>
-<script src="js/partesDiarios.js?v=3"></script>
+<script src="js/partesDiarios.js?v=5"></script>
 <script src="js/panelHoras.js?v=3"></script>
 <script src="js/reportesEquipos.js?v=6"></script>
-<script src="js/edpProveedores.js?v=33"></script>
+<script src="js/edpProveedores.js?v=36"></script>
 <script src="js/edpCostos.js?v=2"></script>
 <script src="js/resultadoOperativo.js?v=2"></script>
 <script src="js/valPresupuesto.js?v=1"></script>
@@ -3232,7 +3244,7 @@
 <script src="js/corteEquipos.js?v=12"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=3"></script>
-<script src="js/pizarra.js"></script>
+<script src="js/pizarra.js?v=2"></script>
 <script src="js/frentes.js"></script>
 <script src="js/avanceMT.js?v=11"></script>
 <script src="js/seguimiento.js?v=4"></script>

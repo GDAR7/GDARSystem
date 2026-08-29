@@ -190,10 +190,30 @@ function _edpDelDescManual(i){
   rEdpProveedores();
 }
 
+// Qué partes entran en la valorización del proveedor: los marcados "Ambos" o
+// "Proveedor". Solo quedan fuera los que se valorizan únicamente al cliente.
+//
+// Un parte sin marca vale para los dos lados. Son los cargados antes de que
+// existiera el campo, y así el histórico sigue valorizándose igual que
+// siempre. De aquí en adelante todos salen marcados: el formulario arranca
+// en "Ambos" y no deja guardar otra cosa que las tres opciones.
+function edpValeProveedor(p){
+  // El trim va antes del respaldo: un campo con solo espacios es lo mismo
+  // que no tener marca.
+  const v=String((p&&p.valoriza)||'').trim()||'Ambos';
+  return v==='Ambos'||v==='Proveedor';
+}
+// Los que quedaron fuera, para decirlo en pantalla en vez de que desaparezcan
+// en silencio.
+function edpFueraProveedor(eqId,desde,hasta){
+  const delPeriodo=(DB.partes||[]).filter(p=>p.eqId===eqId&&p.fecha>=desde&&p.fecha<=hasta);
+  return{n:delPeriodo.filter(p=>!edpValeProveedor(p)).length};
+}
+
 // Consolidado de horas del período (H. Motor = ef del parte · Calentamiento = campo del Máster · H. Efectiva = Motor − Calentamiento)
 function _edpHoras(eq,desde,hasta){
   const calent=+eq.calentamientoH||0;
-  const partes=(DB.partes||[]).filter(p=>p.eqId===eq.id&&p.fecha>=desde&&p.fecha<=hasta).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const partes=(DB.partes||[]).filter(p=>p.eqId===eq.id&&p.fecha>=desde&&p.fecha<=hasta&&edpValeProveedor(p)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const dias=partes.map(p=>{
     const motor=+p.ef||0;
     const cal=motor>0?calent:0;
@@ -482,7 +502,12 @@ function rEdpProveedores(){
     </div>
   </div>`;
 
-  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  // Si algún parte del período quedó fuera por su marca de valorización,
+  // se dice en pantalla: un parte que desaparece en silencio es peor que
+  // uno que no está.
+  const _fuera=edpFueraProveedor(eq.id,_edpDesde,_edpHasta);
+  const avisoFuera=_fuera.n?`<div style="margin:.4rem 0;padding:.55rem .8rem;background:rgba(245,158,11,.1);border:1px solid #f59e0b60;border-radius:8px;font-size:.76rem;color:#f59e0b">⚠ <b>${_fuera.n} parte(s)</b> del período quedan fuera: están marcados solo para el cliente.</div>`:'';
+  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+avisoFuera+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
   // El panel de recursos se dibuja aparte: su contenedor recién existe ahora
   if(typeof _arRender==='function')_arRender();
 }

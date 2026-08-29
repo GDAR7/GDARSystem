@@ -231,6 +231,20 @@ function _rpFrenteNuevo(){
   openM('mFrente');
 }
 
+// A quién se le valoriza el parte. "Ambos" es lo de siempre: el parte cuenta
+// tanto para lo que se le cobra al cliente como para lo que se le reconoce al
+// proveedor. Las otras dos opciones lo dejan solo de un lado.
+const _PD_VALORIZA=['Ambos','Cliente','Proveedor'];
+const _pdValorizaOk=v=>_PD_VALORIZA.includes(String(v||''));
+function _pdResetValoriza(){
+  const el=document.getElementById('rpValoriza');
+  if(el)el.value='Ambos';
+}
+function _pdValoriza(){
+  const el=document.getElementById('rpValoriza');
+  const v=el?el.value:'';
+  return _pdValorizaOk(v)?v:'Ambos';
+}
 function calcHoras(){
   const ini = +document.getElementById('rpHrIni').value||0;
   const fin = +document.getElementById('rpHrFin').value||0;
@@ -407,6 +421,9 @@ function _renumerarViajes(){
 function openReporte(tipo){
   currentReporteTipo = tipo;
   _editingParteId = null;
+  // Siempre se empieza en "Ambos": es lo normal, y así nadie arrastra sin
+  // querer la elección del parte anterior.
+  _pdResetValoriza();
   document.getElementById('mRepTtl').textContent = '📋 Parte Diario – '+tipo;
   parteState.tipo = tipo;
   viajeCount = 0;
@@ -509,6 +526,10 @@ function editParte(id){
   setToggle('guardia',p.guardia||'A');
   const rpCond=document.getElementById('rpCondicion');
   if(rpCond)rpCond.value=p.condicion||'OPERATIVO';
+  const rpVal=document.getElementById('rpValoriza');
+  // Los partes cargados antes de que existiera el campo no lo traen: valen
+  // para los dos lados, que es como se venían valorizando.
+  if(rpVal)rpVal.value=_pdValorizaOk(p.valoriza)?p.valoriza:'Ambos';
   document.getElementById('rpHrIni').value=p.hrIni||0;
   document.getElementById('rpHrFin').value=p.hrFin||0;
   calcHoras();
@@ -586,6 +607,7 @@ async function gReporte(){
     turno:         parteState.turno,
     guardia:       parteState.guardia,
     condicion:     document.getElementById('rpCondicion').value,
+    valoriza:      _pdValoriza(),
     hrIni:        +document.getElementById('rpHrIni').value||0,
     hrFin:        +document.getElementById('rpHrFin').value||0,
     kmIni:        +document.getElementById('rpKmIni').value||0,
@@ -625,6 +647,7 @@ async function gReporte(){
     turno:        parte.turno,
     guardia:      parte.guardia,
     condicion:    parte.condicion,
+    valoriza:     parte.valoriza||'Ambos',
     hr_ini:       parte.hrIni,
     hr_fin:       parte.hrFin,
     km_ini:       parte.kmIni||null,
@@ -670,6 +693,7 @@ async function gReporte(){
   }
 
   closeM('mReporte');
+  _pdResetValoriza();          // el próximo parte vuelve a empezar en "Ambos"
   viajeCount = 0;
   document.getElementById('viajesContainer').innerHTML='';
 

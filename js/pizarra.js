@@ -1107,6 +1107,7 @@ function _pizPopup(eqId,fecha){
     <div style="font-size:.68rem;color:var(--muted2);margin-bottom:.5rem">${p.fecha} · Turno ${p.turno||'—'} · Guardia ${p.guardia||'—'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;font-size:.7rem">
       <div><span style="color:var(--muted2)">Condición</span><br><strong style="color:${col}">${p.condicion||'—'}</strong></div>
+      <div><span style="color:var(--muted2)">Valoriza para</span><br><strong>${p.valoriza||'Ambos'}</strong></div>
       <div><span style="color:var(--muted2)">Operador</span><br><strong>${p.op||'—'}</strong></div>
       <div><span style="color:var(--muted2)">Hr. Ini / Fin</span><br>${p.hrIni||0} / ${p.hrFin||0}</div>
       <div><span style="color:var(--muted2)">Hs. Trabajadas</span><br>${p.ef||0} h</div>
