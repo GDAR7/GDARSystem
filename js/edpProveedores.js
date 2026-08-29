@@ -8,6 +8,20 @@ let _edpEqId='', _edpNum='', _edpDesde='', _edpHasta='';
 //   _edpAuxSync = true  → sigue al período de horas máquina (así arranca)
 //   _edpAuxSync = false → se escribe a mano
 let _edpAuxDesde='', _edpAuxHasta='', _edpAuxSync=true;
+// Tipo de cambio para pasar los descuentos (que salen en soles) a la moneda
+// del equipo. Solo se usa cuando el equipo NO se valoriza en soles.
+let _edpTC=0;
+function _edpMonedaEq(eq){return (eq&&eq.moneda)||'SOLES';}
+function _edpNecesitaTC(eq){return _edpMonedaEq(eq)!=='SOLES';}
+// Factor por el que se multiplica un importe en soles. Sin tipo de cambio
+// cargado se devuelve 1 y se avisa en pantalla: es preferible ver el descuento
+// en soles y con aviso, que verlo desaparecer o mal convertido en silencio.
+function _edpFactorTC(eq){
+  if(!_edpNecesitaTC(eq))return 1;
+  const tc=+_edpTC||0;
+  return tc>0?1/tc:1;
+}
+function _edpTCFalta(eq){return _edpNecesitaTC(eq)&&!(+_edpTC>0);}
 // El período que de verdad se usa para buscar auxilios
 // Tarjetas plegadas. Se guarda en el navegador para no tener que volver a
 // cerrarlas cada vez que se entra.
@@ -157,6 +171,7 @@ function _edpSet(campo,val,inmediato){
     _edpHasta=val;
     if(_edpAuxSync)_edpAuxHasta=val;
   }
+  else if(campo==='tc')_edpTC=+val||0;
   else if(campo==='auxDesde')_edpAuxDesde=val;
   else if(campo==='auxHasta')_edpAuxHasta=val;
   else if(campo==='auxSync'){
@@ -445,10 +460,23 @@ function rEdpProveedores(){
 
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
-    ...(D.horasAtencion>0?[{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:+D.horasAtencion.toFixed(2),precio:_edpTarifaAtencion,total:+(D.horasAtencion*_edpTarifaAtencion).toFixed(2)}]:[]),
+    ...(D.horasAtencion>0?[(()=>{
+      // El importe sale del cuadro de recursos, que es lo que se imprime.
+      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
+        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      const _t=(typeof arCalcular==='function')
+        ? arCalcular(D.atenciones,_p).total
+        : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);
+      const _h=+D.horasAtencion.toFixed(2);
+      return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
+        precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
+    })()]:[]),
     ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
   ];
-  const totDesc=descRows.reduce((s,r)=>s+r.total,0);
+  // Los descuentos vienen en soles; el equipo puede valorizarse en otra moneda.
+  const _fTC=_edpFactorTC(eq);
+  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  const totDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
   const presupuestoTotal=+(totEquipo-totDesc).toFixed(2);
   const subTotal=presupuestoTotal;
   const igv=+(subTotal*0.18).toFixed(2);
@@ -502,6 +530,17 @@ function rEdpProveedores(){
           <span style="font-size:.64rem;color:var(--muted2)">${H.diasReportados} reportados${H.diasInoperativos?` · ${H.diasInoperativos} inoperativos`:''}</span>
           <span style="margin-left:auto;font-size:.85rem;font-weight:800;color:${H.incidencia>=1?'#10b981':'#f59e0b'};white-space:nowrap">${(H.incidencia*100).toFixed(2)} % · ${_sim} ${_edpN2(+(H.incidencia*tarifa).toFixed(2))}</span>
         </div></div>`:''}
+      ${_edpNecesitaTC(eq)?`<div class="fg">
+        <label>Tipo de cambio S/ → ${_sim}</label>
+        <input type="number" step="0.0001" min="0" id="edp_tc" value="${_edpTC||''}"
+          placeholder="Ej: 3.75" oninput="_edpSet('tc',this.value,1)"
+          style="${inpS}${(_edpTCFalta(eq)?';border-color:#ef4444':';border-color:#10b981')}">
+        <span style="font-size:.62rem;color:${(_edpTCFalta(eq)?'#ef4444':'var(--muted2)')};margin-top:.15rem;display:block">
+          ${_edpTCFalta(eq)
+            ?'⚠ Los descuentos salen en soles: sin este dato se restan sin convertir'
+            :'Repuestos y atención mecánica ÷ '+_edpTC+' → '+_sim}
+        </span>
+      </div>`:''}
       <div class="fg"><label>Tarifa Atención Mecánica ${_sim}/hh</label><input type="number" step="0.01" id="edp_tatm" value="${_edpTarifaAtencion}" oninput="_edpSet('tarifaAtencion',this.value)" style="${inpS}"></div>
       <div class="fg"><label>Cant. Presupuesto (${tarifaUn})</label><input type="number" step="0.01" value="${_edpCantPres!=null?_edpCantPres:''}" placeholder="opcional" title="Cantidad contractual — se usa para el % de avance" id="edp_cantpres" oninput="_edpSet('cantPres',this.value)" style="${inpS}"></div>
       ${(()=>{
@@ -591,8 +630,11 @@ function rEdpProveedores(){
   // se dice en pantalla: un parte que desaparece en silencio es peor que
   // uno que no está.
   const _fuera=edpFueraProveedor(eq.id,_edpDesde,_edpHasta);
+  const avisoTC=_edpTCFalta(eq)?`<div style="margin:.4rem 0;padding:.55rem .8rem;background:rgba(239,68,68,.1);border:1px solid #ef444460;border-radius:8px;font-size:.76rem;color:#ef4444">
+    ⚠ El equipo se valoriza en <b>${_edpMonedaEq(eq)}</b> y los descuentos se calculan en soles.
+    Cargue el <b>tipo de cambio</b> en los ajustes o el total restará soles contra ${_sim}.</div>`:'';
   const avisoFuera=_fuera.n?`<div style="margin:.4rem 0;padding:.55rem .8rem;background:rgba(245,158,11,.1);border:1px solid #f59e0b60;border-radius:8px;font-size:.76rem;color:#f59e0b">⚠ <b>${_fuera.n} parte(s)</b> del período quedan fuera: están marcados solo para el cliente.</div>`:'';
-  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+avisoFuera+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+avisoTC+avisoFuera+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
   // El panel de recursos se dibuja aparte: su contenedor recién existe ahora
   if(typeof _arRender==='function')_arRender();
 }
@@ -662,9 +704,23 @@ async function _edpGuardar(){
   const montoEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
-    ...(D.horasAtencion>0?[{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:+D.horasAtencion.toFixed(2),precio:_edpTarifaAtencion,total:+(D.horasAtencion*_edpTarifaAtencion).toFixed(2)}]:[]),
+    ...(D.horasAtencion>0?[(()=>{
+      // El importe sale del cuadro de recursos, que es lo que se imprime.
+      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
+        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      const _t=(typeof arCalcular==='function')
+        ? arCalcular(D.atenciones,_p).total
+        : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);
+      const _h=+D.horasAtencion.toFixed(2);
+      return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
+        precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
+    })()]:[]),
     ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
   ];
+  // Igual que en pantalla: los descuentos vienen en soles y hay que pasarlos
+  // a la moneda del equipo antes de guardarlos.
+  const _fTC=_edpFactorTC(eq);
+  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
   const montoDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
   const subtotal=+(montoEquipo-montoDesc).toFixed(2);
   const igv=+(subtotal*0.18).toFixed(2);
@@ -683,6 +739,7 @@ async function _edpGuardar(){
     // Período propio de los auxilios: sin esto, al reabrir el EDP los
     // repuestos se buscarían otra vez en el rango de las horas.
     auxDesde:_edpPerAux().desde,auxHasta:_edpPerAux().hasta,auxSync:_edpAuxSync?1:0,
+    tc:+_edpTC||0,
     moneda:eq.moneda||'SOLES',tarifaUn,tarifa,
     cantEquipo,montoEquipo,montoDesc,subtotal,igv,total,detraccion,aAbonar,
     estado:prev?prev.estado||'Emitido':'Emitido',
@@ -717,6 +774,7 @@ function _edpCargar(id){
   // traen: se cae al de las horas, que es como se emitieron.
   _edpAuxSync=!!(+r.auxSync);
   _edpAuxDesde=r.auxDesde||r.desde||'';_edpAuxHasta=r.auxHasta||r.hasta||'';
+  _edpTC=+r.tc||0;
   _edpTarifaOv=+r.tarifa||0;
   const d=r.detalle||{};
   _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
@@ -1179,10 +1237,22 @@ function _edpPrint(){
   const totEquipo=+(cantEquipo*tarifa).toFixed(2);
   const descRows=[
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
-    ...(D.horasAtencion>0?[{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:+D.horasAtencion.toFixed(2),precio:_edpTarifaAtencion,total:+(D.horasAtencion*_edpTarifaAtencion).toFixed(2)}]:[]),
+    ...(D.horasAtencion>0?[(()=>{
+      // El importe sale del cuadro de recursos, que es lo que se imprime.
+      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
+        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      const _t=(typeof arCalcular==='function')
+        ? arCalcular(D.atenciones,_p).total
+        : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);
+      const _h=+D.horasAtencion.toFixed(2);
+      return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
+        precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
+    })()]:[]),
     ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
   ];
-  const totDesc=descRows.reduce((s,r)=>s+r.total,0);
+  const _fTC=_edpFactorTC(eq);
+  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  const totDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
   const presupuestoTotal=+(totEquipo-totDesc).toFixed(2);
   const subTotal=presupuestoTotal;
   const igv=+(subTotal*0.18).toFixed(2);
