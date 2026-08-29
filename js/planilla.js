@@ -75,6 +75,21 @@ function _calcPlanRow(p,det){
   const diasLF =nDias('LF');
   const diasF  =nDias('F');
 
+  // nDias cuenta fechas únicas DENTRO de cada tipo, pero nada impide que el
+  // mismo día esté marcado con dos tipos distintos (un TD y un DL, por
+  // ejemplo). Cuando pasa, ese día suma en los dos y el total se pasa de los
+  // días que tiene el mes. No se corrige a ciegas — puede haber un motivo —
+  // pero sí se detecta para poder avisarlo en pantalla.
+  const _tiposPorFecha={};
+  tr.forEach(r=>{
+    const f=String(r.fecha).slice(0,10);
+    (_tiposPorFecha[f]=_tiposPorFecha[f]||new Set()).add(r.tipo);
+  });
+  const diasMarcados=Object.keys(_tiposPorFecha).length;   // fechas distintas
+  const fechasDobles=Object.entries(_tiposPorFecha)
+    .filter(([,t])=>t.size>1)
+    .map(([f,t])=>f.slice(8)+' ('+[...t].join(' + ')+')');
+
   // Licencias con goce: paternidad, maternidad y fallecimiento. Se pagan (ya
   // salían en "Licencia con goce"), pero no se veían por ningún lado.
   const diasLic=diasLP+diasLM+diasLF;
@@ -226,7 +241,7 @@ function _calcPlanRow(p,det){
 
   return{
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
-    diasLP,diasLM,diasLF,diasLic,diasOtroTipo,diasCv,
+    diasLP,diasLM,diasLF,diasLic,diasOtroTipo,diasCv,diasMarcados,fechasDobles,
     diasPagables,sinDias,
     jornal,jornalMes:jornal_mes,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
@@ -309,7 +324,15 @@ const PL_COLS=[
    c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)" title="D. médico ${c.diasDM||0}${c.diasOtroTipo?' · otras marcas '+c.diasOtroTipo:''}">${c.otrosDias||0}</td>`},
   {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
   {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',
-   c:c=>`<td class="tc mono" style="padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)" title="${c.diasSubTotal||0} subtotal + ${c.diasDL||0} libres + ${c.diasLic||0} licencias + ${c.otrosDias||0} otros">${c.diasTotal||0}</td>`},
+   c:c=>{
+     const dobles=(c.fechasDobles||[]).length;
+     const detalle=(c.diasSubTotal||0)+' subtotal + '+(c.diasDL||0)+' libres + '+(c.diasLic||0)+' licencias + '+(c.otrosDias||0)+' otros'
+       +(dobles?'  ·  ⚠ '+dobles+' día(s) con doble marca: '+c.fechasDobles.join(', '):'');
+     const est=dobles
+       ?'padding:2px 4px;font-weight:700;background:rgba(239,68,68,.22);color:#fca5a5'
+       :'padding:2px 4px;font-weight:700;background:rgba(245,158,11,.18)';
+     return `<td class="tc mono" style="${est}" title="${_plEscC(detalle)}">${c.diasTotal||0}${dobles?' ⚠':''}</td>`;
+   }},
 
   {k:'tareaOrd',g:'tarea',l:'Tarea Ord.', c:c=>_plHs(c.tareaOrdinaria,'text-acc')},
   {k:'diasDL',  g:'tarea',l:'Días Lib.',  c:c=>_plHd(c.diasDL)},
