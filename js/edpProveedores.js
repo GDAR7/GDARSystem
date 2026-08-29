@@ -1148,15 +1148,20 @@ function _edpDocHtml(eq,H,D,F){
   let pagina3='';
   const hayDesc=(D.insumos&&D.insumos.length)||(D.atenciones&&D.atenciones.length)||_edpDescManual.length;
   if(hayDesc){
-    const totIns=D.insumos.reduce((s,i)=>s+i.total,0);
+    // Los precios del catálogo están en soles: se pasan a la moneda del equipo
+    const _fTCi=_edpFactorTC(eq);
+    const _ins=_fTCi===1?D.insumos
+      :D.insumos.map(i=>({...i,precio:+(i.precio*_fTCi).toFixed(4),total:+(i.total*_fTCi).toFixed(2)}));
+    const totIns=+_ins.reduce((s,i)=>s+i.total,0).toFixed(2);
     // El total de la atención sale del cuadro de recursos (paso 2), no de
     // multiplicar las horas por una tarifa única como antes.
     const _arPerT={desde:_edpDesde,hasta:_edpHasta,
       dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
-    const totAten=(typeof arCalcular==='function')
+    const _fTCr=_edpFactorTC(eq);
+    const totAten=+(((typeof arCalcular==='function')
       ? arCalcular(D.atenciones,_arPerT).total
-      : D.atenciones.reduce((s,a)=>s+a.total,0);
-    const totManual=_edpDescManual.reduce((s,r)=>s+(+r.cant||0)*(+r.precio||0),0);
+      : D.atenciones.reduce((s,a)=>s+a.total,0))*_fTCr).toFixed(2);
+    const totManual=+(_edpDescManual.reduce((s,r)=>s+(+r.cant||0)*(+r.precio||0),0)*_fTCr).toFixed(2);
 
     const secIns=D.insumos.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">A. CONSUMO DE INSUMOS — ALMACÉN ECOSERMO</div>
@@ -1166,7 +1171,7 @@ function _edpDocHtml(eq,H,D,F){
           <th style="${TH};text-align:left">Descripción del Insumo</th><th style="${TH}">Unid.</th>
           <th style="${TH}">Cant.</th><th style="${TH}">P. Unit ${SIM}</th><th style="${TH}">Total ${SIM}</th>
         </tr></thead>
-        <tbody>${D.insumos.map((i,n)=>`<tr>
+        <tbody>${_ins.map((i,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td>
           <td style="${TD};text-align:center">${_edpFmtDMY(i.fecha)}</td>
           <td style="${TD};text-align:center;font-family:monospace">${i.auxCod||'—'}</td>
@@ -1184,7 +1189,15 @@ function _edpDocHtml(eq,H,D,F){
     // atendió, después el costo de los recursos empleados en esas horas.
     const _arPer={desde:_edpDesde,hasta:_edpHasta,
       dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
-    const _arC=(typeof arCalcular==='function')?arCalcular(D.atenciones,_arPer):{filas:[],total:0};
+    const _arC0=(typeof arCalcular==='function')?arCalcular(D.atenciones,_arPer):{filas:[],total:0};
+    // Todo el cuadro pasa a la moneda del equipo: el C.U.H. y el parcial de
+    // cada recurso, y el total. Así lo impreso cuadra con el resumen de abajo.
+    const _fTCc=_edpFactorTC(eq);
+    const _arC=_fTCc===1?_arC0:{
+      ..._arC0,
+      filas:_arC0.filas.map(f=>({...f,cuh:+(f.cuh*_fTCc).toFixed(4),parcial:+(f.parcial*_fTCc).toFixed(2)})),
+      total:+(_arC0.total*_fTCc).toFixed(2)
+    };
     const secAten=D.atenciones.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">B. ATENCIÓN MECÁNICA — ECOSERMO (según tiempo de parada)</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
