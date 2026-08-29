@@ -60,6 +60,9 @@ const USERS=[
   {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
   {codigo:'PIE_SA',dni:'72512691',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
   {codigo:'FRANSU',dni:'76322407',nombre:'Frans Urbano',cargo:'Auxiliar de Seguridad',areas:['seguridad']},
+  // La planilla vive en 'remuneraciones', no en 'administracion'. De
+  // Remuneraciones ve todo; de Administración, solo el tareaje y sus vistas.
+  {codigo:'JOR_JA',dni:'12345678',nombre:'Jorge Jala',cargo:'Jefe de Recursos Humanos',areas:['administracion','remuneraciones'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
 ];
 
 // ══ SUPABASE CONFIG ══
