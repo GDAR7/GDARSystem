@@ -489,8 +489,12 @@ function rEdpProveedores(){
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
     ...(D.horasAtencion>0?[(()=>{
       // El importe sale del cuadro de recursos, que es lo que se imprime.
-      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
-        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      // El C.U.H. se prorratea sobre el período del EDP, no sobre el de los
+      // auxilios: la tarifa es MENSUAL, y con un rango de auxilios más largo
+      // (tres meses, por ejemplo) el costo por hora salía dividido de más.
+      // El período de auxilios solo decide QUÉ atenciones entran.
+      const _p={desde:_edpDesde,hasta:_edpHasta,
+        dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
       const _t=(typeof arCalcular==='function')
         ? arCalcular(D.atenciones,_p).total
         : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);
@@ -737,8 +741,12 @@ async function _edpGuardar(){
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
     ...(D.horasAtencion>0?[(()=>{
       // El importe sale del cuadro de recursos, que es lo que se imprime.
-      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
-        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      // El C.U.H. se prorratea sobre el período del EDP, no sobre el de los
+      // auxilios: la tarifa es MENSUAL, y con un rango de auxilios más largo
+      // (tres meses, por ejemplo) el costo por hora salía dividido de más.
+      // El período de auxilios solo decide QUÉ atenciones entran.
+      const _p={desde:_edpDesde,hasta:_edpHasta,
+        dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
       const _t=(typeof arCalcular==='function')
         ? arCalcular(D.atenciones,_p).total
         : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);
@@ -1283,8 +1291,12 @@ function _edpPrint(){
     ...D.insumos.map(i=>({desc:`Consumo: ${i.desc} (${_edpFmtDMY(i.fecha)} · ${i.auxCod})`,und:i.und,cant:i.cant,precio:i.precio,total:i.total})),
     ...(D.horasAtencion>0?[(()=>{
       // El importe sale del cuadro de recursos, que es lo que se imprime.
-      const _p={desde:_edpPerAux().desde,hasta:_edpPerAux().hasta,
-        dias:Math.max(1,Math.round((new Date(_edpPerAux().hasta+'T12:00')-new Date(_edpPerAux().desde+'T12:00'))/864e5)+1)};
+      // El C.U.H. se prorratea sobre el período del EDP, no sobre el de los
+      // auxilios: la tarifa es MENSUAL, y con un rango de auxilios más largo
+      // (tres meses, por ejemplo) el costo por hora salía dividido de más.
+      // El período de auxilios solo decide QUÉ atenciones entran.
+      const _p={desde:_edpDesde,hasta:_edpHasta,
+        dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)};
       const _t=(typeof arCalcular==='function')
         ? arCalcular(D.atenciones,_p).total
         : +(D.horasAtencion*_edpTarifaAtencion).toFixed(2);

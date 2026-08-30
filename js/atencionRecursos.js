@@ -31,7 +31,9 @@ const _AR_DEF=[
   {nombre:'Mecánico',             cargo:'MECANICO',                             tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0,     usaManual:0, orden:20, fuenteCant:'mec'},
   {nombre:'Ayudante mecánico',    cargo:'AYUDANTE MECANICO',                    tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:1,    cuhManual:0,     usaManual:0, orden:30, fuenteCant:'ayudante'},
   {nombre:'Camioneta Full',       cargo:'',  tarifaDesc:'Camioneta 4 Pasajeros', tarifaCol:'full', eqCodigo:'', cantidad:1, participacion:1, cuhManual:0,     usaManual:0, orden:40},
-  {nombre:'Desg. de H. Manuales', cargo:'',                                     tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:0.05, cuhManual:23.90, usaManual:1, orden:50}
+  // El desgaste es un 5 % de lo que costó la mano de obra que usó las
+  // herramientas, no una tarifa propia.
+  {nombre:'Desg. de H. Manuales', cargo:'', tarifaDesc:'', eqCodigo:'', cantidad:1, participacion:0.05, cuhManual:0, usaManual:0, baseDe:'Mecánico;Ayudante mecánico', orden:50}
 ];
 
 // El mismo puesto se escribe distinto en cada sitio. Estos son los nombres con
@@ -156,14 +158,33 @@ function _arIncidencia(cargo,per){
 // atendieron — o, por compatibilidad, un número con las horas totales.
 // Con "cantidad automática" el recurso toma los que realmente atendieron cada
 // vez: una atención con un mecánico y otra con dos no cuestan lo mismo.
+// Recursos cuyo costo se deriva de otros: el desgaste de herramientas es un
+// porcentaje de lo que costó la mano de obra que las usó, no una tarifa suya.
+// baseDe = nombres de los recursos cuyos parciales se suman, separados por ";".
+const _arBaseLista=r=>String((r&&r.baseDe)||'').split(/[;,]/).map(x=>x.trim()).filter(Boolean);
+const _arEsDerivado=r=>_arBaseLista(r).length>0;
+
 function arCalcular(atenciones,per){
   const lista=Array.isArray(atenciones)
     ? atenciones.map(a=>({horas:+a.horas||0,nMec:+a.nMec||0,nAyu:+a.nAyu||0}))
     : [{horas:+atenciones||0,nMec:0,nAyu:0}];
   const H=lista.reduce((s,a)=>s+a.horas,0);
 
-  const filas=_arListaCalc().map(r=>{
-    const c=arCuh(r,per);
+  // Dos pasadas: los derivados necesitan el parcial de los otros ya hecho.
+  const _todos=_arListaCalc();
+  const _hechos={};
+  const calcFila=r=>{
+    const derivado=_arEsDerivado(r);
+    // El C.U.H. derivado se divide entre las horas porque el parcial vuelve a
+    // multiplicarlas: así (1)×(2)×(3)×(4) da exactamente el % de la suma,
+    // trabaje una hora o veinte.
+    const c=derivado?(()=>{
+      const nombres=_arBaseLista(r);
+      const suma=nombres.reduce((t,n)=>t+(+(_hechos[_arNorm(n)]||0)),0);
+      const falta=nombres.filter(n=>_hechos[_arNorm(n)]===undefined);
+      return{cuh:H>0?+(suma/H).toFixed(4):0,fuente:'suma de otros',
+        detalle:nombres.join(' + ')+' = '+_arN(suma)+(falta.length?' · no se encontró: '+falta.join(', '):'')};
+    })():arCuh(r,per);
     const part=+r.participacion||0;
     // fuenteCant: de dónde sale la cantidad. '' = la escrita a mano;
     // 'mec' = los mecánicos del auxilio; 'ayudante' = los ayudantes.
@@ -179,9 +200,14 @@ function arCalcular(atenciones,per){
     const cantEq=H>0?+(hxc/H).toFixed(2):fija;
     const rango=auto?[...new Set(lista.filter(a=>a.horas>0).map(nDe))].sort():[];
     return{r,nombre:r.nombre,cantidad:cantEq,cantFija:fija,auto,fuente_cant:fte,rango,
-      participacion:part,cuh:c.cuh,fuente:c.fuente,detalle:c.detalle,
+      participacion:part,cuh:c.cuh,fuente:c.fuente,detalle:c.detalle,derivado,
       bruto,parcial:+bruto.toFixed(2)};
-  });
+  };
+  const filas=[
+    ..._todos.filter(r=>!_arEsDerivado(r)).map(f=>{const x=calcFila(f);_hechos[_arNorm(f.nombre)]=x.bruto;return x;}),
+    ..._todos.filter(_arEsDerivado).map(calcFila)
+  // Se devuelven en el orden configurado, no en el de cálculo
+  ].sort((a,b)=>(+a.r.orden||0)-(+b.r.orden||0));
   // El total suma los parciales SIN redondear y recién ahí redondea, igual que
   // la hoja del cliente. Sumar los ya redondeados daba un céntimo de más.
   return{horas:H,filas,atenciones:lista,total:+filas.reduce((s,f)=>s+f.bruto,0).toFixed(2)};
@@ -245,10 +271,12 @@ async function _arGuardarCampo(id,campo,valor){
   else if(campo==='incidencia')r[campo]=Math.max(0,+valor||0);   // 0 = automática
   else if(campo==='usaManual')r[campo]=valor?1:0;
   else if(campo==='fuenteCant')r[campo]=String(valor||'');
+  else if(campo==='baseDe')r[campo]=String(valor||'').trim();
   else if(campo==='origen'){
     const s=String(valor||'');
-    r.cargo='';r.tarifaDesc='';r.tarifaCol='';r.eqCodigo='';r.usaManual=0;
+    r.cargo='';r.tarifaDesc='';r.tarifaCol='';r.eqCodigo='';r.usaManual=0;r.baseDe='';
     if(s==='f')r.usaManual=1;
+    else if(s.slice(0,2)==='b:')r.baseDe=s.slice(2);
     else if(s.slice(0,2)==='c:')r.cargo=s.slice(2);
     else if(s.slice(0,2)==='t:'){const p=s.slice(2),i=p.indexOf(':');r.tarifaCol=p.slice(0,i);r.tarifaDesc=p.slice(i+1);}
     else if(s.slice(0,2)==='e:')r.eqCodigo=s.slice(2);
@@ -261,6 +289,7 @@ async function _arGuardarCampo(id,campo,valor){
 
 // ── De dónde sale el costo del recurso, en un solo valor ───────────────────
 function _arOrigenVal(r){
+  if(_arEsDerivado(r))return'b:'+r.baseDe;
   if(+r.usaManual)return'f';
   if(r.cargo)return'c:'+r.cargo;
   if(r.tarifaDesc)return't:'+(String(r.tarifaCol||'full'))+':'+r.tarifaDesc;
@@ -271,6 +300,15 @@ function _arOrigenOpts(r){
   const v=_arOrigenVal(r);
   const op=(val,txt)=>`<option value="${_arEsc(val)}"${v===val?' selected':''}>${_arEsc(txt)}</option>`;
   let h=op('','— elegir origen —')+op('f','Valor fijo (a mano)');
+  // Suma de los parciales de otros recursos (el desgaste de herramientas)
+  const otros=_arListaCalc().filter(x=>x.nombre!==r.nombre&&!_arEsDerivado(x)).map(x=>x.nombre);
+  if(otros.length){
+    h+='<optgroup label="% de la suma de otros">';
+    const manoObra=otros.filter(n=>/mec[aá]nico/i.test(n));
+    if(manoObra.length>1)h+=op('b:'+manoObra.join(';'),manoObra.join(' + '));
+    otros.forEach(n=>h+=op('b:'+n,n));
+    h+='</optgroup>';
+  }
   const cargos=[...new Set((DB.ventaPersonal||[]).filter(t=>+t.tarifaMes>0).map(t=>t.cargo))].sort();
   if(cargos.length)h+='<optgroup label="HH Venta · cargo">'+cargos.map(c=>op('c:'+c,c)).join('')+'</optgroup>';
   const tf=[...(DB.tarifasEq||[])].sort((a,b)=>String(a.desc||'').localeCompare(String(b.desc||'')));
