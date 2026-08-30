@@ -134,52 +134,6 @@ const _edpN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,max
 // Al re-renderizar se recrea el panel completo, así que hay que devolver el foco y el cursor
 // al campo que se estaba escribiendo; el debounce evita reconstruir en cada tecla.
 let _edpTimer=null;
-// ¿Se está tecleando dentro de un campo de la barra? En un <input type=number>
-// el navegador no deja leer ni reponer la posición del cursor, así que al
-// repintar el foco vuelve al inicio del campo: escribir "3.44" iba dando
-// "0.443". Mientras el campo tenga el foco no se repinta; se repinta en cuanto
-// se sale. Los select, checkbox y fechas no tienen ese problema y siguen
-// actualizando al instante.
-function _edpTecleando(){
-  const a=document.activeElement;
-  if(!a||!a.id||!a.id.startsWith('edp_'))return null;
-  if(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')return null;
-  const t=(a.type||'text').toLowerCase();
-  // Las fechas también se teclean. Al escribir 20/08/2026 el navegador va
-  // disparando 'change' con fechas intermedias (2026-08-07 cuando aún se
-  // iba por el 0 del 20): si se repinta ahí, el input se recrea con la
-  // fecha a medias y el resto de lo tecleado se pierde.
-  const TECLEABLES=['number','text','search','date','month','week','time','datetime-local'];
-  return (TECLEABLES.includes(t)||a.tagName==='TEXTAREA')?a:null;
-}
-function _edpRerender(inmediato){
-  clearTimeout(_edpTimer);
-  const run=()=>{
-    const esperando=_edpTecleando();
-    if(esperando){
-      // Se pospone hasta que el campo pierda el foco, sin encolar dos veces
-      esperando.removeEventListener('blur',_edpRerenderAlSalir);
-      esperando.addEventListener('blur',_edpRerenderAlSalir,{once:true});
-      return;
-    }
-    const a=document.activeElement;
-    const id=a&&a.id&&a.id.startsWith('edp_')?a.id:null;
-    const ss=id&&a.type!=='number'?a.selectionStart:null,se=id&&a.type!=='number'?a.selectionEnd:null;
-    rEdpProveedores();
-    if(id){
-      const el=document.getElementById(id);
-      if(el){el.focus();if(ss!=null&&el.setSelectionRange)try{el.setSelectionRange(ss,se);}catch(e){}}
-    }
-  };
-  _edpRunPendiente=run;
-  if(inmediato)run();else _edpTimer=setTimeout(run,350);
-}
-// El repintado que quedó pendiente mientras se escribía
-let _edpRunPendiente=null;
-function _edpRerenderAlSalir(){
-  const f=_edpRunPendiente;
-  if(f)setTimeout(f,0);      // ya sin foco en el campo, se repinta de verdad
-}
 function _edpSet(campo,val,inmediato){
   // Al cambiar de equipo se arma otro EDP: el checkbox vuelve a su estado por
   // defecto y el N° se propone según la serie de ESE equipo.
@@ -203,7 +157,9 @@ function _edpSet(campo,val,inmediato){
     _edpHasta=val;
     if(_edpAuxSync)_edpAuxHasta=val;
   }
-  else if(campo==='tc')_edpTC=+val||0;
+  // Como el campo es de texto, aquí se valida: nunca negativo, y una coma
+  // decimal se admite igual que el punto.
+  else if(campo==='tc')_edpTC=Math.max(0,+String(val).replace(',','.')||0);
   else if(campo==='auxDesde')_edpAuxDesde=val;
   else if(campo==='auxHasta')_edpAuxHasta=val;
   else if(campo==='auxSync'){
@@ -277,6 +233,22 @@ async function _edpDelFirma(){
 function _edpAddDescManual(){
   _edpDescManual.push({desc:'',und:'und',cant:0,precio:0});
   rEdpProveedores();
+}
+function _edpRerender(inmediato){
+  clearTimeout(_edpTimer);
+  const run=()=>{
+    const a=document.activeElement;
+    const id=a&&a.id&&a.id.startsWith("edp_")?a.id:null;
+    // selectionStart no existe en los input de tipo number ni date
+    const puede=id&&a.type!=="number"&&a.type!=="date";
+    const ss=puede?a.selectionStart:null,se=puede?a.selectionEnd:null;
+    rEdpProveedores();
+    if(id){
+      const el=document.getElementById(id);
+      if(el){el.focus();if(ss!=null&&el.setSelectionRange)try{el.setSelectionRange(ss,se);}catch(e){}}
+    }
+  };
+  if(inmediato)run();else _edpTimer=setTimeout(run,350);
 }
 function _edpSetDescManual(i,campo,val){
   const r=_edpDescManual[i];if(!r)return;
@@ -571,7 +543,11 @@ function rEdpProveedores(){
            3.44 salía 0.443. */
         _edpNecesitaTC(eq)?`<div class="fg">
         <label>Tipo de cambio S/ → ${_sim}</label>
-        <input type="number" step="0.0001" min="0" id="edp_tc" value="${_edpTC||''}"
+        <!-- type=text (no number) a propósito: en un input number el navegador
+             no deja leer ni reponer la posición del cursor, así que al repintar
+             el cursor saltaba al inicio y escribir 3.44 daba 0.443. Como texto,
+             _edpRerender sí puede devolverlo a su sitio. -->
+        <input type="text" inputmode="decimal" id="edp_tc" value="${_edpTC||''}"
           placeholder="Ej: 3.75"
           oninput="_edpSet('tc',this.value)" onchange="_edpSet('tc',this.value,1)"
           style="${inpS}${(_edpTCFalta(eq)?';border-color:#ef4444':';border-color:#10b981')}">
