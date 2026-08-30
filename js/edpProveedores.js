@@ -145,7 +145,12 @@ function _edpTecleando(){
   if(!a||!a.id||!a.id.startsWith('edp_'))return null;
   if(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')return null;
   const t=(a.type||'text').toLowerCase();
-  return (t==='number'||t==='text'||t==='search'||a.tagName==='TEXTAREA')?a:null;
+  // Las fechas también se teclean. Al escribir 20/08/2026 el navegador va
+  // disparando 'change' con fechas intermedias (2026-08-07 cuando aún se
+  // iba por el 0 del 20): si se repinta ahí, el input se recrea con la
+  // fecha a medias y el resto de lo tecleado se pierde.
+  const TECLEABLES=['number','text','search','date','month','week','time','datetime-local'];
+  return (TECLEABLES.includes(t)||a.tagName==='TEXTAREA')?a:null;
 }
 function _edpRerender(inmediato){
   clearTimeout(_edpTimer);
