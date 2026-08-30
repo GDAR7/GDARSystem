@@ -129,6 +129,10 @@ function _edpDesc1(txt){
   if(g>0)out=out.slice(0,g);
   return out.trim()||'—';
 }
+// Como _edpN2 pero con los decimales que se pidan. Lo usa la cantidad de los
+// recursos derivados: con 8 horas, 1/8 = 0.125 y redondear a 0.13 desviaba
+// la fórmula impresa.
+const _edpNn=(v,d)=>Number(v||0).toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:d||2});
 const _edpN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 // Al re-renderizar se recrea el panel completo, así que hay que devolver el foco y el cursor
