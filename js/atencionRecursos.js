@@ -351,9 +351,35 @@ async function _arBorrar(id){
   _arRender();
 }
 
+// ── El desgaste de herramientas, en los que ya estaban guardados ───────────
+// Dejó de ser una tarifa fija de 23.90 para pasar a ser un % de la mano de
+// obra que usó las herramientas. Los recursos ya guardados conservan la
+// configuración vieja, así que se pasa una sola vez.
+// Solo se toca si sigue exactamente con el valor por defecto: si alguien le
+// puso otro importe a mano, esa decisión se respeta.
+let _arMigrado=false;
+async function _arMigrarDesgaste(){
+  if(_arMigrado)return false;
+  _arMigrado=true;
+  const r=(DB.atencionRecursos||[]).find(x=>_arNorm(x.nombre)===_arNorm('Desg. de H. Manuales'));
+  if(!r||_arEsDerivado(r))return false;
+  if(!+r.usaManual||Math.abs(+r.cuhManual-23.90)>0.005)return false;
+  const prev={baseDe:r.baseDe,usaManual:r.usaManual,cuhManual:r.cuhManual};
+  r.baseDe='Mecánico;Ayudante mecánico';r.usaManual=0;r.cuhManual=0;
+  const err=await supaUpsert('atencionRecursos',r);
+  if(err){Object.assign(r,prev);return false;}
+  toast('Desgaste de H. Manuales: ahora es el 5 % de Mecánico + Ayudante');
+  return true;
+}
+
 // ── Panel de configuración, dentro de EDP Proveedores ──────────────────────
 function _arRender(){
   const c=document.getElementById('arPanel');if(!c)return;
+  // Si había que migrar el desgaste, se repinta el EDP para que el cuadro
+  // impreso salga ya con el importe nuevo.
+  _arMigrarDesgaste().then(hecho=>{
+    if(hecho&&typeof rEdpProveedores==='function')rEdpProveedores();
+  });
   const per=(typeof _edpDesde!=='undefined'&&_edpDesde&&_edpHasta)
     ? {desde:_edpDesde,hasta:_edpHasta,dias:Math.max(1,Math.round((new Date(_edpHasta+'T12:00')-new Date(_edpDesde+'T12:00'))/864e5)+1)}
     : null;
