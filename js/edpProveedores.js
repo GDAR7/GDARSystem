@@ -1233,7 +1233,7 @@ function _edpDocHtml(eq,H,D,F){
         </tr></thead>
         <tbody>${_arC.filas.map(f=>`<tr>
           <td style="${TD}">${f.nombre}</td>
-          <td style="${TD};text-align:center">${_edpN2(f.cantidad)}${f.auto&&f.rango.length>1?' <span style="font-size:8px;color:#555">('+f.rango.join('/')+')</span>':''}</td>
+          <td style="${TD};text-align:center">${f.derivado?_edpNn(f.cantidad,4):_edpN2(f.cantidad)}${f.auto&&f.rango.length>1?' <span style="font-size:8px;color:#555">('+f.rango.join('/')+')</span>':''}</td>
           <td style="${TD};text-align:center">${(f.participacion*100).toFixed(0)}%</td>
           <td style="${TD};text-align:right">${_edpN2(f.cuh)}${f.cuh?'':' <span style="color:#b91c1c;font-size:8px">('+f.fuente+')</span>'}</td>
           <td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(f.parcial)}</td>

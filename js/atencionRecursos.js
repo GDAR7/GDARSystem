@@ -175,14 +175,15 @@ function arCalcular(atenciones,per){
   const _hechos={};
   const calcFila=r=>{
     const derivado=_arEsDerivado(r);
-    // El C.U.H. derivado se divide entre las horas porque el parcial vuelve a
-    // multiplicarlas: así (1)×(2)×(3)×(4) da exactamente el % de la suma,
-    // trabaje una hora o veinte.
+    // En un derivado el C.U.H. ES la suma de los parciales de los otros: es lo
+    // que interesa leer en el cuadro. Como esa suma ya lleva dentro las horas,
+    // la cantidad se ajusta más abajo para que (1)×(2)×(3)×(4) no las cuente
+    // dos veces y el parcial quede en el % justo de la suma.
     const c=derivado?(()=>{
       const nombres=_arBaseLista(r);
-      const suma=nombres.reduce((t,n)=>t+(+(_hechos[_arNorm(n)]||0)),0);
+      const suma=+nombres.reduce((t,n)=>t+(+(_hechos[_arNorm(n)]||0)),0).toFixed(2);
       const falta=nombres.filter(n=>_hechos[_arNorm(n)]===undefined);
-      return{cuh:H>0?+(suma/H).toFixed(4):0,fuente:'suma de otros',
+      return{cuh:suma,fuente:'suma de otros',baseSuma:suma,
         detalle:nombres.join(' + ')+' = '+_arN(suma)+(falta.length?' · no se encontró: '+falta.join(', '):'')};
     })():arCuh(r,per);
     const part=+r.participacion||0;
@@ -194,10 +195,17 @@ function arCalcular(atenciones,per){
     const nDe=a=>fte==='mec'?a.nMec:fte==='ayudante'?a.nAyu:fija;
     // Σ (horas de cada atención × cuántos hubo en ella)
     const hxc=lista.reduce((s,a)=>s+a.horas*nDe(a),0);
-    const bruto=hxc*part*c.cuh;
+    // El derivado es un porcentaje de un monto, no horas por una tarifa: su
+    // parcial sale directo de la suma.
+    const bruto=derivado?(c.cuh*part):(hxc*part*c.cuh);
     // Cantidad equivalente: hace que (1)×(2)×(3)×(4) del cuadro impreso
     // reproduzca exactamente el parcial, aunque cada atención tuviera otra.
-    const cantEq=H>0?+(hxc/H).toFixed(2):fija;
+    // En el derivado vale 1/horas, para anular las horas de la fórmula.
+    // En el derivado la cantidad NO se redondea a 2 decimales: con 8 horas,
+    // 1/8 = 0.125 pasaba a 0.13 y la fórmula impresa se desviaba un 4 %.
+    // El cuadro la imprime con los decimales que haga falta.
+    const cantEq=derivado?(H>0?1/H:1)
+                         :(H>0?+(hxc/H).toFixed(2):fija);
     const rango=auto?[...new Set(lista.filter(a=>a.horas>0).map(nDe))].sort():[];
     return{r,nombre:r.nombre,cantidad:cantEq,cantFija:fija,auto,fuente_cant:fte,rango,
       participacion:part,cuh:c.cuh,fuente:c.fuente,detalle:c.detalle,derivado,
