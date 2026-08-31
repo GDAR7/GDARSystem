@@ -22,9 +22,21 @@ const R5_CORTE={1:0,2:0,3:0,4:3,5:4,6:4,7:4,8:7,9:8,10:8,11:8,12:11};
 const R5_DEDUC_UIT=7;          // deducción fija de 7 UIT
 const R5_BONIF_GRATIF=0.09;    // bonificación extraordinaria sobre gratificaciones
 
+// Formas de repartir el impuesto anual proyectado entre los meses
+//  · art40     → divisor oficial del mes (lo que exige la SUNAT)
+//  · prorrateo → impuesto ÷ 12, la misma cuota todo el año (trabajador continuo)
+//  · saldo     → lo que falta ÷ meses que quedan, para nivelar a mitad de año
+const R5_MODOS={
+  art40:{lbl:'Art. 40 (legal)',ic:'⚖️',desc:'Divisor oficial del mes (12·9·8·5·4·regularización) descontando las retenciones de los meses de corte.'},
+  prorrateo:{lbl:'Prorrateo 12 meses',ic:'📅',desc:'Impuesto anual ÷ 12: la misma cuota todos los meses. Para quien trabaja el año completo de forma continua.'},
+  saldo:{lbl:'Saldo uniforme',ic:'🧮',desc:'(Impuesto anual − retenciones ya efectuadas) ÷ meses que faltan, incluido el que se calcula.'}
+};
+
 let _r5Mes=new Date().getMonth()+1, _r5Anio=String(new Date().getFullYear());
 let _r5SoloAfectos=true, _r5DetId=null;
 let _r5Buscar='';
+let _r5Modo=(()=>{try{return localStorage.getItem('r5Modo')||'art40';}catch(e){return 'art40';}})();
+if(!R5_MODOS[_r5Modo])_r5Modo='art40';
 
 const _r5N=(n,d=2)=>Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const _r5S=n=>'S/ '+_r5N(n);
@@ -38,8 +50,8 @@ function _r5RO(){return isModuleReadOnly('renta5ta');}
 // a la misma persona, y "volquete" lista a todos los de ese cargo.
 const _r5NormB=s=>String(s==null?'':s).toLowerCase().normalize('NFD')
   .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-function _r5Coincide(p){
-  const q=_r5NormB(_r5Buscar);
+function _r5Coincide(p,busq){
+  const q=_r5NormB(busq===undefined?_r5Buscar:busq);
   if(!q)return true;
   const heno=_r5NormB([p.ape,p.nom,p.dni,p.cargo,p.cat,p.proy].filter(Boolean).join(' '));
   return q.split(' ').every(w=>heno.includes(w));
@@ -87,9 +99,11 @@ function _r5Impuesto(rentaNeta,uit){
 }
 
 // ── Retenciones ya registradas de meses anteriores del mismo año ──
-function _r5RetAcum(personalId,anio,mes){
-  const corte=R5_CORTE[mes]||0;
-  if(!corte)return 0;
+// En el procedimiento legal solo cuentan los meses de corte; al prorratear o
+// nivelar interesa todo lo efectivamente retenido antes del mes que se calcula.
+function _r5RetAcum(personalId,anio,mes,modo){
+  const corte=(modo||_r5Modo)==='art40'?(R5_CORTE[mes]||0):mes-1;
+  if(corte<=0)return 0;
   return (DB.renta5ta||[])
     .filter(r=>+r.personalId===+personalId&&String(r.anio)===String(anio)&&+r.mes<=corte)
     .reduce((s,r)=>s+(+r.retencion||0),0);
@@ -101,7 +115,8 @@ function _r5RegPrevio(personalId,anio){
 }
 
 // ── Cálculo de un trabajador ──
-function _r5Calc(p,mes,anio,otrosIng,retenidoPrevio){
+function _r5Calc(p,mes,anio,otrosIng,retenidoPrevio,modo){
+  const md=R5_MODOS[modo||_r5Modo]?(modo||_r5Modo):'art40';
   const uit=_r5Uit(anio);
   const remMes=+p.sue||0;
   const asig=p.asig?113:0;                       // la asignación familiar es renta de quinta
@@ -115,13 +130,26 @@ function _r5Calc(p,mes,anio,otrosIng,retenidoPrevio){
   const deduccion=_r5r2(R5_DEDUC_UIT*uit);
   const rentaNeta=Math.max(0,_r5r2(rentaBruta-deduccion));
   const imp=_r5Impuesto(rentaNeta,uit);
-  const retPrevias=_r5RetAcum(p.id,anio,mes)+(+retenidoPrevio||0);
-  const divisor=R5_DIVISOR[mes]||12;
-  const saldo=Math.max(0,_r5r2(imp.total-retPrevias));
-  const retencion=_r5r2(saldo/divisor);
+  const retPrevias=_r5r2(_r5RetAcum(p.id,anio,mes,md)+(+retenidoPrevio||0));
+  let divisor,saldo,retencion;
+  if(md==='prorrateo'){
+    // Cuota pareja: el impuesto del año se parte en 12 y no se ajusta por lo ya
+    // retenido — la diferencia se ve en la regularización anual.
+    divisor=12;
+    saldo=imp.total;
+    retencion=_r5r2(imp.total/12);
+  }else if(md==='saldo'){
+    divisor=Math.max(1,12-mes+1);
+    saldo=Math.max(0,_r5r2(imp.total-retPrevias));
+    retencion=_r5r2(saldo/divisor);
+  }else{
+    divisor=R5_DIVISOR[mes]||12;
+    saldo=Math.max(0,_r5r2(imp.total-retPrevias));
+    retencion=_r5r2(saldo/divisor);
+  }
   return{uit,remMes,asig,base,mesesRest,proyeccion,percibido,gratif,otros,rentaBruta,
-    deduccion,rentaNeta,impAnual:imp.total,tramos:imp.detalle,
-    retPrevias:_r5r2(retPrevias),divisor,saldo,retencion,afecto:imp.total>0};
+    deduccion,rentaNeta,impAnual:imp.total,tramos:imp.detalle,modo:md,
+    retPrevias,divisor,saldo,retencion,afecto:imp.total>0};
 }
 
 // ── Personal afecto ──
@@ -138,6 +166,7 @@ function _r5Set(campo,v){
   if(campo==='mes')_r5Mes=+v;
   else if(campo==='anio')_r5Anio=v;
   else if(campo==='afectos')_r5SoloAfectos=v;
+  else if(campo==='modo'){_r5Modo=R5_MODOS[v]?v:'art40';try{localStorage.setItem('r5Modo',_r5Modo);}catch(e){}}
   rRenta5ta();
 }
 function _r5GuardarUit(){
@@ -199,6 +228,24 @@ function _r5EditOtros(personalId){
   rRenta5ta();
 }
 
+// Las tres últimas filas del detalle cambian con el modo: el reparto legal
+// descuenta lo ya retenido, el prorrateo parte el impuesto en 12 sin tocarlo y
+// el saldo uniforme reparte lo que falta entre los meses que quedan.
+function _r5FilasCierre(c,fila){
+  if(c.modo==='prorrateo'){
+    return (c.retPrevias?fila('Ya retenido en el año (informativo — no altera la cuota)',c.retPrevias):'')
+      +fila('Prorrateo del año: ÷ 12 cuotas iguales',c.retencion,false,1);
+  }
+  if(c.modo==='saldo'){
+    return (c.retPrevias?fila('Retenciones ya efectuadas en el año',c.retPrevias,true):'')
+      +fila('Saldo por retener',c.saldo)
+      +fila(`Dividido entre ${c.divisor} ${c.divisor===1?'mes (último)':'meses que faltan'}`,c.retencion,false,1);
+  }
+  return (c.retPrevias?fila('Retenciones ya efectuadas en el año',c.retPrevias,true):'')
+    +fila('Saldo por retener',c.saldo)
+    +fila(`Dividido entre ${c.divisor} ${c.divisor===1?'(diciembre: regularización)':'cuotas'}`,c.retencion,false,1);
+}
+
 // ── Detalle auditable ──
 function _r5Detalle(personalId){
   const p=(DB.personal||[]).find(x=>x.id===personalId);if(!p)return;
@@ -208,7 +255,7 @@ function _r5Detalle(personalId){
     <td style="padding:.3rem .6rem;font-size:.78rem;${fuerte?'font-weight:700':''}">${l}</td>
     <td style="padding:.3rem .6rem;text-align:right;font-family:monospace;font-size:.8rem;${fuerte?'font-weight:800;':''}color:${neg?'#ef4444':'var(--text)'}">${neg?'− ':''}${_r5S(v)}</td></tr>`;
   document.getElementById('r5DetTtl').textContent=`${p.ape}, ${p.nom}`;
-  document.getElementById('r5DetSub').textContent=`${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(c.uit)} · ${p.cargo||''}`;
+  document.getElementById('r5DetSub').textContent=`${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(c.uit)} · ${R5_MODOS[c.modo].lbl}${p.cargo?' · '+p.cargo:''}`;
   document.getElementById('r5DetBody').innerHTML=`
     <table style="width:100%;border-collapse:collapse">
       <tbody>
@@ -240,14 +287,13 @@ function _r5Detalle(personalId){
     <table style="width:100%;border-collapse:collapse;margin-top:.9rem">
       <tbody>
         ${fila('IMPUESTO ANUAL PROYECTADO',c.impAnual,false,1)}
-        ${c.retPrevias?fila('Retenciones ya efectuadas en el año',c.retPrevias,true):''}
-        ${fila('Saldo por retener',c.saldo)}
-        ${fila(`Dividido entre ${c.divisor} ${c.divisor===1?'(diciembre: regularización)':'cuotas'}`,c.retencion,false,1)}
+        ${_r5FilasCierre(c,fila)}
       </tbody>
     </table>
     <div style="margin-top:.8rem;padding:.6rem .8rem;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;font-size:.72rem;color:var(--muted2)">
       <strong style="color:#60a5fa">Retención de ${R5_MESES[_r5Mes]}: ${_r5S(c.retencion)}</strong><br>
-      Procedimiento del art. 40 del Reglamento de la Ley del Impuesto a la Renta.
+      ${R5_MODOS[c.modo].ic} ${R5_MODOS[c.modo].lbl} — ${R5_MODOS[c.modo].desc}
+      ${c.modo==='art40'?'':'<br><span style="color:#f59e0b">Modo referencial: la SUNAT exige el divisor del art. 40.</span>'}
     </div>`;
   openM('mRenta5Det');
 }
@@ -295,6 +341,10 @@ function rRenta5ta(){
       <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">UIT ${_r5Anio}</span>
       <input type="number" id="r5Uit" value="${uit||''}" placeholder="0.00" step="50" style="${inpS};width:110px;text-align:right">
       ${RO?'':`<button onclick="_r5GuardarUit()" style="background:#ca8a04;color:#fff;border:none;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer">💾 Guardar UIT</button>`}
+      <span style="width:1px;height:18px;background:var(--border)"></span>
+      <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em" title="${R5_MODOS[_r5Modo].desc}">Reparto</span>
+      <select onchange="_r5Set('modo',this.value)" title="${R5_MODOS[_r5Modo].desc}" style="${inpS}">${Object.keys(R5_MODOS).map(k=>`<option value="${k}"${k===_r5Modo?' selected':''}>${R5_MODOS[k].ic} ${R5_MODOS[k].lbl}</option>`).join('')}</select>
+      ${RO?'':`<button onclick="_r5AbrirRet()" style="background:rgba(59,130,246,.15);border:1px solid #3b82f660;color:#60a5fa;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer" title="Cargar las retenciones que ya se hicieron en los meses anteriores del año">🧾 Retenciones efectuadas</button>`}
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer;margin-left:.3rem">
         <input type="checkbox" ${_r5SoloAfectos?'checked':''} onchange="_r5Set('afectos',this.checked)" style="width:auto;margin:0;cursor:pointer"> Solo afectos
       </label>
@@ -320,6 +370,8 @@ function rRenta5ta(){
       <strong style="color:var(--text)">Cómo se calcula</strong> — Proyección = remuneración × meses que faltan + lo ya percibido + 2 gratificaciones con su bonificación del ${(R5_BONIF_GRATIF*100).toFixed(0)}%.
       A eso se le restan ${R5_DEDUC_UIT} UIT y se aplica la escala progresiva (8% · 14% · 17% · 20% · 30%).
       El impuesto anual menos lo ya retenido se divide entre las cuotas que faltan según el mes (art. 40 del Reglamento).<br>
+      <strong style="color:#60a5fa">Reparto activo: ${R5_MODOS[_r5Modo].ic} ${R5_MODOS[_r5Modo].lbl}</strong> — ${R5_MODOS[_r5Modo].desc}
+      Las retenciones ya hechas se cargan con <strong>🧾 Retenciones efectuadas</strong> (se pueden traer de la planilla) y se descuentan del impuesto proyectado.<br>
       <strong style="color:#f59e0b">Queda fuera del cálculo automático:</strong> trabajadores con más de un empleador (requiere declaración jurada) y la deducción adicional de 3 UIT por gastos, que se aplica en la regularización anual.
     </div>`;
 }
@@ -356,7 +408,7 @@ function _r5Tabla(){
   return `
     <div class="card">
       <div class="card-head"><span class="card-title">Cálculo de Retención — ${R5_MESES[_r5Mes]} ${_r5Anio}</span>
-        <span style="font-size:.7rem;color:var(--muted2)">${_r5BuscarNota()}divisor del mes: ${R5_DIVISOR[_r5Mes]===1?'regularización':R5_DIVISOR[_r5Mes]+' cuotas'}</span>
+        <span style="font-size:.7rem;color:var(--muted2)">${_r5BuscarNota()}${R5_MODOS[_r5Modo].ic} ${R5_MODOS[_r5Modo].lbl} · divisor: ${_r5DivisorTxt()}</span>
       </div>
       <div class="card-body" style="overflow-x:auto;padding:0">
         ${!vis.length?`<div style="padding:2.5rem;text-align:center;color:var(--muted)">${vacio}</div>`
@@ -399,6 +451,13 @@ function _r5Tabla(){
 `;
 }
 
+// Cómo queda repartido el impuesto con el modo activo, para el encabezado.
+function _r5DivisorTxt(){
+  if(_r5Modo==='prorrateo')return '12 cuotas iguales';
+  if(_r5Modo==='saldo'){const n=12-_r5Mes+1;return n===1?'último mes':n+' meses que faltan';}
+  return R5_DIVISOR[_r5Mes]===1?'regularización':R5_DIVISOR[_r5Mes]+' cuotas';
+}
+
 // Cuántos quedaron a la vista. Se pinta aparte del input para que escribir no
 // vuelva a crear la caja de texto y el cursor no se escape.
 function _r5BuscarNota(){
@@ -412,6 +471,170 @@ function _r5BuscarNota(){
   return `<b style="color:#22d3ee">${n}</b> de ${base.length} · `;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  RETENCIONES YA EFECTUADAS
+//  Grilla mes × trabajador con lo que realmente se le retuvo en los meses
+//  anteriores del ejercicio. Se guarda en el campo "retencion" del registro de
+//  cada mes — que es justo lo que _r5RetAcum suma para restarlo del impuesto
+//  proyectado. Sirve para arrancar el sistema a mitad de año sin recalcular
+//  enero-julio y para corregir lo que se retuvo de más o de menos.
+// ══════════════════════════════════════════════════════════════════════════
+let _r5RetBuf={};        // {"personalId|mes": monto} — lo tecleado aún sin guardar
+let _r5RetBuscar='';
+
+function _r5RetMeses(){return Array.from({length:Math.max(0,_r5Mes-1)},(_,i)=>i+1);}
+// Lo tecleado manda sobre lo guardado; si no se tocó, lo que hay en la base.
+function _r5RetVal(pid,mes){
+  const k=pid+'|'+mes;
+  if(_r5RetBuf[k]!==undefined)return +_r5RetBuf[k]||0;
+  const r=_r5Reg(pid,mes,_r5Anio);
+  return r?+r.retencion||0:0;
+}
+function _r5RetFila(pid){return _r5RetMeses().reduce((s,m)=>s+_r5RetVal(pid,m),0);}
+function _r5RetPersonal(){return _r5Personal().filter(p=>_r5Coincide(p,_r5RetBuscar));}
+
+function _r5AbrirRet(){
+  if(_r5RO()){toast('Módulo en solo lectura',true);return;}
+  _r5RetBuf={};_r5RetBuscar='';
+  document.getElementById('r5RetSub').textContent=_r5Mes===1
+    ? 'Enero '+_r5Anio+' no tiene meses anteriores del mismo ejercicio'
+    : _r5Anio+' · Enero a '+R5_MESES[_r5Mes-1]+' — lo cargado aquí se descuenta del impuesto proyectado de '+R5_MESES[_r5Mes];
+  const el=document.getElementById('r5RetBody');
+  if(el)el.innerHTML=_r5RetHtml();
+  openM('mRenta5Ret');
+}
+// Solo la grilla se vuelve a pintar al buscar: si se repintara todo, el input
+// se recrearía en cada tecla y el cursor se escaparía.
+function _r5RetRender(){const g=document.getElementById('r5RetGrid');if(g)g.innerHTML=_r5RetGrid();}
+function _r5RetSetBuscar(v){_r5RetBuscar=v;_r5RetRender();}
+
+function _r5RetIn(pid,mes,v){
+  _r5RetBuf[pid+'|'+mes]=+v||0;
+  const t=document.getElementById('r5rTot_'+pid);
+  if(t)t.textContent=_r5N(_r5RetFila(pid));
+  _r5RetPie();
+}
+// Totales del pie: se recalculan sobre lo visible, igual que la grilla.
+function _r5RetPie(){
+  const vis=_r5RetPersonal();
+  let g=0;
+  _r5RetMeses().forEach(m=>{
+    const t=vis.reduce((s,p)=>s+_r5RetVal(p.id,m),0);g+=t;
+    const c=document.getElementById('r5rTotM_'+m);if(c)c.textContent=_r5N(t);
+  });
+  const tg=document.getElementById('r5rTotG');if(tg)tg.textContent=_r5N(g);
+}
+
+// Las retenciones normalmente ya están escritas en la planilla de cada mes:
+// traerlas de ahí evita volver a digitarlas. Solo rellena — guardar es aparte.
+function _r5RetPlanilla(){
+  const meses=_r5RetMeses();
+  if(!meses.length){toast('Enero no tiene meses anteriores',true);return;}
+  let n=0;
+  _r5Personal().forEach(p=>{
+    meses.forEach(m=>{
+      const d=(DB.planillaMes||[]).find(x=>+x.personalId===+p.id&&+x.mes===+m&&String(x.anio)===String(_r5Anio));
+      const v=d?_r5r2(+d.quintaCat||0):0;
+      if(v>0&&Math.abs(v-_r5RetVal(p.id,m))>0.004){_r5RetBuf[p.id+'|'+m]=v;n++;}
+    });
+  });
+  _r5RetRender();
+  toast(n?n+' retención(es) traídas de la planilla — revisa y guarda':'La planilla no tiene 5ta categoría cargada en esos meses',!n);
+}
+function _r5RetLimpiar(){
+  if(!confirm('Se pondrán en 0 todas las casillas visibles.\n\nNada se borra hasta que guardes.'))return;
+  _r5RetPersonal().forEach(p=>_r5RetMeses().forEach(m=>{_r5RetBuf[p.id+'|'+m]=0;}));
+  _r5RetRender();
+}
+
+function _r5GuardarRet(){
+  if(_r5RO()){toast('Módulo en solo lectura',true);return;}
+  const meses=_r5RetMeses();
+  let n=0;
+  Object.keys(_r5RetBuf).forEach(k=>{
+    const pid=+k.split('|')[0],mes=+k.split('|')[1];
+    if(meses.indexOf(mes)<0)return;
+    const v=_r5r2(+_r5RetBuf[k]||0);
+    const reg=_r5Reg(pid,mes,_r5Anio);
+    const actual=reg?+reg.retencion||0:0;
+    if(Math.abs(v-actual)<0.005)return;
+    if(reg){reg.retencion=v;syncSheet('saveRenta5ta',reg);}
+    else{
+      // Mes que nunca se calculó aquí: se registra solo lo retenido, que es lo
+      // único que el procedimiento necesita saber de los meses ya pasados.
+      const p=(DB.personal||[]).find(x=>+x.id===+pid);
+      const base=p?(+p.sue||0)+(p.asig?113:0):0;
+      const nuevo={id:nid('r5'),personalId:pid,anio:String(_r5Anio),mes,remMes:base,
+        otrosIng:0,impAnual:0,retAcum:0,divisor:R5_DIVISOR[mes]||12,retencion:v,retenidoPrevio:0};
+      DB.renta5ta.push(nuevo);syncSheet('saveRenta5ta',nuevo);
+    }
+    n++;
+  });
+  if(!n){toast('No hay cambios que guardar',true);return;}
+  _r5RetBuf={};
+  toast('✓ '+n+' retención(es) registradas — el descuento ya está aplicado');
+  closeM('mRenta5Ret');
+  rRenta5ta();
+}
+
+function _r5RetHtml(){
+  const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .55rem;color:var(--text);font-size:.8rem';
+  if(!_r5RetMeses().length)return '<div style="padding:2rem;text-align:center;color:var(--muted)">En <strong>enero</strong> no hay meses anteriores del mismo ejercicio.<br>Si el trabajador viene de otro empleador o de otro sistema, carga el monto con el botón ✏️ de su fila.</div>';
+  return `
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem">
+      <span style="position:relative;display:inline-flex;align-items:center">
+        <span style="position:absolute;left:.45rem;font-size:.78rem;opacity:.6;pointer-events:none">🔍</span>
+        <input type="search" value="${_r5Esc(_r5RetBuscar)}" placeholder="Buscar nombre, DNI o cargo…"
+          oninput="_r5RetSetBuscar(this.value)" onsearch="_r5RetSetBuscar(this.value)" autocomplete="off"
+          style="${inpS};padding-left:1.7rem;width:250px">
+      </span>
+      <button onclick="_r5RetPlanilla()" style="background:rgba(22,101,52,.2);border:1px solid #16653480;color:#4ade80;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer" title="Copia el campo 5ta Categoría de la planilla de cada mes">↙️ Traer de la planilla</button>
+      <button onclick="_r5RetLimpiar()" style="background:none;border:1px solid var(--border);color:var(--muted2);border-radius:6px;padding:.28rem .7rem;font-size:.74rem;cursor:pointer">Poner en 0</button>
+    </div>
+    <div id="r5RetGrid">${_r5RetGrid()}</div>
+    <div style="margin-top:.7rem;padding:.55rem .8rem;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;font-size:.71rem;color:var(--muted2);line-height:1.55">
+      Lo que cargues acá se descuenta del impuesto anual proyectado al calcular ${R5_MESES[_r5Mes]}.
+      Con el reparto <strong>Art. 40</strong> solo pesan los meses de corte (hasta ${R5_MESES[R5_CORTE[_r5Mes]]||'—'});
+      con <strong>Prorrateo</strong> o <strong>Saldo uniforme</strong> se toman todos los meses anteriores.<br>
+      <span style="color:#f59e0b">Ojo:</span> si además cargaste un importe en «retenciones previas» con el botón ✏️, ese monto se suma a este cuadro — no lo repitas.
+    </div>`;
+}
+
+function _r5RetGrid(){
+  const meses=_r5RetMeses();
+  const pers=_r5RetPersonal();
+  const TH='background:var(--panel2);color:var(--muted2);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:5px 6px;white-space:nowrap';
+  const TD='padding:2px 5px;border-bottom:1px solid var(--border);font-size:.74rem';
+  const inp='background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:.2rem .35rem;color:var(--text);font-size:.72rem;font-family:monospace;text-align:right;width:82px';
+  if(!pers.length)return '<div style="padding:2rem;text-align:center;color:var(--muted)">Ningún trabajador coincide con <strong>'+_r5Esc(_r5RetBuscar)+'</strong>.</div>';
+  const totM=m=>pers.reduce((s,p)=>s+_r5RetVal(p.id,m),0);
+  const totG=pers.reduce((s,p)=>s+_r5RetFila(p.id),0);
+  return `<div style="overflow:auto;max-height:52vh;border:1px solid var(--border);border-radius:8px">
+    <table style="border-collapse:collapse;min-width:100%">
+      <thead><tr>
+        <th style="${TH};text-align:left;position:sticky;left:0;z-index:2">Trabajador</th>
+        ${meses.map(m=>`<th style="${TH};text-align:right">${R5_MESES[m].slice(0,3)}</th>`).join('')}
+        <th style="${TH};text-align:right;color:#f59e0b">Total ${_r5Anio}</th>
+      </tr></thead>
+      <tbody>${pers.map(p=>{
+        const prev=_r5RegPrevio(p.id,_r5Anio);
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="${TD};white-space:nowrap;position:sticky;left:0;background:var(--panel);z-index:1">
+            <strong>${_r5Esc(p.ape)}, ${_r5Esc(p.nom)}</strong>
+            <div style="font-size:.62rem;color:var(--muted2)">${p.dni||'—'}${prev?' · previo cargado: '+_r5S(prev):''}</div>
+          </td>
+          ${meses.map(m=>`<td style="${TD};text-align:right"><input type="number" step="0.01" min="0" value="${_r5RetVal(p.id,m)||''}" placeholder="0.00" oninput="_r5RetIn(${p.id},${m},this.value)" style="${inp}"></td>`).join('')}
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:800;color:#f59e0b" id="r5rTot_${p.id}">${_r5N(_r5RetFila(p.id))}</td>
+        </tr>`;}).join('')}</tbody>
+      <tfoot><tr style="background:rgba(4,78,100,.14);border-top:2px solid var(--border)">
+        <td style="${TD};text-align:right;font-weight:800;font-size:.7rem;color:var(--muted2);position:sticky;left:0;background:var(--panel2)">TOTALES · ${pers.length}</td>
+        ${meses.map(m=>`<td style="${TD};text-align:right;font-family:monospace;font-weight:700;font-size:.7rem" id="r5rTotM_${m}">${_r5N(totM(m))}</td>`).join('')}
+        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b" id="r5rTotG">${_r5N(totG)}</td>
+      </tr></tfoot>
+    </table>
+  </div>`;
+}
+
 // ── Excel ──
 function _r5Excel(){
   const pers=_r5Personal();
@@ -422,7 +645,7 @@ function _r5Excel(){
   if(!filas.length){toast(_r5NormB(_r5Buscar)?'La búsqueda no deja nada que exportar':'No hay datos que exportar',true);return;}
   // Que el archivo diga que está filtrado, para no confundirlo con la nómina
   const filtro=_r5NormB(_r5Buscar)?' · filtrado: "'+_r5Buscar.trim()+'"':'';
-  const tit=`RENTA DE QUINTA CATEGORÍA · ${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(_r5Uit())}${filtro}`;
+  const tit=`RENTA DE QUINTA CATEGORÍA · ${R5_MESES[_r5Mes]} ${_r5Anio} · UIT S/ ${_r5N(_r5Uit())} · ${R5_MODOS[_r5Modo].lbl}${filtro}`;
   const head=['#','DNI','APELLIDOS Y NOMBRES','CARGO','REM. MENSUAL','MESES REST.','PROYECCIÓN','PERCIBIDO','GRATIFICACIONES','OTROS','RENTA BRUTA','DEDUCCIÓN 7 UIT','RENTA NETA','IMPUESTO ANUAL','RET. PREVIAS','DIVISOR','RETENCIÓN DEL MES'];
   const rows=filas.map((f,i)=>[i+1,f.p.dni||'',`${f.p.ape}, ${f.p.nom}`,f.p.cargo||'',
     f.c.base,f.c.mesesRest,f.c.proyeccion,f.c.percibido,f.c.gratif,f.c.otros,f.c.rentaBruta,
