@@ -1156,7 +1156,6 @@ function _edpDocHtml(eq,H,D,F){
     const _porFecha=esMes||_edpDiaModo==='fecha';
     const _cantPagar=esMes?H.diasAPagar:(_porFecha?H.diasAPagar:H.turnosAPagar);
     const _fnOn=!esMes&&!_porFecha&&H.factorDoble!==1;
-    const _dobles=H.diasTrabajados-H.diasReportados;
     // Por día calendario el cuadro ya muestra una fila por fecha, así que hablar
     // de turnos o de criterio de pago sobra: los números cuadran solos.
     resumenPagina2=`<div style="max-width:${esMes?'420':'360'}px">
@@ -1171,15 +1170,6 @@ function _edpDocHtml(eq,H,D,F){
         ${esMes?`<tr><td style="${TD};font-weight:800;background:#fde047">INCIDENCIA</td>
           <td style="${TD};text-align:right;font-weight:900;background:#fde047">${(H.incidencia*100).toFixed(2)} %</td></tr>`:''}
       </tbody></table>
-      ${!esMes&&!_porFecha&&_dobles>0?`<div style="margin-top:5px;font-size:8.5px;color:#334155;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
-        ${_dobles} fecha${_dobles===1?'':'s'} con doble turno (día y noche): se valoriza <strong>por turno</strong>, por eso ${H.diasTrabajados} y no ${H.diasReportados}.
-      </div>`:''}
-      ${_fnOn?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid #7c3aed;padding:3px 7px;background:#f8fafc">
-        <strong>INCIDENCIA DEL 2.º TURNO DEL MISMO DÍA = ${_edpPct(H.factorDoble)}</strong> de lo que vale el primero.
-        Un turno único en la fecha —sea de día o de noche— vale 1.00.<br>
-        ${H.turnosEnteros} × 1.00 + ${H.turnosDobles} × ${_edpN2(H.factorDoble)} = <strong>${_edpN2(H.turnosAPagar)}</strong> turnos equivalentes
-        (de ${H.diasTrabajados} turnos operativos) · se valoriza ese total × ${SIM} ${_edpN2(F.tarifa)}
-      </div>`:''}
       ${esMes?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
         <strong>INCIDENCIA = DÍAS A PAGAR ÷ DÍAS DEL PERÍODO</strong> (21 al 20 del mes siguiente)<br>
         ${H.diasAPagar} ÷ ${H.diasPeriodo} = ${_edpN2(H.incidencia)} · se valoriza ese factor de la tarifa mensual de ${SIM} ${_edpN2(F.tarifa)}
