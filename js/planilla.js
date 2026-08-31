@@ -51,7 +51,7 @@ const _PL_APORTE_AFP_EMPL=0;   // 0.12 = 12 %
 const _PL_CV_TASA=2.138;
 // Las marcas del tareaje que el cálculo trata una por una. Cualquier otra
 // (permiso, vacaciones, retén…) cae en "Otros días" y así no se pierde.
-const _PL_TIPOS_CONOCIDOS=['TD','A5','TN','DLT','DL','DM','LP','LM','LF','F'];
+const _PL_TIPOS_CONOCIDOS=['TD','A5','TN','DLT','DL','DM','LP','LM','LF','F','V'];
 
 // ── Motor de cálculo por trabajador ──
 function _calcPlanRow(p,det){
@@ -74,6 +74,7 @@ function _calcPlanRow(p,det){
   const diasLM =nDias('LM');
   const diasLF =nDias('LF');
   const diasF  =nDias('F');
+  const diasV  =nDias('V');     // vacaciones: sí se reconocen
 
   // nDias cuenta fechas únicas DENTRO de cada tipo, pero nada impide que el
   // mismo día esté marcado con dos tipos distintos (un TD y un DL, por
@@ -96,18 +97,22 @@ function _calcPlanRow(p,det){
   // El tareaje admite más marcas de las que el cálculo nombra una por una
   // (permiso, vacaciones, retén…). Antes desaparecían: ni se pagaban ni se
   // contaban, y por eso los días no cuadraban con el tareaje.
-  const diasOtroTipo=new Set(
-    tr.filter(r=>!_PL_TIPOS_CONOCIDOS.includes(r.tipo)).map(r=>String(r.fecha).slice(0,10))
-  ).size;
+  const _trOtro=tr.filter(r=>!_PL_TIPOS_CONOCIDOS.includes(r.tipo));
+  const diasOtroTipo=new Set(_trOtro.map(r=>String(r.fecha).slice(0,10))).size;
+  // Qué marcas son, para poder decirlo en la columna
+  const tiposNoPag=[...new Set(_trOtro.map(r=>r.tipo))].sort().join(' ');
   // El Anexo 5 entra en el subtotal, igual que en Tareaje, HH Venta y Corte de
   // Equipos. Antes quedaba fuera y los días de A5 no se pagaban ni se veían.
   const diasSubTotal=diasTD+diasA5+diasTN+diasDLT;
-  // "Otros días" pasa a ser el descanso médico y las marcas sueltas; las
-  // licencias tienen su propia columna.
-  const otrosDias   =diasDM+diasOtroTipo;
-  // Días total = todo lo que el mes tiene marcado y se paga. Ahora la fila
-  // cuadra de verdad: subtotal + libres + licencias + otros.
-  const diasTotal   =diasSubTotal+diasDL+diasLic+otrosDias;
+  // "Otros días" es el descanso médico, que sí se paga. Las licencias tienen
+  // su propia columna.
+  const otrosDias   =diasDM;
+  // Permiso, vacaciones, retén… se cuentan y se ven, pero NO se pagan: un día
+  // de permiso no es una jornada. Por eso quedan fuera de los días totales.
+  const diasNoPag   =diasOtroTipo;
+  // Días total = lo que de verdad se paga del mes. Las vacaciones cuentan;
+  // el permiso, la falta y el retiro no.
+  const diasTotal   =diasSubTotal+diasDL+diasLic+otrosDias+diasV;
   // La bonificación por costo de vida se sigue calculando sobre lo de siempre
   // (trabajados + libres ganados). Ampliar los días totales es un cambio de
   // presentación: no debe mover por su cuenta lo que se paga.
@@ -241,7 +246,7 @@ function _calcPlanRow(p,det){
 
   return{
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
-    diasLP,diasLM,diasLF,diasLic,diasOtroTipo,diasCv,diasMarcados,fechasDobles,
+    diasLP,diasLM,diasLF,diasLic,diasV,diasOtroTipo,diasNoPag,tiposNoPag,diasCv,diasMarcados,fechasDobles,
     diasPagables,sinDias,
     jornal,jornalMes:jornal_mes,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
@@ -321,13 +326,19 @@ const PL_COLS=[
   {k:'diasLM',   g:'dias',l:'Maternidad',c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasLM||0}</td>`},
   {k:'diasLF',   g:'dias',l:'Fallecim.', c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasLF||0}</td>`},
   {k:'diasDM',   g:'dias',l:'D. Médico',c:c=>`<td class="tc mono" style="padding:2px 4px">${c.diasDM||0}</td>`},
+  {k:'diasVac',  g:'dias',l:'Vacac.',th:'color:#22c55e',
+   c:c=>`<td class="tc mono" style="padding:2px 4px;color:${c.diasV?'#22c55e':'inherit'}" title="Días de vacaciones · se reconocen como día pagado. El importe sale del campo Vacaciones del detalle del mes.">${c.diasV||0}</td>`},
   {k:'otrosDias',g:'dias',l:'Otros Días',
    c:c=>`<td class="tc mono" style="padding:2px 4px;background:rgba(245,158,11,.08)" title="D. médico ${c.diasDM||0}${c.diasOtroTipo?' · otras marcas '+c.diasOtroTipo:''}">${c.otrosDias||0}</td>`},
+  {k:'noPag',    g:'dias',l:'No Pagados',th:'color:#f59e0b',
+   c:c=>`<td class="tc mono" style="padding:2px 4px;color:${c.diasNoPag?'#f59e0b':'inherit'}" title="Permiso, falta o retiro: se ven pero no se pagan${c.tiposNoPag?': '+c.tiposNoPag:''}">${c.diasNoPag||0}</td>`},
   {k:'faltas',   g:'dias',l:'Faltas',th:'color:#ef4444',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#ef4444">${c.diasF||0}</td>`},
   {k:'diasTotal',g:'dias',l:'Días Total',th:'background:rgba(245,158,11,.2);color:#f59e0b',
    c:c=>{
      const dobles=(c.fechasDobles||[]).length;
-     const detalle=(c.diasSubTotal||0)+' subtotal + '+(c.diasDL||0)+' libres + '+(c.diasLic||0)+' licencias + '+(c.otrosDias||0)+' otros'
+     const detalle=(c.diasSubTotal||0)+' subtotal + '+(c.diasDL||0)+' libres + '+(c.diasLic||0)+' licencias + '+(c.otrosDias||0)+' d. médico'
+       +((c.diasV||0)?' + '+c.diasV+' vacac.':'')
+       +((c.diasNoPag||0)?'  ·  '+c.diasNoPag+' no pagado(s) fuera del total':'')
        +(dobles?'  ·  ⚠ '+dobles+' día(s) con doble marca: '+c.fechasDobles.join(', '):'');
      const est=dobles
        ?'padding:2px 4px;font-weight:700;background:rgba(239,68,68,.22);color:#fca5a5'
@@ -412,7 +423,7 @@ const PL_COLS=[
 const _PL_IDENT=['n','dni','nom','cargo'];
 const PL_VISTAS=[
   {k:'resumen', l:'📋 Resumen',        cols:[..._PL_IDENT,'afp','diasTotal','sub2','totDed','neto','cuenta','banco']},
-  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasDL','diasLic','otrosDias','faltas','diasTotal','he25','he35','he100']},
+  {k:'dias',    l:'📅 Días y Horas',   cols:[..._PL_IDENT,'mes','cierre','diasSub','diasDL','diasLic','otrosDias','diasVac','noPag','faltas','diasTotal','he25','he35','he100']},
   {k:'ingresos',l:'💰 Ingresos',       cols:[..._PL_IDENT,'jornal','impHE25','impHE35','impHE100','reintegro','asigFam','tareaOrd','remunDL','totalDM','licPat','licSind','movilidad','bAltura','bCv','bNoct','refrigerio','sub2']},
   {k:'gratif',  l:'🎁 Gratif. y Bases',cols:[..._PL_IDENT,'sub2','vacaciones','bono','gratif','bonif9','totGratif','gratifTr','totGratifTr','heAdic','baseRenta5','baseSctr','baseVidaLey','baseLeyes']},
   {k:'desc',    l:'➖ Descuentos',     cols:[..._PL_IDENT,'afp','cuspp','snp','obligAfp','primaAfp','sobreAfp','totPens','ley29741','masVida','adelantos','vacDesc','cts','sindicato','rimac','otrosDesc','retJud','quinta','totOtrDed','totDed','neto']},
