@@ -293,7 +293,6 @@ function _r5Detalle(personalId){
     <div style="margin-top:.8rem;padding:.6rem .8rem;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;font-size:.72rem;color:var(--muted2)">
       <strong style="color:#60a5fa">Retención de ${R5_MESES[_r5Mes]}: ${_r5S(c.retencion)}</strong><br>
       ${R5_MODOS[c.modo].ic} ${R5_MODOS[c.modo].lbl} — ${R5_MODOS[c.modo].desc}
-      ${c.modo==='art40'?'':'<br><span style="color:#f59e0b">Modo referencial: la SUNAT exige el divisor del art. 40.</span>'}
     </div>`;
   openM('mRenta5Det');
 }
@@ -495,7 +494,7 @@ function _r5RetPersonal(){return _r5Personal().filter(p=>_r5Coincide(p,_r5RetBus
 
 function _r5AbrirRet(){
   if(_r5RO()){toast('Módulo en solo lectura',true);return;}
-  _r5RetBuf={};_r5RetBuscar='';
+  _r5RetBuf={};_r5RetBuscar='';_r5RetImp=null;
   document.getElementById('r5RetSub').textContent=_r5Mes===1
     ? 'Enero '+_r5Anio+' no tiene meses anteriores del mismo ejercicio'
     : _r5Anio+' · Enero a '+R5_MESES[_r5Mes-1]+' — lo cargado aquí se descuenta del impuesto proyectado de '+R5_MESES[_r5Mes];
@@ -589,13 +588,13 @@ function _r5RetHtml(){
           style="${inpS};padding-left:1.7rem;width:250px">
       </span>
       <button onclick="_r5RetPlanilla()" style="background:rgba(22,101,52,.2);border:1px solid #16653480;color:#4ade80;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer" title="Copia el campo 5ta Categoría de la planilla de cada mes">↙️ Traer de la planilla</button>
+      <button onclick="_r5RetImportar()" style="background:rgba(139,92,246,.18);border:1px solid #8b5cf680;color:#a78bfa;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer" title="Sube un Excel con las retenciones ya efectuadas; empareja por DNI">📥 Importar Excel</button>
+      <button onclick="_r5RetPlantilla()" style="background:none;border:1px solid var(--border);color:#10b981;border-radius:6px;padding:.28rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer" title="Descarga el cuadro en Excel para llenarlo y volver a subirlo">⬇️ Plantilla</button>
       <button onclick="_r5RetLimpiar()" style="background:none;border:1px solid var(--border);color:var(--muted2);border-radius:6px;padding:.28rem .7rem;font-size:.74rem;cursor:pointer">Poner en 0</button>
     </div>
+    ${_r5RetImpHtml()}
     <div id="r5RetGrid">${_r5RetGrid()}</div>
     <div style="margin-top:.7rem;padding:.55rem .8rem;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;font-size:.71rem;color:var(--muted2);line-height:1.55">
-      Lo que cargues acá se descuenta del impuesto anual proyectado al calcular ${R5_MESES[_r5Mes]}.
-      Con el reparto <strong>Art. 40</strong> solo pesan los meses de corte (hasta ${R5_MESES[R5_CORTE[_r5Mes]]||'—'});
-      con <strong>Prorrateo</strong> o <strong>Saldo uniforme</strong> se toman todos los meses anteriores.<br>
       <span style="color:#f59e0b">Ojo:</span> si además cargaste un importe en «retenciones previas» con el botón ✏️, ese monto se suma a este cuadro — no lo repitas.
     </div>`;
 }
@@ -633,6 +632,186 @@ function _r5RetGrid(){
       </tr></tfoot>
     </table>
   </div>`;
+}
+
+// ── Importar las retenciones desde un Excel ────────────────────────────────
+// El archivo puede venir de la contabilidad anterior o de otro sistema. Se
+// empareja por DNI (a 8 dígitos, porque Excel se come el cero de la izquierda)
+// y, si la fila no trae DNI, por nombre. Nunca crea trabajadores: lo que no
+// empareja se lista en pantalla para revisarlo.
+let _r5RetImp=null;   // resultado de la última importación, para mostrarlo
+
+const _r5DniN=v=>{const d=String(v==null?'':v).replace(/\D/g,'');return d&&d.length<8?d.padStart(8,'0'):d;};
+// Nombre en palabras ordenadas: "PEREZ LOPEZ, JUAN" y "JUAN PEREZ LOPEZ" son
+// la misma persona sin depender del orden ni de la coma.
+const _r5ClaveNom=s=>_r5NormB(s).split(' ').filter(Boolean).sort().join(' ');
+// Número tolerante: acepta 1,234.56 · 1.234,56 · S/ 1 234,56
+function _r5NumX(v){
+  if(typeof v==='number')return isFinite(v)?v:0;
+  let t=String(v==null?'':v).replace(/[^\d,.-]/g,'').trim();
+  if(!t)return 0;
+  const c=t.lastIndexOf(','),p=t.lastIndexOf('.');
+  if(c>-1&&p>-1)t=c>p?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');
+  else if(c>-1)t=(t.length-c-1)<=2?t.replace(',','.'):t.replace(/,/g,'');
+  else if((t.match(/\./g)||[]).length>1)t=t.replace(/\.(?=.*\.)/g,'');
+  const n=parseFloat(t);
+  return isFinite(n)?n:0;
+}
+// Qué mes es una columna: acepta ENERO, ENE, 01, 1, "ENE-26", "RET ENERO"…
+function _r5MesDeCol(txt){
+  const t=_r5NormB(txt);
+  if(!t)return 0;
+  for(let m=1;m<=12;m++){
+    const nom=_r5NormB(R5_MESES[m]);
+    if(t===nom||t===nom.slice(0,3)||new RegExp('(^| )'+nom+'( |$|[-/ ])').test(t)||new RegExp('(^| )'+nom.slice(0,3)+'( |$|[-/])').test(t))return m;
+    if(t===String(m)||t===String(m).padStart(2,'0'))return m;
+  }
+  return 0;
+}
+const _r5EsColDni=t=>{const n=_r5NormB(t);return n==='dni'||n==='doc'||/^(nro|n|numero|num)? ?(de )?(documento|dni)/.test(n)||/^dni ?(ce|c e)?$/.test(n)||n==='documento'||n==='documento de identidad';};
+const _r5EsColNom=t=>{const n=_r5NormB(t);return /^(trabajador|apellidos|nombres|apellidos y nombres|nombre|nombre completo|personal|colaborador)/.test(n);};
+const _r5EsColTot=t=>{const n=_r5NormB(t);return /^(total|acumulado|monto|importe)/.test(n)||/reten/.test(n);};
+
+function _r5RetImportar(){
+  if(_r5RO()){toast('Módulo en solo lectura',true);return;}
+  let inp=document.getElementById('_r5RetFile');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.id='_r5RetFile';inp.type='file';inp.accept='.xlsx,.xls,.csv';inp.style.display='none';
+    inp.addEventListener('change',_r5RetOnFile);
+    document.body.appendChild(inp);
+  }
+  inp.value='';inp.click();
+}
+
+function _r5RetOnFile(ev){
+  const file=ev.target.files&&ev.target.files[0];if(!file)return;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{_r5RetProcesar(new Uint8Array(e.target.result),file.name);}
+    catch(err){console.warn('[Renta5ta import]',err);toast('No se pudo leer el archivo: '+err.message,true);}
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function _r5RetProcesar(buf,nombreArch){
+  const wb=XLSX.read(buf,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  if(!ws){toast('El archivo no tiene hojas',true);return;}
+  const filas=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  if(!filas.length){toast('La hoja está vacía',true);return;}
+
+  // ── Encabezado: la fila que más columnas reconocidas tenga ──
+  let hdr=-1,cols=null,mejor=0;
+  for(let i=0;i<Math.min(20,filas.length);i++){
+    const f=filas[i]||[];
+    const c={dni:-1,nom:-1,tot:-1,meses:{}};
+    f.forEach((v,j)=>{
+      if(c.dni<0&&_r5EsColDni(v)){c.dni=j;return;}
+      const m=_r5MesDeCol(v);
+      if(m&&c.meses[m]===undefined){c.meses[m]=j;return;}
+      if(c.nom<0&&_r5EsColNom(v)){c.nom=j;return;}
+      if(c.tot<0&&_r5EsColTot(v))c.tot=j;
+    });
+    const pts=(c.dni>=0?2:0)+(c.nom>=0?1:0)+Object.keys(c.meses).length+(c.tot>=0?1:0);
+    if(pts>mejor&&(c.dni>=0||c.nom>=0)&&(Object.keys(c.meses).length||c.tot>=0)){mejor=pts;hdr=i;cols=c;}
+  }
+  if(hdr<0){
+    toast('No se reconoció el encabezado: necesita una columna DNI y columnas de meses (o un total)',true);
+    _r5RetImp={err:'Sin encabezado reconocible. La primera hoja debe tener una fila con DNI y los meses (ENERO, FEBRERO…) o un TOTAL.',arch:nombreArch};
+    _r5RetRenderTodo();
+    return;
+  }
+
+  const meses=_r5RetMeses();
+  const porDni=new Map(),porNom=new Map();
+  _r5Personal().forEach(p=>{
+    const d=_r5DniN(p.dni);if(d)porDni.set(d,p);
+    const k=_r5ClaveNom((p.ape||'')+' '+(p.nom||''));
+    if(k)porNom.set(k,porNom.has(k)?null:p);   // nombre repetido → no se usa
+  });
+
+  const res={arch:nombreArch,ok:0,celdas:0,sinDni:0,noHallados:[],fuera:new Set(),soloTotal:false,filas:0};
+  const colMeses=Object.keys(cols.meses).map(Number).sort((a,b)=>a-b);
+  const usaTotal=!colMeses.length&&cols.tot>=0;
+  res.soloTotal=usaTotal;
+  const mesTotal=meses.length?meses[meses.length-1]:0;
+
+  for(let i=hdr+1;i<filas.length;i++){
+    const f=filas[i]||[];
+    const dni=cols.dni>=0?_r5DniN(f[cols.dni]):'';
+    const nomTxt=cols.nom>=0?String(f[cols.nom]||''):'';
+    if(!dni&&!_r5NormB(nomTxt))continue;      // fila vacía o de totales
+    res.filas++;
+    let p=dni?porDni.get(dni):null;
+    if(!p&&nomTxt){const k=_r5ClaveNom(nomTxt);p=porNom.get(k)||null;}
+    if(!p){
+      if(!dni)res.sinDni++;
+      if(res.noHallados.length<40)res.noHallados.push((dni||'sin DNI')+(nomTxt?' · '+nomTxt.trim():''));
+      continue;
+    }
+    let tocó=false;
+    if(usaTotal){
+      const v=_r5r2(_r5NumX(f[cols.tot]));
+      if(mesTotal&&v>0){_r5RetBuf[p.id+'|'+mesTotal]=v;res.celdas++;tocó=true;}
+    }else{
+      colMeses.forEach(m=>{
+        const v=_r5r2(_r5NumX(f[cols.meses[m]]));
+        if(!v)return;
+        if(meses.indexOf(m)<0){res.fuera.add(m);return;}   // mes que no corresponde al período
+        _r5RetBuf[p.id+'|'+m]=v;res.celdas++;tocó=true;
+      });
+    }
+    if(tocó)res.ok++;
+  }
+  res.fuera=[...res.fuera].sort((a,b)=>a-b);
+  _r5RetImp=res;
+  _r5RetRenderTodo();
+  toast(res.celdas
+    ?`${res.ok} trabajador(es) · ${res.celdas} monto(s) cargados — revisa y guarda`
+    :'No se cargó ningún monto: revisa el detalle',!res.celdas);
+}
+
+// Tras importar hay que repintar la barra (para el aviso) y la grilla
+function _r5RetRenderTodo(){
+  const el=document.getElementById('r5RetBody');
+  if(el)el.innerHTML=_r5RetHtml();
+}
+
+// Aviso con el resultado de la última importación
+function _r5RetImpHtml(){
+  const r=_r5RetImp;
+  if(!r)return '';
+  const cerrar='<button onclick="_r5RetImp=null;_r5RetRenderTodo()" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.8rem;margin-left:auto">✕</button>';
+  if(r.err)return `<div style="display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.6rem;padding:.5rem .7rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:.72rem;color:#fca5a5">
+    <span>⚠️ <strong>${_r5Esc(r.arch)}</strong> — ${_r5Esc(r.err)}</span>${cerrar}</div>`;
+  return `<div style="margin-bottom:.6rem;padding:.5rem .7rem;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:8px;font-size:.72rem;color:var(--muted2);line-height:1.55">
+    <div style="display:flex;align-items:center;gap:.4rem">
+      <strong style="color:#a78bfa">📥 ${_r5Esc(r.arch)}</strong>
+      <span>${r.ok} de ${r.filas} fila(s) emparejadas por DNI · <strong style="color:var(--text)">${r.celdas}</strong> monto(s) cargados</span>${cerrar}
+    </div>
+    ${r.soloTotal?`<div style="color:#f59e0b">El archivo no traía columnas por mes: el total se cargó en ${R5_MESES[_r5Mes-1]||'—'}.</div>`:''}
+    ${r.fuera.length?`<div style="color:#f59e0b">Se ignoraron los meses ${r.fuera.map(m=>R5_MESES[m]).join(', ')}: no son anteriores a ${R5_MESES[_r5Mes]}.</div>`:''}
+    ${r.noHallados.length?`<div style="color:#f59e0b">Sin coincidencia (${r.noHallados.length}): <span style="color:var(--muted2)">${_r5Esc(r.noHallados.join(' | '))}</span></div>`:''}
+    <div style="color:var(--muted2)">Nada se guardó todavía: revisa las casillas y pulsa <strong>Guardar retenciones</strong>.</div>
+  </div>`;
+}
+
+// Plantilla para llenar fuera del sistema: mismo cuadro, con DNI por delante
+function _r5RetPlantilla(){
+  const meses=_r5RetMeses();
+  if(!meses.length){toast('Enero no tiene meses anteriores',true);return;}
+  const pers=_r5RetPersonal();
+  const head=['DNI','APELLIDOS Y NOMBRES','CARGO',...meses.map(m=>R5_MESES[m].toUpperCase())];
+  const rows=pers.map(p=>[p.dni||'',`${p.ape}, ${p.nom}`,p.cargo||'',...meses.map(m=>_r5RetVal(p.id,m)||0)]);
+  const tit=`RETENCIONES YA EFECTUADAS · ${_r5Anio} · ENERO A ${R5_MESES[_r5Mes-1].toUpperCase()}`;
+  const ws=XLSX.utils.aoa_to_sheet([[tit],[],head,...rows]);
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:head.length-1}}];
+  ws['!cols']=[{wch:12},{wch:34},{wch:22},...meses.map(()=>({wch:12}))];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Retenciones');
+  XLSX.writeFile(wb,`Retenciones_${_r5Anio}_hasta_${String(_r5Mes-1).padStart(2,'0')}.xlsx`);
+  toast('✓ Plantilla descargada — llénala y vuelve a subirla');
 }
 
 // ── Excel ──
