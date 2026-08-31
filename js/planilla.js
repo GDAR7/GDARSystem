@@ -312,6 +312,7 @@ const PL_COLS=[
     if(c._recalcEn)return'<td class="tc" style="padding:2px 4px" title="Recalculada después del cierre: '+String(c._recalcEn)+'"><span style="font-size:.55rem;font-weight:800;color:#f97316;border:1px solid #f9731655;border-radius:3px;padding:0 3px">RECALC.</span></td>';
     return'<td class="tc" style="padding:2px 4px" title="Guardada en el cierre"><span style="font-size:.6rem;color:#fbbf24">🔒</span></td>';
   }},
+  {k:'diasDL',   g:'dias',l:'Días Lib.',  c:c=>_plHd(c.diasDL)},
   {k:'diasA5',   g:'dias',l:'Anexo 5',th:'color:#f97316',c:c=>`<td class="tc mono" style="padding:2px 4px;color:#f97316">${c.diasA5||0}</td>`},
   // Licencias con goce, con el desglose a un clic en la cascada
   {k:'diasLic',  g:'dias',l:'Licencias',th:'color:#22d3ee',
@@ -335,7 +336,6 @@ const PL_COLS=[
    }},
 
   {k:'tareaOrd',g:'tarea',l:'Tarea Ord.', c:c=>_plHs(c.tareaOrdinaria,'text-acc')},
-  {k:'diasDL',  g:'tarea',l:'Días Lib.',  c:c=>_plHd(c.diasDL)},
   {k:'remunDL', g:'tarea',l:'Remun.DL',   c:c=>_plHs(c.remunDL)},
   {k:'totalDM', g:'tarea',l:'Total DM',   c:c=>_plHs(c.totalDM)},
   {k:'licPat',  g:'tarea',l:'Lic.Pat/Mat',c:c=>_plHs(c.totalLicPat)},
