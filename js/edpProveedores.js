@@ -66,11 +66,17 @@ let _edpReconMotivo='';   // Sustento que se imprime en el EDP
 //  'turno' → cada parte vale 1 (día y noche del mismo día son 2) — comportamiento histórico
 //  'fecha' → se paga por día calendario (día y noche del mismo día son 1)
 let _edpDiaModo='turno';
-// Incidencia del turno NOCHE: cuánto vale un turno de noche frente a uno de día
-// cuando se paga POR TURNO. 1 = igual que el día (comportamiento histórico),
-// 0.65 = 65 %. Se recuerda en el navegador porque suele ser una condición fija
-// del contrato, y cada EDP guardado se lleva el factor con el que se emitió.
-let _edpFactNoche=(()=>{try{const v=parseFloat(localStorage.getItem('_edpFactNoche'));return isFinite(v)&&v>=0&&v<=2?v:1;}catch(e){return 1;}})();
+// Incidencia del DOBLE TURNO: cuánto vale el 2.º turno trabajado en una misma
+// fecha frente al primero, cuando se paga POR TURNO. 1 = vale igual que el
+// primero (comportamiento histórico), 0.60 = 60 %.
+// Ojo: no es "el turno noche". Una noche sin turno de día en esa fecha es un
+// turno completo; lo que se descuenta es la segunda vuelta del mismo día.
+// Se recuerda en el navegador porque suele ser condición fija del contrato, y
+// cada EDP guardado se lleva el factor con el que se emitió.
+let _edpFactDoble=(()=>{try{
+  const v=parseFloat(localStorage.getItem('_edpFactDoble')||localStorage.getItem('_edpFactNoche'));
+  return isFinite(v)&&v>=0&&v<=2?v:1;
+}catch(e){return 1;}})();
 const _edpEsNoche=t=>/^\s*N/i.test(String(t||''));
 // Disponibilidad mecánica mínima exigida para tener derecho a cobrar las horas
 // mínimas del contrato. Por debajo de este umbral el equipo no cumplió y solo
@@ -191,11 +197,11 @@ function _edpSet(campo,val,inmediato){
   else if(campo==='recon')_edpRecon=+val||0;
   else if(campo==='reconMotivo')_edpReconMotivo=val;
   else if(campo==='diaModo')_edpDiaModo=val==='fecha'?'fecha':'turno';
-  else if(campo==='factNoche'){
+  else if(campo==='factDoble'){
     // Se escribe en %, se guarda como factor. Sin valor vuelve al 100 %.
     const n=String(val).trim()===''?100:Math.max(0,Math.min(200,parseFloat(String(val).replace(',','.'))||0));
-    _edpFactNoche=+(n/100).toFixed(4);
-    try{localStorage.setItem('_edpFactNoche',_edpFactNoche);}catch(e){}
+    _edpFactDoble=+(n/100).toFixed(4);
+    try{localStorage.setItem('_edpFactDoble',_edpFactDoble);}catch(e){}
   }
   else if(campo==='firmaProv')_edpFirmaProv=val;
   else if(campo==='firmaEco')_edpFirmaEco=val;
@@ -308,12 +314,10 @@ function _edpHoras(eq,desde,hasta){
     const inop=/^INOPERATIVO/i.test(condicion);
     // Valorización por días: cada parte OPERATIVO cuenta 1.00 · INOPERATIVO cuenta 0
     const trabajo=inop?0:1;
-    // El turno de noche puede valer una fracción del de día (incidencia). El
-    // "parcial" es lo que realmente se valoriza: trabajo × incidencia.
+    // La incidencia se resuelve más abajo, cuando ya se sabe si la fecha tuvo
+    // uno o dos turnos: aquí todavía no se puede saber.
     const esNoche=_edpEsNoche(p.turno);
-    const incid=esNoche?_edpFactNoche:1;
-    const valor=+(trabajo*incid).toFixed(4);
-    return{fecha:p.fecha,turno:p.turno||'—',desc:_edpDesc1(p.act),hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,esNoche,incid,valor,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
+    return{fecha:p.fecha,turno:p.turno||'—',desc:_edpDesc1(p.act),hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,esNoche,doble:false,incid:1,valor:trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
   });
   const horasMotor=dias.reduce((s,d)=>s+d.motor,0);
   const horasCal=dias.reduce((s,d)=>s+d.cal,0);
@@ -357,11 +361,31 @@ function _edpHoras(eq,desde,hasta){
     :_edpSoloEfectivas?'Se acordó pagar solo las horas efectivas'
     :`Disponibilidad mecánica ${dispMec.toFixed(1)}% < ${_EDP_DISP_MIN}% exigido`;
   const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
-  // Turnos equivalentes: los de día valen 1 y los de noche, su incidencia.
-  // Con incidencia 100 % coincide con diasTrabajados, así que los EDP de
-  // siempre no cambian en nada.
-  const turnosDia=dias.filter(d=>d.trabajo&&!d.esNoche).length;
-  const turnosNoche=dias.filter(d=>d.trabajo&&d.esNoche).length;
+
+  // ── Incidencia del doble turno ─────────────────────────────────────────
+  // Dentro de una misma fecha el primer turno trabajado vale entero y el
+  // segundo se valoriza al factor. Trabajar solo de noche NO es doble turno:
+  // es el único turno de esa fecha y vale 1.00. Entre los dos partes de un
+  // mismo día se toma el de DÍA como primero.
+  const _porFechaTurnos=new Map();
+  dias.forEach(d=>{
+    if(!_porFechaTurnos.has(d.fecha))_porFechaTurnos.set(d.fecha,[]);
+    _porFechaTurnos.get(d.fecha).push(d);
+  });
+  _porFechaTurnos.forEach(lista=>{
+    // Los inoperativos no ocupan el lugar del primer turno: valen 0 igual.
+    const ops=lista.filter(d=>d.trabajo>0)
+      .sort((a,b)=>(a.esNoche?1:0)-(b.esNoche?1:0));   // el turno DÍA va primero
+    ops.forEach((d,i)=>{
+      d.doble=i>0;
+      d.incid=i>0?_edpFactDoble:1;
+      d.valor=+(d.trabajo*d.incid).toFixed(4);
+    });
+  });
+  // Turnos equivalentes: enteros × 1 + dobles × su incidencia. Con 100 %
+  // coincide con diasTrabajados, así que los EDP de siempre no cambian en nada.
+  const turnosDobles=dias.filter(d=>d.trabajo&&d.doble).length;
+  const turnosEnteros=diasTrabajados-turnosDobles;
   const turnosAPagar=+dias.reduce((s,d)=>s+d.valor,0).toFixed(4);
 
   // ── Valorización MENSUAL (tarifaUn = MES) ──────────────────────────────────
@@ -377,7 +401,7 @@ function _edpHoras(eq,desde,hasta){
   const incidencia=diasPeriodo>0?Math.min(1,+(diasAPagar/diasPeriodo).toFixed(4)):0;
 
   return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
-    turnosDia,turnosNoche,turnosAPagar,factorNoche:_edpFactNoche,
+    turnosEnteros,turnosDobles,turnosAPagar,factorDoble:_edpFactDoble,
     diasReportados,diasInoperativos,diasAPagar,incidencia,
     horasMinimasProp,diasEnObra,factorMin,prorrateado,iniObra,finObra};
 }
@@ -416,23 +440,23 @@ function _edpDescAuto(eq,desde,hasta){
 // redondo, que es como lo dice el contrato.
 const _edpPct=f=>{const v=+((f||0)*100).toFixed(2);return (Number.isInteger(v)?v:_edpN2(v))+' %';};
 
-// Caja para fijar cuánto vale el turno de noche. Solo pinta cuando se paga por
-// turno: por día calendario la fecha vale 1 sin importar en qué turno se trabajó.
-function _edpBoxIncidNoche(H,tarifa,sim,inpS){
+// Caja para fijar cuánto vale el 2.º turno de una misma fecha. Solo pinta
+// cuando se paga por turno: por día calendario la fecha vale 1 igual.
+function _edpBoxIncidDoble(H,tarifa,sim,inpS){
   const activo=_edpDiaModo!=='fecha';
-  const dif=H.factorNoche!==1;
+  const dif=H.factorDoble!==1;
   const col=dif?'#f59e0b':'var(--border)';
   if(!activo)return `<span style="font-size:.6rem;color:var(--muted2);margin-top:.25rem;display:block">
-    Por día calendario la incidencia del turno noche no aplica: la fecha vale 1 aunque solo se haya trabajado de noche.${dif?' (hay un '+_edpPct(H.factorNoche)+' configurado)':''}</span>`;
+    Por día calendario la incidencia del doble turno no aplica: la fecha vale 1 aunque se hayan trabajado los dos turnos.${dif?' (hay un '+_edpPct(H.factorDoble)+' configurado)':''}</span>`;
   return `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.45rem;border:1px solid ${col};border-radius:7px;padding:.4rem .6rem;background:${dif?'#f59e0b12':'transparent'}">
-    <span style="font-size:.68rem;color:var(--text);font-weight:700">🌙 Incidencia del turno noche</span>
-    <input type="text" inputmode="decimal" id="edp_factNoche" value="${+(H.factorNoche*100).toFixed(2)}"
-      onchange="_edpSet('factNoche',this.value,1)" title="Cuánto vale un turno de noche frente a uno de día. 100 = igual que el día."
+    <span style="font-size:.68rem;color:var(--text);font-weight:700" title="Se aplica al segundo turno trabajado en una misma fecha. Un turno de noche sin turno de día ese mismo día es un turno completo.">⇄ Incidencia del 2.º turno (doble turno)</span>
+    <input type="text" inputmode="decimal" id="edp_factDoble" value="${+(H.factorDoble*100).toFixed(2)}"
+      onchange="_edpSet('factDoble',this.value,1)" title="Cuánto vale el 2.º turno del mismo día frente al primero. 100 = vale igual."
       style="${inpS};width:78px;text-align:right;font-weight:700">
     <span style="font-size:.68rem;color:var(--muted2)">%</span>
-    ${[100,80,65,50].map(v=>`<button onclick="_edpSet('factNoche',${v},1)" style="background:${Math.round(H.factorNoche*100)===v?'#f59e0b':'transparent'};color:${Math.round(H.factorNoche*100)===v?'#111':'var(--muted2)'};border:1px solid ${Math.round(H.factorNoche*100)===v?'#f59e0b':'var(--border)'};border-radius:5px;font-size:.62rem;font-weight:700;padding:.14rem .4rem;cursor:pointer">${v}%</button>`).join('')}
+    ${[100,80,65,60,50].map(v=>`<button onclick="_edpSet('factDoble',${v},1)" style="background:${Math.round(H.factorDoble*100)===v?'#f59e0b':'transparent'};color:${Math.round(H.factorDoble*100)===v?'#111':'var(--muted2)'};border:1px solid ${Math.round(H.factorDoble*100)===v?'#f59e0b':'var(--border)'};border-radius:5px;font-size:.62rem;font-weight:700;padding:.14rem .4rem;cursor:pointer">${v}%</button>`).join('')}
     <span style="margin-left:auto;font-size:.66rem;color:var(--muted2);text-align:right">
-      ${H.turnosDia} día × 1.00 + ${H.turnosNoche} noche × ${_edpN2(H.factorNoche)} =
+      ${H.turnosEnteros} entero${H.turnosEnteros===1?'':'s'} × 1.00 + ${H.turnosDobles} doble${H.turnosDobles===1?'':'s'} × ${_edpN2(H.factorDoble)} =
       <strong style="color:${dif?'#f59e0b':'var(--text)'};font-size:.78rem">${_edpN2(H.turnosAPagar)}</strong> turnos
       · ${sim} ${_edpN2(+(H.turnosAPagar*tarifa).toFixed(2))}
     </span>
@@ -578,10 +602,10 @@ function rEdpProveedores(){
           </label>`;
         return`<div class="fg" style="grid-column:1/-1"><label>Cómo se cuentan los días</label>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            ${op('turno','Por turno',turnos,H.factorNoche===1?'Día y noche del mismo día cuentan aparte':`${H.turnosDia} día + ${H.turnosNoche} noche × ${_edpPct(H.factorNoche)}`)}
+            ${op('turno','Por turno',turnos,H.factorDoble===1?'Día y noche del mismo día cuentan aparte':`${H.turnosEnteros} enteros + ${H.turnosDobles} dobles × ${_edpPct(H.factorDoble)}`)}
             ${op('fecha','Por día calendario',fechas,'Día y noche del mismo día cuentan como 1')}
           </div>
-          ${_edpBoxIncidNoche(H,tarifa,_sim,inpS)}
+          ${_edpBoxIncidDoble(H,tarifa,_sim,inpS)}
           <span style="font-size:.6rem;color:var(--muted2);margin-top:.2rem">
             ${dobles>0?`Hay <strong>${dobles}</strong> fecha${dobles===1?'':'s'} con doble turno · se valoriza <strong style="color:${col}">${_edpN2(esFecha?fechas:turnos)}</strong> × ${_sim} ${_edpN2(tarifa)} = ${_sim} ${_edpN2(+((esFecha?fechas:turnos)*tarifa).toFixed(2))}`
               :'Ningún día tiene doble turno: ambas opciones dan el mismo resultado'}
@@ -829,9 +853,9 @@ async function _edpGuardar(){
       cantBase:CQ.base,cantRecon:CQ.recon,reconMotivo:_edpReconMotivo,
       horasMinimasProp:H.horasMinimasProp,diasEnObra:H.diasEnObra,prorrateado:H.prorrateado,
       diaModo:_edpDiaModo,turnosReportados:H.dias.length,
-      // Con qué incidencia de turno noche se emitió: sin esto, reabrir un EDP
+      // Con qué incidencia de doble turno se emitió: sin esto, reabrir un EDP
       // viejo lo recalcularía con el factor que esté puesto hoy.
-      factorNoche:H.factorNoche,turnosDia:H.turnosDia,turnosNoche:H.turnosNoche,turnosAPagar:H.turnosAPagar,
+      factorDoble:H.factorDoble,turnosEnteros:H.turnosEnteros,turnosDobles:H.turnosDobles,turnosAPagar:H.turnosAPagar,
       incidencia:H.incidencia,diasReportados:H.diasReportados,diasInoperativos:H.diasInoperativos,diasPeriodo:H.diasPeriodo,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
       firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
@@ -861,7 +885,7 @@ function _edpCargar(id){
   _edpAcumAnt=+d.acumAnt||0;
   _edpRecon=+d.cantRecon||0;_edpReconMotivo=d.reconMotivo||'';
   _edpDiaModo=d.diaModo==='fecha'?'fecha':'turno';   // los EDP viejos se pagaron por turno
-  _edpFactNoche=d.factorNoche!=null?+d.factorNoche:1; // los viejos, con la noche al 100 %
+  _edpFactDoble=d.factorDoble!=null?+d.factorDoble:(d.factorNoche!=null?+d.factorNoche:1); // los viejos, al 100 %
   _edpFirmaProv=d.firmaProv||'';_edpFirmaEco=d.firmaEco||'';_edpFirmaEcoId=d.firmaEcoId||null;
   if(d.cliente)_edpCliente=d.cliente;
   if(d.rucCliente)_edpRuc=d.rucCliente;
@@ -1103,9 +1127,9 @@ function _edpDocHtml(eq,H,D,F){
     };
     const _porFechaTab=F.tarifaUn==='MES'||_edpDiaModo==='fecha';
     const _filasFuente=_porFechaTab?_unoPorFecha(H.dias):H.dias;
-    // La columna de incidencia solo aparece cuando el turno noche vale distinto
-    // que el de día y se está pagando por turno: si no, el EDP sale como siempre.
-    const _aplicaFN=!_porFechaTab&&H.factorNoche!==1;
+    // La columna de incidencia solo aparece cuando el 2.º turno del día vale
+    // distinto y se paga por turno: si no, el EDP sale como siempre.
+    const _aplicaFN=!_porFechaTab&&H.factorDoble!==1;
     const _totFilas=_filasFuente.reduce((s,d)=>s+d.trabajo,0);
     const _totParcial=_aplicaFN?+_filasFuente.reduce((s,d)=>s+d.valor,0).toFixed(4):_totFilas;
     const filasDias=_filasFuente.map((d,i)=>`<tr>
@@ -1114,7 +1138,7 @@ function _edpDocHtml(eq,H,D,F){
       <td style="${TD};text-align:center">${eq.placa||'—'}</td><td style="${TD};text-align:center">${d.turno}</td>
       <td style="${TD}">${d.desc}</td>
       <td style="${TD};text-align:right;${d.trabajo?'':'color:#b91c1c;font-weight:700'}">${_edpN2(d.trabajo)}</td>
-      ${_aplicaFN?`<td style="${TD};text-align:center;${d.esNoche?'font-weight:700;color:#7c3aed':'color:#64748b'}">${d.trabajo?_edpPct(d.incid):'—'}</td>`:''}
+      ${_aplicaFN?`<td style="${TD};text-align:center;${d.doble?'font-weight:700;color:#7c3aed':'color:#64748b'}">${d.trabajo?_edpPct(d.incid):'—'}</td>`:''}
       <td style="${TD};text-align:right;font-weight:700;${d.trabajo?'':'color:#b91c1c'}">${_edpN2(_aplicaFN?d.valor:d.trabajo)}</td>
       <td style="${TD};${d.trabajo?'':'color:#b91c1c;font-weight:700'}">${d.obs}</td>
     </tr>`).join('');
@@ -1131,7 +1155,7 @@ function _edpDocHtml(eq,H,D,F){
     const esMes=F.tarifaUn==='MES';
     const _porFecha=esMes||_edpDiaModo==='fecha';
     const _cantPagar=esMes?H.diasAPagar:(_porFecha?H.diasAPagar:H.turnosAPagar);
-    const _fnOn=!esMes&&!_porFecha&&H.factorNoche!==1;
+    const _fnOn=!esMes&&!_porFecha&&H.factorDoble!==1;
     const _dobles=H.diasTrabajados-H.diasReportados;
     // Por día calendario el cuadro ya muestra una fila por fecha, así que hablar
     // de turnos o de criterio de pago sobra: los números cuadran solos.
@@ -1141,8 +1165,8 @@ function _edpDocHtml(eq,H,D,F){
         ${!_porFecha?`<tr><td style="${TD}">TURNOS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.dias.length}</td></tr>`:''}
         <tr><td style="${TD}">DÍAS REPORTADOS</td><td style="${TD};text-align:right;font-weight:700">${H.diasReportados}</td></tr>
         <tr><td style="${TD}">DÍAS INOPERATIVOS</td><td style="${TD};text-align:right;font-weight:700;${H.diasInoperativos?'color:#b91c1c':''}">${H.diasInoperativos}</td></tr>
-        ${_fnOn?`<tr><td style="${TD}">TURNOS DÍA · incidencia 100 %</td><td style="${TD};text-align:right;font-weight:700">${H.turnosDia}</td></tr>
-        <tr><td style="${TD}">TURNOS NOCHE · incidencia ${_edpPct(H.factorNoche)}</td><td style="${TD};text-align:right;font-weight:700;color:#7c3aed">${H.turnosNoche} × ${_edpN2(H.factorNoche)} = ${_edpN2(+(H.turnosNoche*H.factorNoche).toFixed(2))}</td></tr>`:''}
+        ${_fnOn?`<tr><td style="${TD}">TURNOS ENTEROS · incidencia 100 %</td><td style="${TD};text-align:right;font-weight:700">${H.turnosEnteros}</td></tr>
+        <tr><td style="${TD}">2.º TURNO DEL DÍA · incidencia ${_edpPct(H.factorDoble)}</td><td style="${TD};text-align:right;font-weight:700;color:#7c3aed">${H.turnosDobles} × ${_edpN2(H.factorDoble)} = ${_edpN2(+(H.turnosDobles*H.factorDoble).toFixed(2))}</td></tr>`:''}
         <tr><td style="${TD};font-weight:800;background:#fde047">${_porFecha?'DÍAS A PAGAR':'TURNOS A PAGAR'}${_fnOn?' (EQUIV.)':''}</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(_cantPagar)} ${_porFecha?'días':'turnos'}</td></tr>
         ${esMes?`<tr><td style="${TD};font-weight:800;background:#fde047">INCIDENCIA</td>
           <td style="${TD};text-align:right;font-weight:900;background:#fde047">${(H.incidencia*100).toFixed(2)} %</td></tr>`:''}
@@ -1151,8 +1175,9 @@ function _edpDocHtml(eq,H,D,F){
         ${_dobles} fecha${_dobles===1?'':'s'} con doble turno (día y noche): se valoriza <strong>por turno</strong>, por eso ${H.diasTrabajados} y no ${H.diasReportados}.
       </div>`:''}
       ${_fnOn?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid #7c3aed;padding:3px 7px;background:#f8fafc">
-        <strong>INCIDENCIA DEL TURNO NOCHE = ${_edpPct(H.factorNoche)}</strong> de lo que vale un turno de día.<br>
-        ${H.turnosDia} × 1.00 + ${H.turnosNoche} × ${_edpN2(H.factorNoche)} = <strong>${_edpN2(H.turnosAPagar)}</strong> turnos equivalentes
+        <strong>INCIDENCIA DEL 2.º TURNO DEL MISMO DÍA = ${_edpPct(H.factorDoble)}</strong> de lo que vale el primero.
+        Un turno único en la fecha —sea de día o de noche— vale 1.00.<br>
+        ${H.turnosEnteros} × 1.00 + ${H.turnosDobles} × ${_edpN2(H.factorDoble)} = <strong>${_edpN2(H.turnosAPagar)}</strong> turnos equivalentes
         (de ${H.diasTrabajados} turnos operativos) · se valoriza ese total × ${SIM} ${_edpN2(F.tarifa)}
       </div>`:''}
       ${esMes?`<div style="margin-top:5px;font-size:8.5px;color:#475569;border-left:3px solid ${AZ};padding:3px 7px;background:#f8fafc">
