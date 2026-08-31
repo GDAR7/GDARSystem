@@ -66,7 +66,7 @@ const USERS=[
   // Supervisión externa (BISA): solo consulta. Del Panel de Horas ve los tres
   // primeros tabs (horas por día, utilización y disponibilidad mecánica) y de
   // Control de Proyecto, únicamente Avance MT.
-  {codigo:'CP.BISA_',dni:'2026',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3]},
+  {codigo:'CP.BISA_',dni:'2026',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
 ];
 
 // ══ SUPABASE CONFIG ══

@@ -249,12 +249,12 @@ function _amtRenderAreas(body){
   <div style="margin-bottom:.9rem;padding:.7rem .9rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:.6rem">Distribución de volumen por área</div>
     ${areas.map(function(e,i){
-      const pct=totalM3?Math.round(e[1].m3/totalM3*100):0;
+      const pct=totalM3?+(e[1].m3/totalM3*100).toFixed(2):0;
       const col=colores[i%colores.length];
       return `<div style="margin-bottom:.35rem">
         <div style="display:flex;justify-content:space-between;margin-bottom:2px">
           <span style="font-size:.67rem;font-weight:700;color:${col}">${e[0]}</span>
-          <span style="font-size:.63rem;color:var(--muted2)">${e[1].m3.toLocaleString('es-PE',{maximumFractionDigits:1})} m³ &nbsp;|&nbsp; ${e[1].viajes} viajes &nbsp;|&nbsp; ${pct}%</span>
+          <span style="font-size:.63rem;color:var(--muted2)">${e[1].m3.toLocaleString('es-PE',{maximumFractionDigits:1})} m³ &nbsp;|&nbsp; ${e[1].viajes} viajes &nbsp;|&nbsp; ${pct.toFixed(2)}%</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;transition:.5s"></div>
@@ -281,7 +281,7 @@ function _amtRenderAreas(body){
       ${areas.length ? areas.map(function(e,i){
         const dest=e[0], d=e[1];
         const col=colores[i%colores.length];
-        const pct=totalM3?Math.round(d.m3/totalM3*100):0;
+        const pct=totalM3?+(d.m3/totalM3*100).toFixed(2):0;
         const dias=diasSin(d.lastFecha);
         const fechaCol=dias<=2?'#10b981':dias<=5?'#f59e0b':'#ef4444';
         return `<tr style="border-bottom:1px solid var(--border)">
@@ -294,7 +294,7 @@ function _amtRenderAreas(body){
               <div style="background:var(--border);border-radius:3px;height:6px;width:60px;overflow:hidden">
                 <div style="height:100%;width:${pct}%;background:${col};border-radius:3px"></div>
               </div>
-              <span style="font-size:.65rem;color:${col};min-width:28px;text-align:right">${pct}%</span>
+              <span style="font-size:.65rem;color:${col};min-width:44px;text-align:right">${pct.toFixed(2)}%</span>
             </div>
           </td>
           <td style="padding:.4rem .6rem;font-size:.63rem;color:var(--muted2)">${matPrincipal(d.materiales)}</td>

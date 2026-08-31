@@ -58,6 +58,10 @@ function rPanelHoras(){
 }
 function _phRenderHoras(){
   const el=document.getElementById('phTabBody');if(!el)return;
+  // Los menores no tienen horómetro —se controlan por día trabajado en el tab
+  // "Disponibilidad Menores"—, así que aquí no se filtra por ellos: si se venía
+  // de ese tab con el filtro puesto, se vuelve a "Todas".
+  if(_phTipoFiltro==='Vehículo Menor'||_phTipoFiltro==='Equipos Menores')_phTipoFiltro='';
   const pad=n=>String(n).padStart(2,'0');
   const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   const hoy=today();
@@ -125,7 +129,7 @@ function _phRenderHoras(){
 
   // Barra superior
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
-  const tiposEq=['','Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+  const tiposEq=['','Línea Amarilla','Línea Blanca'];
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Semana (7 días desde)</span>
     <button onclick="_phNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
