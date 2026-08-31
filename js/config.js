@@ -63,6 +63,10 @@ const USERS=[
   // La planilla vive en 'remuneraciones', no en 'administracion'. De
   // Remuneraciones ve todo; de Administración, solo el tareaje y sus vistas.
   {codigo:'JOR_JA',dni:'12345678',nombre:'Jorge Jala',cargo:'Jefe de Recursos Humanos',areas:['administracion','remuneraciones'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
+  // Supervisión externa (BISA): solo consulta. Del Panel de Horas ve los tres
+  // primeros tabs (horas por día, utilización y disponibilidad mecánica) y de
+  // Control de Proyecto, únicamente Avance MT.
+  {codigo:'CP.BISA_',dni:'2026',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3]},
 ];
 
 // ══ SUPABASE CONFIG ══

@@ -700,20 +700,11 @@ function _amtRenderSemEquipos(body){
     if(v.noche)c.vn+=v.cant;else c.vd+=v.cant;
   });
 
-  // Combustible despachado por equipo en la semana
-  const galEq={};
-  (DB.combustible||[]).forEach(function(c){
-    if(c.tipoMov==='Ingreso'||!c.eqId)return;
-    if(!c.fecha||c.fecha<fIni||c.fecha>fFin)return;
-    galEq[c.eqId]=(galEq[c.eqId]||0)+(+c.gal||0);
-  });
-
   const rows=Object.keys(grid).map(function(id){
     const eq=(DB.equipos||[]).find(e=>e.id==id);
     let viajes=0,vd=0,vn=0,m3=0;const dias=new Set();
     Object.entries(grid[id]).forEach(([f,c])=>{viajes+=c.viajes;vd+=c.vd;vn+=c.vn;m3+=c.m3;if(c.viajes)dias.add(f);});
-    const gal=galEq[id]||0;
-    return{id,eq,viajes,vd,vn,m3,dias:dias.size,prom:dias.size?viajes/dias.size:0,gal,galM3:m3>0&&gal>0?gal/m3:null};
+    return{id,eq,viajes,vd,vn,m3,dias:dias.size,prom:dias.size?viajes/dias.size:0};
   }).sort((a,b)=>b.viajes-a.viajes);
 
   const totalViajes=rows.reduce((s,r)=>s+r.viajes,0);
@@ -744,8 +735,6 @@ function _amtRenderSemEquipos(body){
       <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)">${_amtFmt1(r.m3)}</td>
       <td style="${TD};text-align:center;font-family:monospace">${r.dias}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${promCol}">${r.prom.toFixed(1)}</td>
-      <td style="${TD};text-align:right;font-family:monospace;color:#f97316">${r.gal?_amtFmt1(r.gal):'—'}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${r.galM3===null?'var(--muted)':r.galM3>0.5?'#ef4444':r.galM3>0.3?'#f59e0b':'#10b981'}">${r.galM3!==null?r.galM3.toFixed(3):'—'}</td>
     </tr>`;
   }).join('');
 
@@ -753,11 +742,11 @@ function _amtRenderSemEquipos(body){
     name:'viajes_por_equipo_'+fIni+'.xlsx',
     aoa:[
       ['VIAJES POR EQUIPO — '+rango],
-      ['Equipo',...fechas.map(f=>f.lbl+' '+f.dm),'Viajes','☀ Día','🌙 Noche','m³','Días trab.','Prom v/día','Galones','gal/m³'],
+      ['Equipo',...fechas.map(f=>f.lbl+' '+f.dm),'Viajes','☀ Día','🌙 Noche','m³','Días trab.','Prom v/día'],
       ...rows.map(r=>[
         r.eq?r.eq.codigo:('#'+r.id),
         ...fechas.map(f=>{const c=grid[r.id][f.iso];return c?c.viajes:'';}),
-        r.viajes,r.vd,r.vn,+r.m3.toFixed(1),r.dias,+r.prom.toFixed(1),+r.gal.toFixed(1),r.galM3!==null?+r.galM3.toFixed(3):''
+        r.viajes,r.vd,r.vn,+r.m3.toFixed(1),r.dias,+r.prom.toFixed(1)
       ])
     ]
   };
@@ -780,10 +769,8 @@ function _amtRenderSemEquipos(body){
         <th style="${TH};text-align:right">m³</th>
         <th style="${TH};text-align:center">Días</th>
         <th style="${TH};text-align:right" title="Promedio de viajes por día trabajado">Prom v/día</th>
-        <th style="${TH};text-align:right;color:#f97316">⛽ Gal</th>
-        <th style="${TH};text-align:right" title="Galones de combustible por m³ transportado — menor es mejor">gal/m³</th>
       </tr></thead>
-      <tbody>${filas||`<tr><td colspan="15" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes de volquetes en esta semana (${rango})</td></tr>`}</tbody>
+      <tbody>${filas||`<tr><td colspan="13" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes de volquetes en esta semana (${rango})</td></tr>`}</tbody>
       ${rows.length?`<tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
         <td colspan="2" style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">TOTAL</td>
         ${fechas.map(f=>{
@@ -792,12 +779,12 @@ function _amtRenderSemEquipos(body){
         }).join('')}
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6;background:rgba(59,130,246,.1)">${totalViajes.toLocaleString()} v</td>
         <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ctl)">${_amtFmt1(totalM3)}</td>
-        <td colspan="4"></td>
+        <td colspan="2"></td>
       </tr></tfoot>`:''}
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">🥇🥈🥉 = ranking por viajes de la semana · Prom v/día = viajes ÷ días trabajados (verde ≥10, ámbar ≥6, rojo &lt;6) · gal/m³ = combustible despachado ÷ m³ transportado (menor es mejor) · Doble click en el código abre el Master</div>`;
+  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">🥇🥈🥉 = ranking por viajes de la semana · Prom v/día = viajes ÷ días trabajados (verde ≥10, ámbar ≥6, rojo &lt;6) · Doble click en el código abre el Master</div>`;
 }
 
 // ── TAB 6: VIAJES POR OPERADOR ────────────────────────────────────────────────

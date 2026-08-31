@@ -28,11 +28,27 @@ function _phSemExport(){
 }
 
 let _phTab=1;
-function _phTabSwitch(t){_phTab=t;rPanelHoras();}
+// Un usuario puede tener limitados los tabs de este panel (CU.panelHorasTabs).
+// Sin la lista ve todos, que es como funcionó siempre.
+function _phTabsOk(){
+  const a=CU&&CU.panelHorasTabs;
+  return (Array.isArray(a)&&a.length)?a.map(Number):null;
+}
+function _phTabSwitch(t){
+  const ok=_phTabsOk();
+  if(ok&&ok.indexOf(t)<0)return;
+  _phTab=t;rPanelHoras();
+}
 function rPanelHoras(){
   const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
-  const tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal']];
+  let tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal']];
+  const ok=_phTabsOk();
+  if(ok){
+    tabs=tabs.filter(t=>ok.indexOf(t[0])>=0);
+    // Si el tab en curso no está permitido se cae al primero que sí lo esté
+    if(tabs.length&&ok.indexOf(_phTab)<0)_phTab=tabs[0][0];
+  }
   root.innerHTML=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${tabs.map(([n,lbl])=>{const sel=_phTab===n;return`<button onclick="_phTabSwitch(${n})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${lbl}</button>`;}).join('')}</div><div id="phTabBody"></div>`;
   if(_phTab===2){_phRenderUtil('util');return;}
   if(_phTab===3){_phRenderUtil('dm');return;}
@@ -309,7 +325,9 @@ function _phRenderUtil(modo){
   rows.forEach(r=>{if(!grupos[r.tipo])grupos[r.tipo]=[];grupos[r.tipo].push(r);});
   const tiposOrden=Object.keys(grupos).sort((a,b)=>grupos[b].reduce((s,r)=>s+r.semEf,0)-grupos[a].reduce((s,r)=>s+r.semEf,0));
 
-  const utilCol=u=>u>=80?'#10b981':u>=60?'#f59e0b':'#ef4444';
+  // Semáforo del tab. La utilización se da por buena desde 75 %; la
+  // disponibilidad mecánica sigue exigiendo 80 %, que es otro indicador.
+  const utilCol=u=>(esDM?u>=80:u>=75)?'#10b981':u>=60?'#f59e0b':'#ef4444';
   // % del tab: Utilización = H.Efect ÷ H.Prog · Disp. Mec. = (H.Prog − Improd) ÷ H.Prog
   const calcPct=(ef,im,prog)=>esDM?(prog-im)/prog*100:ef/prog*100;
   const utilCell=(ef,im,prog,TD)=>{
@@ -431,10 +449,9 @@ function _phRenderUtil(modo){
     </div>
   </div>
   <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
-    <span><span style="color:#10b981">●</span> ≥80% — Bueno</span>
-    <span><span style="color:#f59e0b">●</span> 60–79% — Alerta</span>
+    <span><span style="color:#10b981">●</span> ≥${esDM?'80':'75'}% — Bueno</span>
+    <span><span style="color:#f59e0b">●</span> 60–${esDM?'79':'74'}% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
-    <span style="margin-left:auto">ⓘ ${esDM?'Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · H. Inoper. = hs de inoperatividad del parte diario':'Utiliz. = H. Efect. ÷ H. Prog.'} · H. Prog. = Nº de partes × ${HP}h por turno (⚙ configurable) · Acum. = del ${dmy(cIni)} al ${dmy(aFin)}</span>
   </div>`;
 }
 
@@ -878,13 +895,15 @@ function _phResumenDoc(){
 
   // ── Documento (estilos para papel blanco) ──
   const AZ='#1e3a5f';
-  const semCol=u=>u>=80?'#15803d':u>=60?'#b45309':'#b91c1c';
+  const semCol=u=>u>=80?'#15803d':u>=60?'#b45309':'#b91c1c';        // disponibilidad
+  const utlCol=u=>u>=75?'#15803d':u>=60?'#b45309':'#b91c1c';        // utilización
   const sec=t=>`<div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${AZ};border-bottom:2px solid ${AZ};padding-bottom:3px;margin:16px 0 6px">${t}</div>`;
   const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
   const TD='padding:3px 7px;font-size:10.5px;border:1px solid #bbb;color:#111';
   const TBL='width:100%;border-collapse:collapse;page-break-inside:auto';
   const kpi=(lbl,val,col)=>`<div style="min-width:0;border:2px solid ${col};border-radius:8px;padding:6px 8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:15px;font-weight:900;color:${col};white-space:nowrap">${val}</div></div>`;
   const pct=u=>`<span style="font-weight:900;color:${semCol(u)}">${u.toFixed(1)}%</span>`;
+  const pctU=u=>`<span style="font-weight:900;color:${utlCol(u)}">${u.toFixed(1)}%</span>`;
 
   const grupoRows=(items,mapFila,cols)=>{
     let out='';let last='';
@@ -943,7 +962,7 @@ function _phResumenDoc(){
     </div>
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
-      ${kpi('Utilización Semana',tProg?uSem.toFixed(1)+'%':'—',semCol(uSem))}
+      ${kpi('Utilización Semana',tProg?uSem.toFixed(1)+'%':'—',utlCol(uSem))}
       ${kpi('Disp. Mecánica',tProg?dmSem.toFixed(1)+'%':'—',semCol(dmSem))}
       ${kpi('Hs Efectivas',fmt1(tEf)+'h',AZ)}
       ${kpi('Viajes',viajesTot.toLocaleString(),'#0e7490')}
@@ -964,7 +983,7 @@ function _phResumenDoc(){
             <td style="${TD};text-align:center">${r.dias}</td>
             <td style="${TD};text-align:right">${fmt1(r.prog)}</td>
             <td style="${TD};text-align:right;font-weight:700">${fmt1(r.ef)}</td>
-            <td style="${TD};text-align:right">${pct(r.prog?r.ef/r.prog*100:0)}</td>
+            <td style="${TD};text-align:right">${pctU(r.prog?r.ef/r.prog*100:0)}</td>
             <td style="${TD};text-align:right;color:${r.im?'#b91c1c':'#999'}">${r.im?fmt1(r.im):'—'}</td>
             <td style="${TD};text-align:right">${pct(r.prog?(r.prog-r.im)/r.prog*100:0)}</td>
           </tr>`,7):`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin partes diarios de líneas en la semana</td></tr>`}
@@ -972,12 +991,12 @@ function _phResumenDoc(){
             <td style="${TD}">TOTAL</td><td style="${TD}"></td>
             <td style="${TD};text-align:right">${fmt1(tProg)}</td>
             <td style="${TD};text-align:right">${fmt1(tEf)}</td>
-            <td style="${TD};text-align:right">${pct(uSem)}</td>
+            <td style="${TD};text-align:right">${pctU(uSem)}</td>
             <td style="${TD};text-align:right;color:${tIm?'#b91c1c':'#999'}">${tIm?fmt1(tIm):'—'}</td>
             <td style="${TD};text-align:right">${pct(dmSem)}</td>
           </tr>`:''}
         </table>
-        <div style="font-size:8.5px;color:#666;margin-top:2px">H. Prog. = Nº de partes × ${HP}h · Utiliz. = H. Efect. ÷ H. Prog. · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · <span style="color:#15803d">■</span> ≥80% · <span style="color:#b45309">■</span> 60–79% · <span style="color:#b91c1c">■</span> &lt;60%</div>
+        <div style="font-size:8.5px;color:#666;margin-top:2px">H. Prog. = Nº de partes × ${HP}h · Utiliz. = H. Efect. ÷ H. Prog. · Disp. Mec. = (H. Prog. − H. Inoper.) ÷ H. Prog. · Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · Disp. Mec.: <span style="color:#15803d">■</span> ≥80% · <span style="color:#b45309">■</span> 60–79% · <span style="color:#b91c1c">■</span> &lt;60%</div>
       </div>
       <div style="flex:1;min-width:0">
         ${sec('2 · Disponibilidad Vehículos y Equipos Menores (por días de la semana)')}
@@ -1193,7 +1212,7 @@ function _rmDoc(){
 
   const AZ='#1e3a5f';
   const icoAvance=u=>u>=100?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
-  const icoUtil=u=>u>=80?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
+  const icoUtil=u=>u>=75?['✓','#15803d']:u>=60?['❗','#b45309']:['✗','#b91c1c'];
   const icoDM=u=>u>=85?['✓','#15803d']:u>=75?['❗','#b45309']:['✗','#b91c1c'];
 
   const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
@@ -1342,7 +1361,7 @@ function _rmDoc(){
     </table>
     <div style="font-size:8.5px;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
       <span style="color:#111">Avance: <span style="color:#15803d">✓ ≥100%</span> · <span style="color:#b45309">❗ 60–99%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
-      <span style="color:#111">Utilización: <span style="color:#15803d">✓ ≥80%</span> · <span style="color:#b45309">❗ 60–79%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
+      <span style="color:#111">Utilización: <span style="color:#15803d">✓ ≥75%</span> · <span style="color:#b45309">❗ 60–74%</span> · <span style="color:#b91c1c">✗ &lt;60%</span></span>
       <span style="color:#111">Disp. Mec.: <span style="color:#15803d">✓ ≥85%</span> · <span style="color:#b45309">❗ 75–84%</span> · <span style="color:#b91c1c">✗ &lt;75%</span></span>
     </div>
 
