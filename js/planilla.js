@@ -81,15 +81,16 @@ function _calcPlanRow(p,det){
   // ejemplo). Cuando pasa, ese día suma en los dos y el total se pasa de los
   // días que tiene el mes. No se corrige a ciegas — puede haber un motivo —
   // pero sí se detecta para poder avisarlo en pantalla.
-  const _tiposPorFecha={};
+  const _tiposPorFecha={},_regsPorFecha={};
   tr.forEach(r=>{
     const f=String(r.fecha).slice(0,10);
     (_tiposPorFecha[f]=_tiposPorFecha[f]||new Set()).add(r.tipo);
+    _regsPorFecha[f]=(_regsPorFecha[f]||0)+1;
   });
   const diasMarcados=Object.keys(_tiposPorFecha).length;   // fechas distintas
   const fechasDobles=Object.entries(_tiposPorFecha)
-    .filter(([,t])=>t.size>1)
-    .map(([f,t])=>f.slice(8)+' ('+[...t].join(' + ')+')');
+    .filter(([f,t])=>t.size>1||_regsPorFecha[f]>1)
+    .map(([f,t])=>f.slice(8)+' ('+(t.size>1?[...t].join(' + '):[...t][0]+' x'+_regsPorFecha[f])+')');
 
   // Licencias con goce: paternidad, maternidad y fallecimiento. Se pagan (ya
   // salían en "Licencia con goce"), pero no se veían por ningún lado.

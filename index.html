@@ -886,6 +886,7 @@
         <span id="tareRangoBar" style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:nowrap"></span>
         <button id="tarBtnCols" class="btn btn-out btn-sm" onclick="_tarColsPanel(event)" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Elegir qué columnas mostrar">🧩 Columnas ▾</button>
         <button id="tarBtnFijar" class="btn btn-out btn-sm" onclick="_tarToggleFijar()" style="font-size:.75rem" title="Fijar encabezado (mes y fechas) y las columnas N° / Trabajador al desplazarse">📌 Fijar encabezado</button>
+        <button class="btn btn-out btn-sm" onclick="tarDuplicados()" style="color:#f59e0b;border-color:#f59e0b60;font-size:.78rem" title="Busca personas con dos marcas el mismo dia y ayuda a dejar una sola">🧹 Duplicados</button>
         <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
         <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
         <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
@@ -897,6 +898,12 @@
     </div>
   </div>
   <div id="tarePicker" style="display:none;position:fixed;z-index:9999"></div>
+  <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
+    <div class="mh"><span class="mttl">🧹 Días duplicados en el tareaje</span><button class="mx" onclick="closeM(&quot;mTarDup&quot;)">✕</button></div>
+    <div style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.72rem;color:var(--muted2)">Una persona con dos registros del mismo día. Ocurre cuando dos sesiones tarean la misma celda a la vez.</div>
+    <div class="mb" id="mTarDupBody" style="padding:1rem 1.2rem"></div>
+    <div class="mf"><button class="btn btn-out" onclick="closeM(&quot;mTarDup&quot;)">Cerrar</button></div>
+  </div></div>
   <!-- OVERLAY CLAVE EXPORT EXCEL -->
   <div id="tareExportOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);align-items:center;justify-content:center">
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.5rem 2rem;min-width:300px;box-shadow:0 16px 48px rgba(0,0,0,.7);text-align:center">
@@ -3209,7 +3216,7 @@
 <script src="js/config.js?v=48"></script>
 <script src="js/utils.js?v=25"></script>
 <script src="js/personal.js?v=23"></script>
-<script src="js/planilla.js?v=26"></script>
+<script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
 <script src="js/atencionRecursos.js?v=11"></script>
 <script src="js/planillaCierre.js?v=1"></script>
@@ -3230,6 +3237,7 @@
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
 <script src="js/tareaje.js?v=23"></script>
+<script src="js/tareajeDup.js?v=1"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=57"></script>
 <script src="js/partesDiarios.js?v=5"></script>
