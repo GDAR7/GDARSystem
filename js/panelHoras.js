@@ -27,6 +27,9 @@ function _phSemExport(){
   XLSX.writeFile(wb,_phExport.name);
 }
 
+// Líneas que se valorizan por horómetro: son las únicas del cuadro de horas
+const _PH_LINEAS=['Línea Amarilla','Línea Blanca'];
+
 let _phTab=1;
 // Un usuario puede tener limitados los tabs de este panel (CU.panelHorasTabs).
 // Sin la lista ve todos, que es como funcionó siempre.
@@ -58,10 +61,11 @@ function rPanelHoras(){
 }
 function _phRenderHoras(){
   const el=document.getElementById('phTabBody');if(!el)return;
-  // Los menores no tienen horómetro —se controlan por día trabajado en el tab
-  // "Disponibilidad Menores"—, así que aquí no se filtra por ellos: si se venía
-  // de ese tab con el filtro puesto, se vuelve a "Todas".
-  if(_phTipoFiltro==='Vehículo Menor'||_phTipoFiltro==='Equipos Menores')_phTipoFiltro='';
+  // Este cuadro se ve siempre por línea: no hay opción "Todas" porque mezclar
+  // amarilla con blanca no dice nada. Los menores tampoco entran —no llevan
+  // horómetro, se controlan por día trabajado en su propio tab—, así que
+  // cualquier filtro que no sea una línea cae en Línea Amarilla.
+  if(_PH_LINEAS.indexOf(_phTipoFiltro)<0)_phTipoFiltro=_PH_LINEAS[0];
   const pad=n=>String(n).padStart(2,'0');
   const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   const hoy=today();
@@ -129,7 +133,7 @@ function _phRenderHoras(){
 
   // Barra superior
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
-  const tiposEq=['','Línea Amarilla','Línea Blanca'];
+  const tiposEq=_PH_LINEAS;
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Semana (7 días desde)</span>
     <button onclick="_phNav(-7)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Semana anterior">‹</button>
@@ -345,7 +349,7 @@ function _phRenderUtil(modo){
 
   // Barra superior (semana comparte estado/nav con el tab 1)
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
-  const tiposEq=['','Línea Amarilla','Línea Blanca'];
+  const tiposEq=['',...(_PH_LINEAS)];   // aquí sí tiene sentido ver ambas líneas juntas
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
     <span style="font-size:.7rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap">${corteLbl}</span>

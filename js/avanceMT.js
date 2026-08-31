@@ -645,9 +645,7 @@ function _amtRenderSemanal(body,modo){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">${modoViajes
-    ?'Viajes por turno: <span style="color:#f59e0b">☀ Turno Día</span> · <span style="color:#60a5fa">🌙 Turno Noche</span> (según el turno del parte diario)'
-    :'Valores en m³ = viajes × '+_amtCapM3+' m³/viaje (configurable arriba) · Fondo más intenso = mayor volumen'} · ▲▼ compara con la semana anterior · Columna resaltada = hoy</div>`;
+  `;
 
   // Gráfico apilado por destino (solo tab volumen)
   if(!modoViajes&&destinos.length&&typeof Chart!=='undefined'){
@@ -784,7 +782,7 @@ function _amtRenderSemEquipos(body){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">🥇🥈🥉 = ranking por viajes de la semana · Prom v/día = viajes ÷ días trabajados (verde ≥10, ámbar ≥6, rojo &lt;6) · Doble click en el código abre el Master</div>`;
+  `;
 }
 
 // ── TAB 6: VIAJES POR OPERADOR ────────────────────────────────────────────────
@@ -869,7 +867,7 @@ function _amtRenderSemOperadores(body){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">🥇🥈🥉 = ranking por viajes de la semana · Prom v/día = viajes ÷ días trabajados (verde ≥10, ámbar ≥6, rojo &lt;6)</div>`;
+  `;
 }
 
 // ── TAB 7: MATRIZ TRAMO → DESTINO (m³ de la semana) ──────────────────────────
@@ -984,7 +982,7 @@ function _amtRenderSemMatriz(body){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)">Cada celda = m³ del material→destino en ese día, con desglose <span style="color:#fbbf24">☀</span> día / 🌙 noche (tooltip: viajes por turno) · Fondo más intenso = mayor volumen · Valores = viajes × ${_amtCapM3} m³/viaje · "N v" = traslados sin material (no suman volumen)</div>`;
+  `;
 }
 
 // ── TAB 8: ORIGEN → DESTINO (viajes que salen de cada frente, con material) ──
@@ -1096,5 +1094,5 @@ function _amtRenderSemOrigen(body){
     </table>
     </div>
   </div>
-  <div style="margin-top:.5rem;font-size:.64rem;color:var(--muted2)"> fila = ruta destino + material · % = participación dentro de su origen</div>`;
+  `;
 }
