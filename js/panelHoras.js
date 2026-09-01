@@ -1114,6 +1114,18 @@ function _phRenderResumen(){
 
 // ══ REPORTE MENSUAL AL CORTE (horas programadas vs ejecutadas · meta mínima · disp. mecánica) ══
 let _rmCorteOff=0,_rmSub='',_rmChartLA=null,_rmChartLB=null,_rmExport=null;
+// 1 = horas máquina (el de siempre) · 2 = material movido
+let _rmTab=1;
+function _rmTabSwitch(n){_rmTab=+n===2?2:1;rReporteMensual();}
+// Capacidad por viaje: es la misma que usa Avance MT, así los m³ cuadran entre
+// los dos módulos. Se cambia desde cualquiera de los dos.
+function _rmCap(){return (typeof _amtCapM3==='number'&&_amtCapM3>0)?_amtCapM3:12;}
+function _rmSetCap(v){
+  const n=Math.max(1,+v||12);
+  if(typeof _amtCapM3!=='undefined')_amtCapM3=n;
+  try{localStorage.setItem('_amtCapM3',n);}catch(e){}
+  rReporteMensual();
+}
 function _rmMeta(){return +(localStorage.getItem('gdar_rm_metacorte')||180);}
 function _rmMetaEV(){return +(localStorage.getItem('gdar_rm_meta_ev')||210);}
 // Meta mensual por equipo: 1º Hrs Mín. Venta del Master · 2º Excavadoras y Volquetes 210h · 3º resto 180h (🎯 configurables)
@@ -1152,10 +1164,10 @@ function _rmExportXls(){
   XLSX.writeFile(wb,_rmExport.name);
 }
 let _rmSubs=[],_rmHdr=null;
-function _rmDatos(){
+// Semana elegida y corte 21→20 que la contiene. Lo comparten el reporte de
+// horas y el de material, para que ambos hablen del mismo período.
+function _rmPeriodo(){
   const pad=n=>String(n).padStart(2,'0');
-  const HP=_phHsProgTurno(),META=_rmMeta();
-
   // Semana elegida (estado compartido con Panel de Horas / Resumen Semanal)
   if(!_phSemIni)_phSemIni=_phSemDefault();
   const d0=new Date(_phSemIni+'T12:00:00');
@@ -1174,6 +1186,13 @@ function _rmDatos(){
   const aFin=fFin<cFin?fFin:cFin;
   // Ambas fechas a las 12:00 para que la resta dé días exactos (cIniD está a las 00:00)
   const diasTrans=Math.min(diasCorte,Math.max(1,Math.round((new Date(aFin+'T12:00:00')-new Date(cIni+'T12:00:00'))/864e5)+1));
+  return{fechasSem,fIni,fFin,cIni,cFin,aFin,diasCorte,diasTrans};
+}
+
+function _rmDatos(){
+  const pad=n=>String(n).padStart(2,'0');
+  const HP=_phHsProgTurno(),META=_rmMeta();
+  const{fechasSem,fIni,fFin,cIni,cFin,aFin,diasCorte,diasTrans}=_rmPeriodo();
 
   // Acumular partes del corte hasta la semana elegida (solo Línea Amarilla y Línea Blanca)
   const acc={};
@@ -1380,14 +1399,268 @@ function _rmDoc(){
   </div>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  TAB 2 · MATERIAL MOVIDO
+//  Mismo corte 21→20 y la misma semana que el reporte de horas, pero contando
+//  los viajes de los partes diarios: m³ = viajes × capacidad del volquete.
+//  Los viajes sin material son traslados: suman viaje pero no volumen.
+// ══════════════════════════════════════════════════════════════════════════
+function _rmViajes(desde,hasta){
+  const cap=_rmCap();
+  const out=[];
+  (DB.partes||[]).forEach(function(p){
+    if(!p.fecha||p.fecha<desde||p.fecha>hasta)return;
+    const noche=/noche/i.test(p.turno||'');
+    (p.viajes||[]).forEach(function(v){
+      const cant=parseFloat(v.cant)||0;if(!cant)return;
+      const conMat=typeof _amtMatOk==='function'?_amtMatOk(v.material):!!String(v.material||'').trim();
+      out.push({fecha:p.fecha,noche,eqId:p.eqId,
+        destino:String(v.destino||'').trim()||'— sin destino —',
+        material:conMat?String(v.material).trim():'SIN MATERIAL (traslado)',
+        conMat,cant,m3:conMat?cant*cap:0});
+    });
+  });
+  return out;
+}
+
+function _rmMatDoc(){
+  const P=_rmPeriodo();
+  const{cIni,cFin,fIni,fFin,aFin,diasCorte,diasTrans,fechasSem}=P;
+  const pad=n=>String(n).padStart(2,'0');
+  const DN=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const fmt1=v=>(+v||0).toLocaleString('es-PE',{maximumFractionDigits:1});
+  const fmt0=v=>(+v||0).toLocaleString('es-PE',{maximumFractionDigits:0});
+  const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
+
+  _rmHdr={cIni,cFin,fIni,fFin,aFin};   // la barra de arriba lee de aquí
+
+  const vSem=_rmViajes(fIni,fFin);
+  const vCor=_rmViajes(cIni,aFin);
+
+  const sum=(arr,k)=>arr.reduce((s,v)=>s+v[k],0);
+  const m3Sem=sum(vSem,'m3'),m3Cor=sum(vCor,'m3');
+  const viSem=sum(vSem,'cant'),viCor=sum(vCor,'cant');
+  const diasConMov=new Set(vCor.filter(v=>v.m3>0).map(v=>v.fecha)).size;
+
+  // Agrupador genérico: clave → {m3,viajes} de cada período
+  const agr=(arr,key)=>{
+    const m={};
+    arr.forEach(v=>{const k=v[key];if(!m[k])m[k]={m3:0,viajes:0};m[k].m3+=v.m3;m[k].viajes+=v.cant;});
+    return m;
+  };
+  const matSem=agr(vSem,'material'),matCor=agr(vCor,'material');
+  const desSem=agr(vSem,'destino'),desCor=agr(vCor,'destino');
+  const claves=(a,b)=>[...new Set([...Object.keys(a),...Object.keys(b)])]
+    .sort((x,y)=>((b[y]||{}).m3||0)-((b[x]||{}).m3||0)||((a[y]||{}).m3||0)-((a[x]||{}).m3||0)||x.localeCompare(y));
+
+  // Destino × día de la semana
+  const gridSem={};
+  vSem.forEach(v=>{
+    if(!gridSem[v.destino])gridSem[v.destino]={};
+    if(!gridSem[v.destino][v.fecha])gridSem[v.destino][v.fecha]={m3:0,vd:0,vn:0};
+    const c=gridSem[v.destino][v.fecha];
+    c.m3+=v.m3;if(v.noche)c.vn+=v.cant;else c.vd+=v.cant;
+  });
+
+  // Equipos (los que hicieron viajes)
+  const eqAgr={};
+  const addEq=(arr,campo)=>arr.forEach(v=>{
+    if(!eqAgr[v.eqId])eqAgr[v.eqId]={eq:(DB.equipos||[]).find(e=>e.id===v.eqId),semM3:0,semV:0,corM3:0,corV:0};
+    const a=eqAgr[v.eqId];
+    if(campo==='sem'){a.semM3+=v.m3;a.semV+=v.cant;}else{a.corM3+=v.m3;a.corV+=v.cant;}
+  });
+  addEq(vSem,'sem');addEq(vCor,'cor');
+  const eqRows=Object.entries(eqAgr).map(([id,a])=>({id,...a})).sort((a,b)=>b.corM3-a.corM3||b.corV-a.corV);
+
+  const AZ='#1e3a5f';
+  const TH=`padding:4px 7px;font-size:9.5px;background:${AZ};color:#fff;text-transform:uppercase;letter-spacing:.03em;border:1px solid ${AZ}`;
+  const TD='padding:3px 7px;font-size:10.5px;border:1px solid #bbb;color:#111';
+  const TBL='width:100%;border-collapse:collapse;page-break-inside:auto';
+  const kpi=(lbl,val,col)=>`<div style="min-width:0;border:2px solid ${col};border-radius:8px;padding:6px 8px"><div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700">${lbl}</div><div style="font-size:15px;font-weight:900;color:${col};white-space:nowrap">${val}</div></div>`;
+  const sec=t=>`<div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${AZ};border-bottom:2px solid ${AZ};padding-bottom:3px;margin:14px 0 6px">${t}</div>`;
+  const PAL=['#2563eb','#059669','#d97706','#dc2626','#7c3aed','#0891b2','#65a30d','#db2777','#475569','#b45309'];
+  const colDe=(k,i)=>PAL[i%PAL.length];
+
+  // ── Cuadro 1: destino × día ──
+  const destinosSem=Object.keys(gridSem).sort((a,b)=>
+    Object.values(gridSem[b]).reduce((s,c)=>s+c.m3,0)-Object.values(gridSem[a]).reduce((s,c)=>s+c.m3,0));
+  const totDia={};fechasSem.forEach(iso=>totDia[iso]={m3:0,vd:0,vn:0});
+  destinosSem.forEach(d=>fechasSem.forEach(iso=>{
+    const c=gridSem[d][iso];if(!c)return;
+    totDia[iso].m3+=c.m3;totDia[iso].vd+=c.vd;totDia[iso].vn+=c.vn;
+  }));
+  const filasDia=destinosSem.map(function(d,i){
+    const tot=fechasSem.reduce((s,iso)=>s+((gridSem[d][iso]||{}).m3||0),0);
+    return `<tr>
+      <td style="${TD};white-space:nowrap;font-weight:700;color:${colDe(d,i)}">${d}</td>
+      ${fechasSem.map(iso=>{
+        const c=gridSem[d][iso];
+        if(!c||(!c.m3&&!c.vd&&!c.vn))return `<td style="${TD};text-align:center;color:#bbb">—</td>`;
+        return `<td style="${TD};text-align:right">${fmt0(c.m3)}<div style="font-size:8px;color:#666">☀${c.vd} · 🌙${c.vn}</div></td>`;
+      }).join('')}
+      <td style="${TD};text-align:right;font-weight:900;background:#eef2f7">${fmt0(tot)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Cuadro 2: por material ──
+  const filasMat=claves(matSem,matCor).map(function(k,i){
+    const a=matSem[k]||{m3:0,viajes:0},b=matCor[k]||{m3:0,viajes:0};
+    const pc=m3Cor?b.m3/m3Cor*100:0;
+    return `<tr>
+      <td style="${TD};white-space:nowrap;font-weight:700;color:${colDe(k,i)}">${k}</td>
+      <td style="${TD};text-align:right">${fmt0(a.viajes)}</td>
+      <td style="${TD};text-align:right;font-weight:700">${fmt0(a.m3)}</td>
+      <td style="${TD};text-align:right">${fmt0(b.viajes)}</td>
+      <td style="${TD};text-align:right;font-weight:900">${fmt0(b.m3)}</td>
+      <td style="${TD};text-align:right;font-weight:700;color:${AZ}">${pc.toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+
+  // ── Cuadro 3: por destino ──
+  const filasDes=claves(desSem,desCor).map(function(k,i){
+    const a=desSem[k]||{m3:0,viajes:0},b=desCor[k]||{m3:0,viajes:0};
+    const pc=m3Cor?b.m3/m3Cor*100:0;
+    const col=colDe(k,i);
+    return `<tr>
+      <td style="${TD};white-space:nowrap;font-weight:700;color:${col}">${k}</td>
+      <td style="${TD};text-align:right">${fmt0(a.viajes)}</td>
+      <td style="${TD};text-align:right;font-weight:700">${fmt0(a.m3)}</td>
+      <td style="${TD};text-align:right">${fmt0(b.viajes)}</td>
+      <td style="${TD};text-align:right;font-weight:900">${fmt0(b.m3)}</td>
+      <td style="${TD}">
+        <div style="display:flex;align-items:center;gap:4px">
+          <div style="flex:1;background:#e5e7eb;border-radius:3px;height:7px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pc).toFixed(2)}%;background:${col}"></div></div>
+          <span style="font-size:9px;font-weight:800;color:${col};min-width:42px;text-align:right">${pc.toFixed(2)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // ── Cuadro 4: por equipo ──
+  const filasEq=eqRows.map(r=>`<tr>
+    <td style="${TD};white-space:nowrap"><b>${r.eq?r.eq.codigo:'#'+r.id}</b>${r.eq&&r.eq.placa?` <span style="color:#666;font-size:9px">· ${r.eq.placa}</span>`:''}</td>
+    <td style="${TD};font-size:9.5px;color:#444">${r.eq?[r.eq.marca,r.eq.sub].filter(Boolean).join(' '):'—'}</td>
+    <td style="${TD};text-align:right">${fmt0(r.semV)}</td>
+    <td style="${TD};text-align:right;font-weight:700">${fmt0(r.semM3)}</td>
+    <td style="${TD};text-align:right">${fmt0(r.corV)}</td>
+    <td style="${TD};text-align:right;font-weight:900">${fmt0(r.corM3)}</td>
+  </tr>`).join('');
+
+  // ── Excel de este tab ──
+  _rmExport={
+    name:'material_movido_'+cIni+'.xlsx',
+    aoa:[
+      ['REPORTE SEMANAL — MATERIAL MOVIDO — Corte '+dmy(cIni)+' al '+dmy(cFin)+' — Avance al '+dmy(aFin)+' — '+_rmCap()+' m³/viaje'],
+      [],
+      ['MATERIAL','Viajes semana','m³ semana','Viajes corte','m³ corte','% del corte'],
+      ...claves(matSem,matCor).map(k=>{
+        const a=matSem[k]||{m3:0,viajes:0},b=matCor[k]||{m3:0,viajes:0};
+        return[k,a.viajes,+a.m3.toFixed(1),b.viajes,+b.m3.toFixed(1),m3Cor?+(b.m3/m3Cor*100).toFixed(2):0];
+      }),
+      [],
+      ['DESTINO','Viajes semana','m³ semana','Viajes corte','m³ corte','% del corte'],
+      ...claves(desSem,desCor).map(k=>{
+        const a=desSem[k]||{m3:0,viajes:0},b=desCor[k]||{m3:0,viajes:0};
+        return[k,a.viajes,+a.m3.toFixed(1),b.viajes,+b.m3.toFixed(1),m3Cor?+(b.m3/m3Cor*100).toFixed(2):0];
+      }),
+      [],
+      ['EQUIPO','Marca / Tipo','Viajes semana','m³ semana','Viajes corte','m³ corte'],
+      ...eqRows.map(r=>[r.eq?r.eq.codigo:('#'+r.id),r.eq?[r.eq.marca,r.eq.sub].filter(Boolean).join(' '):'',
+        r.semV,+r.semM3.toFixed(1),r.corV,+r.corM3.toFixed(1)]),
+      [],
+      ['DESTINO / DÍA',...fechasSem.map(iso=>DN[new Date(iso+'T12:00:00').getDay()]+' '+iso.slice(8,10)+'/'+iso.slice(5,7)),'TOTAL m³'],
+      ...destinosSem.map(d=>[d,...fechasSem.map(iso=>+(((gridSem[d][iso]||{}).m3)||0).toFixed(1)),
+        +fechasSem.reduce((s,iso)=>s+((gridSem[d][iso]||{}).m3||0),0).toFixed(1)]),
+      ['TOTAL',...fechasSem.map(iso=>+totDia[iso].m3.toFixed(1)),+m3Sem.toFixed(1)]
+    ]
+  };
+
+  const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
+  const hoyD=new Date();
+
+  return`
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:3px solid ${AZ};padding-bottom:6px">
+      <div style="flex:1;font-size:10px;color:#333">
+        <div style="font-weight:800;color:${AZ}">Corte ${dmy(cIni)} al ${dmy(cFin)}</div>
+        <div>Avance a la semana: ${dmy(fIni)} – ${dmy(fFin)}</div>
+        <div>${diasTrans} de ${diasCorte} días del corte · ${_rmCap()} m³ por viaje</div>
+      </div>
+      <div style="flex:2;text-align:center">
+        <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — MATERIAL MOVIDO</div>
+        <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
+      </div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px">
+      ${kpi('m³ del corte',fmt0(m3Cor)+' m³','#1d4ed8')}
+      ${kpi('m³ de la semana',fmt0(m3Sem)+' m³','#15803d')}
+      ${kpi('Viajes del corte',fmt0(viCor)+' <span style="font-size:10px">v</span>','#b45309')}
+      ${kpi('Prom. m³ / día',fmt1(diasTrans?m3Cor/diasTrans:0)+' m³','#7c3aed')}
+      ${kpi('Destinos alimentados',Object.keys(desCor).length,'#0891b2')}
+    </div>
+
+    ${sec('1 · Material movido en la semana — m³ por día y destino')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Destino</th>
+        ${fechasSem.map(iso=>`<th style="${TH}">${DN[new Date(iso+'T12:00:00').getDay()]}<div style="font-weight:400;font-size:8.5px">${iso.slice(8,10)}/${iso.slice(5,7)}</div></th>`).join('')}
+        <th style="${TH}">Total m³</th></tr>
+      ${filasDia||`<tr><td colspan="${fechasSem.length+2}" style="${TD};text-align:center;color:#777">Sin viajes registrados en la semana</td></tr>`}
+      ${destinosSem.length?`<tr style="background:#e8edf3;font-weight:900">
+        <td style="${TD}">TOTAL DÍA</td>
+        ${fechasSem.map(iso=>`<td style="${TD};text-align:right">${totDia[iso].m3?fmt0(totDia[iso].m3):'—'}<div style="font-weight:400;font-size:8px;color:#555">☀${totDia[iso].vd} · 🌙${totDia[iso].vn}</div></td>`).join('')}
+        <td style="${TD};text-align:right">${fmt0(m3Sem)}</td>
+      </tr>`:''}
+    </table>
+
+    ${sec('2 · Por tipo de material — semana y acumulado del corte')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Material</th><th style="${TH}">Viajes sem.</th><th style="${TH}">m³ sem.</th>
+        <th style="${TH}">Viajes corte</th><th style="${TH}">m³ corte</th><th style="${TH}">% del corte</th></tr>
+      ${filasMat||`<tr><td colspan="6" style="${TD};text-align:center;color:#777">Sin viajes en el corte</td></tr>`}
+      ${filasMat?`<tr style="background:#e8edf3;font-weight:900">
+        <td style="${TD}">TOTAL</td><td style="${TD};text-align:right">${fmt0(viSem)}</td><td style="${TD};text-align:right">${fmt0(m3Sem)}</td>
+        <td style="${TD};text-align:right">${fmt0(viCor)}</td><td style="${TD};text-align:right">${fmt0(m3Cor)}</td><td style="${TD};text-align:right">100.00%</td>
+      </tr>`:''}
+    </table>
+
+    ${sec('3 · Por destino — participación del volumen del corte')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Destino</th><th style="${TH}">Viajes sem.</th><th style="${TH}">m³ sem.</th>
+        <th style="${TH}">Viajes corte</th><th style="${TH}">m³ corte</th><th style="${TH};width:180px">Participación</th></tr>
+      ${filasDes||`<tr><td colspan="6" style="${TD};text-align:center;color:#777">Sin destinos con volumen en el corte</td></tr>`}
+    </table>
+
+    ${sec('4 · Por equipo — viajes y volumen transportado')}
+    <table style="${TBL}">
+      <tr><th style="${TH};text-align:left">Equipo</th><th style="${TH};text-align:left">Marca / Tipo</th>
+        <th style="${TH}">Viajes sem.</th><th style="${TH}">m³ sem.</th><th style="${TH}">Viajes corte</th><th style="${TH}">m³ corte</th></tr>
+      ${filasEq||`<tr><td colspan="6" style="${TD};text-align:center;color:#777">Ningún equipo registró viajes en el corte</td></tr>`}
+      ${filasEq?`<tr style="background:#e8edf3;font-weight:900">
+        <td colspan="2" style="${TD}">TOTAL · ${eqRows.length} equipo(s)</td>
+        <td style="${TD};text-align:right">${fmt0(viSem)}</td><td style="${TD};text-align:right">${fmt0(m3Sem)}</td>
+        <td style="${TD};text-align:right">${fmt0(viCor)}</td><td style="${TD};text-align:right">${fmt0(m3Cor)}</td>
+      </tr>`:''}
+    </table>
+
+    <div style="margin-top:14px;border-top:1px solid #bbb;padding-top:4px;font-size:8.5px;color:#777;display:flex;justify-content:space-between">
+      <span>GDAR</span>
+      <span>${diasConMov} día(s) con movimiento en el corte</span>
+      <span>Generado el ${pad(hoyD.getDate())}/${pad(hoyD.getMonth()+1)}/${hoyD.getFullYear()}</span>
+    </div>
+  </div>`;
+}
+
 function _rmPrint(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   // Se dibuja al MISMO ancho de la vista previa (1010px) y se escala (zoom) para caber en 210mm:
   // el formato del PDF queda idéntico a lo que se ve en pantalla · alto ajustado al contenido
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Mensual Horas Máquina</title>
+  const esMat=_rmTab===2;
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esMat?'Reporte Semanal Material Movido':'Reporte Mensual Horas Máquina'}</title>
   <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box;zoom:0.7559}</style>
-  </head><body><div id="doc">${_rmDoc()}</div>
+  </head><body><div id="doc">${esMat?_rmMatDoc():_rmDoc()}</div>
   <script>
   window.onload=function(){
     var d=document.getElementById('doc');
@@ -1403,7 +1676,10 @@ function _rmPrint(){
 
 function rReporteMensual(){
   const el=document.getElementById('rmBody');if(!el)return;
-  const html=_rmDoc(); // genera el documento y actualiza _rmSubs, _rmHdr y _rmExport
+  const esMat=_rmTab===2;
+  // Ojo: el documento se genera ANTES de la barra porque de paso deja listos
+  // _rmSubs, _rmHdr y _rmExport (el Excel del tab que se está viendo).
+  const html=esMat?_rmMatDoc():_rmDoc();
   const HP=_phHsProgTurno(),META=_rmMeta();
   const dmy=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)';
@@ -1418,15 +1694,22 @@ function rReporteMensual(){
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Corte</span>
     <span style="font-size:.72rem;font-family:monospace;font-weight:700;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);border-radius:6px;padding:.18rem .55rem;white-space:nowrap" title="Corte 21→20 que contiene la semana elegida · las horas se acumulan del 21 hasta el fin de la semana">${dmy(_rmHdr.cIni)} al ${dmy(_rmHdr.cFin)} · avance al ${dmy(_rmHdr.aFin)}</span>
     <div style="width:1px;height:18px;background:var(--border)"></div>
-    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Subtipo</span>
+    ${esMat?`<span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Cap. m³/viaje</span>
+    <input type="number" min="1" step="0.5" value="${_rmCap()}" onchange="_rmSetCap(this.value)" style="${inpS};width:62px" title="Capacidad de carga por viaje · la misma de Avance MT">`
+    :`<span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Subtipo</span>
     <select onchange="_rmSub=this.value;rReporteMensual()" style="${inpS};max-width:200px">
       <option value="">— Todas —</option>
       ${_rmSubs.map(s=>`<option value="${s}"${_rmSub===s?' selected':''}>${s}</option>`).join('')}
     </select>
     <button onclick="_rmSetMeta()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Meta mínima de horas al corte: general y Excavadoras/Volquetes">🎯 Meta ${META}h · E/V ${_rmMetaEV()}h</button>
-    <button onclick="_phSetHsProg()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Horas programadas por parte/turno">⚙ ${HP}h/turno</button>
+    <button onclick="_phSetHsProg()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;white-space:nowrap" title="Horas programadas por parte/turno">⚙ ${HP}h/turno</button>`}
     <button onclick="_rmPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
     <button onclick="_rmExportXls()" style="font-size:.7rem;padding:.25rem .7rem;border-radius:5px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">📊 Excel</button>
   </div>`;
-  el.innerHTML=bar+`<div style="background:#fff;border-radius:8px;padding:1.1rem 1.4rem;max-width:1050px;box-shadow:0 4px 18px rgba(0,0,0,.45)">${html}</div>`;
+  const tabsHtml=`<div style="display:flex;gap:.35rem;margin-bottom:.8rem;flex-wrap:wrap">${
+    [[1,'⏱️ Horas Máquina'],[2,'📦 Material Movido']].map(function(t){
+      const sel=_rmTab===t[0];
+      return `<button onclick="_rmTabSwitch(${t[0]})" style="font-size:.72rem;padding:.35rem .9rem;border-radius:7px;border:1px solid ${sel?'var(--ceq)':'var(--border)'};background:${sel?'rgba(249,115,22,.15)':'var(--panel2)'};color:${sel?'var(--ceq)':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'}">${t[1]}</button>`;
+    }).join('')}</div>`;
+  el.innerHTML=tabsHtml+bar+`<div style="background:#fff;border-radius:8px;padding:1.1rem 1.4rem;max-width:1050px;box-shadow:0 4px 18px rgba(0,0,0,.45)">${html}</div>`;
 }
