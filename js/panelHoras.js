@@ -25,6 +25,29 @@ const _phVLBar={id:'phVLBar',afterDatasetsDraw(chart){
   });
   ctx.restore();
 }};
+// Plugin: total de cada columna escrito sobre el tope de la pila (barras apiladas)
+const _phVLStack={id:'phVLStack',afterDatasetsDraw(chart){
+  const tot=[],top=[],xs=[];
+  chart.data.datasets.forEach(function(ds,di){
+    if(ds.type&&ds.type!=='bar')return;
+    const meta=chart.getDatasetMeta(di);
+    if(!meta||meta.hidden)return;
+    meta.data.forEach(function(bar,i){
+      const v=+ds.data[i]||0;
+      tot[i]=(tot[i]||0)+v;
+      xs[i]=bar.x;
+      if(v&&(top[i]==null||bar.y<top[i]))top[i]=bar.y;
+    });
+  });
+  const ctx=chart.ctx;
+  ctx.save();ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.fillStyle='#cbd5e1';
+  tot.forEach(function(v,i){
+    if(!v||top[i]==null)return;
+    ctx.fillText(v.toLocaleString('es-PE',{maximumFractionDigits:1})+'h',xs[i],top[i]-3);
+  });
+  ctx.restore();
+}};
 function _phSemDefault(){
   const h=new Date(today()+'T12:00:00');
   const lunes=new Date(h);
@@ -273,6 +296,7 @@ function _phRenderHoras(){
         },
         options:{
           responsive:true,maintainAspectRatio:false,
+          layout:{padding:{top:16}},
           plugins:{
             legend:{position:'bottom',labels:{color:'#8b93a7',font:{size:9},boxWidth:10}},
             tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString('es-PE')+' h'}},
@@ -282,7 +306,8 @@ function _phRenderHoras(){
             x:{stacked:true,ticks:{color:'#8b93a7',font:{size:9}},grid:{display:false}},
             y:{stacked:true,ticks:{color:'#8b93a7',font:{size:9},callback:v=>v+' h'},grid:{color:'rgba(139,147,167,.12)'},beginAtZero:true}
           }
-        }
+        },
+        plugins:[_phVLStack]
       });
     }
   }
