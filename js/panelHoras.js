@@ -6,6 +6,25 @@ const HM_COLS=['Excavadora','Cargador Frontal','Motoniveladora','Retroexcavadora
 const HM_COLORS={'Excavadora':'#ef4444','Cargador Frontal':'#f97316','Motoniveladora':'#f59e0b','Retroexcavadora':'#10b981','Tractor Oruga':'#3b82f6','Rodillo':'#8b5cf6','Volquete':'#06b6d4'};
 // ══ PANEL DE HORAS MÁQUINA (reporte semanal por equipo, estilo Avance MT) ══
 let _phSemIni=null,_phChart=null,_phExport=null,_phTipoFiltro='';
+// Plugin: escribe el valor encima de cada barra (todos los datasets de barras).
+// _vlColor acepta color o arreglo por barra · _vlSuf es el sufijo ('%', 'h', …)
+const _phVLBar={id:'phVLBar',afterDatasetsDraw(chart){
+  const ctx=chart.ctx;
+  ctx.save();ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
+  chart.data.datasets.forEach(function(ds,di){
+    if(ds.type&&ds.type!=='bar')return;
+    const meta=chart.getDatasetMeta(di);
+    if(!meta||meta.hidden)return;
+    meta.data.forEach(function(bar,i){
+      const v=ds.data[i];
+      if(v==null||!isFinite(v))return;
+      const c=ds._vlColor;
+      ctx.fillStyle=(Array.isArray(c)?c[i]:c)||'#94a3b8';
+      ctx.fillText((+v).toLocaleString('es-PE',{maximumFractionDigits:1})+(ds._vlSuf||''),bar.x,bar.y-3);
+    });
+  });
+  ctx.restore();
+}};
 function _phSemDefault(){
   const h=new Date(today()+'T12:00:00');
   const lunes=new Date(h);
@@ -45,6 +64,8 @@ function _phTabSwitch(t){
 function rPanelHoras(){
   const root=document.getElementById('phBody');if(!root)return;
   if(!_phSemIni)_phSemIni=_phSemDefault();
+  // El canvas del tab anterior se destruye: cada tab crea el suyo
+  if(_phChart){try{_phChart.destroy();}catch(e){}_phChart=null;}
   let tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal']];
   const ok=_phTabsOk();
   if(ok){
@@ -423,6 +444,7 @@ function _phRenderUtil(modo){
       :`<div class="kpi" style="--kc:var(--ceq)"><div class="kpi-lbl">Hs Efectivas Semana</div><div class="kpi-val" style="font-size:1.5rem">${fmtH(tSemEf)}h <span style="font-size:.75rem;color:var(--muted2)">/ ${fmtH(tSemProg)}h prog.</span></div></div>`}
     <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${rows.length}</div></div>
   </div>
+  ${rows.length?`<div class="card" style="margin-bottom:.9rem"><div class="card-body" style="height:260px;position:relative;padding:.7rem"><canvas id="phChartUtil"></canvas></div></div>`:''}
   <div class="card" style="padding:0">
     <div class="tbl-wrap">
     <table style="min-width:100%;border-collapse:collapse">
@@ -461,6 +483,42 @@ function _phRenderUtil(modo){
     <span><span style="color:#f59e0b">●</span> 60–${esDM?'79':'74'}% — Alerta</span>
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
   </div>`;
+
+  // Gráfico: % por equipo (semana vs acumulado al corte) con etiqueta sobre cada barra
+  if(rows.length&&typeof Chart!=='undefined'){
+    const cv=document.getElementById('phChartUtil');
+    if(cv){
+      const metaPct=esDM?80:75;
+      const labels=rows.map(r=>r.eq?r.eq.codigo:'#'+r.id);
+      const dSem=rows.map(r=>r.semProg?+calcPct(r.semEf,r.semIm,r.semProg).toFixed(1):null);
+      const dAc=rows.map(r=>r.acProg?+calcPct(r.acEf,r.acIm,r.acProg).toFixed(1):null);
+      _phChart=new Chart(cv,{
+        type:'bar',
+        data:{
+          labels,
+          datasets:[
+            {type:'line',label:`Meta ${metaPct}%`,data:labels.map(()=>metaPct),borderColor:'#dc2626',borderDash:[6,4],borderWidth:1.5,pointRadius:0},
+            {label:'Semana',data:dSem,backgroundColor:dSem.map(v=>v==null?'rgba(148,163,184,.25)':utilCol(v)+'CC'),borderRadius:3,_vlColor:dSem.map(v=>v==null?'#64748b':utilCol(v)),_vlSuf:'%'},
+            {label:'Acum. al corte',data:dAc,backgroundColor:'rgba(148,163,184,.40)',borderRadius:3,_vlColor:'#94a3b8',_vlSuf:'%'}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          layout:{padding:{top:16}},
+          plugins:{
+            legend:{position:'bottom',labels:{color:'#8b93a7',font:{size:9},boxWidth:10}},
+            tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%')}},
+            title:{display:true,text:(esDM?'Disponibilidad mecánica':'Utilización')+' por equipo — semana vs acum. al corte',color:'#8b93a7',font:{size:11}}
+          },
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:9},maxRotation:60,minRotation:0},grid:{display:false}},
+            y:{beginAtZero:true,suggestedMax:100,ticks:{color:'#8b93a7',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(139,147,167,.12)'}}
+          }
+        },
+        plugins:[_phVLBar]
+      });
+    }
+  }
 }
 
 // ── TAB 4: DISPONIBILIDAD MENORES (Vehículos y Equipos Menores · por días del corte) ──
@@ -618,6 +676,7 @@ function _phRenderMenores(){
     <div class="kpi" style="--kc:#ef4444"><div class="kpi-lbl">Días Inoperativos (Corte)</div><div class="kpi-val" style="font-size:1.5rem">${tCorInop}</div></div>
     <div class="kpi" style="--kc:#06b6d4"><div class="kpi-lbl">Equipos con Partes</div><div class="kpi-val" style="font-size:1.5rem">${n}</div></div>
   </div>
+  ${n?`<div class="card" style="margin-bottom:.9rem"><div class="card-body" style="height:260px;position:relative;padding:.7rem"><canvas id="phChartMen"></canvas></div></div>`:''}
   <div class="card" style="padding:0">
     <div class="tbl-wrap">
     <table style="min-width:100%;border-collapse:collapse">
@@ -657,6 +716,41 @@ function _phRenderMenores(){
     <span><span style="color:#ef4444">●</span> &lt;60% — Crítico</span>
     <span style="margin-left:auto">ⓘ Disp. = (D. Oper. − D. Inop.) ÷ días del período (semana = 7 · corte = ${diasCorte}) · D. Oper. = días con parte operativo/standby · D. Inop. = días donde todos los partes fueron INOPERATIVO (falla mecánica) · Total = promedio sobre ${n} equipo(s)</span>
   </div>`;
+
+  // Gráfico: disponibilidad % por equipo (semana vs corte) con etiqueta sobre cada barra
+  if(n&&typeof Chart!=='undefined'){
+    const cv=document.getElementById('phChartMen');
+    if(cv){
+      const labels=rows.map(r=>r.eq?r.eq.codigo:'#'+r.id);
+      const dSem=rows.map(r=>(r.semOp||r.semInop)?+dispPct(r.semOp,r.semInop,7).toFixed(1):null);
+      const dCor=rows.map(r=>(r.corOp||r.corInop)?+dispPct(r.corOp,r.corInop,diasCorte).toFixed(1):null);
+      _phChart=new Chart(cv,{
+        type:'bar',
+        data:{
+          labels,
+          datasets:[
+            {type:'line',label:'Meta 80%',data:labels.map(()=>80),borderColor:'#dc2626',borderDash:[6,4],borderWidth:1.5,pointRadius:0},
+            {label:'Semana',data:dSem,backgroundColor:dSem.map(v=>v==null?'rgba(148,163,184,.25)':utilCol(v)+'CC'),borderRadius:3,_vlColor:dSem.map(v=>v==null?'#64748b':utilCol(v)),_vlSuf:'%'},
+            {label:'Corte',data:dCor,backgroundColor:'rgba(148,163,184,.40)',borderRadius:3,_vlColor:'#94a3b8',_vlSuf:'%'}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          layout:{padding:{top:16}},
+          plugins:{
+            legend:{position:'bottom',labels:{color:'#8b93a7',font:{size:9},boxWidth:10}},
+            tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%')}},
+            title:{display:true,text:'Disponibilidad por equipo — semana vs corte',color:'#8b93a7',font:{size:11}}
+          },
+          scales:{
+            x:{ticks:{color:'#8b93a7',font:{size:9},maxRotation:60,minRotation:0},grid:{display:false}},
+            y:{beginAtZero:true,suggestedMax:100,ticks:{color:'#8b93a7',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(139,147,167,.12)'}}
+          }
+        },
+        plugins:[_phVLBar]
+      });
+    }
+  }
 }
 
 // ── TAB 5: RESUMEN SEMANAL (documento imprimible: utilización, disp. mecánica, transporte, actividades y personal) ──
