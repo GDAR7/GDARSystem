@@ -173,13 +173,14 @@ function _gdRender(contId){
       return Array.from({length:b.n},(_,i)=>{
         fila++;
         const it=lista[i];
-        // Todos llevan su tipo de jornada al costado: (TD), (TN), (DL), (F), (P)…
-        const txt=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase()+` (${it.tipo})`:'';
+        // El tipo de jornada (TD, TN, DL, F, P…) va en su propia columna TURNO
+        const txt=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase():'';
         const col=it?'#'+_gdColor(it.tipo,it.grupo):'';
         return`<tr>
           <td class="gd-n">${fila}</td>
           ${i===0?`<td class="gd-c" rowspan="${b.n}">${_gdEsc(b.cargo)}</td>`:''}
           <td class="gd-p" style="color:${col}">${_gdEsc(txt)}</td>
+          <td class="gd-tu" style="color:${col}">${it?_gdEsc(it.tipo):''}</td>
         </tr>`;
       }).join('');
     }).join('');
@@ -187,14 +188,15 @@ function _gdRender(contId){
     return`<div class="gd-blk">
       <table class="gd-t">
         <thead>
-          <tr><th colspan="3" class="gd-g" style="background:${c.bg}">GUARDIA ${g}</th></tr>
+          <tr><th colspan="4" class="gd-g" style="background:${c.bg}">GUARDIA ${g}</th></tr>
           <tr><th class="gd-h" style="background:${c.bg};width:52px">ITEM</th>
               <th class="gd-h" style="background:${c.bg};width:150px">CARGO</th>
-              <th class="gd-h" style="background:${c.bg}">APELLIDOS Y NOMBRES - Turno </th></tr>
+              <th class="gd-h" style="background:${c.bg}">APELLIDOS Y NOMBRES</th>
+              <th class="gd-h" style="background:${c.bg};width:46px">TURNO</th></tr>
         </thead>
-        <tbody>${filas||'<tr><td colspan="3" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
+        <tbody>${filas||'<tr><td colspan="4" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
         <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA ${d.conteo[g].obra}</td>
-          <td class="gd-tot" style="text-align:left">${_gdResumenTxt(d.conteo[g])}</td></tr></tfoot>
+          <td colspan="2" class="gd-tot" style="text-align:left">${_gdResumenTxt(d.conteo[g])}</td></tr></tfoot>
       </table>
     </div>`;
   };
@@ -282,6 +284,7 @@ const _GD_CSS=`
   .gd-n{font-size:8.5px;text-align:center;color:#111;width:52px}
   .gd-c{font-size:8px;text-align:center;font-weight:600;vertical-align:middle;line-height:1.2}
   .gd-p{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+  .gd-tu{font-size:8px;text-align:center;font-weight:800;width:46px;white-space:nowrap}
   .gd-res{margin:12px auto 0;border-collapse:collapse;max-width:640px}
   .gd-res th,.gd-res td{border:1px solid #000;padding:2px 8px;font-size:8.5px;text-align:center}
   .gd-res th{background:#1F4E79;color:#fff;font-weight:800;font-size:8px;letter-spacing:.03em}
@@ -334,32 +337,37 @@ function _gdExcel(){
   if(!d.totalFilas){toast(esRos?'No hay guardias programadas para ese día':'No hay personal con asistencia ese día',true);return;}
   const proyNom=esRos?'Programación del ciclo de guardias'
     :(d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos');
-  const COLS=[0,4,8];          // columna inicial de cada bloque (3 y 7 quedan de separación)
-  const NC=11;
+  const COLS=[0,5,10];         // columna inicial de cada bloque (4 y 9 quedan de separación)
+  const NC=14;                 // 3 bloques de 4 columnas + 2 separadoras
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
   const vacia=()=>Array(NC).fill('');
 
   const aoa=[];
   const f0=vacia();f0[0]=`GUARDIAS FBNV — ${esRos?'PROGRAMACIÓN DEL ROSTER':'PERSONAL DIRECTO'} · ${_gdDMY(d.fecha)} · ${proyNom}`;aoa.push(f0);
   const f1=vacia();_GD_GUARDIAS.forEach((g,i)=>{f1[COLS[i]]='GUARDIA '+g;});aoa.push(f1);
-  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES - Turno';});aoa.push(f2);
+  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES';f2[COLS[i]+3]='TURNO';});aoa.push(f2);
 
   const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}},
-    ..._GD_GUARDIAS.map((_,i)=>({s:{r:1,c:COLS[i]},e:{r:1,c:COLS[i]+2}}))];
+    ..._GD_GUARDIAS.map((_,i)=>({s:{r:1,c:COLS[i]},e:{r:1,c:COLS[i]+3}}))];
 
   const R0=3;                  // primera fila de datos
+  const tipoFila=[];           // tipo de cada persona por fila y guardia, para pintar el texto
   let fila=0;
   d.bloques.forEach(b=>{
     for(let i=0;i<b.n;i++){
       const row=vacia();
+      const tf=[];
       _GD_GUARDIAS.forEach((g,gi)=>{
         const lista=d.porG[g][b.cargo]||[];
         const it=lista[i];
         row[COLS[gi]]=fila+1;
         if(i===0)row[COLS[gi]+1]=b.cargo;
-        row[COLS[gi]+2]=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase()+` (${it.tipo})`:'';
+        row[COLS[gi]+2]=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase():'';
+        row[COLS[gi]+3]=it?it.tipo:'';
+        tf[gi]=it?it.tipo:'';
       });
       aoa.push(row);
+      tipoFila.push(tf);
       fila++;
     }
     // combinar la celda de cargo cuando el puesto ocupa varias filas
@@ -390,17 +398,22 @@ function _gdExcel(){
       f[4]=tot[k];
       aoa.push(f);
     });
+  // La col. 4 es la separadora angosta de los bloques: se combina con la 5
+  // para que "TOTAL GENERAL" tenga ancho suficiente en el cuadro de resumen
+  for(let i=0;i<7;i++)merges.push({s:{r:rRes+i,c:4},e:{r:rRes+i,c:5}});
 
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
-  ws['!cols']=[{wch:9},{wch:26},{wch:34},{wch:2},{wch:9},{wch:26},{wch:34},{wch:2},{wch:9},{wch:26},{wch:34}];
+  ws['!cols']=[{wch:9},{wch:26},{wch:32},{wch:8},{wch:2},
+               {wch:9},{wch:26},{wch:32},{wch:8},{wch:2},
+               {wch:9},{wch:26},{wch:32},{wch:8}];
 
   const BOR={top:{style:'thin',color:{rgb:'000000'}},bottom:{style:'thin',color:{rgb:'000000'}},left:{style:'thin',color:{rgb:'000000'}},right:{style:'thin',color:{rgb:'000000'}}};
   const stTit={font:{bold:true,sz:12,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'center'}};
   const t0=ws[addr(0,0)];if(t0)t0.s=stTit;
   _GD_GUARDIAS.forEach((g,gi)=>{
     const bg=_GD_COL[g].xls;
-    for(let c=COLS[gi];c<=COLS[gi]+2;c++){
+    for(let c=COLS[gi];c<=COLS[gi]+3;c++){
       const cg=ws[addr(1,c)];
       if(cg)cg.s={fill:{patternType:'solid',fgColor:{rgb:bg}},font:{bold:true,sz:10},alignment:{horizontal:'center',vertical:'center'},border:BOR};
       const ch=ws[addr(2,c)];
@@ -415,16 +428,21 @@ function _gdExcel(){
       if(cc)cc.s={font:{sz:8,bold:true},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOR};
       let cp=ws[addr(r,COLS[gi]+2)];
       if(!cp){ws[addr(r,COLS[gi]+2)]=cp={t:'s',v:''};}
-      // El color sale del tipo que quedó escrito entre paréntesis al final del nombre
-      const m=String(cp.v||'').match(/\(([A-Z0-9]+)\)\s*$/);
-      const tipo=m?m[1]:'';
+      // Nombre y turno comparten el color de la jornada de esa persona
+      const tipo=(tipoFila[r-R0]||[])[gi]||'';
       const grupo=_gdGrupo(tipo)||'obra';
-      cp.s={font:{sz:9,color:{rgb:_gdColor(tipo,grupo)}},alignment:{vertical:'center'},border:BOR};
+      const fnt={sz:9,color:{rgb:_gdColor(tipo,grupo)}};
+      cp.s={font:fnt,alignment:{vertical:'center'},border:BOR};
+      let ct=ws[addr(r,COLS[gi]+3)];
+      if(!ct){ws[addr(r,COLS[gi]+3)]=ct={t:'s',v:''};}
+      ct.s={font:{...fnt,bold:true,sz:8},alignment:{horizontal:'center',vertical:'center'},border:BOR};
     });
   }
   const rT=R0+d.totalFilas;
+  // El desglose del pie ocupa las dos últimas columnas del bloque
+  _GD_GUARDIAS.forEach((_,gi)=>merges.push({s:{r:rT,c:COLS[gi]+2},e:{r:rT,c:COLS[gi]+3}}));
   _GD_GUARDIAS.forEach((_,gi)=>{
-    for(let c=COLS[gi]+1;c<=COLS[gi]+2;c++){
+    for(let c=COLS[gi]+1;c<=COLS[gi]+3;c++){
       const cel=ws[addr(rT,c)];
       if(cel)cel.s={fill:{patternType:'solid',fgColor:{rgb:'F1F5F9'}},font:{bold:true,sz:9},alignment:{horizontal:c===COLS[gi]+1?'right':'center'},border:BOR};
     }
