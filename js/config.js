@@ -10,7 +10,7 @@ const AREAS={
   almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
     modules:[{key:'proyectos',label:'Proyectos',icon:'🏗️'},{key:'almacen',label:'Kardex / Almacén',icon:'📋'},{key:'combustible',label:'Combustible',icon:'⛽'},{key:'requerimientos',label:'Requerimientos',icon:'📝'},{key:'materiales',label:'Materiales',icon:'🏗️'},{key:'facturasPago',label:'Facturas / Boletas',icon:'🧾'},{key:'kardexEpp',label:'Cardex EPP',icon:'🦺'},{key:'insumosAux',label:'Insumos Aux. Mecánicos',icon:'🛠️'},{key:'analisisAbc',label:'Análisis de Consumo',icon:'📈'}]},
   operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
-    modules:[{key:'supervision',label:'Supervisión',icon:'🔍'}]},
+    modules:[{key:'supervision',label:'Supervisión',icon:'🔍'},{key:'liberacion',label:'Liberación de Restricciones',icon:'🚦'}]},
   seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',prefix:'ECOSEG',
     
     modules:[{key:'seguridad',label:'Seguridad',icon:'⛑️'},{key:'cursosSeguridad',label:'Cursos / Capacitaciones',icon:'🎓'},{key:'medioAmbiente',label:'Medio Ambiente',icon:'🌿'}]},
@@ -150,6 +150,9 @@ const SUPA_TABLES={
   afpTasas:'afp_tasas',
   wbsMapa:'wbs_mapa',
   wbsAvance:'wbs_avance',
+  libActividades:'lib_actividades',   // Panel de Liberación de Restricciones
+  libRequisitos:'lib_requisitos',
+  libBitacora:'lib_bitacora',
   viaticos:'reembolsables_bbss'   // Reembolsables de Bienestar Social
 };
 
@@ -195,7 +198,10 @@ const ACTION_MAP={
   saveSegTarea:'seguimiento',
   saveTarifaEq:'tarifasEq',
   saveVenta:'ventas',
-  saveReembolsable:'reembolsables'
+  saveReembolsable:'reembolsables',
+  saveLibActividad:'libActividades',
+  saveLibRequisito:'libRequisitos',
+  saveLibBitacora:'libBitacora'
 };
 
 let _pendingSaves=0;
