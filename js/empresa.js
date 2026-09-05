@@ -36,7 +36,7 @@ const SUPA_KEY = 'sb_publishable_2vedvLuUivaSULcoSGJcpQ_Womkq8ST';
 //
 // Es el interruptor de emergencia: si el login por Auth fallara, ponga
 // 'local', suba el cambio y ejecute sql/rls_revertir.sql.
-const AUTH_MODO='local';
+const AUTH_MODO='mixto';
 
 // ── Quién entra y qué ve ──────────────────────────────────────────────────
 // Recibe AREAS como parámetro (vive en config.js, que carga después) para que
