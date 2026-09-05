@@ -33,10 +33,15 @@
     </div>
     <div class="login-body">
       <div class="login-err" id="loginErr">Código incorrecto. Verifique sus credenciales.</div>
-      <label class="lbl">Código de Acceso</label>
+      <label class="lbl">Código de Usuario</label>
       <div style="position:relative;width:100%">
-        <input class="login-input" id="loginCodigo" type="password" placeholder="Ingrese su código" autocomplete="off" spellcheck="false" style="width:100%;padding-right:2.8rem;box-sizing:border-box">
-        <button type="button" onclick="const i=document.getElementById('loginCodigo');const b=this;i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--muted2);padding:.2rem;line-height:1">👁</button>
+        <input class="login-input" id="loginCodigo" type="text" placeholder="Ej. EIBEL25" autocomplete="username" spellcheck="false" style="width:100%;padding-right:2.8rem;box-sizing:border-box;text-transform:uppercase">
+        
+      </div>
+      <label class="lbl" style="margin-top:.7rem">Clave</label>
+      <div style="position:relative;width:100%">
+        <input class="login-input" id="loginClave" type="password" placeholder="Su clave" autocomplete="current-password" spellcheck="false" style="width:100%;padding-right:2.8rem;box-sizing:border-box" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="const i=document.getElementById('loginClave');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--muted2);padding:.2rem;line-height:1">👁</button>
       </div>
       <button class="login-btn" onclick="doLogin()">▶ INGRESAR AL SISTEMA</button>
       <!-- ACCESOS DEMO OCULTOS — descomentar para restaurar
@@ -66,6 +71,7 @@
       <div><div class="hname" id="hName">–</div><div class="hrole" id="hRole">–</div></div>
     </div>
     <button class="hrefresh" id="btnRefresh" onclick="refreshData()" title="Actualizar datos de todas las tablas"><span class="ricon">↻</span> Actualizar</button>
+    <button class="hout" id="btnClave" onclick="abrirClave()" title="Cambiar mi clave de acceso" style="display:none">🔑 Mi clave</button>
     <button class="hout" onclick="doLogout()">⏻ Salir</button>
   </div>
 </header>
@@ -918,6 +924,16 @@
     </div>
   </div>
   <div id="tarePicker" style="display:none;position:fixed;z-index:9999"></div>
+  <div class="mo" id="mClave"><div class="modal" style="max-width:420px">
+    <div class="mh"><span class="mttl">🔑 Cambiar mi clave</span><button class="mx" onclick="closeM(&quot;mClave&quot;)">✕</button></div>
+    <div class="mb" style="padding:1rem 1.2rem">
+      <div id="clvErr" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:6px;padding:.5rem .7rem;color:#ef4444;font-size:.76rem;margin-bottom:.8rem"></div>
+      <div class="fg"><label>Clave nueva</label><input id="clvNueva" type="password" autocomplete="new-password" placeholder="Al menos 8 caracteres"></div>
+      <div class="fg"><label>Repítala</label><input id="clvRepe" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')guardarClave()"></div>
+      <div style="font-size:.7rem;color:var(--muted2);margin-top:.5rem">La clave la elige usted y nadie más la conoce. Si la olvida, el administrador tendrá que asignarle una nueva.</div>
+    </div>
+    <div class="mf"><button class="btn btn-out" onclick="closeM(&quot;mClave&quot;)">Cancelar</button><button class="btn btn-a" id="clvBtn" onclick="guardarClave()">Guardar</button></div>
+  </div></div>
   <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
     <div class="mh"><span class="mttl">🧹 Días duplicados en el tareaje</span><button class="mx" onclick="closeM(&quot;mTarDup&quot;)">✕</button></div>
     <div style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.72rem;color:var(--muted2)">Una persona con dos registros del mismo día. Ocurre cuando dos sesiones tarean la misma celda a la vez.</div>
@@ -3236,7 +3252,7 @@
 
 <script src="js/empresa.js?v=6"></script>
 <script src="js/config.js?v=52"></script>
-<script src="js/utils.js?v=27"></script>
+<script src="js/utils.js?v=28"></script>
 <script src="js/personal.js?v=23"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>

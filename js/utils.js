@@ -143,53 +143,99 @@ function _authEmail(cred){
   return cred.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')+'@gdarei.com';
 }
 async function doLogin(){
-  const raw=document.getElementById('loginCodigo').value.trim().toUpperCase();
+  const cod=document.getElementById('loginCodigo').value.trim().toUpperCase();
+  const campoClave=document.getElementById('loginClave');
   const err=document.getElementById('loginErr');
   const btn=document.querySelector('#loginScreen .login-btn');
   err.style.display='none';
-  if(!raw)return;
+  if(!cod)return;
   const modo=_authModo();
 
   if(modo==='supabase'||modo==='mixto'){
-    if(btn){btn.disabled=true;btn.style.opacity=.6;}
-    let entro=false, cortar=false;
-    try{
-      const{data,error}=await supa.auth.signInWithPassword({
-        email:_authEmail(raw),password:raw});
-      if(error||!data||!data.user){
-        // En mixto puede ser una credencial de las viejas: no se avisa todavia,
-        // se deja que lo resuelva la lista local mas abajo.
-        if(modo==='supabase'){err.style.display='block';cortar=true;}
-      }else{
-        // Los permisos llegan dentro del token, firmados por el servidor
-        const m=data.user.user_metadata||{};
-        if(!m.areas||!m.areas.length){
-          // Existe en Auth pero quedo sin permisos: es un error de alta, no
-          // una credencial vieja. No tiene sentido probar la lista local.
-          console.error('Entro pero no trae permisos en user_metadata');
-          err.style.display='block';cortar=true;
-          try{await supa.auth.signOut();}catch(e){}
-        }else{
-          CU=m;entro=true;
-        }
+    // La clave va aparte del codigo: por eso se puede cambiar sin que el
+    // email deje de coincidir. El email sale solo del codigo, que no cambia.
+    const clave=campoClave?campoClave.value:'';
+    // En mixto, sin clave puede tratarse de alguien que aun usa su credencial
+    // vieja de un solo campo: se salta al esquema local en vez de exigirle una
+    // clave que todavia no tiene.
+    if(!clave){
+      if(modo==='supabase'){
+        err.textContent='Escriba su clave.';err.style.display='block';return;
       }
-    }catch(ex){
-      // Supabase no respondio. En mixto se intenta la lista local; en supabase
-      // no hay alternativa, asi que se avisa.
-      console.error('Fallo al iniciar sesion:',ex);
-      if(modo==='supabase'){err.style.display='block';cortar=true;}
-    }finally{
-      if(btn){btn.disabled=false;btn.style.opacity=1;}
+    }else{
+      if(btn){btn.disabled=true;btn.style.opacity=.6;}
+      let entro=false, cortar=false;
+      try{
+        const{data,error}=await supa.auth.signInWithPassword({
+          email:_authEmail(cod),password:clave});
+        if(error||!data||!data.user){
+          if(modo==='supabase'){
+            err.textContent='Codigo o clave incorrectos.';
+            err.style.display='block';cortar=true;
+          }
+        }else{
+          const m=data.user.user_metadata||{};
+          if(!m.areas||!m.areas.length){
+            console.error('Entro pero no trae permisos en user_metadata');
+            err.textContent='Su usuario no tiene permisos asignados. Avise al administrador.';
+            err.style.display='block';cortar=true;
+            try{await supa.auth.signOut();}catch(e){}
+          }else{
+            CU=m;entro=true;
+          }
+        }
+      }catch(ex){
+        console.error('Fallo al iniciar sesion:',ex);
+        if(modo==='supabase'){
+          err.textContent='No se pudo conectar. Intente de nuevo.';
+          err.style.display='block';cortar=true;
+        }
+      }finally{
+        if(btn){btn.disabled=false;btn.style.opacity=1;}
     }
-    if(entro){launchApp();return;}
+    if(entro){if(campoClave)campoClave.value='';launchApp();return;}
     if(cortar)return;
+    }
     // modo mixto y Auth no la reconocio: sigue abajo
   }
 
-  // Esquema anterior: la lista de usuarios viaja en el navegador
-  const u=USERS.find(u=>raw===(u.codigo+u.dni).toUpperCase());
-  if(!u){err.style.display='block';return;}
+  // Esquema anterior: codigo+DNI juntos en el primer campo
+  const u=USERS.find(u=>cod===(u.codigo+u.dni).toUpperCase());
+  if(!u){err.textContent='Codigo incorrecto. Verifique sus credenciales.';
+    err.style.display='block';return;}
   CU=u;launchApp();
+}
+
+// ══ CLAVE PROPIA ══
+// Solo tiene sentido con Supabase Auth: en el esquema local la credencial
+// vive en el archivo y cambiarla desde aqui no serviria de nada.
+function abrirClave(){
+  if(_authModo()==='local')return toast('El cambio de clave requiere el acceso por Supabase',true);
+  ['clvNueva','clvRepe'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const e=document.getElementById('clvErr');if(e)e.style.display='none';
+  openM('mClave');
+}
+async function guardarClave(){
+  const n=document.getElementById('clvNueva').value;
+  const r=document.getElementById('clvRepe').value;
+  const err=document.getElementById('clvErr');
+  const btn=document.getElementById('clvBtn');
+  const avisar=t=>{err.textContent=t;err.style.display='block';};
+  err.style.display='none';
+  if(n.length<8)return avisar('La clave debe tener al menos 8 caracteres.');
+  if(n!==r)   return avisar('Las dos claves no coinciden.');
+  if(btn){btn.disabled=true;btn.style.opacity=.6;}
+  try{
+    const{error}=await supa.auth.updateUser({password:n});
+    if(error)return avisar('No se pudo cambiar: '+error.message);
+    closeM('mClave');
+    toast('✓ Clave cambiada. Usela la proxima vez que entre.');
+  }catch(ex){
+    console.error('Fallo al cambiar la clave:',ex);
+    avisar('No se pudo conectar. Intente de nuevo.');
+  }finally{
+    if(btn){btn.disabled=false;btn.style.opacity=1;}
+  }
 }
 function doLogout(){
   // Cierra tambien la sesion de Supabase: si no, el token seguiria vivo en el
@@ -200,11 +246,15 @@ function doLogout(){
   document.getElementById('appShell').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginCodigo').value='';
+  const _lc=document.getElementById('loginClave');if(_lc)_lc.value='';
 }
 
 
 // ══ LAUNCH ══
 function launchApp(){
+  // El boton de clave solo aplica con Supabase Auth
+  const _bc=document.getElementById('btnClave');
+  if(_bc)_bc.style.display=_authModo()==='local'?'none':'';
   document.getElementById('loginScreen').style.display='none';
   const app=document.getElementById('appShell');
   app.style.display='flex';
