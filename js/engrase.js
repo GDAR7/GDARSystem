@@ -175,7 +175,7 @@ function printEngrase(){
   const monthStr=`${y}-${pad(m)}`;
   const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;

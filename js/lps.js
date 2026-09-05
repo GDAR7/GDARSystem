@@ -1554,7 +1554,7 @@ function _lpsPrintCurrent(){
   const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones','CNC – Causas de No Cumplimiento'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
   const fechaExp=new Date().toLocaleString('es-PE');
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
 
   let body='';
   if(_lpsTab===1) body=_lpsPrintBodyWBS();

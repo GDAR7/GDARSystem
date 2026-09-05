@@ -55,7 +55,7 @@
   <button class="nav-toggle-btn" onclick="toggleNav()" title="Minimizar menú">☰</button>
   <div class="hlogo">
     <div id="hHex" style="display:none;"></div>
-    <img src="09.-ERP/Imagenes/ECOSERMO-LOGO.png" alt="Ecosermo Logo" style="height:40px;max-width:180px;object-fit:contain;">
+    <img id="logoEmpresa" src="09.-ERP/Imagenes/ECOSERMO-LOGO.png" alt="Logo" style="height:40px;max-width:180px;object-fit:contain;">
     <span class="hlogo-sep">·</span>
     <span class="harea" id="hArea">–</span>
   </div>
@@ -637,7 +637,7 @@
       </div>
     </div>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>N° Comp.</th><th>Tipo</th><th>Fecha</th><th>Proveedor</th><th>Requerimiento</th><th>Moneda</th><th class="tr">Total</th><th>Estado</th><th>Tipo Cobro</th><th>EDP</th><th>PDF</th><th></th></tr></thead>
+      <thead><tr><th>N° Comp.</th><th>Tipo</th><th>Fecha</th><th>Proveedor</th><th>Requerimiento</th><th>Moneda</th><th class="tr">Total</th><th>Estado</th><th>Tipo Cobro</th><th>EDP</th><th style="line-height:1.1">EDP<br>cobrado</th><th>PDF</th><th></th></tr></thead>
       <tbody id="tbFPago"></tbody>
     </table></div></div>
   </div>
@@ -2357,6 +2357,7 @@
     <div class="fg"><label>Estado</label><select id="fpEst"><option>Recibido</option><option>Verificado</option><option>Pagado</option><option>Observado</option><option>Anulado</option></select></div>
     <div class="fg"><label>Tipo Cobro</label><select id="fpTipoCobro"><option value="">— Sin clasificar —</option><option>Reembolsable</option><option>Costo Indirecto</option><option>Costo Directo</option><option>Otros</option></select></div>
     <div class="fg"><label>EDP</label><input id="fpEdp" placeholder="EDP N° 01"></div>
+    <div class="fg"><label>EDP cobrado</label><input id="fpEdpCobrado" placeholder="Vacío = aún no cobrado" title="EDP en el que este comprobante ya se cobró al cliente"></div>
     <div class="fg" style="grid-column:1/-1"><label>Archivo PDF (Comprobante)</label>
       <input type="file" id="fpPdf" accept=".pdf,image/*" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.46rem .7rem;color:var(--text);font-size:.8rem;width:100%;cursor:pointer">
       <div id="fpPdfPreview" style="margin-top:.3rem;font-size:.72rem;color:var(--muted2)"></div>
@@ -3233,7 +3234,8 @@
 <div id="toast"></div>
 
 
-<script src="js/config.js?v=51"></script>
+<script src="js/empresa.js?v=1"></script>
+<script src="js/config.js?v=52"></script>
 <script src="js/utils.js?v=26"></script>
 <script src="js/personal.js?v=23"></script>
 <script src="js/planilla.js?v=27"></script>
@@ -3250,7 +3252,7 @@
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=15"></script>
 <script src="js/combustible.js?v=10"></script>
-<script src="js/requerimientos.js?v=17"></script>
+<script src="js/requerimientos.js?v=18"></script>
 <script src="js/reembolsables_otros.js?v=11"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>

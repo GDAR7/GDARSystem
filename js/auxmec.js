@@ -531,7 +531,7 @@ function imprimirAuxMec(id){
   const eq=DB.equipos.find(e=>e.id===r.eqId);
   const ins=DB.auxMecInsumos.filter(i=>i.auxilioId===id);
   const fotosAntes=_amFotosArr(r.fotosAntes),fotosDespues=_amFotosArr(r.fotosDespues);
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const row=(l,v)=>`<tr><td style="padding:3px 8px;color:#64748b;font-size:10px;font-weight:700;width:150px;vertical-align:top;white-space:nowrap">${l}</td><td style="padding:3px 8px;font-size:11px;color:#111">${v||'—'}</td></tr>`;
   const sec=t=>`<div style="background:#1e293b;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;margin:10px 0 4px;letter-spacing:.05em">${t}</div>`;
   const galeria=fotos=>fotos.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${fotos.map(f=>`<img src="${f.url}" style="width:130px;height:130px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1">`).join('')}</div>`:'<div style="font-size:10px;color:#94a3b8;padding:4px 0">Sin fotos registradas</div>';

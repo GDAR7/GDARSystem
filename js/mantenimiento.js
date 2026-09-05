@@ -48,7 +48,7 @@ function _masterPrintPDF(){
   const equipos=[...DB.equipos].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo));
   if(!equipos.length){toast('Sin equipos para imprimir',true);return;}
   const base=window.location.href.split('index.html')[0];
-  const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=base+EMPRESA.logo;
   const fecha=new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
   const estCol=s=>s==='OPERATIVO'?'#16a34a':s==='INOPERATIVO'?'#dc2626':s==='EN MANTENIMIENTO'?'#d97706':'#475569';
 
@@ -576,7 +576,7 @@ function verEquipo(id){
 function printEquipoFicha(){
   const e=DB.equipos.find(x=>x.id===_verEqId);if(!e)return;
   const base=window.location.href.split('index.html')[0];
-  const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=base+EMPRESA.logo;
   const row=(l,v)=>v?`<tr><td class="lbl">${l}</td><td>${v}</td></tr>`:'';
   const sec=(t)=>`<tr><td colspan="2" class="sec">${t}</td></tr>`;
   const imgs=Array.isArray(e.imagenes)?e.imagenes:(typeof e.imagenes==='string'&&e.imagenes?JSON.parse(e.imagenes):[]);
@@ -920,7 +920,7 @@ td{border:1px solid #e2e8f0;padding:3px 5px;vertical-align:middle}tr:nth-child(e
 <table class="gantt"><thead><tr><th style="width:80px">OT</th><th style="width:140px">Equipo</th><th style="width:120px">Mecánico</th><th style="width:75px">Estado</th>${dayHdrs}</tr></thead><tbody>${ganttRows}</tbody></table>
 <div class="legend"><strong>Leyenda:</strong><span class="ld" style="background:#3b82f6"></span>Programado<span class="ld" style="background:#f59e0b"></span>En Proceso<span class="ld" style="background:#10b981"></span>Completado<span class="ld" style="background:#9ca3af"></span>Postergado</div>
 </body></html>`;
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const htmlFinal=html.replace('__LOGO__',_logoUrl);
   const win=window.open('','_blank','width=1200,height=750');
   win.document.write(htmlFinal);win.document.close();

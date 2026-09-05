@@ -1018,7 +1018,7 @@ function _phResumenDoc(){
     return url;
   })();
 
-  const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
+  const logoUrl=new URL(EMPRESA.logo,location.href).href;
 
   // ── Documento (estilos para papel blanco) ──
   const AZ='#1e3a5f';
@@ -1461,7 +1461,7 @@ function _rmDoc(){
   };
 
   const hoyD=new Date();
-  const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
+  const logoUrl=new URL(EMPRESA.logo,location.href).href;
 
   return`
   <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
@@ -1694,7 +1694,7 @@ function _rmMatDoc(){
     ]
   };
 
-  const logoUrl=new URL('09.-ERP/Imagenes/ECOSERMO-LOGO.png',location.href).href;
+  const logoUrl=new URL(EMPRESA.logo,location.href).href;
   const hoyD=new Date();
 
   return`

@@ -132,7 +132,7 @@ function printPersonalQR(){
     f.qr==='sin'?'Solo SIN código':f.qr==='con'?'Solo CON código':'',
     f.busq?'Búsqueda: "'+f.busq+'"':''
   ].filter(Boolean).join(' · ')||'Sin filtros (todo el personal)';
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const rows=datos.map((p,i)=>{
     const cod=(p.codigoQr||'').trim();
     return`<tr${cod?'':' style="background:#fef2f2"'}>
@@ -1552,7 +1552,7 @@ function _rosterPrintPDF(){
       </table>
     </div>`;
   });
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Roster de Guardias</title>
 <style>@page{size:A3 landscape;margin:.6cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:8px;color:#111;margin:0}
 .hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1e3a5f;padding-bottom:6px;margin-bottom:8px}

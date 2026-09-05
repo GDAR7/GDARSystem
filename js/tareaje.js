@@ -844,7 +844,7 @@ function printTareaje(){
   const FECHAS=_tarFechas();
   const _multiMes=FECHAS.length>0&&FECHAS[0].slice(0,7)!==FECHAS[FECHAS.length-1].slice(0,7);
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const proyEl=document.getElementById('tareProy');
   const proyFiltro=proyEl?proyEl.value:'';
   const proyNombre=(proyFiltro?(DB.proyectos.find(p=>p.codigo===proyFiltro)?.nombre||proyFiltro):'— Todos —')+_tarFiltroTxt();
@@ -1163,7 +1163,7 @@ function _printTareResumen(ids){
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
   <style>@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}

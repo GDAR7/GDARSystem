@@ -419,7 +419,7 @@ function verComb(id){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   const S='<'+'/';
-  const _logoUrlV=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrlV=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Despacho de Combustible – ${r.numFormato||r.id}</title>
 <style>
@@ -550,7 +550,7 @@ function _combExportPDF(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   const S='<'+'/';
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const titulo=filtVal?`Kardex de Combustible – ${filtVal}`:'Kardex de Combustible – Todos los registros';
   win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>${titulo}</title>

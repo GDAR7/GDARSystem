@@ -372,7 +372,7 @@ function _roPrint(){
   if(!w){toast('Active las ventanas emergentes',true);return;}
   const TH='background:#1e3a5f;color:#fff;padding:4px 6px;font-size:8px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #fff';
   const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:9px;color:#111';
-  const _logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logo=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const filas=D.filas.map(a=>`<tr>
     <td style="${TD};font-weight:700">${_roEsc(a.codigo)}</td>
     <td style="${TD}">${_roEsc(a.nombre)}</td>

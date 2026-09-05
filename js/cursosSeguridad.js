@@ -347,7 +347,7 @@ function _csPrint(){
   const pers=_csPersonal();
   if(!cursos.length||!pers.length){toast('No hay datos que imprimir',true);return;}
   const AZ='#1F4E79';
-  const logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const TH=`background:${AZ};color:#fff;padding:4px 5px;font-size:8px;text-transform:uppercase;text-align:center;border:1px solid #fff;font-weight:700`;
   const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:8.5px;color:#111';
   const w=window.open('','_blank','width=1200,height=760');

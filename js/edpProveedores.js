@@ -919,7 +919,7 @@ async function _edpDel(id){
 
 // HTML compartido entre la vista previa (in-app) y la impresión — página 1 (EDP) + página 2 (Consolidado de Horas)
 function _edpDocHtml(eq,H,D,F){
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const AZ='#1e3a5f';
   const HDR='#0070C0'; // encabezados de tabla: RGB(0,112,192) con letras blancas
   const esDia=F.tarifaUn!=='HM'; // DIA/MES: valorización por días — sin horómetros ni calentamiento

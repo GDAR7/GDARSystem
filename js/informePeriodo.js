@@ -256,7 +256,7 @@ function _ipDoc(){
   const d=_ipDatos();
   const T=_ipTextos(d);
   const AZ='#0070C0';
-  const logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;text-align:center;border:1px solid #fff;font-weight:700`;
   const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:9.5px;color:#111';
   const sec=(n,t)=>`<div class="ip-sec">${n}. ${t}</div>`;

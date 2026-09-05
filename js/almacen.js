@@ -469,7 +469,7 @@ function _almImprimirVale(vale,codProy){
   const rows=DB.almacen.filter(r=>r.tipo==='S'&&String(r.numVale||'').trim()===vale&&(!codProy||(r.codProy||'').trim()===codProy));
   if(!rows.length){toast('Sin registros para ese vale',true);return;}
   const h=rows[0];
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const w=window.open('','_blank','width=850,height=650');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vale ${vale}</title><style>
     *{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:2rem;color:#111;font-size:13px}

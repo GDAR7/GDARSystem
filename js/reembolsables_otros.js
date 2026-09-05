@@ -372,7 +372,7 @@ function _viaPrintDetalle(){
   const subtitulo=_viaFiltCod
     ?`${_viaFiltCod}${byCod[_viaFiltCod]&&byCod[_viaFiltCod].nombre?' - '+byCod[_viaFiltCod].nombre.toUpperCase():''}`
     :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables</title>
   <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -476,7 +476,7 @@ function _viaDetDocHtml(){
   const subtitulo=_viaDetCod
     ?`${_viaDetCod}${byCod[_viaDetCod]&&byCod[_viaDetCod].nombre?' - '+byCod[_viaDetCod].nombre.toUpperCase():''}`
     :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   return`<div style="font-family:Arial,sans-serif;color:#111">
     <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
       <img src="${_logoUrl}" style="height:44px;object-fit:contain">

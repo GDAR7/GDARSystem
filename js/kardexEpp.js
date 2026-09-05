@@ -267,7 +267,7 @@ function _kepImprimir(){
   if(!d.cols.length){toast('No hay EPPs que mostrar en el periodo',true);return;}
   const orden=(DB.personal||[]).filter(x=>(x.est||'Activo')==='Activo').sort((a,b)=>`${a.ape} ${a.nom}`.localeCompare(`${b.ape} ${b.nom}`,'es'));
   const nro=String(orden.findIndex(x=>x.id===p.id)+1).padStart(4,'0');
-  const logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const nFilas=Math.max(_KEP_MIN_FILAS,d.fechas.length);
   const filas=Array.from({length:nFilas},(_,i)=>{
     const f=d.fechas[i];

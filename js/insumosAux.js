@@ -311,7 +311,7 @@ function _iaPrint(){
   const HDR='#0070C0';
   const TH=`background:${HDR};color:#fff;padding:4px 6px;font-size:9px;text-transform:uppercase;text-align:center`;
   const TD='border:1px solid #cbd5e1;padding:3px 6px;font-size:10px;color:#111';
-  const logo=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const tot=lista.reduce((s,r)=>s+r.total,0);
   const sub=_iaTodoPer?'Todo el historial':`Período: ${_iaDMY(per.desde)} al ${_iaDMY(per.hasta)}`;
   const w=window.open('','_blank','width=1150,height=760');

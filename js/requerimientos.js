@@ -236,7 +236,7 @@ function exportReqPDF(id){
   }).join('');
   const cRows=comps.map(c=>'<tr><td>'+e(c.tipo)+'</td><td class=m>'+e(c.num)+'</td><td>'+e(c.prov)+'</td><td align=right style=color:#10b981>S/ '+c.total.toFixed(2)+'</td><td>'+e(c.est)+'</td></tr>').join('');
   const _baseUrl=window.location.href.replace(/[^\/\\]+$/,'');
-  const _logoUrl=_baseUrl+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=_baseUrl+EMPRESA.logo;
   const css='*{margin:0;padding:0;box-sizing:border-box}'
     +'@page{margin:15px 0}'
     +'body{font-family:Segoe UI,Arial,sans-serif;font-size:12px;color:#111;padding:0 30px}'
@@ -736,6 +736,7 @@ function rFPago(){
       <td>${bge(f.est)}</td>
       <td style="font-size:.73rem;color:var(--alm)">${f.tipoCobro||'<span style="color:var(--muted)">—</span>'}</td>
       <td style="font-size:.73rem;color:var(--muted2)">${f.edp||'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="padding:2px 5px"><input value="${(f.edpCobrado||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="fpSetEdpCobrado(${f.id},this.value)" title="EDP en el que ya se cobró al cliente. Vacío = aún no cobrado." style="width:84px;text-align:center;font-family:'Roboto Mono',monospace;font-size:.72rem;border-radius:5px;padding:2px 4px;outline:none;background:${f.edpCobrado?'rgba(16,185,129,.12)':'transparent'};border:1px solid ${f.edpCobrado?'#10b981':'var(--border)'};color:${f.edpCobrado?'#10b981':'var(--muted2)'};font-weight:${f.edpCobrado?700:400}"></td>
       <td>${pdfLink}</td>
       <td style="display:flex;gap:.3rem">
         ${_pdfHref?(_fpYaExtraida(f)
@@ -746,6 +747,16 @@ function rFPago(){
       </td></tr>`;
   }).join('');
   if(typeof _fpTabActiva!=='undefined'&&_fpTabActiva==='reemb')rReembolsables();
+}
+// Marcar el cobro sin abrir el comprobante. Vacío borra la marca.
+function fpSetEdpCobrado(id,val){
+  const f=DB.facturasPago.find(x=>x.id===+id);if(!f)return;
+  const v=String(val||'').trim();
+  if((f.edpCobrado||'')===v)return;          // no se tocó nada
+  f.edpCobrado=v||null;
+  syncSheet('saveFacturaPago',f);
+  rFPago();
+  toast(v?('✓ Cobrado en '+v):'Marca de cobro quitada');
 }
 function _fpExportXls(){
   const pfEl=document.getElementById('fpProyFilterMain');
@@ -760,13 +771,13 @@ function _fpExportXls(){
   }
   lista=lista.filter(f=>_fpEnRango(f.fecha));
   if(!lista.length){toast('No hay comprobantes para exportar',true);return;}
-  const wsData=[['N° Comp.','Tipo','Fecha','Proveedor','Requerimiento','Moneda','Total','Estado','Tipo Cobro','EDP']];
+  const wsData=[['N° Comp.','Tipo','Fecha','Proveedor','Requerimiento','Moneda','Total','Estado','Tipo Cobro','EDP','EDP cobrado']];
   lista.forEach(f=>{
     const req=DB.requerimientos.find(r=>r.id===f.reqId);
-    wsData.push([f.num||'',f.tipo||'',f.fecha||'',f.prov||'',req?req.num:'',f.moneda||'Soles (S/)',+f.total||0,f.est||'',f.tipoCobro||'',f.edp||'']);
+    wsData.push([f.num||'',f.tipo||'',f.fecha||'',f.prov||'',req?req.num:'',f.moneda||'Soles (S/)',+f.total||0,f.est||'',f.tipoCobro||'',f.edp||'',f.edpCobrado||'']);
   });
   const ws=XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols']=[{wch:12},{wch:10},{wch:12},{wch:30},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:10}];
+  ws['!cols']=[{wch:12},{wch:10},{wch:12},{wch:30},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:10},{wch:12}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Comprobantes');
   XLSX.writeFile(wb,'comprobantes_pago'+(filtProy?'_'+filtProy.replace(/\s/g,''):'')+'.xlsx');
@@ -810,7 +821,7 @@ function newFPago(){
   refreshSelects();
   refreshFPagoProvDatalist();
   _initFpProyFilter('');filtrarFpReq('');
-  ['fpNum','fpProv','fpRuc','fpObs','fpEdp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fpNum','fpProv','fpRuc','fpObs','fpEdp','fpEdpCobrado'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('fpTipoCobro').value='';
   ['fpMonto','fpIgv','fpTotal'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('fpTipo').value='Factura';
@@ -853,6 +864,7 @@ function editFPago(id){
   document.getElementById('fpObs').value=f.obs||'';
   document.getElementById('fpTipoCobro').value=f.tipoCobro||'';
   document.getElementById('fpEdp').value=f.edp||'';
+  document.getElementById('fpEdpCobrado').value=f.edpCobrado||'';
   const _ppEl=document.getElementById('fpPdfPreview');
   if(f.pdfUrl){_ppEl.innerHTML=`📎 <a href="${f.pdfUrl}" target="_blank" rel="noopener" style="color:var(--alm)">${f.pdfName||'Ver archivo'}</a> <span style="color:var(--muted2)">(existente — selecciona nuevo para reemplazar)</span>`;}
   else if(f.pdfName){_ppEl.textContent='📎 '+f.pdfName+' (existente)';}
@@ -907,6 +919,7 @@ async function gFPago(){
     est:document.getElementById('fpEst').value,
     tipoCobro:document.getElementById('fpTipoCobro').value||null,
     edp:document.getElementById('fpEdp').value.trim()||null,
+    edpCobrado:document.getElementById('fpEdpCobrado').value.trim()||null,
     obs:document.getElementById('fpObs').value,
   };
   if(_fpEditId!==null){
@@ -1585,7 +1598,7 @@ function _reembDetDocHtml(){
   const subtitulo=_reembDetCod
     ?`${_reembDetCod}${byCod[_reembDetCod]&&byCod[_reembDetCod].nombre?' - '+byCod[_reembDetCod].nombre.toUpperCase():''}`
     :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   return`<div style="font-family:Arial,sans-serif;color:#111">
     <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
       <img src="${_logoUrl}" style="height:44px;object-fit:contain">

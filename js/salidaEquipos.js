@@ -238,7 +238,7 @@ async function _seqDel(id){
 function _seqDocHtml(){
   const rows=_seqLista();
   const AZ='#1F4E79',HDR='#2F5496';
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const TH=`background:${HDR};color:#fff;padding:4px 3px;font-size:7.5px;font-weight:700;text-transform:uppercase;text-align:center;border:1px solid #fff`;
   const TD='border:1px solid #b7c3d4;padding:3px 4px;font-size:8px;color:#111;text-align:center';
   const proy=(rows.find(r=>r.proyecto)||{}).proyecto||'';

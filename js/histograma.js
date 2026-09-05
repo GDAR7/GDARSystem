@@ -540,7 +540,7 @@ function _hgPrint(){
   const RD=esVs?_hgRealData(cols):null;
   const hoy=today();
   let colAct='';cols.forEach(c=>{if(c<=hoy)colAct=c;});
-  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const AZ='#1e3a5f';
   const grupos=[...new Set(rows.map(r=>r.grupo))];
 

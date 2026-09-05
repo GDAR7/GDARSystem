@@ -219,7 +219,7 @@ function _blDoc(filas,formato){
   const fmt=(formato||_blFormato)==='oficial'?'oficial':'gdar';
   const ofi=fmt==='oficial';
   const base=window.location.href.replace(/[^\/\\]+$/,'');
-  const logo=base+'09.-ERP/Imagenes/ECOSERMO-LOGO.png';
+  const logo=base+EMPRESA.logo;
   const uno=f=>{
     const mesLbl=(typeof _PL_MESES!=='undefined'?_PL_MESES[f.mes]:f.mes)+' '+f.anio;
     let h='<table class="doc pagina"><thead><tr><td>';
