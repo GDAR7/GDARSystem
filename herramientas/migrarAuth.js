@@ -4,7 +4,11 @@
 //
 //   node herramientas/migrarAuth.js --simular          qué haría, sin tocar nada
 //   node herramientas/migrarAuth.js --solo EIBEL25     una sola persona
-//   node herramientas/migrarAuth.js                    todas, de verdad
+//   node herramientas/migrarAuth.js --listar           quien esta migrado y quien no
+//   node herramientas/migrarAuth.js                    los que falten
+//
+// Correrlo dos veces no duplica a nadie: antes de crear consulta quien ya
+// esta en Auth y omite a esos.
 //
 // Conviene empezar por una sola —la suya— con el modo 'mixto' puesto en
 // js/empresa.js: así prueba el circuito completo mientras los otros veinte
@@ -43,6 +47,11 @@ const SIMULAR=process.argv.includes('--simular');
 const iSolo=process.argv.indexOf('--solo');
 const SOLO=iSolo>-1?String(process.argv[iSolo+1]||'').toUpperCase():null;
 
+// Colores de terminal. Se arman con fromCharCode(27) en vez de escribir el
+// byte de escape directamente: suelto en el fuente es invisible al leerlo y
+// facil de romper sin darse cuenta al editar el archivo.
+const _E=String.fromCharCode(27);
+const C={verde:_E+'[32m',ambar:_E+'[33m',gris:_E+'[90m',rojo:_E+'[31m',fin:_E+'[0m'};
 const ALFABETO='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sin O 0 I 1 L
 const sufijo=n=>Array.from({length:n},()=>
   ALFABETO[Math.floor(Math.random()*ALFABETO.length)]).join('');
@@ -89,6 +98,23 @@ function leerAreas(){
   return A;
 }
 
+// Los que ya estan en Auth. El email lleva un sufijo aleatorio, asi que no se
+// puede adivinar: hay que preguntarle al servidor y mirar el codigo guardado
+// en user_metadata.
+async function usuariosExistentes(url,key){
+  const r=await fetch(url+'/auth/v1/admin/users?per_page=200',{
+    headers:{apikey:key,Authorization:'Bearer '+key}});
+  if(!r.ok)throw new Error('HTTP '+r.status+' al listar usuarios');
+  const j=await r.json();
+  const lista=(j&&j.users)||[];
+  const porCodigo=new Map();
+  lista.forEach(u=>{
+    const c=u.user_metadata&&u.user_metadata.codigo;
+    if(c)porCodigo.set(String(c).toUpperCase(),u);
+  });
+  return{lista,porCodigo};
+}
+
 async function crearUsuario(url,key,email,password,metadata){
   const r=await fetch(url+'/auth/v1/admin/users',{
     method:'POST',
@@ -102,6 +128,21 @@ async function crearUsuario(url,key,email,password,metadata){
 
 (async()=>{
   const todos=leerUsuarios();
+
+  if(process.argv.includes('--listar')){
+    const{url,key}=credenciales();
+    const{porCodigo}=await usuariosExistentes(url,key);
+    console.log(NL+'Estado de la migracion'+NL);
+    todos.forEach(u=>{
+      const y=porCodigo.get(String(u.codigo).toUpperCase());
+      console.log('  '+(y?''+C.verde+'migrado '+C.fin+'':''+C.ambar+'pendiente'+C.fin+'')
+        +' '+u.nombre.padEnd(26)+(y?''+C.gris+''+y.email+''+C.fin+'':''));
+    });
+    const n=todos.filter(u=>porCodigo.has(String(u.codigo).toUpperCase())).length;
+    console.log(NL+'  '+n+' de '+todos.length+' migrados'+NL);
+    return;
+  }
+
   let usuarios=todos;
   if(SOLO){
     usuarios=todos.filter(u=>String(u.codigo).toUpperCase()===SOLO);
@@ -142,8 +183,23 @@ async function crearUsuario(url,key,email,password,metadata){
   }
 
   const{url,key}=credenciales();
+
+  // Nadie debe quedar con dos usuarios: el segundo tendria otra credencial y
+  // la persona no sabria cual de las dos vale.
+  const{porCodigo}=await usuariosExistentes(url,key);
+  const yaEstaban=plan.filter(p=>porCodigo.has(String(p.u.codigo).toUpperCase()));
+  const porCrear =plan.filter(p=>!porCodigo.has(String(p.u.codigo).toUpperCase()));
+  if(yaEstaban.length){
+    console.log('  '+C.gris+'Ya migrados, se omiten: '
+      +yaEstaban.map(p=>p.u.codigo).join(', ')+''+C.fin+''+NL);
+  }
+  if(!porCrear.length){
+    console.log('  No queda nadie por migrar.'+NL);
+    return;
+  }
+
   const hechos=[],fallidos=[];
-  for(const p of plan){
+  for(const p of porCrear){
     process.stdout.write('  '+p.u.nombre.padEnd(26));
     try{
       await crearUsuario(url,key,p.email,p.cred,p.meta);
