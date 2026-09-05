@@ -23,6 +23,21 @@ const EMPRESA={
 const SUPA_URL = 'https://kotqxhpkjuaxbgwhiode.supabase.co';
 const SUPA_KEY = 'sb_publishable_2vedvLuUivaSULcoSGJcpQ_Womkq8ST';
 
+// ── Cómo se valida quién entra ────────────────────────────────────────────
+// 'local'    → esquema anterior: la credencial se compara contra la lista de
+//              aquí abajo. Solo funciona con las políticas RLS abiertas.
+// 'mixto'    → transición: primero prueba Supabase Auth y, si esa credencial
+//              no existe todavía, cae a la lista local. Permite migrar de a
+//              pocos sin dejar a nadie fuera. Las tablas siguen abiertas
+//              mientras dure, así que es un estado de paso, no de destino.
+// 'supabase' → solo Supabase Auth. Los permisos llegan firmados en el token y
+//              los datos quedan cerrados a quien no haya iniciado sesión.
+//              Es el modo que exige sql/rls_cerrar.sql.
+//
+// Es el interruptor de emergencia: si el login por Auth fallara, ponga
+// 'local', suba el cambio y ejecute sql/rls_revertir.sql.
+const AUTH_MODO='local';
+
 // ── Quién entra y qué ve ──────────────────────────────────────────────────
 // Recibe AREAS como parámetro (vive en config.js, que carga después) para que
 // un usuario pueda pedir todas las áreas con Object.keys(A).

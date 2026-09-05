@@ -131,15 +131,71 @@ function buildDemos(){
 function autoLogin(c){document.getElementById('loginCodigo').value=c;doLogin();}
 
 // ══ AUTH ══
-function doLogin(){
+// El email se deriva de la credencial, asi que la persona sigue escribiendo una
+// sola cosa en un solo campo. Los codigos traen puntos y guiones bajos
+// (CP.BISA_, J_A_TA) que no valen en un email: se normalizan igual que en
+// herramientas/migrarAuth.js, o el email no coincidiria con el creado alli.
+// Modo de acceso. Si empresa.js no lo define, se comporta como siempre.
+function _authModo(){
+  return (typeof AUTH_MODO!=='undefined'&&AUTH_MODO)?AUTH_MODO:'local';
+}
+function _authEmail(cred){
+  return cred.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')+'@gdarei.com';
+}
+async function doLogin(){
   const raw=document.getElementById('loginCodigo').value.trim().toUpperCase();
   const err=document.getElementById('loginErr');
+  const btn=document.querySelector('#loginScreen .login-btn');
   err.style.display='none';
+  if(!raw)return;
+  const modo=_authModo();
+
+  if(modo==='supabase'||modo==='mixto'){
+    if(btn){btn.disabled=true;btn.style.opacity=.6;}
+    let entro=false, cortar=false;
+    try{
+      const{data,error}=await supa.auth.signInWithPassword({
+        email:_authEmail(raw),password:raw});
+      if(error||!data||!data.user){
+        // En mixto puede ser una credencial de las viejas: no se avisa todavia,
+        // se deja que lo resuelva la lista local mas abajo.
+        if(modo==='supabase'){err.style.display='block';cortar=true;}
+      }else{
+        // Los permisos llegan dentro del token, firmados por el servidor
+        const m=data.user.user_metadata||{};
+        if(!m.areas||!m.areas.length){
+          // Existe en Auth pero quedo sin permisos: es un error de alta, no
+          // una credencial vieja. No tiene sentido probar la lista local.
+          console.error('Entro pero no trae permisos en user_metadata');
+          err.style.display='block';cortar=true;
+          try{await supa.auth.signOut();}catch(e){}
+        }else{
+          CU=m;entro=true;
+        }
+      }
+    }catch(ex){
+      // Supabase no respondio. En mixto se intenta la lista local; en supabase
+      // no hay alternativa, asi que se avisa.
+      console.error('Fallo al iniciar sesion:',ex);
+      if(modo==='supabase'){err.style.display='block';cortar=true;}
+    }finally{
+      if(btn){btn.disabled=false;btn.style.opacity=1;}
+    }
+    if(entro){launchApp();return;}
+    if(cortar)return;
+    // modo mixto y Auth no la reconocio: sigue abajo
+  }
+
+  // Esquema anterior: la lista de usuarios viaja en el navegador
   const u=USERS.find(u=>raw===(u.codigo+u.dni).toUpperCase());
   if(!u){err.style.display='block';return;}
   CU=u;launchApp();
 }
 function doLogout(){
+  // Cierra tambien la sesion de Supabase: si no, el token seguiria vivo en el
+  // navegador y con el, el acceso a los datos.
+  if(typeof AUTH_MODO!=='undefined'&&AUTH_MODO==='supabase'&&typeof supa!=='undefined')
+    try{supa.auth.signOut();}catch(e){}
   CU=null;
   document.getElementById('appShell').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
