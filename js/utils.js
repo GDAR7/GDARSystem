@@ -209,27 +209,43 @@ async function doLogin(){
 // ══ CLAVE PROPIA ══
 // Solo tiene sentido con Supabase Auth: en el esquema local la credencial
 // vive en el archivo y cambiarla desde aqui no serviria de nada.
-function abrirClave(){
-  if(_authModo()==='local')return toast('El cambio de clave requiere el acceso por Supabase',true);
-  ['clvNueva','clvRepe'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  const e=document.getElementById('clvErr');if(e)e.style.display='none';
-  openM('mClave');
+// Prepara la pagina de Mi Seguridad. La llama renderPage al entrar.
+function rMiSeguridad(){
+  ['segActual','segNueva','segRepe'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.value='';});
+  ['segErr','segOk'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.style.display='none';});
+  const info=document.getElementById('segInfo');
+  if(info&&CU)info.innerHTML='<strong>'+(CU.nombre||'')+'</strong>'
+    +'<div style="color:var(--muted2);font-size:.74rem;margin-top:.2rem">'
+    +(CU.cargo||'')+' · codigo de usuario <strong>'+(CU.codigo||'')+'</strong></div>';
 }
 async function guardarClave(){
-  const n=document.getElementById('clvNueva').value;
-  const r=document.getElementById('clvRepe').value;
-  const err=document.getElementById('clvErr');
-  const btn=document.getElementById('clvBtn');
+  const act=document.getElementById('segActual').value;
+  const n  =document.getElementById('segNueva').value;
+  const r  =document.getElementById('segRepe').value;
+  const err=document.getElementById('segErr');
+  const ok =document.getElementById('segOk');
+  const btn=document.getElementById('segBtn');
   const avisar=t=>{err.textContent=t;err.style.display='block';};
-  err.style.display='none';
-  if(n.length<8)return avisar('La clave debe tener al menos 8 caracteres.');
-  if(n!==r)   return avisar('Las dos claves no coinciden.');
+  err.style.display='none';ok.style.display='none';
+  if(!act)      return avisar('Escriba su clave actual.');
+  if(n.length<8)return avisar('La clave nueva debe tener al menos 8 caracteres.');
+  if(n!==r)     return avisar('Las dos claves nuevas no coinciden.');
+  if(n===act)   return avisar('La clave nueva debe ser distinta de la actual.');
   if(btn){btn.disabled=true;btn.style.opacity=.6;}
   try{
+    // Se comprueba la clave actual antes de cambiarla: si no, cualquiera que
+    // encuentre una sesion abierta podria dejar al dueno fuera de su cuenta.
+    const{error:eAct}=await supa.auth.signInWithPassword({
+      email:_authEmail(CU&&CU.codigo||''),password:act});
+    if(eAct)return avisar('La clave actual no es correcta.');
     const{error}=await supa.auth.updateUser({password:n});
     if(error)return avisar('No se pudo cambiar: '+error.message);
-    closeM('mClave');
-    toast('✓ Clave cambiada. Usela la proxima vez que entre.');
+    ['segActual','segNueva','segRepe'].forEach(id=>{document.getElementById(id).value='';});
+    ok.textContent='✓ Clave cambiada. Usela la proxima vez que entre.';
+    ok.style.display='block';
+    toast('✓ Clave cambiada');
   }catch(ex){
     console.error('Fallo al cambiar la clave:',ex);
     avisar('No se pudo conectar. Intente de nuevo.');
@@ -336,6 +352,16 @@ const nav = document.getElementById('sideNav');
       </div>`;
   });
 
+
+  // Fuera de las areas, siempre visible: cambiar la propia clave no depende
+  // de los permisos de nadie. Solo aplica con Supabase Auth.
+  if(_authModo()!=='local'){
+    h += `
+      <div style="border-top:1px solid var(--border);margin:.5rem .6rem"></div>
+      <div class="nav-mod" id="nm-miSeguridad" style="--nc:#6366f1" onclick="setPage('miSeguridad')">
+        <span class="nav-mod-icon">🔑</span>Mi Seguridad
+      </div>`;
+  }
   nav.innerHTML = h;
 }
 function toggleArea(k){document.getElementById('na-'+k)?.classList.toggle('open');}
@@ -353,7 +379,7 @@ function setPage(k){
   renderPage(k);
 }
 function renderPage(k){
-  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
+  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
   if(m[k])m[k]();
 }
 

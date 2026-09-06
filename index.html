@@ -71,7 +71,6 @@
       <div><div class="hname" id="hName">–</div><div class="hrole" id="hRole">–</div></div>
     </div>
     <button class="hrefresh" id="btnRefresh" onclick="refreshData()" title="Actualizar datos de todas las tablas"><span class="ricon">↻</span> Actualizar</button>
-    <button class="hout" id="btnClave" onclick="abrirClave()" title="Cambiar mi clave de acceso" style="display:none">🔑 Mi clave</button>
     <button class="hout" onclick="doLogout()">⏻ Salir</button>
   </div>
 </header>
@@ -894,6 +893,24 @@
     <div style="display:flex;gap:.5rem;justify-content:flex-end">
       <button class="btn btn-out btn-sm" onclick="document.getElementById('mEngraseEjec').style.display='none'">Cancelar</button>
       <button class="btn btn-sm" onclick="gEngraseEjec()" style="background:#10b981;color:#fff;border:none">✔ Guardar Ejecución</button>
+    </div>
+  </div>
+</div>
+
+<!-- MI SEGURIDAD -->
+<div class="page" id="page-miSeguridad">
+  <div class="ph"><div class="ph-title" style="color:#6366f1">🔑 Mi Seguridad</div><div class="ph-sub">Su clave de acceso al sistema</div></div>
+  <div class="card" style="max-width:520px">
+    <div class="card-head"><span class="card-title">Cambiar mi clave</span></div>
+    <div class="card-body">
+      <div id="segInfo" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:1rem;font-size:.8rem"></div>
+      <div id="segErr" style="display:none;background:rgba(239,68,68,.12);border:2px solid #ef4444;border-radius:8px;padding:.6rem .8rem;color:#ef4444;font-size:.78rem;margin-bottom:.9rem"></div>
+      <div id="segOk" style="display:none;background:rgba(16,185,129,.12);border:2px solid #10b981;border-radius:8px;padding:.6rem .8rem;color:#10b981;font-size:.78rem;margin-bottom:.9rem"></div>
+      <div class="fg"><label>Clave actual</label><input id="segActual" type="password" autocomplete="current-password" placeholder="La que usa hoy"></div>
+      <div class="fg"><label>Clave nueva</label><input id="segNueva" type="password" autocomplete="new-password" placeholder="Al menos 8 caracteres"></div>
+      <div class="fg"><label>Repítala</label><input id="segRepe" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')guardarClave()"></div>
+      <div style="font-size:.72rem;color:var(--muted2);margin:.6rem 0 1rem">La clave la elige usted y nadie más la conoce, ni el administrador. Si la olvida, tendrán que asignarle una nueva.</div>
+      <button class="btn btn-a" id="segBtn" onclick="guardarClave()" style="--ba:#6366f1">Guardar clave nueva</button>
     </div>
   </div>
 </div>
@@ -3242,7 +3259,7 @@
 
 <script src="js/empresa.js?v=6"></script>
 <script src="js/config.js?v=52"></script>
-<script src="js/utils.js?v=28"></script>
+<script src="js/utils.js?v=30"></script>
 <script src="js/personal.js?v=23"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
@@ -3295,16 +3312,6 @@
 <script src="js/datos.js"></script>
 
 <!-- Modal: Tarifas de Equipos -->
-<div class="mo" id="mClave"><div class="modal" style="max-width:420px">
-  <div class="mh"><span class="mttl">🔑 Cambiar mi clave</span><button class="mx" onclick="closeM(&quot;mClave&quot;)">✕</button></div>
-  <div class="mb" style="padding:1rem 1.2rem">
-    <div id="clvErr" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:6px;padding:.5rem .7rem;color:#ef4444;font-size:.76rem;margin-bottom:.8rem"></div>
-    <div class="fg"><label>Clave nueva</label><input id="clvNueva" type="password" autocomplete="new-password" placeholder="Al menos 8 caracteres"></div>
-    <div class="fg"><label>Repítala</label><input id="clvRepe" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')guardarClave()"></div>
-    <div style="font-size:.7rem;color:var(--muted2);margin-top:.5rem">La clave la elige usted y nadie más la conoce. Si la olvida, el administrador tendrá que asignarle una nueva.</div>
-  </div>
-  <div class="mf"><button class="btn btn-out" onclick="closeM(&quot;mClave&quot;)">Cancelar</button><button class="btn btn-a" id="clvBtn" onclick="guardarClave()">Guardar</button></div>
-</div></div>
 <div class="mo" id="mTarifa"><div class="modal" style="max-width:520px">
   <div class="mh"><span class="mttl" id="mTarifaTtl">Nueva Tarifa</span><button class="mx" onclick="closeM('mTarifa')">✕</button></div>
   <div class="mb" style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem">
