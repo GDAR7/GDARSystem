@@ -353,13 +353,23 @@ const nav = document.getElementById('sideNav');
   });
 
 
-  // Fuera de las areas, siempre visible: cambiar la propia clave no depende
-  // de los permisos de nadie. Solo aplica con Supabase Auth.
+
+  // Configuracion General: un area propia, al alcance de todos. Cambiar la
+  // propia clave no deberia depender de los permisos de nadie, asi que este
+  // grupo se arma aparte y no sale de AREAS.
   if(_authModo()!=='local'){
     h += `
-      <div style="border-top:1px solid var(--border);margin:.5rem .6rem"></div>
-      <div class="nav-mod" id="nm-miSeguridad" style="--nc:#6366f1" onclick="setPage('miSeguridad')">
-        <span class="nav-mod-icon">🔑</span>Mi Seguridad
+      <div class="nav-area-wrap open" id="na-cfgGeneral">
+        <div class="nav-ah" onclick="toggleArea('cfgGeneral')" style="color:#6366f1">
+          <span class="nav-ah-icon">⚙️</span>
+          <span class="nav-ah-name">Configuración General</span>
+          <span class="nav-ah-chev">▶</span>
+        </div>
+        <div class="nav-mods">
+          <div class="nav-mod" id="nm-miSeguridad" style="--nc:#6366f1" onclick="setPage('miSeguridad')">
+            <span class="nav-mod-icon">🔑</span>Mi Seguridad
+          </div>
+        </div>
       </div>`;
   }
   nav.innerHTML = h;
