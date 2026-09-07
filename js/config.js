@@ -48,6 +48,43 @@ const USERS=EMPRESA_USERS(AREAS);
 // SUPA_URL y SUPA_KEY llegan desde js/empresa.js, que se carga antes.
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+// ══ COLUMNAS DE CARGA DIFERIDA ══
+// tabla → columnas que NO se traen al arrancar. Ver cargarPaginado().
+const SUPA_DIFERIDAS={
+  materiales:      ['imagen'],
+  edp_proveedores: ['detalle']
+};
+// Trae una de esas columnas y la fusiona en DB, una sola vez. Devuelve una
+// promesa para poder esperarla; si falla, la pantalla se dibuja igual pero sin
+// ese dato, que es preferible a no dibujar nada.
+const _difListo={};
+async function cargarColumnaDiferida(dbKey,columna){
+  const clave=dbKey+'.'+columna;
+  if(_difListo[clave])return _difListo[clave];
+  const tabla=SUPA_TABLES[dbKey];
+  if(!tabla)return Promise.resolve();
+  _difListo[clave]=(async()=>{
+    try{
+      let from=0;const porId={};
+      while(true){
+        const{data,error}=await supa.from(tabla).select('id,'+columna)
+          .range(from,from+999).order('id');
+        if(error)throw error;
+        if(!data||!data.length)break;
+        data.forEach(r=>{porId[r.id]=r[columna];});
+        if(data.length<1000)break;
+        from+=1000;
+      }
+      const destino=_RENAME_FROM[columna]||columna;
+      (DB[dbKey]||[]).forEach(r=>{if(porId[r.id]!==undefined)r[destino]=porId[r.id];});
+    }catch(e){
+      console.warn('[diferida] no se pudo traer '+clave,e.message||e);
+      delete _difListo[clave];   // que se pueda reintentar
+    }
+  })();
+  return _difListo[clave];
+}
+
 // ══ FIELD MAPPERS (camelCase ↔ snake_case) ══
 const _RENAME_TO   = {desc:'descripcion', con:'concepto', img:'imagen', actividades:'act', operador:'op', hrsInop:'im'};
 const _RENAME_FROM = {descripcion:'desc', concepto:'con', imagen:'img'};
@@ -266,10 +303,25 @@ async function loadSheetsData(){
     // "no se guardaron" (le pasó a roster_ovr al llegar a 1364 registros).
     // Por eso TODAS las tablas se cargan así: la segunda petición solo se hace
     // cuando la primera devuelve exactamente 1000, así que no cuesta nada extra.
+    // Columnas que pesan mucho y casi nunca se miran al entrar. Se dejan
+    // fuera de la carga inicial y se piden cuando de verdad hacen falta:
+    //   materiales.imagen        1.8 MB  ·  274 fotos en base64
+    //   edp_proveedores.detalle  450 KB  ·  el detalle de cada EDP
+    // Entre las dos eran 2.2 MB de los 10 que se descargaban siempre.
+    // Las trae cargarColumnaDiferida() al abrir la pantalla que las usa.
     const cargarPaginado=async tabla=>{
+      const omitir=SUPA_DIFERIDAS[tabla];
+      let cols='*';
+      if(omitir){
+        // Se preguntan las columnas al servidor en vez de listarlas aqui: si
+        // manana se agrega una, se carga sola y nadie tiene que acordarse.
+        const{data:una}=await supa.from(tabla).select('*').limit(1);
+        if(una&&una.length)
+          cols=Object.keys(una[0]).filter(c=>!omitir.includes(c)).join(',');
+      }
       let all=[],from=0,pageSize=1000,err=null;
       while(true){
-        const{data,error}=await supa.from(tabla).select('*').range(from,from+pageSize-1).order('id');
+        const{data,error}=await supa.from(tabla).select(cols).range(from,from+pageSize-1).order('id');
         if(error){console.warn('[loadPaginado]',tabla,error.message);err=error;break;}
         if(!data||data.length===0)break;
         all=all.concat(data);

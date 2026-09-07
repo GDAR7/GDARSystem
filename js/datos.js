@@ -365,7 +365,10 @@ function onMatTipoChange(){
   const count=DB.catalogoItems.filter(c=>c.tipo===tipo).length;
   document.getElementById('matCod').value=prefix+String(count+1).padStart(4,'0');
 }
-function rMateriales(){
+async function rMateriales(){
+  // Las fotos no vienen en la carga inicial: se piden al abrir esta pantalla,
+  // que es la primera que las muestra. La espera solo ocurre la primera vez.
+  await cargarColumnaDiferida('materiales','imagen');
   const items=DB.catalogoItems;
   const tipos=['MATERIALES','ADMINISTRATIVO','DISPOSITIVOS','EPPS','EQUIPOS','HERRAMIENTAS','INSUMOS'];
   const kpis=[

@@ -870,7 +870,7 @@ async function _edpGuardar(){
   rEdpProveedores();
 }
 
-function _edpCargar(id){
+async function _edpCargar(id){
   const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);if(!r)return;
   _edpEqId=String(r.eqId);_edpNum=r.numEdp||'';_edpDesde=r.desde||'';_edpHasta=r.hasta||'';
   // Los EDP guardados antes de que existiera el período de auxilios no lo
@@ -879,6 +879,8 @@ function _edpCargar(id){
   _edpAuxDesde=r.auxDesde||r.desde||'';_edpAuxHasta=r.auxHasta||r.hasta||'';
   _edpTC=+r.tc||0;
   _edpTarifaOv=+r.tarifa||0;
+  // El detalle no viene en la carga inicial por su peso
+  if(r.detalle===undefined)await cargarColumnaDiferida('edpProveedores','detalle');
   const d=r.detalle||{};
   _edpHminOv=d.horasMinimas!=null?d.horasMinimas:null;
   _edpCantPres=d.cantPres!=null?d.cantPres:null;

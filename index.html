@@ -941,12 +941,6 @@
     </div>
   </div>
   <div id="tarePicker" style="display:none;position:fixed;z-index:9999"></div>
-  <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
-    <div class="mh"><span class="mttl">🧹 Días duplicados en el tareaje</span><button class="mx" onclick="closeM(&quot;mTarDup&quot;)">✕</button></div>
-    <div style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.72rem;color:var(--muted2)">Una persona con dos registros del mismo día. Ocurre cuando dos sesiones tarean la misma celda a la vez.</div>
-    <div class="mb" id="mTarDupBody" style="padding:1rem 1.2rem"></div>
-    <div class="mf"><button class="btn btn-out" onclick="closeM(&quot;mTarDup&quot;)">Cerrar</button></div>
-  </div></div>
   <!-- OVERLAY CLAVE EXPORT EXCEL -->
   <div id="tareExportOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);align-items:center;justify-content:center">
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.5rem 2rem;min-width:300px;box-shadow:0 16px 48px rgba(0,0,0,.7);text-align:center">
@@ -3298,20 +3292,26 @@
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=3"></script>
 <script src="js/pizarra.js?v=2"></script>
-<script src="js/frentes.js"></script>
+<script src="js/frentes.js?v=1"></script>
 <script src="js/avanceMT.js?v=14"></script>
 <script src="js/seguimiento.js?v=4"></script>
 <script src="js/liberacion.js?v=1"></script>
 <script src="js/recrecimiento.js?v=13"></script>
 <script src="js/wbsPlanta.js?v=2"></script>
 <script src="js/histograma.js?v=7"></script>
-<script src="js/notificaciones.js"></script>
+<script src="js/notificaciones.js?v=1"></script>
 <script src="js/costcontrol.js?v=8"></script>
 <script src="js/costoM3.js?v=3"></script>
 <script src="js/venta.js?v=2"></script>
-<script src="js/datos.js"></script>
+<script src="js/datos.js?v=1"></script>
 
 <!-- Modal: Tarifas de Equipos -->
+<div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
+  <div class="mh"><span class="mttl">🧹 Días duplicados en el tareaje</span><button class="mx" onclick="closeM(&quot;mTarDup&quot;)">✕</button></div>
+  <div style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.72rem;color:var(--muted2)">Una persona con dos registros del mismo día. Ocurre cuando dos sesiones tarean la misma celda a la vez.</div>
+  <div class="mb" id="mTarDupBody" style="padding:1rem 1.2rem"></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM(&quot;mTarDup&quot;)">Cerrar</button></div>
+</div></div>
 <div class="mo" id="mTarifa"><div class="modal" style="max-width:520px">
   <div class="mh"><span class="mttl" id="mTarifaTtl">Nueva Tarifa</span><button class="mx" onclick="closeM('mTarifa')">✕</button></div>
   <div class="mb" style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem">

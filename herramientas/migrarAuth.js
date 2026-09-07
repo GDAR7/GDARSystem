@@ -6,6 +6,17 @@
 //   node herramientas/migrarAuth.js --solo EIBEL25     una sola persona
 //   node herramientas/migrarAuth.js --listar           quien esta migrado y quien no
 //   node herramientas/migrarAuth.js                    los que falten
+//   node herramientas/migrarAuth.js --sincronizar      lleva a Auth los cambios
+//                                                      de permisos de empresa.js
+//   node herramientas/migrarAuth.js --bloquear COD     corta el acceso a alguien
+//   node herramientas/migrarAuth.js --desbloquear COD  se lo devuelve
+//
+// --simular funciona con todos: muestra que haria, sin tocar nada.
+//
+// ── Por que hace falta sincronizar ─────────────────────────────────────────
+// Los permisos de cada persona viven en su user_metadata de Auth y llegan
+// firmados en el token. Editar js/empresa.js NO cambia lo que ve nadie: hay
+// que empujar el cambio hasta Auth, y eso es lo que hace --sincronizar.
 //
 // Correrlo dos veces no duplica a nadie: antes de crear consulta quien ya
 // esta en Auth y omite a esos.
@@ -126,8 +137,176 @@ async function crearUsuario(url,key,email,password,metadata){
   return JSON.parse(txt);
 }
 
+// Supabase agrega campos suyos a user_metadata (email_verified y demas). No
+// son permisos nuestros: ni cuentan como diferencia ni deben perderse al
+// actualizar, asi que se conservan tal cual.
+const SUPABASE_PONE=['email_verified','phone_verified','email','phone','sub',
+  'provider','providers'];
+
+// Los campos de un usuario que la aplicacion lee de CU.
+function metaDe(u){
+  const m={dni:u.dni,nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas};
+  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs',
+   'admin'].forEach(k=>{if(u[k]!==undefined)m[k]=u[k];});
+  return m;
+}
+
+// Diferencias en lenguaje llano. Los arrays se muestran como altas y bajas,
+// que es como se piensan los permisos; el resto, como "antes -> despues".
+function diferencias(viejo,nuevo){
+  const d=[];
+  const claves=[...new Set([...Object.keys(viejo||{}),...Object.keys(nuevo||{})])]
+    .filter(k=>!SUPABASE_PONE.includes(k));
+  claves.forEach(k=>{
+    const a=(viejo||{})[k], b=(nuevo||{})[k];
+    if(JSON.stringify(a)===JSON.stringify(b))return;
+    if(Array.isArray(a)||Array.isArray(b)){
+      const A=a||[],B=b||[];
+      const mas=B.filter(x=>!A.includes(x)), menos=A.filter(x=>!B.includes(x));
+      const t=[...mas.map(x=>'+'+x),...menos.map(x=>'-'+x)].join(' ');
+      if(t)d.push(k+': '+t);
+    }else if(a&&b&&typeof a==='object'&&typeof b==='object'){
+      [...new Set([...Object.keys(a),...Object.keys(b)])].forEach(sub=>{
+        if(JSON.stringify(a[sub])===JSON.stringify(b[sub]))return;
+        const A=a[sub]||[],B=b[sub]||[];
+        const mas=(Array.isArray(B)?B:[]).filter(x=>!A.includes(x));
+        const menos=(Array.isArray(A)?A:[]).filter(x=>!B.includes(x));
+        const t=[...mas.map(x=>'+'+x),...menos.map(x=>'-'+x)].join(' ');
+        d.push(k+'.'+sub+': '+(t||JSON.stringify(a[sub])+' -> '+JSON.stringify(b[sub])));
+      });
+    }else{
+      d.push(k+': '+JSON.stringify(a)+' -> '+JSON.stringify(b));
+    }
+  });
+  return d;
+}
+
+async function actualizarMeta(url,key,id,meta){
+  const r=await fetch(url+'/auth/v1/admin/users/'+id,{
+    method:'PUT',
+    headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},
+    body:JSON.stringify({user_metadata:meta})});
+  if(!r.ok)throw new Error('HTTP '+r.status+' · '+(await r.text()).slice(0,160));
+}
+
+// Banear en vez de borrar: si fue un error, se revierte con --desbloquear y la
+// persona conserva su clave. Borrar seria irreversible.
+async function banear(url,key,id,dur){
+  const r=await fetch(url+'/auth/v1/admin/users/'+id,{
+    method:'PUT',
+    headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},
+    body:JSON.stringify({ban_duration:dur})});
+  if(!r.ok)throw new Error('HTTP '+r.status+' · '+(await r.text()).slice(0,160));
+}
+
+async function sincronizar(){
+  const{url,key}=credenciales();
+  const todos=leerUsuarios();
+  const{porCodigo,lista}=await usuariosExistentes(url,key);
+
+  const cambios=[],iguales=[];
+  todos.forEach(u=>{
+    const y=porCodigo.get(String(u.codigo).toUpperCase());
+    if(!y)return;                                    // aun no migrado
+    // Se parte de lo que Supabase ya tiene y encima van nuestros campos: asi
+    // no se pierde email_verified ni nada que gestione el propio servicio.
+    const suyos={};
+    SUPABASE_PONE.forEach(k=>{if((y.user_metadata||{})[k]!==undefined)suyos[k]=y.user_metadata[k];});
+    const nuevo={...suyos,...metaDe(u)};
+    const d=diferencias(y.user_metadata||{},nuevo);
+    if(d.length)cambios.push({u,y,nuevo,d}); else iguales.push(u);
+  });
+
+  const pendientes=todos.filter(u=>!porCodigo.has(String(u.codigo).toUpperCase()));
+  const enArchivo=new Set(todos.map(u=>String(u.codigo).toUpperCase()));
+  const huerfanos=lista.filter(x=>{
+    const c=x.user_metadata&&x.user_metadata.codigo;
+    return c&&!enArchivo.has(String(c).toUpperCase());
+  });
+
+  console.log(NL+'Sincronizar permisos'+(SIMULAR?'   '+C.ambar+'(SIMULACION)'+C.fin:'')+NL);
+
+  if(!cambios.length)console.log('  '+C.verde+'Todo al dia'+C.fin+': los '+iguales.length+' coinciden con js/empresa.js');
+  else{
+    cambios.forEach(c=>{
+      console.log('  '+C.ambar+c.u.nombre+C.fin);
+      c.d.forEach(x=>console.log('      '+x));
+    });
+    console.log(NL+'  '+cambios.length+' con cambios · '+iguales.length+' sin novedad');
+  }
+
+  if(pendientes.length){
+    console.log(NL+'  '+C.gris+'Aun no migrados ('+pendientes.length+'): '
+      +pendientes.map(u=>u.codigo).join(', ')+C.fin);
+    console.log('  '+C.gris+'Para crearlos: node herramientas/migrarAuth.js'+C.fin);
+  }
+
+  if(huerfanos.length){
+    console.log(NL+'  '+C.rojo+'En Auth pero ya no en js/empresa.js:'+C.fin);
+    huerfanos.forEach(x=>{
+      const c=x.user_metadata.codigo;
+      const ban=x.banned_until&&new Date(x.banned_until)>new Date();
+      console.log('    '+(x.user_metadata.nombre||c)+'   '+String(c).padEnd(12)
+        +(ban?C.gris+'ya bloqueado'+C.fin
+             :C.rojo+'SIGUE PUDIENDO ENTRAR'+C.fin+'   --bloquear '+c));
+    });
+  }
+
+  if(SIMULAR){
+    if(cambios.length)console.log(NL+'  Sin --simular se aplicarian estos '+cambios.length+' cambios.'+NL);
+    else console.log('');
+    return;
+  }
+  if(!cambios.length){console.log('');return;}
+
+  console.log('');
+  let ok=0;const fallos=[];
+  for(const c of cambios){
+    process.stdout.write('  '+c.u.nombre.padEnd(26));
+    try{await actualizarMeta(url,key,c.y.id,c.nuevo);ok++;console.log(C.verde+'OK'+C.fin);}
+    catch(e){fallos.push({c,e:e.message});console.log(C.rojo+'ERROR'+C.fin+'  '+e.message.slice(0,80));}
+  }
+  console.log(NL+'  '+ok+' actualizado(s)'+(fallos.length?' · '+fallos.length+' con error':''));
+  console.log('  '+C.gris+'Cada persona vera el cambio la proxima vez que inicie sesion.'+C.fin+NL);
+}
+
+async function cambiarBloqueo(cod,bloquear){
+  const{url,key}=credenciales();
+  const{porCodigo}=await usuariosExistentes(url,key);
+  const y=porCodigo.get(String(cod).toUpperCase());
+  if(!y){
+    console.error(NL+'No hay ningun usuario en Auth con el codigo "'+cod+'".'+NL);
+    process.exit(1);
+  }
+  const quien=(y.user_metadata&&y.user_metadata.nombre)||cod;
+  if(SIMULAR){
+    console.log(NL+'  '+(bloquear?'Se bloquearia':'Se desbloquearia')+' a '+quien+' ('+y.email+')'+NL);
+    return;
+  }
+  // 100 anos equivale a indefinido; 'none' lo levanta.
+  await banear(url,key,y.id,bloquear?'876000h':'none');
+  console.log(NL+'  '+(bloquear?C.rojo+'Bloqueado'+C.fin:C.verde+'Desbloqueado'+C.fin)+': '+quien);
+  console.log('  '+C.gris+(bloquear
+    ?'Conserva su clave. Para devolverle el acceso: --desbloquear '+cod
+    :'Ya puede entrar con su clave de siempre.')+C.fin+NL);
+}
+
 (async()=>{
   const todos=leerUsuarios();
+
+  if(process.argv.includes('--sincronizar')){await sincronizar();return;}
+  const iB=process.argv.indexOf('--bloquear'), iD=process.argv.indexOf('--desbloquear');
+  if(iB>-1||iD>-1){
+    const cod=process.argv[(iB>-1?iB:iD)+1];
+    // Sin esta guarda, "--bloquear --simular" tomaria "--simular" como codigo
+    if(!cod||cod.startsWith('--')){
+      console.error(NL+'Falta el codigo de la persona. Ej: --bloquear OMARS'+NL);
+      process.exit(1);
+    }
+    await cambiarBloqueo(cod,iB>-1);
+    return;
+  }
+
 
   if(process.argv.includes('--listar')){
     const{url,key}=credenciales();
