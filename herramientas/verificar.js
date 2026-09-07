@@ -142,6 +142,29 @@ anidados.length
       +NL+'       Solo se ven si esa página está activa.')
   : bien('todos los modales cuelgan del nivel raíz');
 
+// Un <div> sin cerrar dentro de una pagina mete a TODAS las siguientes dentro
+// de ella. Como esa pagina esta oculta, el resto desaparece sin ningun error en
+// consola: solo se ve en blanco. Paso al reordenar la barra del Tareaje, que
+// se comio la apertura de una tarjeta y dejo 37 paginas anidadas.
+const lineasMain=html.split(NL);
+const iMain=lineasMain.findIndex(l=>l.indexOf('<main')>-1);
+let profP=0;const anidadaPag=[];let nPag=0;
+for(let i=iMain+1;i<lineasMain.length;i++){
+  if(lineasMain[i].indexOf('</main>')>-1)break;
+  const m=lineasMain[i].match(/<div class="page" id="([^"]+)"/);
+  if(m){nPag++;if(profP!==0)anidadaPag.push(m[1]+' (línea '+(i+1)+', profundidad '+profP+')');}
+  profP+=(lineasMain[i].match(/<div[\s>]/g)||[]).length
+        -(lineasMain[i].match(/<\/div>/g)||[]).length;
+}
+if(anidadaPag.length)
+  mal(anidadaPag.length+' de '+nPag+' páginas quedaron anidadas dentro de otra',
+      anidadaPag.slice(0,4).join(NL+'       ')
+      +NL+'       Una página dentro de otra no se ve nunca: la de fuera está oculta.');
+else if(profP!==0)
+  mal('los <div> de main no cierran (sobran '+Math.abs(profP)+')',
+      profP<0?'hay '+(-profP)+' </div> de más':'faltan '+profP+' </div>');
+else bien('las '+nPag+' páginas cuelgan del nivel correcto');
+
 // ── 6 · Credenciales camino al repositorio ─────────────────────────────────
 titulo('6 · Nada sensible rumbo a GitHub');
 let gitignore='';
