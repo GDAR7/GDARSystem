@@ -390,7 +390,37 @@ function setPage(k){
 }
 function renderPage(k){
   const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
-  if(m[k])m[k]();
+  if(!m[k])return;
+  // Antes, si una seccion reventaba, quedaba en blanco y no habia forma de
+  // saber por que sin abrir la consola del navegador.
+  try{ m[k](); _paginaFalloLimpiar(k); }
+  catch(e){ _paginaFallo(k,e); }
+}
+
+function _paginaFalloLimpiar(k){
+  const v=document.getElementById('_errPage-'+k);
+  if(v)v.remove();
+}
+function _paginaFallo(k,e){
+  console.error('Error al dibujar la seccion "'+k+'":',e);
+  const p=document.getElementById('page-'+k);
+  if(!p)return;
+  _paginaFalloLimpiar(k);
+  const d=document.createElement('div');
+  d.id='_errPage-'+k;
+  d.style.cssText='background:rgba(239,68,68,.10);border:2px solid #ef4444;'
+    +'border-radius:8px;padding:.9rem 1.1rem;margin-bottom:1rem;color:#ef4444;font-size:.8rem';
+  const msg=String((e&&e.message)||e);
+  const donde=String((e&&e.stack)||'').split('\n')[1]||'';
+  d.innerHTML='<div style="font-weight:700;margin-bottom:.35rem">'
+    +'No se pudo dibujar esta seccion</div>'
+    +'<div style="font-family:monospace;font-size:.74rem;color:var(--text);'
+    +'word-break:break-word">'+msg+'</div>'
+    +(donde?'<div style="font-family:monospace;font-size:.66rem;color:var(--muted2);'
+    +'margin-top:.3rem;word-break:break-all">'+donde.trim()+'</div>':'')
+    +'<div style="font-size:.68rem;color:var(--muted2);margin-top:.4rem">'
+    +'El resto del sistema sigue funcionando.</div>';
+  p.insertBefore(d,p.firstChild);
 }
 
 // ══ CLOCK ══
