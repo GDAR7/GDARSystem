@@ -920,20 +920,19 @@
   <div class="ph"><div class="ph-title" style="color:var(--mec)">📋 Tareaje de Personal</div><div class="ph-sub">Control mensual de asistencia y tipos de jornada</div></div>
   <div class="kpi-row" id="tareKpis"></div>
   <div id="tareLeyenda" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.8rem"></div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Grilla de Tareaje</span><span id="tarROBadge" style="display:none;align-items:center;gap:.3rem;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:.65rem;font-weight:700;color:#ef4444">👁️ Solo lectura</span>
-      <div class="card-head-right" style="gap:.5rem;flex-wrap:wrap;align-items:center">
-        <select id="tareProy" onchange="rTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;max-width:190px"><option value="">— Todos los proyectos —</option></select>
-        <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:185px">
-        <input type="month" id="tareMes" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.28rem .6rem;color:var(--text);font-size:.8rem;width:130px" oninput="rTareaje()">
-        <span id="tareRangoBar" style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:nowrap"></span>
-        <button id="tarBtnCols" class="btn btn-out btn-sm" onclick="_tarColsPanel(event)" style="font-size:.75rem;color:#22d3ee;border-color:#22d3ee40" title="Elegir qué columnas mostrar">🧩 Columnas ▾</button>
-        <button id="tarBtnFijar" class="btn btn-out btn-sm" onclick="_tarToggleFijar()" style="font-size:.75rem" title="Fijar encabezado (mes y fechas) y las columnas N° / Trabajador al desplazarse">📌 Fijar encabezado</button>
-        <button class="btn btn-out btn-sm" onclick="tarDuplicados()" style="color:#f59e0b;border-color:#f59e0b60;font-size:.78rem" title="Busca personas con dos marcas el mismo dia y ayuda a dejar una sola">🧹 Duplicados</button>
-        <button id="tarMultBtn" class="btn btn-out btn-sm" onclick="toggleTareMult()" style="font-size:.78rem">⊞ Multi-selección</button>
-        <button id="tarHoverBtn" class="btn btn-out btn-sm" onclick="toggleTareHover()" style="font-size:.78rem">🖱️ Hover</button>
-        <button class="btn btn-out btn-sm" onclick="printTareaje()" style="color:var(--mec);border-color:var(--mec)60;font-size:.78rem">🖨️ PDF</button>
-        <button class="btn btn-out btn-sm" onclick="exportTareaje()" style="color:#10b981;border-color:#10b98160;font-size:.78rem">📥 Excel</button>
+    <div class="card-head tar-barra">
+      <div class="tar-barra-izq">
+        <select id="tareProy" onchange="rTareaje()" class="tar-ctl" style="max-width:190px"><option value="">— Todos los proyectos —</option></select>
+        <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" class="tar-ctl" style="width:210px">
+        <input type="month" id="tareMes" class="tar-ctl" style="width:132px" oninput="rTareaje()">
+        <button id="tarBtnPeriodo" class="btn btn-out btn-sm tar-menu" onclick="tarMenuPeriodo(event)" title="Período contable 21→20 y rango libre de fechas">📅 Período ▾</button>
+        <span id="tareRangoBar" style="display:none"></span>
+        <span id="tarROBadge" style="display:none;align-items:center;gap:.3rem;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:.65rem;font-weight:700;color:#ef4444">👁️ Solo lectura</span>
+      </div>
+      <div class="tar-barra-der">
+        <button class="btn btn-out btn-sm tar-menu" onclick="tarMenuVista(event)" title="Encabezado fijo, multi-selección, hover y columnas visibles">👁 Vista ▾</button>
+        <button class="btn btn-out btn-sm tar-menu" onclick="tarMenuExportar(event)" title="Descargar en PDF o Excel">⬇ Exportar ▾</button>
+        <button class="btn btn-out btn-sm" onclick="tarDuplicados()" title="Busca personas con dos marcas el mismo día" style="color:#f59e0b;border-color:#f59e0b60">🧹</button>
       </div>
     </div>
     <div class="card-body" style="overflow-x:auto;padding:0">
@@ -3275,7 +3274,8 @@
 <script src="js/importPlanilla.js?v=6"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=3"></script>
-<script src="js/tareaje.js?v=23"></script>
+<script src="js/tareaje.js?v=24"></script>
+<script src="js/tareajeMenus.js?v=1"></script>
 <script src="js/tareajeDup.js?v=1"></script>
 <script src="js/engrase.js?v=4"></script>
 <script src="js/auxmec.js?v=57"></script>

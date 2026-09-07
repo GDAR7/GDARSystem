@@ -315,3 +315,27 @@ input[type="date"].date-ic-azul::-webkit-calendar-picker-indicator{filter:invert
 .seg-cbtn:hover{background:var(--panel);}
 @media(max-width:1200px){.seg-board{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:700px){.seg-board{grid-template-columns:1fr;}}
+
+
+/* ══ BARRA DE CONTROLES DEL TAREAJE ══
+   Una sola linea: a la izquierda lo que filtra, a la derecha lo que configura.
+   Antes eran once controles sueltos que se partian en dos lineas y empujaban
+   la grilla fuera de la pantalla. */
+.tar-barra{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:.6rem;flex-wrap:wrap;
+  position:sticky;top:0;z-index:30;
+  background:var(--panel);
+}
+.tar-barra-izq,.tar-barra-der{
+  display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
+}
+.tar-ctl{
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:.28rem .6rem;color:var(--text);font-size:.8rem;
+}
+.tar-menu{font-size:.76rem;font-weight:600;white-space:nowrap}
+.tar-menu:hover{background:rgba(255,255,255,.06)}
+
+/* La fila de fechas de la grilla tampoco deberia perderse al bajar */
+#tbTareaje thead th{position:sticky;top:0;z-index:20;background:var(--panel2)}

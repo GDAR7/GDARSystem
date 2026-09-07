@@ -128,6 +128,9 @@ function _tarVolverMes(){_tarModo='mes';_tarDesde='';_tarHasta='';rTareaje();}
 
 // Barra de rango: se pinta en cada render para reflejar el modo activo
 function _tarPintarRango(){
+  // El boton de Periodo resume lo que esta activo; los menus viven en
+  // tareajeMenus.js, que carga despues, de ahi la comprobacion.
+  if(typeof _tmnPintarBotonPeriodo==='function')_tmnPintarBotonPeriodo();
   const el=document.getElementById('tareRangoBar');if(!el)return;
   const on=_tarRangoOn();
   const inp=`width:118px;flex:0 0 118px;box-sizing:border-box;background:var(--panel);border:1px solid ${on?'#22d3ee':'var(--border)'};border-radius:5px;color:var(--text);padding:.16rem .35rem;font-size:.7rem;color-scheme:dark`;
