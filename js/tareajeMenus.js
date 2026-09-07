@@ -224,3 +224,93 @@ function _tmnPintarBotonPeriodo(){
   const mes=document.getElementById('tareMes');
   if(mes)mes.style.opacity=on?'.45':'1';   // el mes queda atenuado en modo rango
 }
+
+
+// ══ CHIPS DE JORNADA ════════════════════════════════════════════════════════
+// La fila se adapta a lo que hay en el periodo: lo que tiene al menos un dia se
+// muestra, y lo que esta en cero se agrupa en "Otros". Antes se pintaban los
+// trece siempre, la mayoria en cero y al 35% de opacidad, ocupando dos lineas
+// para no decir nada.
+//
+// Con color van solo los cuatro que pintan celdas en la grilla, para que el
+// color del chip coincida con lo que se ve abajo. El resto, gris con borde.
+
+const _TMN_CON_COLOR=['TD','TN','DL','F'];
+
+let _tmnOtrosConteos=null;   // lo deja _tmnLeyendaHTML para que lo use el menu
+
+function _tmnChip(k,v,n,activo){
+  const color=_TMN_CON_COLOR.includes(k);
+  const fondo =color?v.bg:'transparent';
+  const texto =color?v.tx:'var(--muted2)';
+  const borde =activo?(color?v.bg:'var(--muted2)'):(color?'transparent':'var(--border)');
+  const tit=v.l+' · '+(n?n+' trabajador'+(n===1?'':'es')+' con al menos un día'
+                        :'nadie este período')
+    +(activo?' · clic para quitar el filtro':'');
+  return '<span onclick="_tarLeySet(\''+k+'\')" title="'+tit+'" style="'
+    +'background:'+fondo+';color:'+texto+';font-size:.6rem;font-weight:700;'
+    +'padding:2px 7px;border-radius:4px;white-space:nowrap;cursor:pointer;'
+    +'user-select:none;border:'+(activo?'2px':'1px')+' solid '+borde+';'
+    +(activo?'box-shadow:0 0 0 2px rgba(255,255,255,.10);':'')
+    +'">'+k+' – '+v.l+(n?' <span style="opacity:.75">'+n+'</span>':'')
+    +(activo?' ✕':'')+'</span>';
+}
+
+function _tmnLeyendaHTML(conteos,filtro){
+  const vivos=[],ceros=[];
+  Object.entries(_TARE_T).forEach(([k,v])=>{
+    const n=conteos[k]?conteos[k].size:0;
+    // Un chip con el filtro puesto nunca se esconde: si no, al cambiar de mes
+    // el filtro quedaria activo sin ninguna forma de quitarlo.
+    (n||filtro===k?vivos:ceros).push({k,v,n});
+  });
+  _tmnOtrosConteos=ceros;
+
+  const rotulo='<span style="font-size:.58rem;letter-spacing:.1em;color:var(--muted2);'
+    +'text-transform:uppercase;font-weight:700;margin-right:.15rem">Jornadas</span>';
+
+  const chips=vivos.map(x=>_tmnChip(x.k,x.v,x.n,filtro===x.k)).join('');
+
+  const otros=ceros.length
+    ? '<button onclick="tarMenuOtros(event)" title="Tipos sin ningún día en este período"'
+      +' style="background:transparent;border:1px dashed var(--border);color:var(--muted2);'
+      +'font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;'
+      +'white-space:nowrap">Otros '+ceros.length+' ▾</button>'
+    : '';
+
+  const limpiar=filtro
+    ? '<span onclick="_tarLeySet(null)" style="font-size:.6rem;font-weight:700;padding:2px 8px;'
+      +'border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--border);'
+      +'color:#ef4444;white-space:nowrap">✕ Quitar filtro</span>'
+    : '';
+
+  return rotulo+chips+otros+limpiar;
+}
+
+// Los que no tienen ni un dia en el periodo. Se pueden filtrar igual: a veces
+// uno quiere confirmar que, en efecto, nadie tiene vacaciones este mes.
+function tarMenuOtros(ev){
+  _tmnAbrir(ev,'otros',210,div=>{
+    div.appendChild(_tmnTitulo('Sin días en este período'));
+    (_tmnOtrosConteos||[]).forEach(x=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:.5rem;padding:.32rem .45rem;'
+        +'border-radius:6px;cursor:pointer;font-size:.74rem';
+      const tag=document.createElement('span');
+      tag.textContent=x.k;
+      tag.style.cssText='flex:0 0 34px;text-align:center;font-size:.58rem;font-weight:700;'
+        +'padding:1px 0;border-radius:3px;border:1px solid var(--border);color:var(--muted2)';
+      const lbl=document.createElement('span');
+      lbl.textContent=x.v.l;
+      lbl.style.cssText='flex:1;color:var(--text)';
+      const cero=document.createElement('span');
+      cero.textContent='0';
+      cero.style.cssText='color:var(--muted);font-size:.68rem';
+      row.appendChild(tag);row.appendChild(lbl);row.appendChild(cero);
+      row.onmouseenter=()=>{row.style.background='rgba(255,255,255,.05)';};
+      row.onmouseleave=()=>{row.style.background='';};
+      row.onclick=()=>{_tmnCerrar();_tarLeySet(x.k);};
+      div.appendChild(row);
+    });
+  });
+}

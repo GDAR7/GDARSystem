@@ -651,13 +651,11 @@ function rTareaje(){
   ].map(k=>`<div class="kpi" ${k.dbl?`ondblclick="${k.dbl}" title="${k.tit}"`:''} style="--kc:${k.c};flex:1;min-width:150px${k.dbl?';cursor:pointer;user-select:none':''}"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   // Leyenda clicable: filtra a quienes tengan al menos un día de ese tipo en el mes
   const _leyN=_tarLeyConteos(monthStr);
-  document.getElementById('tareLeyenda').innerHTML=Object.entries(_TARE_T).map(([k,v])=>{
-    const n=_leyN[k]?_leyN[k].size:0;
-    const act=_tarLeyFiltro===k;
-    return`<span onclick="_tarLeySet('${k}')" title="${n} trabajador${n===1?'':'es'} con al menos un día ${k} en el mes${act?' · clic para quitar el filtro':''}"
-      style="background:${v.bg};color:${v.tx};font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;cursor:pointer;user-select:none;
-      ${act?'outline:2px solid #fff;outline-offset:1px;box-shadow:0 0 0 3px rgba(255,255,255,.15);':n?'':'opacity:.35;'}">${k} – ${v.l}${n?` <span style="opacity:.75">${n}</span>`:''}${act?' ✕':''}</span>`;
-  }).join('')+(_tarLeyFiltro?`<span onclick="_tarLeySet(null)" style="font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--border);color:#ef4444;white-space:nowrap">✕ Quitar filtro</span>`:'');
+  // El HTML de los chips vive en tareajeMenus.js: alli se decide cuales se
+  // muestran y cuales se agrupan en 'Otros'. La logica del filtro sigue aqui,
+  // en _tarLeySet(), sin cambios.
+  document.getElementById('tareLeyenda').innerHTML=
+    typeof _tmnLeyendaHTML==='function'?_tmnLeyendaHTML(_leyN,_tarLeyFiltro):'';
   const _tarRO=isModuleReadOnly('tareaje');
   const mesNombre=new Date(y,m-1,1).toLocaleString('es-PE',{month:'long'}).toUpperCase();
   const dayHdrs=FECHAS.map(fecha=>{
