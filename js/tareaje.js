@@ -638,17 +638,39 @@ function rTareaje(){
   persF=_tarAplicaLeyFiltro(persF,monthStr); // chip de la leyenda (TD, TN, F, …)
   const persFIds=new Set(persF.map(p=>p.id));
   const monthRecs=DB.tareaje.filter(r=>_tarEnRango(r.fecha)&&persFIds.has(r.personalId));
-  document.getElementById('tareKpis').innerHTML=[
-    {l:'Trabajadores',v:persF.length,c:'var(--mec)',ic:'👷',sub:'en grilla'},
-    {l:'Trabajo Día',v:monthRecs.filter(r=>r.tipo==='TD').length,c:'#10b981',ic:'☀️',sub:'jornadas TD'},
-    {l:'Trabajo Noche',v:monthRecs.filter(r=>r.tipo==='TN').length,c:'#3b82f6',ic:'🌙',sub:'jornadas TN'},
-    {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,c:'#ef4444',ic:'❌',sub:'del mes'},
-    {l:'Horas Hombre',v:monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)&&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10,c:'#f59e0b',ic:'⏱️',sub:'HH · TD+TN+DLT+A5 × 10 h/día'},
-    {l:'Inactivos',v:_nInact,c:_tarVerInact?'#f59e0b':'#64748b',ic:_tarVerInact?'👁️':'🚫',
-     sub:_tarVerInact?'visibles · doble clic para ocultar':'dados de baja · doble clic para mostrar',
-     dbl:'_tarToggleInact()',
-     tit:_tarVerInact?'Doble clic para volver a ocultarlos':'Doble clic para mostrarlos en la grilla'}
-  ].map(k=>`<div class="kpi" ${k.dbl?`ondblclick="${k.dbl}" title="${k.tit}"`:''} style="--kc:${k.c};flex:1;min-width:150px${k.dbl?';cursor:pointer;user-select:none':''}"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="kpi-lbl">${k.l}</span><span style="font-size:1.3rem;line-height:1;opacity:.75">${k.ic}</span></div><div class="kpi-val" style="font-size:2.2rem">${k.v}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+  // Tira compacta: etiqueta arriba, numero abajo, sin iconos ni bordes de
+  // color. Los separadores agrupan por naturaleza: cuanta gente hay | que
+  // hicieron | lo que falta. Clase propia para no tocar los KPI del resto
+  // del sistema, que comparten .kpi en otros diecinueve modulos.
+  const _hh=monthRecs.filter(r=>['TD','TN','DLT','A5'].includes(r.tipo)
+    &&(!proyFiltro||r.proy===proyFiltro||!r.proy)).length*10;
+  const _n=v=>Number(v||0).toLocaleString('es-PE');
+  const _ind=[
+    {l:'Trabajadores',v:persF.length},
+    {sep:true},
+    {l:'Día',  v:monthRecs.filter(r=>r.tipo==='TD').length},
+    {l:'Noche',v:monthRecs.filter(r=>r.tipo==='TN').length},
+    {l:'Horas hombre',v:_hh,tit:'HH · TD+TN+DLT+A5 × 10 h/día'},
+    {sep:true},
+    {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,col:'var(--seg)'},
+    // Antes era doble clic y nadie lo descubria. El subrayado punteado avisa
+    // de que se puede pulsar.
+    {l:'Inactivos',v:_nInact,col:'var(--muted)',
+     click:'_tarToggleInact()',
+     tit:_tarVerInact?'Clic para volver a ocultar a los dados de baja'
+                     :'Clic para mostrar a los dados de baja en la grilla'}
+  ];
+  document.getElementById('tareKpis').innerHTML=_ind.map(k=>{
+    if(k.sep)return'<span class="kpi-tira-sep"></span>';
+    const cl='kpi-tira-item'+(k.click?' kpi-tira-click':'');
+    return'<div class="'+cl+'"'
+      +(k.click?' onclick="'+k.click+'"':'')
+      +(k.tit?' title="'+k.tit+'"':'')
+      +'><span class="kpi-tira-lbl">'+k.l+'</span>'
+      +'<span class="kpi-tira-val"'+(k.col?' style="color:'+k.col+'"':'')+'>'
+      +_n(k.v)+'</span></div>';
+  }).join('');
+
   // Leyenda clicable: filtra a quienes tengan al menos un día de ese tipo en el mes
   const _leyN=_tarLeyConteos(monthStr);
   // El HTML de los chips vive en tareajeMenus.js: alli se decide cuales se

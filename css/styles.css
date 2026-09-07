@@ -339,3 +339,31 @@ input[type="date"].date-ic-azul::-webkit-calendar-picker-indicator{filter:invert
 
 /* La fila de fechas de la grilla tampoco deberia perderse al bajar */
 #tbTareaje thead th{position:sticky;top:0;z-index:20;background:var(--panel2)}
+
+
+/* ══ TIRA DE INDICADORES (Tareaje) ══
+   Reemplaza las seis tarjetas con borde de color, que ocupaban ~150px de alto
+   y empujaban la grilla fuera de la pantalla. Clase aparte de .kpi a proposito:
+   esa la comparten otros diecinueve modulos y no deben cambiar.
+   Se reutilizan las variables que ya existen en :root. */
+.kpi-tira{
+  display:flex;flex-wrap:wrap;align-items:center;gap:22px;
+  background:var(--panel2);border-radius:8px;padding:12px 16px;
+  margin-bottom:1rem;
+}
+.kpi-tira-item{display:flex;flex-direction:column;gap:2px}
+.kpi-tira-lbl{font-size:12px;color:var(--muted2);line-height:1.2;white-space:nowrap}
+.kpi-tira-val{font-size:20px;font-weight:500;color:var(--text);line-height:1.2;
+  font-variant-numeric:tabular-nums}
+/* Separador de medio pixel: agrupa sin llamar la atencion */
+.kpi-tira-sep{width:.5px;align-self:stretch;background:var(--border);margin:0 2px}
+/* Inactivos se puede pulsar; el punteado lo insinua sin gritarlo */
+.kpi-tira-click{cursor:pointer;user-select:none}
+.kpi-tira-click .kpi-tira-lbl{text-decoration:underline dotted;text-underline-offset:3px}
+.kpi-tira-click:hover .kpi-tira-lbl{color:var(--text)}
+
+/* En pantallas angostas envuelve en dos lineas; nunca scroll horizontal */
+@media(max-width:640px){
+  .kpi-tira{gap:14px;padding:10px 12px}
+  .kpi-tira-sep{display:none}
+}
