@@ -67,6 +67,18 @@ const h2=pintar(151,20,true);
 es('  y cambia si ya están visibles',/Clic para volver a ocultar/.test(h2),true);
 es('la lógica de _tarToggleInact no cambió',/function _tarToggleInact\(\)\{/.test(tar),true);
 
+console.log('\n== Encendido se distingue de apagado ==');
+// Es un modo de vista que cambia lo que muestra la grilla: tiene que verse
+// activo sin tener que acordarse de si se pulsó.
+es('apagado: en color atenuado',/color:var\(--muted\)"[^>]*>20</.test(h),true);
+es('  sin la marca de encendido',/kpi-tira-on/.test(h),false);
+es('encendido: en blanco',/color:var\(--text\)"[^>]*>20</.test(h2),true);
+es('  con la clase que lo marca',/kpi-tira-on/.test(h2),true);
+es('  y sigue siendo clicable',/kpi-tira-click/.test(h2),true);
+es('CSS: etiqueta blanca',/\.kpi-tira-on \.kpi-tira-lbl\{color:var\(--text\)/.test(css),true);
+es('  y número en negrita',/\.kpi-tira-on \.kpi-tira-val\{font-weight:700\}/.test(css),true);
+es('ningún otro indicador se enciende',(h2.match(/kpi-tira-on/g)||[]).length,1);
+
 console.log('\n== El contenedor ==');
 es('usa la clase nueva',/class="kpi-tira" id="tareKpis"/.test(html),true);
 es('  con fondo de superficie',/\.kpi-tira\{[\s\S]*?background:var\(--panel2\)/.test(css),true);

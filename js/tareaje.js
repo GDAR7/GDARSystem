@@ -655,14 +655,18 @@ function rTareaje(){
     {l:'Faltas',v:monthRecs.filter(r=>r.tipo==='F').length,col:'var(--seg)'},
     // Antes era doble clic y nadie lo descubria. El subrayado punteado avisa
     // de que se puede pulsar.
-    {l:'Inactivos',v:_nInact,col:'var(--muted)',
+    // Encendido se pone blanco y en negrita: es un modo de vista que altera lo
+    // que muestra la grilla, y tiene que notarse de un vistazo que está activo.
+    {l:'Inactivos',v:_nInact,
+     col:_tarVerInact?'var(--text)':'var(--muted)',
+     fuerte:_tarVerInact,
      click:'_tarToggleInact()',
      tit:_tarVerInact?'Clic para volver a ocultar a los dados de baja'
                      :'Clic para mostrar a los dados de baja en la grilla'}
   ];
   document.getElementById('tareKpis').innerHTML=_ind.map(k=>{
     if(k.sep)return'<span class="kpi-tira-sep"></span>';
-    const cl='kpi-tira-item'+(k.click?' kpi-tira-click':'');
+    const cl='kpi-tira-item'+(k.click?' kpi-tira-click':'')+(k.fuerte?' kpi-tira-on':'');
     return'<div class="'+cl+'"'
       +(k.click?' onclick="'+k.click+'"':'')
       +(k.tit?' title="'+k.tit+'"':'')

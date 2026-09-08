@@ -361,6 +361,10 @@ input[type="date"].date-ic-azul::-webkit-calendar-picker-indicator{filter:invert
 .kpi-tira-click{cursor:pointer;user-select:none}
 .kpi-tira-click .kpi-tira-lbl{text-decoration:underline dotted;text-underline-offset:3px}
 .kpi-tira-click:hover .kpi-tira-lbl{color:var(--text)}
+/* Encendido: blanco y en negrita. Es un modo de vista que cambia lo que muestra
+   la grilla, asi que tiene que verse activo de un vistazo. */
+.kpi-tira-on .kpi-tira-lbl{color:var(--text);font-weight:600}
+.kpi-tira-on .kpi-tira-val{font-weight:700}
 
 /* En pantallas angostas envuelve en dos lineas; nunca scroll horizontal */
 @media(max-width:640px){
