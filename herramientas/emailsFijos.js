@@ -25,7 +25,7 @@
 const fs=require('fs');
 const path=require('path');
 
-const CRED=path.join(__dirname,'.credenciales.json');
+const{exigir}=require('./entorno');
 const NL='\n';
 const _E=String.fromCharCode(27);
 const C={verde:_E+'[32m',rojo:_E+'[31m',ambar:_E+'[33m',gris:_E+'[90m',fin:_E+'[0m'};
@@ -37,15 +37,7 @@ const aEmail=codigo=>String(codigo).toLowerCase()
   .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')+'@gdarei.com';
 
 function credenciales(){
-  let url=process.env.GDAR_URL,key=process.env.GDAR_SERVICE_KEY;
-  if((!url||!key)&&fs.existsSync(CRED)){
-    const c=JSON.parse(fs.readFileSync(CRED,'utf8'));
-    url=url||c.url; key=key||c.service_key;
-  }
-  if(!url||!key){
-    console.error(NL+'Faltan las credenciales en herramientas/.credenciales.json'+NL);
-    process.exit(1);
-  }
+  const[url,key]=exigir('GDAR_URL','GDAR_SERVICE_KEY');
   return{url:url.replace(/\/+$/,''),key};
 }
 

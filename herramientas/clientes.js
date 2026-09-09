@@ -12,40 +12,22 @@
 // RLS y solo se llega con la service_role key. Esa llave da acceso total y
 // SALTA las políticas de seguridad: si se filtra, se filtra todo.
 //
-// El repositorio es público, así que la llave se lee de un archivo aparte que
+// El repositorio es público, así que la llave se lee del .env de la raíz, que
 // .gitignore excluye:
 //
-//   herramientas/.credenciales.json
-//   { "maestra_url": "https://xxxx.supabase.co",
-//     "maestra_service_key": "<la service_role key>" }
+//   GDAR_MAESTRA_URL=https://xxxx.supabase.co
+//   GDAR_MAESTRA_KEY=<la service_role key de la base maestra>
 //
-// O de variables de entorno GDAR_MAESTRA_URL y GDAR_MAESTRA_KEY.
+// La plantilla, sin valores, es .env.example.
 
 const fs=require('fs');
 const path=require('path');
 const readline=require('readline');
 
-const CRED=path.join(__dirname,'.credenciales.json');
+const{exigir}=require('./entorno');
 
 function credenciales(){
-  let url=process.env.GDAR_MAESTRA_URL,key=process.env.GDAR_MAESTRA_KEY;
-  if(!url||!key){
-    if(!fs.existsSync(CRED)){
-      console.error(
-        '\nNo encuentro las credenciales de la base maestra.\n\n'+
-        'Cree el archivo herramientas/.credenciales.json con este contenido:\n\n'+
-        '  {\n'+
-        '    "maestra_url": "https://XXXX.supabase.co",\n'+
-        '    "maestra_service_key": "la service_role key"\n'+
-        '  }\n\n'+
-        'La saca de Supabase → Settings → API → service_role.\n'+
-        'Ese archivo está en .gitignore: nunca debe subirse al repositorio.\n');
-      process.exit(1);
-    }
-    const c=JSON.parse(fs.readFileSync(CRED,'utf8'));
-    url=url||c.maestra_url; key=key||c.maestra_service_key;
-  }
-  if(!url||!key){console.error('Faltan maestra_url o maestra_service_key.');process.exit(1);}
+  const[url,key]=exigir('GDAR_MAESTRA_URL','GDAR_MAESTRA_KEY');
   return{url:url.replace(/\/+$/,''),key};
 }
 

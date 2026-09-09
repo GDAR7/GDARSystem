@@ -169,7 +169,7 @@ else bien('las '+nPag+' páginas cuelgan del nivel correcto');
 titulo('6 · Nada sensible rumbo a GitHub');
 let gitignore='';
 try{gitignore=fs.readFileSync(path.join(RAIZ,'.gitignore'),'utf8');}catch(e){}
-const debenIgnorarse=['respaldos/','herramientas/.credenciales.json','credenciales-nuevas.txt'];
+const debenIgnorarse=['respaldos/','herramientas/.credenciales.json','credenciales-nuevas.txt','.env'];
 const sinTapar=debenIgnorarse.filter(x=>!gitignore.includes(x));
 sinTapar.length?mal('.gitignore no cubre: '+sinTapar.join(', '))
                :bien('.gitignore cubre respaldos y credenciales');

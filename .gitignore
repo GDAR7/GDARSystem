@@ -3,12 +3,12 @@ herramientas/.credenciales.json
 herramientas/credenciales-nuevas.txt
 
 # Variables de entorno. Nunca suba una service_role key: salta las políticas RLS
-# y el repositorio es público.
+# y el repositorio es público. La plantilla sin valores sí se versiona.
 .env
 .env.*
 *.env
 herramientas/.env
-!.env.ejemplo
+!.env.example
 
 # Dependencias. El sistema se sigue publicando como archivos estáticos: esto es
 # solo para las herramientas de línea de comandos (Supabase CLI y, más adelante,

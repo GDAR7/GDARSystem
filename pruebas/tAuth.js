@@ -153,6 +153,8 @@ setTimeout(()=>{},0);
   const gi=fs.readFileSync(R+'.gitignore','utf8');
   es('.gitignore tapa las credenciales',gi.includes('herramientas/.credenciales.json'),true);
   es('  y el listado de credenciales nuevas',gi.includes('credenciales-nuevas.txt'),true);
+  es('  y el .env con las llaves',/^.env$/m.test(gi),true);
+  es('  pero no la plantilla',gi.includes('!.env.example'),true);
   es('migrarAuth no trae ninguna llave',/eyJ|sb_publishable_[A-Za-z0-9]/.test(mig),false);
 
   console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));

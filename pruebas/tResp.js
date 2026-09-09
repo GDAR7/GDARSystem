@@ -57,7 +57,11 @@ const relojMas=h=>'const _R=Date;global.Date=class extends _R{'
 // Lanza la herramienta y devuelve {salida, codigo}. No lanza excepción: el
 // código de salida es parte de lo que se está probando.
 function correr({tablas,destino,horas,key,dev,sinLlave}={}){
-  const env={...process.env,GDAR_RESPALDOS:destino||TMP};
+  // GDAR_ENV_FILE apunta a un archivo que no existe: así la suite no lee el
+  // .env de quien la corra. Una prueba que cambia de resultado según lo que
+  // haya en el disco de cada uno no prueba nada.
+  const env={...process.env,GDAR_RESPALDOS:destino||TMP,
+             GDAR_ENV_FILE:path.join(TMP,'sin.env')};
   delete env.GDAR_SERVICE_KEY; delete env.GDAR_SERVICE_KEY_DEV;
   if(!sinLlave)env[dev?'GDAR_SERVICE_KEY_DEV':'GDAR_SERVICE_KEY']=key||SERVICIO;
   const args=[];
@@ -94,7 +98,8 @@ es('  y nombra el rol que trae',/rol "anon"/.test(ja.salida),true);
 console.log('\n== Sin credenciales explica, no revienta ==');
 const sin=correr({sinLlave:true});
 es('sale con error',sin.codigo,1);
-es('  dice qué archivo crear',/\.credenciales\.json/.test(sin.salida),true);
+es('  dice qué archivo crear',/\.env\.example/.test(sin.salida),true);
+es('  y qué variable falta',/GDAR_SERVICE_KEY/.test(sin.salida),true);
 es('  y no escupe un stack trace',/at Object\.<anonymous>/.test(sin.salida),false);
 
 console.log('\n== Un respaldo bueno ==');

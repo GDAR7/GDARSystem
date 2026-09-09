@@ -15,12 +15,13 @@
 //
 // Ahora lee con la service_role, que salta las políticas RLS. Esa llave da
 // acceso total: si se filtra, se filtra todo. Por eso NO vive en el
-// repositorio, que además es público.
+// repositorio, que además es público, sino en el .env de la raíz:
 //
-//   herramientas/.credenciales.json   (está en .gitignore)
-//   { "prod_service_key": "...", "dev_service_key": "..." }
+//   GDAR_SERVICE_KEY       la de producción
+//   GDAR_SERVICE_KEY_DEV   la de desarrollo, para --dev
 //
-// O en el entorno: GDAR_SERVICE_KEY / GDAR_SERVICE_KEY_DEV.
+// La plantilla es .env.example. En GitHub Actions llegan como secrets, que
+// mandan sobre el archivo.
 //
 // ── Qué comprueba antes de decir que salió bien ───────────────────────────
 //  1. Que la llave sea de verdad una service_role. Con la publicable se niega
@@ -68,28 +69,10 @@ const TABLAS=(()=>{
 })();
 
 // ── La llave, y la comprobación de que es la correcta ──────────────────────
-const CRED=path.join(__dirname,'.credenciales.json');
+const{exigir}=require('./entorno');
 
 function servicio(){
-  const varEnt=DEV?'GDAR_SERVICE_KEY_DEV':'GDAR_SERVICE_KEY';
-  const campo =DEV?'dev_service_key':'prod_service_key';
-  let key=process.env[varEnt];
-  if(!key&&fs.existsSync(CRED)){
-    try{key=JSON.parse(fs.readFileSync(CRED,'utf8'))[campo];}
-    catch(e){console.error('herramientas/.credenciales.json no es JSON válido: '+e.message);process.exit(1);}
-  }
-  if(!key){
-    console.error(
-      '\nNo encuentro la service_role key de '+ENTORNO+'.\n\n'+
-      'Agréguela a herramientas/.credenciales.json:\n\n'+
-      '  {\n'+
-      '    "'+campo+'": "la service_role key"\n'+
-      '  }\n\n'+
-      'La saca de Supabase → Settings → API → service_role.\n'+
-      'Ese archivo está en .gitignore: el repositorio es público y esa llave\n'+
-      'da acceso total a los datos. También sirve la variable '+varEnt+'.\n');
-    process.exit(1);
-  }
+  const[key]=exigir(DEV?'GDAR_SERVICE_KEY_DEV':'GDAR_SERVICE_KEY');
   return key;
 }
 

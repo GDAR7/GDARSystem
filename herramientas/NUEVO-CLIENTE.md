@@ -109,18 +109,43 @@ Compruebe los dos extremos:
 node herramientas/verificarDominio.js cliente.gdarei.com
 ```
 
-## 5 · Respaldo
+## 5 · Credenciales de las herramientas
 
-Antes de que el cliente empiece a cargar datos de verdad, deje corriendo el
-respaldo cada cierto tiempo:
+Las herramientas de `herramientas/` necesitan la `service_role` del proyecto.
+Esa llave **salta todas las políticas RLS**: con ella se lee y se escribe todo.
+
+```
+cp .env.example .env
+```
+
+Rellene lo que vaya a usar. `.env` está en `.gitignore` y este repositorio es
+público: si esa llave se filtra, se filtran los DNI, los sueldos y las cuentas
+bancarias de la gente.
+
+Ojo con cuál copia de Supabase → Settings → API. La *anon / publishable* es la
+que va en el navegador y con RLS cerrado no lee ni una fila — es exactamente el
+error que dejó el respaldo escribiendo archivos vacíos durante meses.
+
+## 6 · Respaldo
+
+Antes de que el cliente empiece a cargar datos de verdad:
 
 ```
 node herramientas/backupSupabase.js
 ```
 
 Guarda las tablas en `respaldos/`, que está en `.gitignore` — esos archivos
-llevan DNI y sueldos y **no deben subirse a GitHub**. Si mueve esa carpeta,
-mueva también la regla.
+llevan DNI y sueldos y **no deben subirse a GitHub**. Si prefiere otro destino,
+`GDAR_RESPALDOS` en el `.env` lo apunta a donde quiera.
+
+No se conforma con terminar sin error: se niega a empezar si la llave es la
+publicable, avisa si todas las tablas vinieron vacías, y compara contra el
+respaldo anterior para detectar una tabla que se vació. Sale con código 1 si
+algo de eso pasa.
+
+**Que no dependa de que alguien se acuerde.** El respaldo estuvo roto meses
+justamente por eso. `.github/workflows/respaldo.yml` lo corre solo todos los
+días; los pasos para activarlo están en el encabezado de ese archivo.
 
 ---
 

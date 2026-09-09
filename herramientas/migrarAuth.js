@@ -39,7 +39,7 @@
 // teléfono sin confusiones.
 //
 // ── Credenciales ───────────────────────────────────────────────────────────
-// Necesita la service_role key del proyecto en herramientas/.credenciales.json
+// Necesita la service_role key del proyecto en GDAR_SERVICE_KEY (.env)
 // (que .gitignore excluye):
 //
 //   { "url": "https://xxxx.supabase.co", "service_key": "<la service_role key>" }
@@ -48,7 +48,7 @@ const fs=require('fs');
 const path=require('path');
 
 const RAIZ=path.join(__dirname,'..');
-const CRED=path.join(__dirname,'.credenciales.json');
+const{exigir}=require('./entorno');
 const SALIDA=path.join(__dirname,'credenciales-nuevas.txt');
 const NL='\n';
 
@@ -74,20 +74,7 @@ const aEmail=cred=>cred.toLowerCase().replace(/[^a-z0-9]+/g,'-')
   .replace(/^-+|-+$/g,'')+'@gdarei.com';
 
 function credenciales(){
-  let url=process.env.GDAR_URL,key=process.env.GDAR_SERVICE_KEY;
-  if((!url||!key)&&fs.existsSync(CRED)){
-    const c=JSON.parse(fs.readFileSync(CRED,'utf8'));
-    url=url||c.url||c.maestra_url; key=key||c.service_key||c.maestra_service_key;
-  }
-  if(!url||!key){
-    console.error(
-      NL+'Faltan las credenciales del proyecto.'+NL+NL+
-      'Cree herramientas/.credenciales.json:'+NL+NL+
-      '  { "url": "https://XXXX.supabase.co", "service_key": "<la service_role key>" }'+NL+NL+
-      'Supabase → Settings → API → service_role.'+NL+
-      'Ese archivo está en .gitignore y no debe subirse.'+NL);
-    process.exit(1);
-  }
+  const[url,key]=exigir('GDAR_URL','GDAR_SERVICE_KEY');
   return{url:url.replace(/\/+$/,''),key};
 }
 
