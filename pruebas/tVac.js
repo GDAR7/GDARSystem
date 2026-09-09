@@ -10,7 +10,7 @@ global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planil
 eval(fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
  +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')
  +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;global.PL_VISTAS=PL_VISTAS;'
- +'global._PL_TIPOS_CONOCIDOS=_PL_TIPOS_CONOCIDOS;_plGenMes=8;_plGenAnio=2026;');
+ +'global._PL_TIPOS_CONOCIDOS=_PL_TIPOS_CONOCIDOS;_plGenMes=8;_plGenAnio=7115;');
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};
@@ -18,7 +18,7 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 const P=id=>({id,dni:'70999'+id,ape:'X',nom:'Y',cargo:'MECANICO',sue:3000,asig:0,movilidad:0,afp:'SNP',est:'Activo'});
 DB.personal=[P(1),P(2),P(3)];
 const m=(id,tipo,desde,n)=>{for(let d=desde;d<desde+n;d++)
-  DB.tareaje.push({personalId:id,fecha:'2026-08-'+String(d).padStart(2,'0'),tipo});};
+  DB.tareaje.push({personalId:id,fecha:'7115-08-'+String(d).padStart(2,'0'),tipo});};
 m(1,'TD',1,15); m(1,'V',16,10); m(1,'DL',26,6);            // vacaciones
 m(2,'TD',1,20); m(2,'P',21,3);  m(2,'F',24,4); m(2,'R',28,4); // nada de esto se paga
 m(3,'TD',1,11); m(3,'TN',12,12); m(3,'P',24,1); m(3,'DL',25,7); // NAVARRO

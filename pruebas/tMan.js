@@ -5,7 +5,7 @@ global.localStorage={getItem:k=>LS[k]==null?null:LS[k],setItem:(k,v)=>LS[k]=Stri
 global.toast=m=>{global._t=m;};global.openM=()=>{};global.closeM=()=>{};global.confirm=()=>true;
 global.document={getElementById:()=>null};
 global._PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-global._plGenMes=8;global._plGenAnio=2026;
+global._plGenMes=8;global._plGenAnio=7115;
 global.plMesCerrado=()=>false;let q=700;global.nidSeguro=()=>++q;global.supaUpsert=async()=>null;global.genPlanilla=()=>{};
 global.DB={personal:[
   {id:1,dni:'76357995',ape:'CARHUACHIN VARGAS',nom:'FRANK MIGUEL',cargo:'MECANICO',sue:2500,asig:0,movilidad:0,banco:'',cuenta:'0011-0014-0260884195',est:'Activo'},
@@ -32,11 +32,11 @@ const CSV=[
 
 console.log('\n== El mes pegado al nombre ya no estorba ==');
 es('"REMUNERACION JULIO" -> REMUNERACION',_iplSinMes('REMUNERACION JULIO'),'REMUNERACION');
-es('"MOVILIDAD JULIO 2026" -> MOVILIDAD',_iplSinMes('MOVILIDAD JULIO 2026'),'MOVILIDAD');
+es('"MOVILIDAD JULIO 7115" -> MOVILIDAD',_iplSinMes('MOVILIDAD JULIO 7115'),'MOVILIDAD');
 es('"REINTEGRO REMUNERACION JUNIO" se pela igual',_iplSinMes('REINTEGRO REMUNERACION JUNIO'),'REINTEGRO REMUNERACION');
 es('"CARGO" no se toca',_iplSinMes('CARGO'),'CARGO');
 
-_setTexto(CSV,'JULIO 2026 - Tareo - PAGO.csv');
+_setTexto(CSV,'JULIO 7115 - Tareo - PAGO.csv');
 let D=_iplAnalizar(CSV);
 const tiene=(arr,k)=>arr.some(c=>c.campo===k);
 const libre=n=>D.libres.some(c=>c.col===n);
@@ -94,7 +94,7 @@ es('sin que la columna se cuente dos veces',libre('COND ALTURA'),false);
 _setDatos(D);_iplAsignar('COND ALTURA','');D=_iplAnalizar(CSV);
 
 console.log('\n== Avisa si el archivo es de otro mes ==');
-es('detecta JULIO en el nombre',_iplMesDelNombre('JULIO 2026 - Tareo - PAGO.csv'),7);
+es('detecta JULIO en el nombre',_iplMesDelNombre('JULIO 7115 - Tareo - PAGO.csv'),7);
 es('y el destino es agosto',D.per.mes,8);
 es('-> hay que advertir',D.mesArch!==D.per.mes,true);
 es('un nombre sin mes no inventa',_iplMesDelNombre('planilla_final.csv'),0);

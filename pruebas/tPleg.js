@@ -24,8 +24,8 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 
 console.log('\n== El candado de auxilios arranca puesto ==');
 es('marcado por defecto',_get().sync,true);
-_set('desde','2026-07-21');_set('hasta','2026-08-20');
-es('y sigue al período de horas',_edpPerAux().desde+' → '+_edpPerAux().hasta,'2026-07-21 → 2026-08-20');
+_set('desde','7115-07-21');_set('hasta','7115-08-20');
+es('y sigue al período de horas',_edpPerAux().desde+' → '+_edpPerAux().hasta,'7115-07-21 → 7115-08-20');
 es('  sin marcarse como distinto',_edpAuxDistinto(),false);
 
 console.log('\n== Las tarjetas se pliegan ==');

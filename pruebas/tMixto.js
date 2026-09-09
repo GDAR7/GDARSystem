@@ -44,7 +44,7 @@ const reset=()=>{lanzado=0;signIn=null;signOuts=0;nodos.loginErr.style.display='
 (async()=>{
   const mixto=armar('mixto');
   const viejo=USERS[2];                       // aun no migrado
-  const credVieja=viejo.codigo+viejo.dni;
+  const credVieja=viejo.codigo;
 
   console.log('\n== Quien ya migro entra por Auth ==');
   reset(); respuesta=migrado;

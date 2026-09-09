@@ -53,9 +53,9 @@ es('  con un valor valido',['local','mixto','supabase'].includes(emp.AUTH_MODO),
 console.log('\n== En modo local se comporta como siempre ==');
 let api=armar('local',USERS);
 const u0=USERS[0];
-nodos.loginCodigo.value=(u0.codigo+u0.dni).toLowerCase();nodos.loginClave.value='';   // en minúsculas, a propósito
+nodos.loginCodigo.value=u0.codigo.toLowerCase();nodos.loginClave.value='';   // en minúsculas, a propósito
 api.doLogin();
-es('entra con código+DNI',lanzado,1);
+es('entra con su código',lanzado,1);
 es('  no llamó a Supabase',signInPedido,'null');
 lanzado=0;nodos.loginErr.style.display='';
 nodos.loginCodigo.value='LOQUESEA123';nodos.loginClave.value='';
@@ -76,7 +76,7 @@ console.log('\n== En modo supabase autentica contra el servidor ==');
 api=armar('supabase',USERS);
 lanzado=0;signInPedido=null;nodos.loginErr.style.display='';
 respuesta={data:{user:{user_metadata:{nombre:'Abel Rodríguez A.',cargo:'PCO',
-  codigo:'EIBEL25',dni:'46108109',areas:['administracion','general']}}},error:null};
+  codigo:'EIBEL25',dni:'71000000',areas:['administracion','general']}}},error:null};
 nodos.loginCodigo.value='EIBEL25';nodos.loginClave.value='EIBEL25-K7M2P9';
 await_(api.doLogin());
 function await_(p){return p;}

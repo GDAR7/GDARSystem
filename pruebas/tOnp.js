@@ -4,11 +4,11 @@ global.localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 global.document={getElementById:()=>null,querySelector:()=>null};
 global.toast=()=>{};global.openM=()=>{};global.closeM=()=>{};
 global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planillaCierre:[],planillaCerrada:[]};
-global.nid=()=>1;global._plGenMes=6;global._plGenAnio=2026;global.nidSeguro=()=>1;global.supaUpsert=async()=>null;global.syncSheet=()=>{};
+global.nid=()=>1;global._plGenMes=6;global._plGenAnio=7115;global.nidSeguro=()=>1;global.supaUpsert=async()=>null;global.syncSheet=()=>{};
 
 const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
   +'\n;global._calcPlanRow=_calcPlanRow;global._PL_COLS=PL_COLS;'
-  +'global._AFP_SEMILLA=_AFP_SEMILLA;_plGenMes=6;_plGenAnio=2026;';
+  +'global._AFP_SEMILLA=_AFP_SEMILLA;_plGenMes=6;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -18,8 +18,8 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 // Un trabajador con 30 días trabajados en junio
 const P=n=>({id:n,dni:'1'+n,ape:'PRUEBA',nom:'UNO',cargo:'X',sue:9000,asig:0,movilidad:0,est:'Activo'});
 DB.tareaje=[];
-for(let d=1;d<=30;d++)DB.tareaje.push({personalId:1,fecha:'2026-06-'+String(d).padStart(2,'0'),tipo:'TD'});
-[2,3,4].forEach(id=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:id,fecha:'2026-06-'+String(d).padStart(2,'0'),tipo:'TD'});});
+for(let d=1;d<=30;d++)DB.tareaje.push({personalId:1,fecha:'7115-06-'+String(d).padStart(2,'0'),tipo:'TD'});
+[2,3,4].forEach(id=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:id,fecha:'7115-06-'+String(d).padStart(2,'0'),tipo:'TD'});});
 
 const calc=afp=>{const p=P(1);p.afp=afp;return _calcPlanRow(p,null);};
 

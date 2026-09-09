@@ -13,7 +13,7 @@ global.supaDelete=async()=>null;
 global.DB={atencionRecursos:[],ventaPersonal:[],tarifasEq:[],equipos:[]};
 global._ccMatchHH=()=>null;
 global.hhVentaPeriodo=()=>({filas:[],sinTarifa:[],total:0,nDias:30});
-global._edpDesde='2026-07-21';global._edpHasta='2026-08-20';
+global._edpDesde='7115-07-21';global._edpHasta='7115-08-20';
 
 const src=fs.readFileSync(R+'js/atencionRecursos.js','utf8')
  +'\n;global._arGuardarCampo=_arGuardarCampo;global._arBorrar=_arBorrar;global._arRender=_arRender;'
@@ -56,7 +56,7 @@ console.log('\n== Editar la participación la guarda sola ==');
   es('el aviso desaparece',/sin guardar/.test(nodos.arPanel.innerHTML),false);
 
   console.log('\n== El cuadro impreso refleja el cambio ==');
-  const per={desde:'2026-07-21',hasta:'2026-08-20',dias:31};
+  const per={desde:'7115-07-21',hasta:'7115-08-20',dias:31};
   DB.ventaPersonal=[{cargo:'MECANICO',tarifaMes:14608.20}];
   const C=arCalcular([{horas:2.5,nMec:2,nAyu:1}],per);
   const fm=C.filas.find(f=>f.nombre==='Mecánico');

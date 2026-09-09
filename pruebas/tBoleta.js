@@ -6,7 +6,7 @@ const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classLi
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros',
  'plCierreBar','plMes','plAnio','plProy','blPanel','blLista','plTablaWrap','mBoletaBody','mBoletaTtl',
  'mBoletaPdf','mBoletaMail','tbPlanilla'].forEach(mk);
-nodos.plMes.value='7';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://gdar7.github.io/GDARSystem/index.html'},open:()=>null};
@@ -24,7 +24,7 @@ const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/
   +'global.blVer=blVer;global.blSetFormato=blSetFormato;global._blCuerpoOficial=_blCuerpoOficial;global._blCssOficial=_blCssOficial;global._BL_EMPRESA=_BL_EMPRESA;global._getFmt=()=>_blFormato;global.blCorreo=blCorreo;global._blVisibles=_blVisibles;'
   +'global._plEsVistaBoletas=_plEsVistaBoletas;global.plSetVista=plSetVista;'
   +'global._calcPlanRow=_calcPlanRow;global.plCerrarMes=plCerrarMes;'
-  +'global._setVista=v=>{_plVista=v};_plGenMes=7;_plGenAnio=2026;';
+  +'global._setVista=v=>{_plVista=v};_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -32,19 +32,19 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};
 
 DB.personal=[
-  {id:1,dni:'10199407',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',cargo:'ING. RESIDENTE',cat:'Staff',
+  {id:1,dni:'71044444',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',cargo:'ING. RESIDENTE',cat:'Staff',
    sue:9000,asig:0,movilidad:250,afp:'SNP',cuspp:'',banco:'BCP',cuenta:'191-777',ing:'2024-01-15',
    email:'andres@ecosermo.com',est:'Activo',tipo:'Staff'},
-  {id:2,dni:'46108109',ape:'RODRIGUEZ ALCALDE',nom:'ABEL',cargo:'ING. CONTROL',cat:'Staff',
+  {id:2,dni:'71000000',ape:'RODRIGUEZ ALCALDE',nom:'ABEL',cargo:'ING. CONTROL',cat:'Staff',
    sue:8000,asig:1,movilidad:0,afp:'INTEGRA',cuspp:'123456ABC',banco:'BBVA',cuenta:'0032',
    email:'',est:'Activo',tipo:'Staff'},
-  {id:3,dni:'43616432',ape:'MELENDREZ DAMAZO',nom:'YONDER',cargo:'ALMACENERO',cat:'Obrero',
+  {id:3,dni:'71055555',ape:'MELENDREZ DAMAZO',nom:'YONDER',cargo:'ALMACENERO',cat:'Obrero',
    sue:3000,asig:0,movilidad:0,afp:'SNP',cuspp:'',banco:'BCP',cuenta:'555',
    email:'yonder@ecosermo.com',est:'Activo',tipo:'Obrero'},
   {id:9,dni:'99999999',ape:'INACTIVO',nom:'NO VA',cargo:'X',sue:1000,est:'Inactivo'}
 ];
-[1,2,3,9].forEach(id=>{for(let d=1;d<=31;d++)DB.tareaje.push({personalId:id,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
-DB.planillaMes=[{id:5,personalId:1,mes:7,anio:2026,adelanto:300,cts:150,quintaCat:1353.35,he25:4,bAltura:200}];
+[1,2,3,9].forEach(id=>{for(let d=1;d<=31;d++)DB.tareaje.push({personalId:id,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
+DB.planillaMes=[{id:5,personalId:1,mes:7,anio:7115,adelanto:300,cts:150,quintaCat:1353.35,he25:4,bAltura:200}];
 
 console.log('\n== El tab existe y no es una vista de columnas ==');
 const v=PL_VISTAS.find(x=>x.k==='boletas');
@@ -83,9 +83,9 @@ console.log('\n== El documento se arma completo ==');
 const doc=_blDoc([f]);
 es('lleva el logo de Ecosermo',/ECOSERMO-LOGO\.png/.test(doc),true);
 es('dice Boleta de Pago',/Boleta de Pago/.test(doc),true);
-es('con el período',/JULIO 2026/.test(doc),true);
+es('con el período',/JULIO 7115/.test(doc),true);
 es('trae el nombre',/RODRIGUEZ MARTINES/.test(doc),true);
-es('el DNI',/10199407/.test(doc),true);
+es('el DNI',/71044444/.test(doc),true);
 es('el cargo',/ING\. RESIDENTE/.test(doc),true);
 es('la cuenta bancaria',/191-777/.test(doc),true);
 es('el neto a pagar',doc.includes(Number(f.c.neto).toLocaleString('es-PE',{minimumFractionDigits:2})),true);
@@ -129,7 +129,7 @@ es('buscar no repinta el panel',nodos.blPanel.innerHTML,'<centinela>');
 es('solo deja uno',(_blTabla().match(/blVer\(/g)||[]).length,1);
 _blSetBuscar('rodriguez');
 es('"rodriguez" trae dos',(_blTabla().match(/blVer\(/g)||[]).length,2);
-_blSetBuscar('10199407');
+_blSetBuscar('71044444');
 es('por DNI, uno',(_blTabla().match(/blVer\(/g)||[]).length,1);
 _blSetBuscar('zzz');
 es('sin coincidencias lo dice',/Nadie coincide/.test(_blTabla()),true);
@@ -145,14 +145,14 @@ Object.defineProperty(global.window.location,'href',{set(v){ido=v;},get(){return
 blCorreo(1);
 es('abre el correo del trabajador',/^mailto:andres%40ecosermo\.com/.test(ido),true);
 es('con asunto',/subject=/.test(ido),true);
-es('que nombra el mes',decodeURIComponent(ido).includes('Julio 2026'),true);
+es('que nombra el mes',decodeURIComponent(ido).includes('Julio 7115'),true);
 es('y el cuerpo trae el neto',decodeURIComponent(ido).includes('NETO A PAGAR'),true);
 es('y el banco',decodeURIComponent(ido).includes('BCP'),true);
 
 console.log('\n== Con la planilla cerrada manda la foto ==');
 (async()=>{
   await plCerrarMes();
-  es('el mes quedó cerrado',plMesCerrado(7,2026),true);
+  es('el mes quedó cerrado',plMesCerrado(7,7115),true);
   const fc=blFila(1);
   es('la boleta viene de la foto',fc.cerrada,true);
   const netoFoto=fc.c.neto;

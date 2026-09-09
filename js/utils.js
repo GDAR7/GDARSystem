@@ -199,8 +199,11 @@ async function doLogin(){
     // modo mixto y Auth no la reconocio: sigue abajo
   }
 
-  // Esquema anterior: codigo+DNI juntos en el primer campo
-  const u=USERS.find(u=>cod===(u.codigo+u.dni).toUpperCase());
+  // Esquema anterior. Antes se pedia codigo+DNI juntos, pero los DNI salieron
+  // de empresa.js: son datos personales y el repositorio es publico. Este modo
+  // solo se usa como salida de emergencia, y para eso hace falta ademas correr
+  // sql/rls_revertir.sql, asi que el codigo a secas alcanza.
+  const u=USERS.find(u=>cod===String(u.codigo).toUpperCase());
   if(!u){err.textContent='Codigo incorrecto. Verifique sus credenciales.';
     err.style.display='block';return;}
   CU=u;launchApp();

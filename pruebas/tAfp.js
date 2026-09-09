@@ -5,7 +5,7 @@ global.localStorage={getItem:k=>LS[k]==null?null:LS[k],setItem:(k,v)=>LS[k]=Stri
 global.toast=m=>{global._t=m;};global.openM=()=>{};global.closeM=()=>{};global.confirm=()=>true;
 global.document={getElementById:()=>null};
 global._PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-global._plGenMes=7;global._plGenAnio=2026;
+global._plGenMes=7;global._plGenAnio=7115;
 global.plMesCerrado=()=>false;let q=800;global.nidSeguro=()=>++q;global.supaUpsert=async()=>null;global.genPlanilla=()=>{};
 
 // El maestro guarda los DNI completos, con su cero adelante
@@ -15,7 +15,7 @@ global.DB={personal:[
   {id:3,dni:'04221602',ape:'LOYOLA HERRERA',  nom:'ANA',   cargo:'X',afp:'',cuspp:'',est:'Activo'},
   {id:4,dni:'07481975',ape:'CARHUAS CARHUAS', nom:'PEDRO', cargo:'X',afp:'',cuspp:'',est:'Activo'},
   {id:5,dni:'09518617',ape:'PORRAS ESPINOZA', nom:'ROSA',  cargo:'X',afp:'',cuspp:'',est:'Activo'},
-  {id:6,dni:'10199407',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',cargo:'X',afp:'SNP',cuspp:'',est:'Activo'},
+  {id:6,dni:'71044444',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',cargo:'X',afp:'SNP',cuspp:'',est:'Activo'},
   {id:7,dni:'15215803',ape:'GIRON ENCARNACION',nom:'JOSE', cargo:'X',afp:'',cuspp:'',est:'Activo'}
 ],planillaMes:[]};
 
@@ -37,13 +37,13 @@ const CSV=[
  'LOYOLA HERRERA ANA;4221602;PROFUTURO;573991ELHOR9',
  'CARHUAS CARHUAS PEDRO;7481975;SNP;',
  'PORRAS ESPINOZA ROSA;9518617;INTEGRA;252021JPERI6',
- 'RODRIGUEZ MARTINES ANDRES;10199407;SNP;',
+ 'RODRIGUEZ MARTINES ANDRES;71044444;SNP;',
  'GIRON ENCARNACION JOSE;15215803;SNP;'
 ].join('\r\n');
 
 console.log('\n== El cero que Excel se come ==');
 es('4067511 se completa a 8 dígitos',_iplDni8('4067511'),'04067511');
-es('un DNI ya completo no cambia',_iplDni8('10199407'),'10199407');
+es('un DNI ya completo no cambia',_iplDni8('71044444'),'71044444');
 es('un carné más largo no se toca',_iplDni8('001234567890'),'001234567890');
 es('acepta puntos y guiones',_iplDni8('4.067.511'),'04067511');
 

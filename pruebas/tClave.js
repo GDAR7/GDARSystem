@@ -96,7 +96,7 @@ const reset=()=>{lanzado=0;signIn=null;signOuts=0;claveNueva=null;respUpdate=nul
   reset(); respuesta=rechazo;
   const mixto=armar('mixto');
   const u=USERS[2];
-  nodos.loginCodigo.value=(u.codigo+u.dni);
+  nodos.loginCodigo.value=u.codigo;
   nodos.loginClave.value='cualquiera';
   await mixto.doLogin();
   es('entra por la lista local',lanzado,1);

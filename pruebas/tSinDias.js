@@ -5,7 +5,7 @@ const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros',
  'plCierreBar','plMes','plAnio','plProy','blPanel','blLista','plTablaWrap','tbPlanilla'].forEach(mk);
-nodos.plMes.value='7';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://x/i.html'},open:()=>null};
@@ -18,7 +18,7 @@ global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planil
 const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
   +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')+'\n'+fs.readFileSync(R+'js/boletaPago.js','utf8')
   +'\n;global._calcPlanRow=_calcPlanRow;global.blFila=blFila;global._blDoc=_blDoc;'
-  +'global._blConceptos=_blConceptos;_plGenMes=7;_plGenAnio=2026;';
+  +'global._blConceptos=_blConceptos;_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -28,12 +28,12 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 // El caso de la captura: 0 días tareados, con asignación familiar y movilidad
 const P=(id,extra)=>Object.assign({id,dni:'7158983'+id,ape:'VALENZUELA SEGURA',nom:'ADRIAN JOSE',
   cargo:'COND. DE CAMIONETA',cat:'Conductor VM',sue:2300,asig:1,movilidad:250,afp:'SNP',
-  ing:'2026-08-07',est:'Activo'},extra||{});
+  ing:'7115-08-07',est:'Activo'},extra||{});
 DB.personal=[P(1),P(2),P(3),P(4)];
 // 2 · un mes entero de faltas   3 · con días trabajados   4 · solo descanso médico
-for(let d=1;d<=31;d++)DB.tareaje.push({personalId:2,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'F'});
-for(let d=1;d<=31;d++)DB.tareaje.push({personalId:3,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'TD'});
-for(let d=1;d<=5;d++) DB.tareaje.push({personalId:4,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'DM'});
+for(let d=1;d<=31;d++)DB.tareaje.push({personalId:2,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'F'});
+for(let d=1;d<=31;d++)DB.tareaje.push({personalId:3,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'TD'});
+for(let d=1;d<=5;d++) DB.tareaje.push({personalId:4,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'DM'});
 
 const c1=_calcPlanRow(DB.personal[0],null);   // sin ninguna marca
 const c2=_calcPlanRow(DB.personal[1],null);   // solo faltas
@@ -74,7 +74,7 @@ es('y el descanso médico',c4.totalDM>0,true);
 
 console.log('\n== Lo cargado a mano se respeta ==');
 // Una liquidación: sin días, pero con gratificación trunca escrita a propósito
-const det={personalId:1,mes:7,anio:2026,gratifTrunca:1500};
+const det={personalId:1,mes:7,anio:7115,gratifTrunca:1500};
 const cL=_calcPlanRow(DB.personal[0],det);
 es('sigue sin días',cL.sinDias,true);
 es('la asignación familiar sigue en cero',cL.asigFam,0);

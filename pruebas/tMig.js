@@ -16,7 +16,7 @@ global.DB={atencionRecursos:[],ventaPersonal:[
   tarifasEq:[{id:1,desc:'Camioneta 4 Pasajeros',tarifaSeca:0,tarifaFull:41.39*248,unidad:'MES'}],equipos:[]};
 global._ccMatchHH=()=>null;
 global.hhVentaPeriodo=()=>({filas:[],sinTarifa:[],total:0,nDias:30});
-global._edpDesde='2026-07-21';global._edpHasta='2026-08-20';
+global._edpDesde='7115-07-21';global._edpHasta='7115-08-20';
 
 const src=fs.readFileSync(R+'js/atencionRecursos.js','utf8')
  +'\n;global.arCalcular=arCalcular;global._AR_DEF=_AR_DEF;global._arRender=_arRender;'
@@ -27,7 +27,7 @@ eval(src);
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};
-const per={desde:'2026-07-21',hasta:'2026-08-20',dias:31};
+const per={desde:'7115-07-21',hasta:'7115-08-20',dias:31};
 // Como lo tiene guardado hoy: valor fijo de 23.90
 const guardadoViejo=()=>{
   DB.atencionRecursos=_AR_DEF.map((d,i)=>({id:i+1,...d}));

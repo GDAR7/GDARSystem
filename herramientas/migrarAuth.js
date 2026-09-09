@@ -145,7 +145,9 @@ const SUPABASE_PONE=['email_verified','phone_verified','email','phone','sub',
 
 // Los campos de un usuario que la aplicacion lee de CU.
 function metaDe(u){
-  const m={dni:u.dni,nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas};
+  // Sin dni: no lo usa nada de la aplicacion y es un dato personal que no
+  // tiene por que viajar ni quedarse guardado.
+  const m={nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas};
   ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs',
    'admin'].forEach(k=>{if(u[k]!==undefined)m[k]=u[k];});
   return m;

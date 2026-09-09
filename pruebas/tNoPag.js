@@ -10,7 +10,7 @@ global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planil
 const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
  +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')
  +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;global.PL_VISTAS=PL_VISTAS;'
- +'global._PL_CV_TASA=_PL_CV_TASA;_plGenMes=8;_plGenAnio=2026;';
+ +'global._PL_CV_TASA=_PL_CV_TASA;_plGenMes=8;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -22,7 +22,7 @@ const P=id=>({id,dni:'7099933'+id,ape:'NAVARRO BARRA',nom:'JOSE ALBERTO',cargo:'
   sue:3000,asig:0,movilidad:0,afp:'SNP',est:'Activo'});
 DB.personal=[P(0),P(1)];
 const m=(id,tipo,desde,n)=>{for(let d=desde;d<desde+n;d++)
-  DB.tareaje.push({personalId:id,fecha:'2026-08-'+String(d).padStart(2,'0'),tipo});};
+  DB.tareaje.push({personalId:id,fecha:'7115-08-'+String(d).padStart(2,'0'),tipo});};
 // 11 TD + 12 TN + 7 DL = 30 pagables · el día 24 es permiso = 31 del mes
 m(0,'TD',1,11); m(0,'TN',12,12); m(0,'P',24,1); m(0,'DL',25,7);
 // Otro con vacaciones y retén

@@ -47,9 +47,9 @@ const reset=()=>{signIn=null;claveNueva=null;respUpdate=null;toasts=[];
   console.log('\n== Cambiar la clave ==');
   reset();
   nodos.segActual.value='LaDeSiempre123';
-  nodos.segNueva.value='ClaveNueva2026';nodos.segRepe.value='ClaveNueva2026';
+  nodos.segNueva.value='ClaveNueva7115';nodos.segRepe.value='ClaveNueva7115';
   await api.guardarClave();
-  es('la manda al servidor',claveNueva,'ClaveNueva2026');
+  es('la manda al servidor',claveNueva,'ClaveNueva7115');
   es('  verificando antes la actual',signIn.password,'LaDeSiempre123');
   es('  contra su propio email',signIn.email,'eibel25@gdarei.com');
   es('  confirma en pantalla',nodos.segOk.style.display,'block');
@@ -57,14 +57,14 @@ const reset=()=>{signIn=null;claveNueva=null;respUpdate=null;toasts=[];
 
   console.log('\n== Hay que saber la clave actual ==');
   reset();
-  nodos.segNueva.value='ClaveNueva2026';nodos.segRepe.value='ClaveNueva2026';
+  nodos.segNueva.value='ClaveNueva7115';nodos.segRepe.value='ClaveNueva7115';
   await api.guardarClave();
   es('sin la actual no cambia',claveNueva,'null');
   es('  y la pide',/clave actual/.test(nodos.segErr.textContent),true);
 
   reset();
   nodos.segActual.value='Equivocada999';
-  nodos.segNueva.value='ClaveNueva2026';nodos.segRepe.value='ClaveNueva2026';
+  nodos.segNueva.value='ClaveNueva7115';nodos.segRepe.value='ClaveNueva7115';
   await api.guardarClave();
   es('con la actual mal, tampoco',claveNueva,'null');
   es('  y lo dice',nodos.segErr.textContent,'La clave actual no es correcta.');
@@ -77,7 +77,7 @@ const reset=()=>{signIn=null;claveNueva=null;respUpdate=null;toasts=[];
   es('  sin molestar al servidor',signIn,'null');
 
   reset(); nodos.segActual.value='LaDeSiempre123';
-  nodos.segNueva.value='ClaveLarga2026';nodos.segRepe.value='Distinta2026';
+  nodos.segNueva.value='ClaveLarga7115';nodos.segRepe.value='Distinta7115';
   await api.guardarClave();
   es('rechaza si no coinciden',claveNueva,'null');
 
@@ -89,7 +89,7 @@ const reset=()=>{signIn=null;claveNueva=null;respUpdate=null;toasts=[];
   console.log('\n== Si el servidor rechaza ==');
   reset(); nodos.segActual.value='LaDeSiempre123';
   respUpdate={error:{message:'Password is too weak'}};
-  nodos.segNueva.value='ClaveNueva2026';nodos.segRepe.value='ClaveNueva2026';
+  nodos.segNueva.value='ClaveNueva7115';nodos.segRepe.value='ClaveNueva7115';
   await api.guardarClave();
   es('lo muestra',/No se pudo cambiar/.test(nodos.segErr.textContent),true);
   es('  no confirma en falso',nodos.segOk.style.display,'none');

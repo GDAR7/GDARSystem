@@ -4,7 +4,7 @@ global.localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',classList:{contains:()=>false}};
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros','plCierreBar','plMes','plAnio','plProy'].forEach(mk);
-nodos.plMes.value='6';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='6';nodos.plAnio.value='7115';nodos.plProy.value='';
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.toast=()=>{};global.openM=()=>{};global.closeM=()=>{};
 global.isModuleReadOnly=()=>false;
@@ -15,7 +15,7 @@ const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/
   +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')
   +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;global.PL_GRUPOS=(typeof PL_GRUPOS!=="undefined")?PL_GRUPOS:null;'
   +'global.PL_VISTAS=PL_VISTAS;global.genPlanilla=genPlanilla;'
-  +'global._setVista=v=>{_plVista=v};_plGenMes=6;_plGenAnio=2026;';
+  +'global._setVista=v=>{_plVista=v};_plGenMes=6;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -27,10 +27,10 @@ DB.personal=[
   {id:1,dni:'11111111',ape:'ONP',nom:'UNO',cargo:'X',sue:9000,asig:0,afp:'ONP',est:'Activo'},
   {id:2,dni:'22222222',ape:'AFP',nom:'DOS',cargo:'X',sue:9000,asig:0,afp:'Habitat',est:'Activo'}
 ];
-[1,2].forEach(id=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:id,fecha:'2026-06-'+String(d).padStart(2,'0'),tipo:'TD'});});
+[1,2].forEach(id=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:id,fecha:'7115-06-'+String(d).padStart(2,'0'),tipo:'TD'});});
 DB.planillaMes=[
-  {id:9,personalId:1,mes:6,anio:2026,adelanto:300,cts:150,sindicato:20,rimac:80,otrosDesc:45,retJudicial:200,quintaCat:1353.35,masVida:30,fondoMina:25,vacDesc:10},
-  {id:10,personalId:2,mes:6,anio:2026,adelanto:100}
+  {id:9,personalId:1,mes:6,anio:7115,adelanto:300,cts:150,sindicato:20,rimac:80,otrosDesc:45,retJudicial:200,quintaCat:1353.35,masVida:30,fondoMina:25,vacDesc:10},
+  {id:10,personalId:2,mes:6,anio:7115,adelanto:100}
 ];
 
 const c1=_calcPlanRow(DB.personal[0],DB.planillaMes[0]);

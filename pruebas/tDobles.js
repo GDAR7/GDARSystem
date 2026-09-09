@@ -9,7 +9,7 @@ global.supaUpsert=async()=>null;global.syncSheet=()=>{};
 global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planillaCierre:[],planillaCerrada:[]};
 const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
  +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')
- +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;_plGenMes=7;_plGenAnio=2026;';
+ +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
@@ -18,7 +18,7 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 const P=id=>({id,dni:'7632240'+id,ape:'URBANO ACOSTA',nom:'FRANS',cargo:'X',sue:3000,asig:0,est:'Activo'});
 DB.personal=[P(1),P(2)];
 const m=(id,tipo,desde,n)=>{for(let d=desde;d<desde+n;d++)
-  DB.tareaje.push({personalId:id,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo});};
+  DB.tareaje.push({personalId:id,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo});};
 
 // Trabajador 1: el caso de la captura — 20 trabajados y 12 libres = 32 en un mes de 31
 m(1,'TD',1,20); m(1,'DL',20,12);      // el dia 20 queda marcado TD y DL a la vez

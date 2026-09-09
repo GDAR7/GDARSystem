@@ -1,3 +1,6 @@
 respaldos/
 herramientas/.credenciales.json
 herramientas/credenciales-nuevas.txt
+.env
+*.env
+herramientas/.env

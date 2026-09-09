@@ -10,7 +10,7 @@ global.DB={personal:[],tareaje:[],planillaMes:[],afpTasas:[],proyectos:[],planil
 const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/afpTasas.js','utf8')
   +'\n;global._calcPlanRow=_calcPlanRow;global._AFP_SEMILLA=_AFP_SEMILLA;'
   +'global._plTasaCodigo=_plTasaCodigo;global.afpTasaDe=afpTasaDe;'
-  +'global._plAfpDesconocidas=_plAfpDesconocidas;_plGenMes=6;_plGenAnio=2026;';
+  +'global._plAfpDesconocidas=_plAfpDesconocidas;_plGenMes=6;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -18,7 +18,7 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};
 
 const P=(id,afp)=>({id,dni:'1'+id,ape:'X',nom:'Y',cargo:'Z',sue:9000,asig:0,afp,est:'Activo'});
-for(let d=1;d<=30;d++)for(let id=1;id<=9;id++)DB.tareaje.push({personalId:id,fecha:'2026-06-'+String(d).padStart(2,'0'),tipo:'TD'});
+for(let d=1;d<=30;d++)for(let id=1;id<=9;id++)DB.tareaje.push({personalId:id,fecha:'7115-06-'+String(d).padStart(2,'0'),tipo:'TD'});
 const calc=(id,afp)=>_calcPlanRow(P(id,afp),null);
 
 console.log('\n== La lista del formulario y la semilla dicen lo mismo ==');

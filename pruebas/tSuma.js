@@ -15,7 +15,7 @@ eval(fs.readFileSync(R+'js/atencionRecursos.js','utf8')
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};
-const per={desde:'2026-07-21',hasta:'2026-08-20',dias:31};
+const per={desde:'7115-07-21',hasta:'7115-08-20',dias:31};
 const armar=()=>{DB.atencionRecursos=_AR_DEF.map((d,i)=>({id:i+1,...d}));
   DB.atencionRecursos.find(r=>r.nombre==='Camioneta Full').participacion=0.5;};
 

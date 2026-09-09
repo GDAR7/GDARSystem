@@ -25,34 +25,34 @@ es('  y no hay fechas propias todavía',_get().ad+'|'+_get().ah,'|');
 _set('sync',false);   // se suelta para probar el modo manual
 
 console.log('\n== Sin fechas propias sigue al de horas ==');
-_set('desde','2026-07-21');_set('hasta','2026-08-20');
-es('desde',_edpPerAux().desde,'2026-07-21');
-es('hasta',_edpPerAux().hasta,'2026-08-20');
+_set('desde','7115-07-21');_set('hasta','7115-08-20');
+es('desde',_edpPerAux().desde,'7115-07-21');
+es('hasta',_edpPerAux().hasta,'7115-08-20');
 es('  y no se marca como distinto',_edpAuxDistinto(),false);
 
 console.log('\n== Con fechas propias, manda el suyo ==');
-_set('auxDesde','2026-05-01');_set('auxHasta','2026-08-20');
-es('desde va más atrás',_edpPerAux().desde,'2026-05-01');
-es('hasta no cambia',_edpPerAux().hasta,'2026-08-20');
+_set('auxDesde','7115-05-01');_set('auxHasta','7115-08-20');
+es('desde va más atrás',_edpPerAux().desde,'7115-05-01');
+es('hasta no cambia',_edpPerAux().hasta,'7115-08-20');
 es('se marca como distinto',_edpAuxDistinto(),true);
-es('el período de horas no se movió',_get().d+' → '+_get().h,'2026-07-21 → 2026-08-20');
+es('el período de horas no se movió',_get().d+' → '+_get().h,'7115-07-21 → 7115-08-20');
 
 console.log('\n== Con el candado puesto vuelve a seguir a las horas ==');
 _set('sync',true);
-es('desde',_edpPerAux().desde,'2026-07-21');
-es('hasta',_edpPerAux().hasta,'2026-08-20');
+es('desde',_edpPerAux().desde,'7115-07-21');
+es('hasta',_edpPerAux().hasta,'7115-08-20');
 es('ya no está distinto',_edpAuxDistinto(),false);
 _set('sync',false);
-es('al soltarlo recupera lo suyo',_edpPerAux().desde,'2026-05-01');
+es('al soltarlo recupera lo suyo',_edpPerAux().desde,'7115-05-01');
 
 console.log('\n== Los auxilios se filtran por su rango ==');
 const _pa=()=>_edpPerAux();
 const auxs=[
-  {id:1,eqId:9,fecha:'2026-05-10',est:'Cerrado',tiempoParada:3},   // solo con rango propio
-  {id:2,eqId:9,fecha:'2026-06-15',est:'Cerrado',tiempoParada:2},   // solo con rango propio
-  {id:3,eqId:9,fecha:'2026-07-25',est:'Cerrado',tiempoParada:4},   // en los dos
-  {id:4,eqId:9,fecha:'2026-08-10',est:'Anulado', tiempoParada:9},  // anulado: nunca
-  {id:5,eqId:8,fecha:'2026-07-25',est:'Cerrado',tiempoParada:5}    // otro equipo
+  {id:1,eqId:9,fecha:'7115-05-10',est:'Cerrado',tiempoParada:3},   // solo con rango propio
+  {id:2,eqId:9,fecha:'7115-06-15',est:'Cerrado',tiempoParada:2},   // solo con rango propio
+  {id:3,eqId:9,fecha:'7115-07-25',est:'Cerrado',tiempoParada:4},   // en los dos
+  {id:4,eqId:9,fecha:'7115-08-10',est:'Anulado', tiempoParada:9},  // anulado: nunca
+  {id:5,eqId:8,fecha:'7115-07-25',est:'Cerrado',tiempoParada:5}    // otro equipo
 ];
 const filtra=(desde,hasta)=>auxs.filter(a=>a.eqId===9&&a.fecha>=desde&&a.fecha<=hasta&&a.est!=='Anulado');
 const conPropio=filtra(_pa().desde,_pa().hasta);
