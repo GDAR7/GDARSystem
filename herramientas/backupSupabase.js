@@ -41,6 +41,12 @@ const RAIZ=path.join(__dirname,'..');
 const DEV=process.argv.includes('--dev');
 const ENTORNO=DEV?'DESARROLLO':'PRODUCCIÓN';
 
+// Dónde se guardan. Por defecto respaldos/ dentro del repositorio, que es lo
+// que .gitignore excluye. Con GDAR_RESPALDOS se manda a otro sitio: un disco
+// aparte, una carpeta sincronizada, o el directorio temporal que usa la suite
+// de pruebas para no mezclarse con los respaldos de verdad.
+const DESTINO=process.env.GDAR_RESPALDOS||path.join(RAIZ,'respaldos');
+
 // ── De dónde sale cada cosa ────────────────────────────────────────────────
 // La URL vive en js/empresa.js, que es lo que cambia entre clientes.
 // La lista de tablas vive en js/config.js, que es igual para todos.
@@ -138,7 +144,7 @@ async function bajarTabla(tabla,key){
 // uno donde las 75 tablas habían fallado: comparar contra el vacío no detecta
 // ningún vaciado. Se salta los que no trajeron ni una fila.
 function respaldoAnterior(){
-  const base=path.join(RAIZ,'respaldos');
+  const base=DESTINO;
   if(!fs.existsSync(base))return null;
   const previos=fs.readdirSync(base)
     .filter(d=>d.startsWith('supabase_'))
@@ -169,12 +175,12 @@ function respaldoAnterior(){
   const sello=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'
     +String(hoy.getDate()).padStart(2,'0')+'_'
     +String(hoy.getHours()).padStart(2,'0')+String(hoy.getMinutes()).padStart(2,'0');
-  const dir=path.join(RAIZ,'respaldos','supabase_'+sello);
+  const dir=path.join(DESTINO,'supabase_'+sello);
   fs.mkdirSync(dir,{recursive:true});
 
   console.log('\nRespaldo de '+ENTORNO+' · '+TABLAS.length+' tablas');
   console.log('  '+SUPA_URL);
-  console.log('  → respaldos/supabase_'+sello);
+  console.log('  → '+path.join(path.basename(DESTINO),'supabase_'+sello));
   console.log(anterior?'  comparando contra '+anterior.dir+'\n'
                       :'  no hay respaldo anterior de este origen\n');
 
