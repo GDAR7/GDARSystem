@@ -333,11 +333,12 @@ function _ccMatchHH(cargo){
 function _ccFmt(n){return 'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── Render principal ──
-function rCostControl(){
-  const per=_ccPeriodo();
-  const modo=_ccTarifaModo;
-  const KEY=modo==='seca'?'seca':'full';
-
+// ── Motor de cálculo por período ────────────────────────────────────────────
+// Todo el costo/venta/margen de los equipos de UN período. Se extrajo de
+// rCostControl sin tocar una sola operación para que la matriz anual
+// (js/costcontrolAnual.js) la pueda llamar doce veces y dé exactamente los
+// mismos números que la pestaña Equipos.
+function _ccCalcEq(per,KEY){
   // Partes del período
   const partes=(DB.partes||[]).filter(p=>p.fecha>=per.desde&&p.fecha<=per.hasta);
 
@@ -425,6 +426,23 @@ function rCostControl(){
   const totalGalEq=eqRows.reduce((s,r)=>s+r.galones,0);
   const totalCombEq=eqRows.reduce((s,r)=>s+r.costoComb,0);
   const totalMargenEq=eqRows.reduce((s,r)=>s+r.margen,0);
+  return{eqRows,totalVentaEq,totalCostoEq,totalGalEq,totalCombEq,totalMargenEq,
+         precioAlm,precioComb};
+}
+
+function rCostControl(){
+  const per=_ccPeriodo();
+  const modo=_ccTarifaModo;
+  const KEY=modo==='seca'?'seca':'full';
+  // Un render completo puede venir de datos recién cargados: la matriz anual
+  // guarda sus doce períodos en caché y aquí se descarta para que no envejezca.
+  if(typeof _ccaCache!=='undefined')_ccaCache=null;
+
+  // El cálculo vive en _ccCalcEq para que la matriz anual lo reutilice tal cual.
+  const _C=_ccCalcEq(per,KEY);
+  const eqRows=_C.eqRows, precioAlm=_C.precioAlm, precioComb=_C.precioComb;
+  const totalVentaEq=_C.totalVentaEq, totalCostoEq=_C.totalCostoEq;
+  const totalGalEq=_C.totalGalEq, totalCombEq=_C.totalCombEq, totalMargenEq=_C.totalMargenEq;
 
   // — Costos de personal —
   // Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
@@ -518,12 +536,16 @@ function rCostControl(){
       ${_tabBtn('equipos','🚜 Equipos')}
       ${_tabBtn('personal','👷 Personal')}
       ${_tabBtn('resumen','📊 Resumen')}
+      ${_tabBtn('anual','📅 Anual')}
     </div>
 
     <!-- Paneles -->
     <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccPanelEquipos(eqRows,KEY,per.dias)}</div>
     <div id="ccPanel-personal" style="display:${_ccTabActiva==='personal'?'':'none'}">${_ccPanelPersonal(hhRows,per.dias)}</div>
     <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY,totalCombEq,totalMargenEq)}</div>
+    <!-- La matriz anual recalcula doce períodos: solo se arma si la pestaña está
+         abierta, para no encarecer el render de las otras tres. -->
+    <div id="ccPanel-anual"    style="display:${_ccTabActiva==='anual'?'':'none'}">${_ccTabActiva==='anual'&&typeof _ccaPanel==='function'?_ccaPanel():''}</div>
   </div>`;
 }
 
@@ -531,7 +553,9 @@ function _ccNav(dir){_ccOffset+=dir;rCostControl();}
 function _ccSetModo(m){_ccTarifaModo=m;rCostControl();}
 function _ccTab(t){
   _ccTabActiva=t;
-  ['equipos','personal','resumen'].forEach(k=>{
+  // La matriz anual se arma al entrar, no antes (son doce períodos)
+  if(t==='anual'&&typeof _ccaPintar==='function')_ccaPintar();
+  ['equipos','personal','resumen','anual'].forEach(k=>{
     const p=document.getElementById('ccPanel-'+k);
     const b=document.getElementById('ccTab-'+k);
     if(p)p.style.display=k===t?'':'none';

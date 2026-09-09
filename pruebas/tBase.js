@@ -8,7 +8,7 @@ global.supaUpsert=async()=>null;global.supaDelete=async()=>null;
 global.DB={atencionRecursos:[],ventaPersonal:[],tarifasEq:[],equipos:[]};
 global._ccMatchHH=()=>null;
 global.hhVentaPeriodo=()=>({filas:[],sinTarifa:[],total:0,nDias:30});
-global._edpDesde='2026-07-21';global._edpHasta='2026-08-20';
+global._edpDesde='7115-07-21';global._edpHasta='7115-08-20';
 
 const src=fs.readFileSync(R+'js/atencionRecursos.js','utf8')
  +'\n;global.arCalcular=arCalcular;global._AR_DEF=_AR_DEF;global._arListaCalc=_arListaCalc;'
@@ -27,7 +27,7 @@ DB.ventaPersonal=[
   {cargo:'AYUDANTE MECANICO',tarifaMes:34.94*248}
 ];
 DB.tarifasEq=[{id:1,desc:'Camioneta 4 Pasajeros',tarifaSeca:0,tarifaFull:40.06*248,unidad:'MES'}];
-const per={desde:'2026-07-21',hasta:'2026-08-20',dias:31};
+const per={desde:'7115-07-21',hasta:'7115-08-20',dias:31};
 
 console.log('\n== El desgaste ya no tiene tarifa propia ==');
 const des=_AR_DEF.find(r=>r.nombre==='Desg. de H. Manuales');

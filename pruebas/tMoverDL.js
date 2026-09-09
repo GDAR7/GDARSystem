@@ -5,7 +5,7 @@ const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros',
  'plCierreBar','plMes','plAnio','plProy','blPanel','plTablaWrap','tbPlanilla','plCascada'].forEach(mk);
-nodos.plMes.value='7';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://x/i.html'},open:()=>null};
@@ -17,11 +17,11 @@ const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/
  +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')+'\n'+fs.readFileSync(R+'js/boletaPago.js','utf8')
  +'\n;global.PL_COLS=PL_COLS;global.PL_VISTAS=PL_VISTAS;global.PL_GRUPOS=PL_GRUPOS;'
  +'global.genPlanilla=genPlanilla;global.plSetVista=plSetVista;global.plSetGrupo=plSetGrupo;'
- +'global._plGruposConCols=_plGruposConCols;global._plColsVisibles=_plColsVisibles;_plGenMes=7;_plGenAnio=2026;';
+ +'global._plGruposConCols=_plGruposConCols;global._plColsVisibles=_plColsVisibles;_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 // Sin trabajadores activos genPlanilla no llega a dibujar
-DB.personal=[{id:1,dni:'10199407',ape:'RODRIGUEZ',nom:'ANDRES',cargo:'ING',cat:'Staff',sue:9000,asig:1,movilidad:250,afp:'SNP',est:'Activo',tipo:'Staff'}];
-for(let d=1;d<=31;d++)DB.tareaje.push({personalId:1,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:d>24?'DL':'TD'});
+DB.personal=[{id:1,dni:'71044444',ape:'RODRIGUEZ',nom:'ANDRES',cargo:'ING',cat:'Staff',sue:9000,asig:1,movilidad:250,afp:'SNP',est:'Activo',tipo:'Staff'}];
+for(let d=1;d<=31;d++)DB.tareaje.push({personalId:1,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:d>24?'DL':'TD'});
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};

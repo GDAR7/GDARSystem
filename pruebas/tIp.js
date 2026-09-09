@@ -6,7 +6,7 @@ global.openM=()=>{};global.closeM=()=>{};
 global.confirm=()=>true;
 global.document={getElementById:()=>null,createElement:()=>({click:()=>{},style:{}}),body:{appendChild:()=>{},removeChild:()=>{}}};
 global.DB={personal:[],planillaMes:[],proyectos:[],viaticos:[]};
-global._plGenMes=6;global._plGenAnio=2026;
+global._plGenMes=6;global._plGenAnio=7115;
 global._PL_MESES={1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'};
 global.plMesCerrado=()=>false;
 let _seq=9000;
@@ -34,11 +34,11 @@ DB.personal=[
   {id:3,dni:'42345678',ape:'HUAMAN SILVA', nom:'PEDRO',      cargo:'OPERADOR',   sue:2800,asig:0,movilidad:0,afp:'',     cuspp:'',banco:'',cuenta:'',est:'Activo'},
   {id:4,dni:'43456789',ape:'TORRES DIAZ',  nom:'ANA',        cargo:'AYUDANTE',   sue:2200,asig:0,movilidad:0,afp:'',     cuspp:'',banco:'',cuenta:'',est:'Activo'}
 ];
-DB.planillaMes=[{id:500,personalId:2,mes:6,anio:2026,adelanto:200,bono:0}];
+DB.planillaMes=[{id:500,personalId:2,mes:6,anio:7115,adelanto:200,bono:0}];
 
 // ── El archivo: título arriba, punto y coma, formato peruano ──────────────
 const CSV=[
- 'PLANILLA JUNIO 2026 - ECOSERMO',
+ 'PLANILLA JUNIO 7115 - ECOSERMO',
  '',
  'DNI;APELLIDOS Y NOMBRES;SUELDO BASE;ASIGNACION FAMILIAR;MOVILIDAD;AFP;CUSPP;BANCO;CUENTA;HE 25;BONO;ADELANTO;OTROS DESCUENTOS;AREA',
  '40123456;QUISPE MAMANI, JUAN CARLOS;2.750,00;SI;120,00;Prima;987654JCQUI2;BCP;191-777;4;500,00;300,00;;MANTENIMIENTO',

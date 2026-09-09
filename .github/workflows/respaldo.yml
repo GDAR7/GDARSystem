@@ -87,6 +87,30 @@ jobs:
         with:
           node-version: '20'
 
+      # Sin esto, faltar un secreto se manifiesta como un checkout que no
+      # encuentra el repositorio, y hay que leerse el log para entender por qué.
+      # El job igual falla —un respaldo que no corre es exactamente el problema
+      # que trajo todo esto— pero al menos dice qué falta.
+      - name: Comprobar la configuración
+        env:
+          REPO: ${{ vars.RESPALDOS_REPO }}
+          TOKEN: ${{ secrets.RESPALDOS_TOKEN }}
+          LLAVE: ${{ secrets.SUPABASE_SERVICE_KEY_PROD }}
+        run: |
+          FALTA=''
+          [ -z "$REPO"  ] && FALTA="$FALTA\n  - variable RESPALDOS_REPO (ej. GDAR7/gdar-respaldos)"
+          [ -z "$TOKEN" ] && FALTA="$FALTA\n  - secret RESPALDOS_TOKEN (acceso de escritura a ese repo)"
+          [ -z "$LLAVE" ] && FALTA="$FALTA\n  - secret SUPABASE_SERVICE_KEY_PROD (la service_role)"
+          if [ -n "$FALTA" ]; then
+            echo "El respaldo no está configurado todavía. Falta:"
+            printf "$FALTA\n"
+            echo ""
+            echo "Se crean en Settings → Secrets and variables → Actions."
+            echo "Los pasos completos están en el encabezado de este archivo."
+            exit 1
+          fi
+          echo "Configuración completa."
+
       - name: Traer los respaldos anteriores
         uses: actions/checkout@v4
         with:

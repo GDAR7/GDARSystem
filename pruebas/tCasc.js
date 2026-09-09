@@ -5,7 +5,7 @@ const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros',
  'plCierreBar','plMes','plAnio','plProy','blPanel','blLista','plTablaWrap','tbPlanilla','plCascada'].forEach(mk);
-nodos.plMes.value='7';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://x/i.html'},open:()=>null};
@@ -21,7 +21,7 @@ const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/
  +'global.plLimpiarCascada=plLimpiarCascada;global.plSetVista=plSetVista;'
  +'global._plColsVisibles=_plColsVisibles;global._plCampoDe=_plCampoDe;global._plGruposConCols=_plGruposConCols;'
  +'global._PL_IDENT=_PL_IDENT;global._getGrupo=()=>_plGrupo;global._getVista=()=>_plVista;global._getOff=()=>_plColOff;'
- +'_plGenMes=7;_plGenAnio=2026;';
+ +'_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -29,13 +29,13 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(56)+'= '+g+(b?'':'  (esperado '+e+')'));};
 
 DB.personal=[
-  {id:1,dni:'10199407',ape:'RODRIGUEZ',nom:'ANDRES',cargo:'ING',cat:'Staff',sue:9000,asig:1,movilidad:250,afp:'SNP',est:'Activo',tipo:'Staff'},
-  {id:2,dni:'46108109',ape:'ROJAS',nom:'MARIA',cargo:'ADM',cat:'Staff',sue:8000,asig:0,movilidad:0,afp:'INTEGRA',est:'Activo',tipo:'Staff'},
-  {id:3,dni:'43616432',ape:'MELENDREZ',nom:'YONDER',cargo:'ALM',cat:'Obrero',sue:3000,asig:0,movilidad:0,afp:'SNP',est:'Activo',tipo:'Obrero'}
+  {id:1,dni:'71044444',ape:'RODRIGUEZ',nom:'ANDRES',cargo:'ING',cat:'Staff',sue:9000,asig:1,movilidad:250,afp:'SNP',est:'Activo',tipo:'Staff'},
+  {id:2,dni:'71000000',ape:'ROJAS',nom:'MARIA',cargo:'ADM',cat:'Staff',sue:8000,asig:0,movilidad:0,afp:'INTEGRA',est:'Activo',tipo:'Staff'},
+  {id:3,dni:'71055555',ape:'MELENDREZ',nom:'YONDER',cargo:'ALM',cat:'Obrero',sue:3000,asig:0,movilidad:0,afp:'SNP',est:'Activo',tipo:'Obrero'}
 ];
-[1,2,3].forEach(id=>{for(let d=1;d<=31;d++)DB.tareaje.push({personalId:id,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
+[1,2,3].forEach(id=>{for(let d=1;d<=31;d++)DB.tareaje.push({personalId:id,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
 // Solo uno tiene gratificación y bono; así los contadores tienen algo que decir
-DB.planillaMes=[{id:9,personalId:1,mes:7,anio:2026,gratificacion:4500,bono:300,adelanto:200}];
+DB.planillaMes=[{id:9,personalId:1,mes:7,anio:7115,gratificacion:4500,bono:300,adelanto:200}];
 
 console.log('\n== Los grupos que se pueden filtrar ==');
 const grupos=_plGruposConCols().map(([g])=>g);

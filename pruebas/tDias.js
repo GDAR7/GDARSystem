@@ -5,7 +5,7 @@ const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};
 ['thPlanilla','tbPlanillaBody','tfPlanilla','planillaResumen','planillaCard','plVistas','plFiltros',
  'plCierreBar','plMes','plAnio','plProy','blPanel','plTablaWrap','tbPlanilla','plCascada'].forEach(mk);
-nodos.plMes.value='7';nodos.plAnio.value='2026';nodos.plProy.value='';
+nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://x/i.html'},open:()=>null};
@@ -18,7 +18,7 @@ const src=fs.readFileSync(R+'js/planilla.js','utf8')+'\n'+fs.readFileSync(R+'js/
  +'\n'+fs.readFileSync(R+'js/planillaCierre.js','utf8')+'\n'+fs.readFileSync(R+'js/boletaPago.js','utf8')
  +'\n;global._calcPlanRow=_calcPlanRow;global.PL_COLS=PL_COLS;global.PL_VISTAS=PL_VISTAS;'
  +'global.genPlanilla=genPlanilla;global.plSetVista=plSetVista;global._PL_CV_TASA=_PL_CV_TASA;'
- +'global._PL_TIPOS_CONOCIDOS=_PL_TIPOS_CONOCIDOS;_plGenMes=7;_plGenAnio=2026;';
+ +'global._PL_TIPOS_CONOCIDOS=_PL_TIPOS_CONOCIDOS;_plGenMes=7;_plGenAnio=7115;';
 eval(src);
 
 let ok=0,mal=0;
@@ -30,7 +30,7 @@ const P=(id)=>({id,dni:'7251269'+id,ape:'SANCHEZ ROJAS',nom:'PIERO',cargo:'CONTR
   sue:3000,asig:0,movilidad:0,afp:'SNP',est:'Activo'});
 DB.personal=[P(1),P(2),P(3)];
 const marcar=(id,tipo,desde,n)=>{for(let d=desde;d<desde+n;d++)
-  DB.tareaje.push({personalId:id,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo});};
+  DB.tareaje.push({personalId:id,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo});};
 marcar(1,'TD',1,13); marcar(1,'A5',14,4); marcar(1,'DL',18,7);        // 13+4=17 · 7 libres
 marcar(2,'TD',1,10); marcar(2,'LP',11,5); marcar(2,'LM',16,3); marcar(2,'LF',19,2); marcar(2,'DM',21,4);
 marcar(3,'TD',1,12); marcar(3,'P',13,3);  marcar(3,'V',16,5);  marcar(3,'R',21,2);   // marcas sueltas

@@ -9,13 +9,13 @@ global.document={getElementById:id=>nodos[id]||null};
 global.toast=m=>{global._t=m;};global.openM=()=>{};global.closeM=()=>{};
 global.isModuleReadOnly=()=>false;
 global.nid=()=>1;global.nidSeguro=()=>1;global.supaUpsert=async()=>null;global.syncSheet=()=>{};
-global.DB={personal:[],tareaje:[],planillaMes:[],renta5ta:[],renta5taCfg:[{id:1,anio:'2026',uit:5500}]};
+global.DB={personal:[],tareaje:[],planillaMes:[],renta5ta:[],renta5taCfg:[{id:1,anio:'7115',uit:5500}]};
 
 const src=fs.readFileSync(R+'js/renta5ta.js','utf8')
   +'\n;global.rRenta5ta=rRenta5ta;global._r5Tabla=_r5Tabla;global._r5SetBuscar=_r5SetBuscar;'
   +'global._r5Coincide=_r5Coincide;global._r5NormB=_r5NormB;global._r5BuscarNota=_r5BuscarNota;'
   +'global._r5LimpiarBuscar=_r5LimpiarBuscar;global._r5Set=_r5Set;global._r5Excel=_r5Excel;'
-  +'global._getBuscar=()=>_r5Buscar;global._setAfectos=v=>{_r5SoloAfectos=v};_r5Mes=7;_r5Anio="2026";';
+  +'global._getBuscar=()=>_r5Buscar;global._setAfectos=v=>{_r5SoloAfectos=v};_r5Mes=7;_r5Anio="7115";';
 eval(src);
 
 let ok=0,mal=0;
@@ -27,12 +27,12 @@ DB.personal=[
   {id:1,dni:'43753444',ape:'ALCANTARA CHAVEZ',nom:'ANGEL MIGUEL', cargo:'OP. VOLQUETE',  sue:3113,est:'Activo'},
   {id:2,dni:'73748710',ape:'ALCOSER HUNGARO', nom:'ROSSY MILAGROS',cargo:'OP. RODILLO',  sue:2913,est:'Activo'},
   {id:3,dni:'42307112',ape:'AMBROSIO PAJUELO',nom:'FREDY RAUL',    cargo:'OP. VOLQUETE', sue:3113,est:'Activo'},
-  {id:4,dni:'10199407',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',      cargo:'ING. RESIDENTE',sue:9000,est:'Activo'},
+  {id:4,dni:'71044444',ape:'RODRIGUEZ MARTINES',nom:'ANDRES',      cargo:'ING. RESIDENTE',sue:9000,est:'Activo'},
   {id:5,dni:'78462600',ape:'ÑAHUI QUISPE',   nom:'JOSÉ MARÍA',     cargo:'AYUDANTE',     sue:1200,est:'Activo'},
   {id:6,dni:'09521349',ape:'BAJA PEREZ',     nom:'LUIS',           cargo:'OP. VOLQUETE', sue:3113,est:'Inactivo'}
 ];
 // Tareaje para que el cálculo tenga base
-DB.personal.forEach(p=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:p.id,fecha:'2026-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
+DB.personal.forEach(p=>{for(let d=1;d<=30;d++)DB.tareaje.push({personalId:p.id,fecha:'7115-07-'+String(d).padStart(2,'0'),tipo:'TD'});});
 
 const cuantas=h=>(String(h).match(/_r5Detalle\(/g)||[]).length;
 

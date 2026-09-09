@@ -70,10 +70,10 @@ es('  la otra es la que cuenta los excluidos',
 
 console.log('\n== Cuentas con y sin filtro ==');
 const partes=[
-  {eqId:1,fecha:'2026-07-01',ef:10,valoriza:'Ambos'},
-  {eqId:1,fecha:'2026-07-02',ef:8, valoriza:'Proveedor'},
-  {eqId:1,fecha:'2026-07-03',ef:9, valoriza:'Cliente'},
-  {eqId:1,fecha:'2026-07-04',ef:7}                        // antiguo, sin marca
+  {eqId:1,fecha:'7115-07-01',ef:10,valoriza:'Ambos'},
+  {eqId:1,fecha:'7115-07-02',ef:8, valoriza:'Proveedor'},
+  {eqId:1,fecha:'7115-07-03',ef:9, valoriza:'Cliente'},
+  {eqId:1,fecha:'7115-07-04',ef:7}                        // antiguo, sin marca
 ];
 const paraProv=partes.filter(edpValeProveedor);
 es('de 4 partes, entran 3',paraProv.length,3);

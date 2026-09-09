@@ -8,7 +8,7 @@ let q=0;global.nidSeguro=()=>++q;global.supaUpsert=async()=>null;global.supaDele
 global.DB={atencionRecursos:[],ventaPersonal:[],tarifasEq:[],equipos:[]};
 global._ccMatchHH=()=>null;
 global.hhVentaPeriodo=()=>({filas:[],sinTarifa:[],total:0,nDias:30});
-global._edpDesde='2026-07-21';global._edpHasta='2026-08-20';
+global._edpDesde='7115-07-21';global._edpHasta='7115-08-20';
 
 const src=fs.readFileSync(R+'js/atencionRecursos.js','utf8')
  +'\n;global.arCuh=arCuh;global.arCalcular=arCalcular;global.arIncidenciaDe=arIncidenciaDe;'
@@ -26,7 +26,7 @@ DB.ventaPersonal=[
   {cargo:'AYUDANTE MECANICO',tarifaMes:8385.60}
 ];
 DB.tarifasEq=[{id:1,desc:'Camioneta 4 Pasajeros',tarifaSeca:8769,tarifaFull:9934.50,unidad:'MES'}];
-const per={desde:'2026-07-21',hasta:'2026-08-20',dias:31};
+const per={desde:'7115-07-21',hasta:'7115-08-20',dias:31};
 const horasPer=31*8;   // 248 h
 
 console.log('\n== Sin tocar nada, la incidencia es la automática ==');

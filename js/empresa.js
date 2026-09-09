@@ -66,24 +66,24 @@ const AUTH_MODO='supabase';
 // Recibe AREAS como parámetro (vive en config.js, que carga después) para que
 // un usuario pueda pedir todas las áreas con Object.keys(A).
 const EMPRESA_USERS=A=>[
-  {codigo:'EIBEL25',dni:'46108109',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(A)},
-  {codigo:'NOEPAL',dni:'73890744',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
-  {codigo:'BELCRU',dni:'74983318',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion','seguridad'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
-  {codigo:'JON_GO',dni:'76334753',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
-  {codigo:'ANDMAR',dni:'10199407',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
-  {codigo:'YONMEL',dni:'43616432',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
-  {codigo:'ELIDA',dni:'45596970',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['mantenimiento','controlEquipos','administracion','seguridad'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos','panelHoras'],administracion:['resumenTareaje'],seguridad:['cursosSeguridad']}},
-  {codigo:'CA-R-ZE',dni:'18071084',nombre:'Carlos Zelada',cargo:'Jefe de mantenimiento',areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
-  {codigo:'JAYOJA',dni:'73760497',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
-  {codigo:'ANT_CER',dni:'75731570',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['general','administracion','controlProyecto','controlEquipos','mantenimiento','seguridad','costControl'],areaModules:{mantenimiento:['masterEquipos'],seguridad:['cursosSeguridad']}},
-  {codigo:'J_A_TA',dni:'73441348',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto','administracion','seguridad'],areaModules:{controlProyecto:['pizarra','recrecimiento'],administracion:['asistencia','resumenTareaje'],seguridad:['cursosSeguridad']},pizarraTabs:[3,4,5]},
-  {codigo:'SIX_GQUI',dni:'43291740',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad']},readOnlyModules:['tareaje']},
-  {codigo:'MARTONY',dni:'72882951',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
-  {codigo:'PIE_SA',dni:'72512691',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
+  {codigo:'EIBEL25',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(A)},
+  {codigo:'NOEPAL',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
+  {codigo:'BELCRU',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion','seguridad'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
+  {codigo:'JON_GO',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
+  {codigo:'ANDMAR',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
+  {codigo:'YONMEL',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
+  {codigo:'ELIDA',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['mantenimiento','controlEquipos','administracion','seguridad'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos','panelHoras'],administracion:['resumenTareaje'],seguridad:['cursosSeguridad']}},
+  {codigo:'CA-R-ZE',nombre:'Carlos Zelada',cargo:'Jefe de mantenimiento',areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
+  {codigo:'JAYOJA',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
+  {codigo:'ANT_CER',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['general','administracion','controlProyecto','controlEquipos','mantenimiento','seguridad','costControl'],areaModules:{mantenimiento:['masterEquipos'],seguridad:['cursosSeguridad']}},
+  {codigo:'J_A_TA',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto','administracion','seguridad'],areaModules:{controlProyecto:['pizarra','recrecimiento'],administracion:['asistencia','resumenTareaje'],seguridad:['cursosSeguridad']},pizarraTabs:[3,4,5]},
+  {codigo:'SIX_GQUI',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad']},readOnlyModules:['tareaje']},
+  {codigo:'MARTONY',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
+  {codigo:'PIE_SA',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
   // Remuneraciones ve todo; de Administración, solo el tareaje y sus vistas.
-  {codigo:'JOR_JA',dni:'12345678',nombre:'Jorge Jala',cargo:'Jefe de Recursos Humanos',areas:['administracion','remuneraciones'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
+  {codigo:'JOR_JA',nombre:'Jorge Jala',cargo:'Jefe de Recursos Humanos',areas:['administracion','remuneraciones'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
   // Supervisión externa (BISA): solo consulta. Del Panel de Horas ve los tres
-  {codigo:'CP.BISA_',dni:'2026',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
+  {codigo:'CP.BISA_',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
 ];
 
 // El logo de la pantalla de acceso. El src del HTML queda como respaldo:

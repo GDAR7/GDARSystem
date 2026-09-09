@@ -12,7 +12,7 @@ global.toast=m=>{global._t=m;};global.openM=()=>{};global.closeM=()=>{};global.c
 global.URL={createObjectURL:()=>'blob:x',revokeObjectURL(){}};
 global.Blob=function(a){this.a=a;};
 global._PL_MESES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-global._plGenMes=7;global._plGenAnio=2026;global.plMesCerrado=()=>false;
+global._plGenMes=7;global._plGenAnio=7115;global.plMesCerrado=()=>false;
 let q=0;global.nid=()=>++q;global.nidSeguro=()=>++q;
 global.supaUpsert=async()=>null;global.syncSheet=(a,d)=>{global._guardado=d;};
 global.rPersonal=()=>{};global.genPlanilla=()=>{};global.rTareaje=()=>{};

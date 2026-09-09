@@ -22,23 +22,23 @@ es('no se cae con un parte nulo',edpValeProveedor(null),true);
 
 console.log('\n== El historico se valoriza igual que siempre ==');
 DB.partes=[
-  {eqId:1,fecha:'2026-07-01',ef:10,valoriza:'Ambos'},
-  {eqId:1,fecha:'2026-07-02',ef:8, valoriza:'Proveedor'},
-  {eqId:1,fecha:'2026-07-03',ef:9, valoriza:'Cliente'},
-  {eqId:1,fecha:'2026-07-04',ef:7},
-  {eqId:1,fecha:'2026-07-05',ef:6}
+  {eqId:1,fecha:'7115-07-01',ef:10,valoriza:'Ambos'},
+  {eqId:1,fecha:'7115-07-02',ef:8, valoriza:'Proveedor'},
+  {eqId:1,fecha:'7115-07-03',ef:9, valoriza:'Cliente'},
+  {eqId:1,fecha:'7115-07-04',ef:7},
+  {eqId:1,fecha:'7115-07-05',ef:6}
 ];
 const dentro=DB.partes.filter(p=>p.eqId===1&&edpValeProveedor(p));
 es('entran 4 de 5',dentro.length,4);
 es('  con 31 horas',dentro.reduce((s,p)=>s+p.ef,0),31);
 es('solo se pierde el del cliente',DB.partes.length-dentro.length,1);
-const F=edpFueraProveedor(1,'2026-07-01','2026-07-31');
+const F=edpFueraProveedor(1,'7115-07-01','7115-07-31');
 es('el aviso cuenta 1',F.n,1);
 es('  y ya no habla de sin marca',F.sinMarca===undefined,true);
 
 console.log('\n== Sin partes de cliente no hay aviso ==');
 DB.partes=DB.partes.filter(p=>p.valoriza!=='Cliente');
-es('nada que avisar',edpFueraProveedor(1,'2026-07-01','2026-07-31').n,0);
+es('nada que avisar',edpFueraProveedor(1,'7115-07-01','7115-07-31').n,0);
 
 console.log('\n== El texto del aviso ==');
 es('dice por que quedan fuera',/marcados solo para el cliente/.test(ep),true);

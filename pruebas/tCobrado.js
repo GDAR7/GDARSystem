@@ -31,7 +31,7 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};
 
 // ── Las facturas de la captura ────────────────────────────────────────────
-const F=(id,num,tot,cobrado)=>({id,num,tipo:'Factura',fecha:'2026-05-22',
+const F=(id,num,tot,cobrado)=>({id,num,tipo:'Factura',fecha:'7115-05-22',
   prov:'IMPLEMENTOS PERU S.A.C.',reqId:null,moneda:'Soles (S/)',monto:tot,igv:0,total:tot,
   est:'Recibido',tipoCobro:'Reembolsable',edp:null,edpCobrado:cobrado||null,
   pdfUrl:'x.pdf',obs:''});
