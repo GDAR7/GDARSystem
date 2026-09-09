@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let LS={};
 global.localStorage={getItem:k=>LS[k]==null?null:LS[k],setItem:(k,v)=>LS[k]=String(v),removeItem:k=>delete LS[k]};
 global.toast=m=>{global._t=m;};global.openM=()=>{};global.closeM=()=>{};global.confirm=()=>true;

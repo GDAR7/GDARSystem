@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 
 global.toast=(m,e)=>{global._ultimoToast=m;};
 global.openM=()=>{};global.closeM=()=>{};

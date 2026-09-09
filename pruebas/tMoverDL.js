@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 global.localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};

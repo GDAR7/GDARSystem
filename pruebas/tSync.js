@@ -4,7 +4,7 @@ const{execFile}=require('child_process');
 const{promisify}=require('util');
 const pExec=promisify(execFile);
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;

@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 global.DB={auxiliosMecanicos:[],auxMecInsumos:[],catalogoItems:[],equipos:[],partes:[]};
 global.document={getElementById:()=>null};
 global.toast=()=>{};

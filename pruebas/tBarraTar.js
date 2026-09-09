@@ -2,7 +2,7 @@
 // con tres menús. Lo que se comprueba sobre todo es que NADA se perdiera por
 // el camino y que las funciones de siempre se sigan llamando igual.
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};

@@ -2,7 +2,7 @@
 // que se cuela cuando se recorta código: node --check no lo ve, porque solo
 // falla al ejecutarse esa rama.
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 const html=fs.readFileSync(R+'index.html','utf8');
 const orden=[...html.matchAll(/<script src="js\/([^"?]+)/g)].map(m=>m[1]);
 
