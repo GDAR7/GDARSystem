@@ -20,8 +20,32 @@ const EMPRESA={
 // Cada cliente tiene su propio proyecto de Supabase. Es lo que garantiza que
 // los datos de una empresa no sean alcanzables desde la otra: no comparten
 // base, así que no hay forma de cruzarlas.
-const SUPA_URL = 'https://kotqxhpkjuaxbgwhiode.supabase.co';
-const SUPA_KEY = 'sb_publishable_2vedvLuUivaSULcoSGJcpQ_Womkq8ST';
+const SUPA_URL_PROD = 'https://kotqxhpkjuaxbgwhiode.supabase.co';
+const SUPA_KEY_PROD = 'sb_publishable_2vedvLuUivaSULcoSGJcpQ_Womkq8ST';
+
+// ── La misma aplicación, contra la base de desarrollo ─────────────────────
+// Proyecto gdar-dev, aparte del de producción. Sirve para probar migraciones
+// y cambios sin tocar la base con la que trabaja la gente todos los días.
+const SUPA_URL_DEV  = 'https://wezrieubjcvcrtinppfw.supabase.co';
+const SUPA_KEY_DEV  = 'sb_publishable_xveXhZxiouPGxKuGJ1SgJQ_efhokWUP';
+
+// Cuál de las dos se usa lo decide DÓNDE está abierta la aplicación, no una
+// bandera que alguien pueda olvidarse de volver a cambiar. Es lo que hace
+// imposible que un merge a main deje a ECOSERMO apuntando a desarrollo: en
+// ecosermo.gdarei.com la condición es falsa y punto.
+//
+// La comprobación de `location` es para Node: las suites de pruebas/ evalúan
+// este archivo fuera del navegador, y ahí no existe. Sin sitio conocido, se
+// asume producción, que es el valor que esas pruebas verifican.
+const _GDAR_DEV = typeof location !== 'undefined' && (
+  location.hostname === 'localhost'  ||
+  location.hostname === '127.0.0.1'  ||
+  location.hostname === '' ||                 // abierto como archivo
+  location.hostname.endsWith('.pages.dev')    // vistas previas de Cloudflare
+);
+
+const SUPA_URL = _GDAR_DEV ? SUPA_URL_DEV : SUPA_URL_PROD;
+const SUPA_KEY = _GDAR_DEV ? SUPA_KEY_DEV : SUPA_KEY_PROD;
 
 // ── Cómo se valida quién entra ────────────────────────────────────────────
 // 'local'    → esquema anterior: la credencial se compara contra la lista de
@@ -66,3 +90,23 @@ const EMPRESA_USERS=A=>[
 // si este archivo no cargara, al menos se ve algo en lugar de un hueco.
 (()=>{const el=document.getElementById('logoEmpresa');
   if(el){el.src=EMPRESA.logo;el.alt=EMPRESA.nombre;}})();
+
+// Aviso de que esto NO es producción. La base de desarrollo lleva una copia de
+// los datos reales, así que las dos pantallas se ven idénticas: sin una marca
+// visible es cuestión de tiempo que alguien corrija un tareo en la que no era.
+(()=>{
+  if(!_GDAR_DEV || typeof document === 'undefined')return;
+  console.info('%c GDAR · BASE DE DESARROLLO ','background:#b45309;color:#fff;font-weight:700',
+    '\n' + SUPA_URL_DEV + '\nLos cambios que haga aquí no llegan a ECOSERMO.');
+  const marca = document.createElement('div');
+  marca.textContent = 'BASE DE DESARROLLO';
+  marca.title = SUPA_URL_DEV;
+  marca.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;'
+    + 'background:repeating-linear-gradient(135deg,#b45309,#b45309 12px,#92400e 12px,#92400e 24px);'
+    + 'color:#fff;font:600 11px/1 system-ui,sans-serif;letter-spacing:.16em;'
+    + 'text-align:center;padding:4px 0;pointer-events:none';
+  const poner = ()=>document.body && document.body.appendChild(marca);
+  if(document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', poner);
+  else poner();
+})();

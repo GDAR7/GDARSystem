@@ -21,13 +21,21 @@ const RAIZ=path.join(__dirname,'..');
 const _E=String.fromCharCode(27);
 const C={verde:_E+'[32m',rojo:_E+'[31m',gris:_E+'[90m',neg:_E+'[1m',fin:_E+'[0m'};
 
+// Por defecto audita PRODUCCIÓN, que es lo que importa: es la base que está
+// expuesta en internet con la llave que va dentro del JavaScript.
+// Con --dev audita la base de desarrollo, que desde que lleva una copia de los
+// datos reales merece exactamente la misma comprobación.
 function config(){
   const src=fs.readFileSync(path.join(RAIZ,'js','empresa.js'),'utf8');
-  const url=src.match(/const SUPA_URL\s*=\s*'([^']+)'/);
-  const key=src.match(/const SUPA_KEY\s*=\s*'([^']+)'/);
+  const dev=process.argv.includes('--dev');
+  const suf=dev?'_DEV':'_PROD';
+  const leer=n=>src.match(new RegExp('const\\s+'+n+suf+"\\s*=\\s*'([^']+)'"));
+  const url=leer('SUPA_URL'), key=leer('SUPA_KEY');
   const modo=src.match(/const AUTH_MODO\s*=\s*'([^']+)'/);
-  if(!url||!key)throw new Error('No encontré SUPA_URL / SUPA_KEY en js/empresa.js');
-  return{url:url[1].replace(/\/+$/,''),key:key[1],modo:modo?modo[1]:'(sin definir)'};
+  if(!url||!key)throw new Error('No encontré SUPA_URL'+suf+' / SUPA_KEY'+suf+' en js/empresa.js');
+  return{url:url[1].replace(/\/+$/,''),key:key[1],
+         modo:modo?modo[1]:'(sin definir)',
+         entorno:dev?'DESARROLLO (gdar-dev)':'PRODUCCIÓN'};
 }
 
 // Las que más duelen si se filtran, con las columnas que lo dejan claro.
@@ -41,9 +49,10 @@ const TABLAS=[
 ];
 
 (async()=>{
-  const{url,key,modo}=config();
-  console.log('\n'+C.neg+'Prueba de acceso público'+C.fin);
+  const{url,key,modo,entorno}=config();
+  console.log('\n'+C.neg+'Prueba de acceso público · '+entorno+C.fin);
   console.log(C.gris+'  Con la llave pública, sin iniciar sesión.'+C.fin);
+  console.log(C.gris+'  '+url+C.fin);
   console.log(C.gris+'  AUTH_MODO en js/empresa.js: '+modo+C.fin+'\n');
 
   let expuestas=0, cerradas=0, errores=0;
