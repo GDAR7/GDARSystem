@@ -12,15 +12,49 @@ una empresa no son alcanzables desde otra.
 
 ## 1 · Base de datos
 
-Cree un proyecto nuevo en Supabase para el cliente. Anote la **URL** y la
-**anon/publishable key** de Settings → API.
+El esquema vive versionado en `supabase/migrations/`. **No lo copie de otro
+cliente.** Clonar con `pg_dump` fue el procedimiento anterior y es lo que hace
+que dos bases terminen en estados distintos sin que nadie sepa cuál es cuál;
+a partir del segundo cliente eso vuelve imposible dar soporte.
 
-Levante el esquema. La forma más rápida es exportarlo del proyecto de un
-cliente ya montado (Supabase → Database → Schema, o `pg_dump --schema-only`) y
-aplicarlo en el nuevo. Los `.sql` de la carpeta `sql/` de este repositorio
-cubren las migraciones sueltas que se fueron agregando.
+```
+npm install                                   # trae el CLI de Supabase fijado
+npx supabase login                            # con la cuenta dueña de los proyectos
+npx supabase projects create gdar-<cliente> --region us-east-1
+npx supabase link --project-ref <ref-nuevo>
+npm run db:push                               # aplica TODAS las migraciones en orden
+```
 
-Revise las políticas RLS antes de cargar datos reales.
+Anote la **URL** y la **anon/publishable key** de Settings → API: van a
+`js/empresa.js` en el paso 3.
+
+El cierre de RLS es una migración más, así que la base nace cerrada — no
+depende de que alguien se acuerde de ejecutar un script. Compruébelo antes de
+cargar datos reales:
+
+```
+npm run db:advisors
+node herramientas/probarAcceso.js
+```
+
+### Cuando el esquema cambia
+
+Nunca edite tablas a mano en el SQL Editor: el cambio quedaría solo en esa base.
+
+```
+npm run db:diff -- nombre_del_cambio    # captura el cambio como migración
+npm run db:push                         # lo aplica a la base enlazada
+```
+
+Suba la migración al repositorio base y aplíquela a cada cliente con
+`link` + `db:push`. Así todas las bases avanzan por el mismo camino y siempre
+se sabe en qué punto está cada una.
+
+> Los `.sql` sueltos de la carpeta `sql/` son el registro de lo que se aplicó
+> antes de versionar el esquema, más los diagnósticos de solo lectura
+> (`auditoria_rls.sql`, `diagnostico_duplicados.sql`) y la red de emergencia
+> (`rls_revertir.sql`). No se ejecutan en un alta: ya vienen dentro de la
+> migración inicial.
 
 ## 2 · Repositorio
 
@@ -104,9 +138,18 @@ siempre la versión del cliente.
 Después del merge, verifique antes de subir:
 
 ```
-node --check js/empresa.js
-node --check js/config.js
+npm test                    # sintaxis, choques de nombres, botones muertos y las 43 suites
 ```
+
+Si el merge trajo migraciones nuevas, aplíquelas también a la base del cliente:
+
+```
+npx supabase link --project-ref <ref-del-cliente>
+npm run db:push
+```
+
+El código y el esquema viajan juntos: subir uno sin el otro deja la aplicación
+pidiendo columnas que no existen.
 
 ## Qué NO se debe hacer
 

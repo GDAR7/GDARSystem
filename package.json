@@ -1,0 +1,25 @@
+{
+  "name": "gdar-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de gestión operativa para contratistas mineros. Base común a todos los clientes; lo propio de cada empresa vive en js/empresa.js.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node herramientas/verificar.js",
+    "test:rapido": "node herramientas/verificar.js --rapido",
+    "db:pull": "supabase db pull",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff -f",
+    "db:reset": "supabase db reset",
+    "db:advisors": "supabase db advisors --type security",
+    "db:local": "supabase start",
+    "types:gen": "supabase gen types typescript --linked > src/types/database.ts",
+    "cliente:verificar": "node herramientas/verificar.js && node herramientas/verificarDominio.js",
+    "respaldo": "node herramientas/backupSupabase.js"
+  },
+  "devDependencies": {
+    "supabase": "2.117.0"
+  }
+}
