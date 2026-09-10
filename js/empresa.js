@@ -81,6 +81,15 @@ const EMPRESA_PLAN={nombre:'Integral',areas:null,modulos:null};
 // función para calcular lo mismo.
 const EMPRESA_CORTE=21;
 
+// ── Cuántos días-hombre son un mes ────────────────────────────────────────
+// El divisor con el que las partidas de personal pasan de días trabajados a
+// mes-hombre en la valorización: quien trabajó 45 días vale 1.5 con 30.
+//
+// Es convención del contrato, no una constante del sistema. Otro puede decir
+// 26 (días útiles) o 30.4 (promedio del año), y esa diferencia cambia
+// directamente lo que se le factura al cliente por mano de obra.
+const EMPRESA_DIAS_MES=30;
+
 // ── Cómo se valida quién entra ────────────────────────────────────────────
 // 'local'    → esquema anterior: la credencial se compara contra la lista de
 //              aquí abajo. Solo funciona con las políticas RLS abiertas.

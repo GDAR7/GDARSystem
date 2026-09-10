@@ -501,7 +501,6 @@ function toggleNav(){
   btn.textContent = nav.classList.contains('collapsed') ? '▶' : '☰';
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  buildDemos();
   ['wIng','soF','rI','rS','alF','hF','lvF','lvFE','aeF','asF','cbF','suF','inF','ptV','maF','otFp','otFe','acFi','acFf','ftF','coF','rpF','rqF','rqFEnt'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today();});
   const emEl=document.getElementById('engraseMes');if(emEl)emEl.value=new Date().toISOString().slice(0,7);
   const fpPdfEl=document.getElementById('fpPdf');

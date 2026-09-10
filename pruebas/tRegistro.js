@@ -44,8 +44,8 @@ es('  y ya no lo lleva escrito',/const AREAS=\{/.test(cfg),false);
 console.log('\n== AREAS conserva la forma que espera el resto ==');
 es('13 áreas',Object.keys(AREAS).length,13);
 const a1=AREAS.administracion;
-es('cada área trae label, icon, color y prefix',
-   !!(a1.label&&a1.icon&&a1.color&&a1.prefix),true);
+es('cada área trae label, icon y color',
+   !!(a1.label&&a1.icon&&a1.color),true);
 es('  y su lista de módulos',Array.isArray(a1.modules),true);
 es('cada módulo trae key, label e icon',
    a1.modules.every(m=>m.key&&m.label&&m.icon),true);

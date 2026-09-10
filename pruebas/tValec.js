@@ -29,6 +29,18 @@ es('el costo directo del contrato',BASE.find(p=>p.sec==='CD').pres,22522290.9);
 es('el costo indirecto',BASE.find(p=>p.sec==='CI').pres,3649154.58);
 es('mes-hombre se divide entre 30',DIAS,30);
 
+// El divisor es convención del contrato: otro cliente puede usar 26 o 30.4, y
+// eso cambia lo que se le factura por mano de obra. Sale de empresa.js.
+const trozo=src.slice(0,src.indexOf('const VAL_PRESUP_BASE'));
+const conDivisor=v=>new Function('EMPRESA_DIAS_MES',trozo+';return VAL_DIAS_MES;')(v);
+es('  y sale de empresa.js',/EMPRESA_DIAS_MES/.test(src),true);
+es('  que ECOSERMO declara en 30',/const EMPRESA_DIAS_MES=30/.test(
+   fs.readFileSync(R+'js/empresa.js','utf8')),true);
+es('otro contrato puede usar 26',conDivisor(26),26);
+es('  o 30.4',conDivisor(30.4),30.4);
+es('sin declararlo, 30 como siempre',conDivisor(undefined),30);
+es('  y un valor imposible no lo rompe',conDivisor(0),30);
+
 console.log('\n== Con la tabla vacía manda el respaldo ==');
 // Es el estado de hoy: la migración crea la tabla vacía y no cambia nada.
 es('sin DB, el respaldo',conDB(undefined).length,128);

@@ -108,27 +108,14 @@ function refreshSelects(){
   });
 }
 
-// ══ DEMO CHIPS ══
-function buildDemos(){
-  const demos=[
-    {c:'ECOADMIN00000001',l:'Administrador',s:'Acceso Total'},
-    {c:'ECOADM87654321',l:'Carmen Salazar',s:'Administración'},
-    {c:'ECOBSW11112222',l:'María Torres',s:'Bienestar Social'},
-    {c:'ECOALM33334444',l:'Zein Alcedo',s:'Almacén y Logística'},
-    {c:'ECOSEG12345678',l:'Pablo Quispe',s:'Seguridad'},
-    {c:'ECOMEC55556666',l:'Roberto Yauri',s:'Mantenimiento'},
-    {c:'ECOCTL99887766',l:'Marco Valdivia',s:'Control Proy./Equipos'},
-    {c:'ECOOTRO55667788',l:'Ana García',s:'Otros'},
-  ];
-  const demoEl=document.getElementById('demoChips');if(!demoEl)return;
-  demoEl.innerHTML=demos.map(d=>`
-    <div class="demo-chip" onclick="autoLogin('${d.c}')">
-      <span class="demo-code">${d.c}</span>
-      <span class="demo-name">${d.l}</span>
-      <span class="demo-area">${d.s}</span>
-    </div>`).join('');
-}
-function autoLogin(c){document.getElementById('loginCodigo').value=c;doLogin();}
+// Los accesos rapidos de demostracion se quitaron.
+//
+// Eran ocho credenciales de mentira con el prefijo del cliente (ECOADM...,
+// ECOSEG...) del esquema de acceso anterior, cuando el codigo y el DNI iban
+// juntos en un solo campo. Su contenedor lleva comentado en index.html desde
+// entonces, con un "descomentar para restaurar" que ya no era cierto: con
+// Supabase Auth hace falta la clave, y autoLogin solo rellenaba el codigo.
+// Restaurarlos habria dado ocho botones que no entran a ningun sitio.
 
 // ══ AUTH ══
 // El email se deriva de la credencial, asi que la persona sigue escribiendo una

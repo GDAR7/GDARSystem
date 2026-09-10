@@ -24,6 +24,21 @@ const EMPRESA={
 const SUPA_URL = 'https://XXXXXXXXXXXX.supabase.co';
 const SUPA_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
 
+// ── Las convenciones del contrato ─────────────────────────────────────────
+// EMPRESA_CORTE es el día en que abre el período con el que se valoriza: 21
+// significa "del 21 de un mes al 20 del siguiente", y 1 el mes calendario.
+// Gobierna partes diarios, combustible, EDP de proveedores, tareaje, costo por
+// m³ e informe de período.
+//
+// EMPRESA_DIAS_MES es el divisor que pasa días-hombre a mes-hombre en las
+// partidas de personal de la valorización: con 30, quien trabajó 45 días vale
+// 1.5. Otro contrato puede decir 26 (días útiles) o 30.4 (promedio del año).
+//
+// Los dos cambian lo que se le factura al cliente, así que conviene
+// confirmarlos contra el contrato antes de la primera valorización.
+const EMPRESA_CORTE=21;
+const EMPRESA_DIAS_MES=30;
+
 // ── Qué contrató esta empresa ─────────────────────────────────────────────
 // Lo que no esté aquí no aparece en el menú de nadie, por más permisos que
 // tenga la persona. Es lo que permite vender el sistema por partes.

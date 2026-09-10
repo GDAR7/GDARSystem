@@ -14,8 +14,18 @@
 //  el % de avance; las partidas hoja (tipo 'p') llevan el precio unitario.
 // ══════════════════════════════════════════════════════════════════════════
 
-// Mes-hombre = días-hombre trabajados ÷ este divisor. Convención del contrato.
-const VAL_DIAS_MES=30;
+// Mes-hombre = días-hombre trabajados ÷ este divisor.
+//
+// Es convención del contrato, no una constante del sistema: define cuántos
+// días-hombre valen un "mes" en las partidas de personal. Con 30, alguien que
+// trabajó 45 días vale 1.5 mes-hombre. Otro contrato puede decir 26 (días
+// útiles) o 30.4 (promedio del año), y esa diferencia cambia directamente lo
+// que se le factura al cliente por mano de obra.
+//
+// Vive con el resto de lo que cambia por empresa: EMPRESA_DIAS_MES en
+// js/empresa.js. Si no está declarado, 30, que es lo que había.
+const VAL_DIAS_MES=(typeof EMPRESA_DIAS_MES!=='undefined'&&+EMPRESA_DIAS_MES>0)
+  ?+EMPRESA_DIAS_MES:30;
 
 const VAL_PRESUP_BASE=[
 // ─── COSTO DIRECTO ────────────────────────────────────────────────────────

@@ -39,31 +39,31 @@
 // son setenta ocasiones de equivocarse en un acento.
 
 const GDAR_AREAS={
-  administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
+  administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',
     modulos:['personal','asistencia','tareaje','resumenTareaje','roster']},
-  remuneraciones:{label:'Remuneraciones',icon:'💵',color:'#ca8a04',prefix:'ECOREM',
+  remuneraciones:{label:'Remuneraciones',icon:'💵',color:'#ca8a04',
     modulos:['planilla','renta5ta','afpTasas']},
-  bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
+  bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',
     modulos:['asistentaSocial','residencia','alimentacion','hospedaje','lavanderia','viaticos']},
-  almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
+  almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',
     modulos:['proyectos','almacen','combustible','requerimientos','materiales','facturasPago','kardexEpp','insumosAux','analisisAbc']},
-  operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
+  operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',
     modulos:['supervision','liberacion']},
-  seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',prefix:'ECOSEG',
+  seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',
     modulos:['seguridad','cursosSeguridad','medioAmbiente']},
-  mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
+  mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',
     modulos:['masterEquipos','programacionEquipos','auxiliosMecanicos','engraseEquipos','salidaEquipos','insumosAux']},
-  controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
+  controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',
     modulos:['planner','lps','pizarra','avanceMT','dailyReport','recrecimiento','informePeriodo']},
-  general:{label:'General',icon:'📋',color:'#14b8a6',prefix:'ECOGEN',
+  general:{label:'General',icon:'📋',color:'#14b8a6',
     modulos:['seguimiento','histograma']},
-  controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
+  controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',
     modulos:['dashEquipos','flotaEquipos','lineaAmarilla','lineaBlanca','vehiculosMenores','equiposMenores','panelHoras','reporteMensual','reporteEquipos','dataIngresos']},
-  otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
+  otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',
     modulos:['valorizaciones','hes','facturacion']},
-  costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
+  costControl:{label:'Cost Control',icon:'📈',color:'#059669',
     modulos:['costControl','tarifas','venta','costos','proveedores','resultadoOperativo','hhVenta','corteEquipos','costoM3']},
-  configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
+  configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',
     modulos:['notificaciones']},
 };
 
@@ -283,7 +283,7 @@ function gdarConstruirAreas(){
     // suya, así que un área contratada nunca queda vacía. La guarda que había
     // aquí era inalcanzable — que un área del registro no ofrezca nada lo
     // comprueba pruebas/tRegistro.js, donde sí se puede detectar.
-    areas[clave]={label:a.label,icon:a.icon,color:a.color,prefix:a.prefix,modules};
+    areas[clave]={label:a.label,icon:a.icon,color:a.color,modules};
   }
   return areas;
 }
