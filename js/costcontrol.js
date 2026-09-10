@@ -347,6 +347,19 @@ function _ccMatchHH(cargo){
 function _ccFmt(n){return 'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── Render principal ──
+// ── Personal del período ────────────────────────────────────────────────────
+// Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
+// aquí solo se contaban los días trabajados y salía menos venta que allá.
+// Vive aparte para que el exportador use exactamente estas filas.
+function _ccCalcHH(per){
+  return hhVentaPeriodo(per.desde,per.hasta).filas.map(r=>({
+    persona:r.p,dias:r.trab+r.libre+r.dlt,
+    tarifa:{lab:r.cargo,mes:r.tarifa},
+    costoDia:per.dias>0?r.tarifa/per.dias:0,
+    costo:r.venta
+  }));
+}
+
 // ── Motor de cálculo por período ────────────────────────────────────────────
 // Todo el costo/venta/margen de los equipos de UN período. Se extrajo de
 // rCostControl sin tocar una sola operación para que la matriz anual
@@ -478,14 +491,7 @@ function rCostControl(){
   const totalGalEq=_C.totalGalEq, totalCombEq=_C.totalCombEq, totalMargenEq=_C.totalMargenEq;
 
   // — Costos de personal —
-  // Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
-  // aquí solo se contaban los días trabajados y salía menos venta que allá.
-  const hhRows=hhVentaPeriodo(per.desde,per.hasta).filas.map(r=>({
-    persona:r.p,dias:r.trab+r.libre+r.dlt,
-    tarifa:{lab:r.cargo,mes:r.tarifa},
-    costoDia:per.dias>0?r.tarifa/per.dias:0,
-    costo:r.venta
-  }));
+  const hhRows=_ccCalcHH(per);
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
   const totalGen=totalVentaEq+totalHH;
 
@@ -581,6 +587,11 @@ function rCostControl(){
           ${_ccProyectosDisponibles().map(p=>`<option value="${p}"${p===_ccProyecto?' selected':''}>${p}</option>`).join('')}
         </select>
         ${_ccProyecto?`<button onclick="_ccSetProyecto('')" title="Quitar el filtro" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px;padding:.26rem .5rem;font-size:.72rem;cursor:pointer">✕</button>`:''}
+        <span style="width:1px;height:20px;background:var(--border);margin:0 .2rem"></span>
+        <button onclick="_ccxExcel()" title="Exportar a Excel la pestaña abierta, con los filtros puestos"
+          style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5);color:#10b981;border-radius:7px;padding:.28rem .75rem;font-size:.75rem;font-weight:700;cursor:pointer">⬇ Excel</button>
+        <button onclick="_ccxPdf()" title="Imprimir o guardar en PDF la pestaña abierta"
+          style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45);color:#ef4444;border-radius:7px;padding:.28rem .75rem;font-size:.75rem;font-weight:700;cursor:pointer">🖨 PDF</button>
       </div>
     </div>
 

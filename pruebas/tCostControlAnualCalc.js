@@ -232,7 +232,10 @@ es('aparecen las dos familias',H.includes('EXCAVADORA')&&H.includes('TRACTOR'),t
 es('aparece el contratista',H.includes('2MMICON')&&H.includes('PANDAL'),true);
 es('el EDP en dólares se marca',H.includes('>DOLARES<'),true);
 es('la insignia de estimado sale',/\d+ estimado/.test(H),true);
-es('hay botón de Excel',H.includes('_ccaExcel()'),true);
+// El botón de Excel se mudó a la barra de pestañas, junto al de PDF, para que
+// las cuatro pestañas se exporten desde el mismo sitio.
+es('el panel ya no lleva su propio botón',H.includes('_ccaExcel()'),false);
+es('  y remite a los de arriba',/exporte con los botones de arriba/.test(H),true);
 es('la primera columna queda fija',H.includes('position:sticky;left:0'),true);
 es('el pie trae el margen total',H.includes('MARGEN TOTAL'),true);
 const filas=(H.match(/<tr[ >]/g)||[]).length, cierres=(H.match(/<\/tr>/g)||[]).length;

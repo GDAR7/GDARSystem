@@ -280,8 +280,8 @@ function _ccaPanel(){
       style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:.3rem .6rem;font-size:.74rem;width:180px">
     ${nFiltros?`<button onclick="_ccaLimpiar()" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px;padding:.3rem .7rem;font-size:.74rem;cursor:pointer">✕ Limpiar (${nFiltros})</button>`:''}
     <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem">
-      <span style="font-size:.68rem;color:var(--muted2)">${grupos.reduce((s,G)=>s+G.equipos.length,0)} de ${D.nEquipos} equipo(s)</span>
-      <button onclick="_ccaExcel()" style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5);color:#10b981;border-radius:7px;padding:.32rem .8rem;font-size:.76rem;font-weight:700;cursor:pointer">⬇ Excel</button>
+      <span style="font-size:.68rem;color:var(--muted2)">${grupos.reduce((s,G)=>s+G.equipos.length,0)} de ${D.nEquipos} equipo(s)
+        <span style="color:var(--muted)">· exporte con los botones de arriba</span></span>
     </div>
   </div>
 
@@ -385,4 +385,68 @@ function _ccaExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'Matriz Anual');
   XLSX.writeFile(wb,`Cost_Control_Matriz_${_ccaAnio}.xlsx`);
   toast(`✓ Matriz ${_ccaAnio} exportada`);
+}
+
+// ── PDF de la matriz ────────────────────────────────────────────────────────
+// Catorce columnas no caben en vertical: va en A4 apaisado y con letra chica.
+// La impresión respeta los filtros y el modo de tarifa que estén puestos.
+function _ccaPdf(){
+  if(_ccaAnio==null)_ccaAnio=_ccaAnioPorDefecto();
+  const KEY=_ccTarifaModo==='seca'?'seca':'full';
+  const D=_ccaCalcular(_ccaAnio,KEY);
+  const grupos=_ccaFiltrar(D);
+  if(!grupos.length){toast('No hay datos para imprimir',true);return;}
+  const CON=_ccaConceptos();
+  const TD='border:1px solid #cbd5e1;padding:2px 4px;font-size:7px;color:#111';
+  const der=TD+';text-align:right';
+  const XC={alquiler:'#B45309',comb:'#C2410C',venta:'#0E7490',
+            ventaEq:'#0E7490',ventaComb:'#6D28D9',margen:'#047857'};
+  const n=v=>Math.abs(+v||0)<0.005?'–':Number(v).toLocaleString('es-PE',
+    {minimumFractionDigits:2,maximumFractionDigits:2});
+
+  let body='';
+  grupos.forEach(G=>{
+    body+=`<tr style="background:#ecfdf5"><td style="${TD};font-weight:800;color:#047857">${_ccaEsc(G.nombre)}
+      <span style="font-weight:400;color:#64748b">· ${G.equipos.length} eq. · margen</span></td>
+      ${G.meses.map(m=>`<td style="${der};font-weight:800;color:${m.margen<0?'#b91c1c':'#047857'}">${n(m.margen)}</td>`).join('')}
+      <td style="${der};font-weight:800;background:#d1fae5;color:${G.tot.margen<0?'#b91c1c':'#047857'}">${n(G.tot.margen)}</td></tr>`;
+    G.equipos.forEach(a=>{
+      body+=`<tr><td colspan="14" style="${TD};background:#f8fafc;border-top:1px solid #94a3b8">
+        <strong style="color:#1e3a5f">${_ccaEsc(`${a.eq.codigo||''} – ${a.eq.nombre||''}`)}</strong>
+        <span style="color:#64748b"> · ${_ccaEsc(a.eq.proveedor||'—')} · ${a.moneda==='SOLES'?'S/':_ccaEsc(a.moneda)}</span>
+        ${a.nEst?`<span style="color:#c2410c"> · ${a.nEst} mes(es) estimado(s)</span>`:''}</td></tr>`;
+      CON.forEach(C=>{
+        body+=`<tr><td style="${TD};padding-left:14px;color:${XC[C.k]};font-weight:700">${C.lab}</td>
+          ${a.meses.map(m=>{const v=m[C.k];
+            const est=C.k==='alquiler'&&m.hay&&m.est&&Math.abs(v)>=0.005;
+            return`<td style="${der};color:${v<0?'#b91c1c':XC[C.k]}${est?';font-style:italic':''}">${n(v)}</td>`;
+          }).join('')}
+          <td style="${der};font-weight:800;background:#f1f5f9;color:${a.tot[C.k]<0?'#b91c1c':XC[C.k]}">${n(a.tot[C.k])}</td></tr>`;
+      });
+    });
+  });
+  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+G.meses[i].margen,0));
+  const tAn=tMes.reduce((s,v)=>s+v,0);
+  const ctx=[`Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`];
+  if(_ccSinIgv)ctx.push('combustible sin IGV');
+  if(_ccPrecioManual)ctx.push('precio de combustible manual');
+  if(typeof _ccProyecto!=='undefined'&&_ccProyecto)ctx.push('solo proyecto '+_ccProyecto);
+  if(_ccaTipo)ctx.push('tipo: '+_ccaTipo);
+  if(_ccaContratista)ctx.push('contratista: '+_ccaContratista);
+  if(_ccaBuscar.trim())ctx.push('búsqueda: '+_ccaBuscar.trim());
+  ctx.push(grupos.reduce((s,G)=>s+G.equipos.length,0)+' equipo(s)');
+
+  const cuerpo=`<div style="font-size:9.5px;color:#475569;text-align:center;margin:-6px 0 8px">Resultado operativo por equipo · año ${_ccaAnio}</div>
+    <div style="font-size:7.5px;color:#64748b;margin-bottom:8px;padding:4px 6px;background:#f1f5f9;border-left:3px solid #1e3a5f">${_ccaEsc(ctx.join(' · '))}</div>
+    <table><thead><tr>
+      <th style="background:#1e3a5f;color:#fff;padding:3px 4px;font-size:7px;text-align:left;border:1px solid #fff">Equipo · Concepto</th>
+      ${_CCA_MES3.map(m=>`<th style="background:#1e3a5f;color:#fff;padding:3px 4px;font-size:7px;text-align:right;border:1px solid #fff">${m}</th>`).join('')}
+      <th style="background:#0f2942;color:#fff;padding:3px 4px;font-size:7px;text-align:right;border:1px solid #fff">Total ${_ccaAnio}</th>
+    </tr></thead><tbody>${body}</tbody>
+    <tfoot><tr style="background:#e2e8f0;font-weight:900">
+      <td style="${TD}">MARGEN TOTAL</td>
+      ${tMes.map(v=>`<td style="${der};color:${v<0?'#b91c1c':'#047857'}">${n(v)}</td>`).join('')}
+      <td style="${der};color:${tAn<0?'#b91c1c':'#047857'}">${n(tAn)}</td>
+    </tr></tfoot></table>`;
+  _ccxImprimir(`COST CONTROL — MATRIZ ANUAL ${_ccaAnio}`,cuerpo,true);
 }
