@@ -188,9 +188,25 @@ async function supaUpsert(dbKey,record){
   _pendingSaves++;
   try{
     const {error}=await supa.from(table).upsert(toSnake(record));
+    // El servidor respondió y rechazó: no es un problema de red, así que
+    // guardarlo para reintentar solo repetiría el mismo rechazo.
     if(error){console.warn('[Supabase upsert]',table,error.message);toast('Error al guardar: '+error.message,true);return error;}
     return null;
-  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);return e;}
+  }catch(e){
+    // Aquí no hubo respuesta: se cayó la red. Antes esto perdía el registro
+    // —vivía solo en la copia en memoria y se iba al recargar— y en faena eso
+    // es una guardia entera de tareo. Ahora queda en el navegador y se reenvía
+    // cuando vuelva la conexión. Ver js/cola.js.
+    console.warn('[Supabase]',e);
+    if(typeof colaGuardar==='function'&&record&&record.id!==undefined){
+      colaGuardar(dbKey,record).then(guardado=>{
+        toast(guardado
+          ? '⏳ Sin conexión: guardado aquí, se enviará al volver la red'
+          : 'Error de conexión con Supabase',!guardado);
+      });
+    }else toast('Error de conexión con Supabase',true);
+    return e;
+  }
   finally{_pendingSaves--;}
 }
 

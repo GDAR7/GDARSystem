@@ -36,7 +36,7 @@ const C={verde:_E+'[32m',rojo:_E+'[31m',ambar:_E+'[33m',gris:_E+'[90m',neg:_E+'[
 
 // Los que se cargan siempre, pase lo que pase.
 const NUCLEO=new Set(['empresa.js','registro.js','config.js','utils.js',
-  'datos.js','venta.js','cargador.js']);
+  'datos.js','venta.js','cargador.js','cola.js']);
 
 const reg=fs.readFileSync(path.join(RAIZ,'js','registro.js'),'utf8');
 const MODULOS=new Function(reg+';return GDAR_MODULOS;')();
