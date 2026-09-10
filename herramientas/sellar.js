@@ -43,6 +43,29 @@ const sello=ruta=>crypto.createHash('sha1')
 // Los dos sitios donde aparece: los <script src="js/…"> y la hoja de estilos.
 const PATRON=/(src|href)="((?:js|css)\/[^"?]+)(?:\?v=([A-Za-z0-9]+))?"/g;
 
+// ── El service worker ──────────────────────────────────────────────────────
+// Su VERSION nombra la caché. Se le pone el hash del index.html ya sellado:
+// como ese índice contiene los sellos de los 58 archivos, cualquier cambio en
+// cualquiera de ellos lo mueve, y la caché anterior se descarta sola.
+//
+// El archivo sw.js NO lleva ?v= en su URL: el navegador ya comprueba si cambió
+// byte a byte. Ponerle uno crearía una instalación nueva cada vez.
+//
+// Si VERSION dice 'desactivado' se respeta: es el interruptor de emergencia
+// para que el service worker se borre a sí mismo, y sellar no debe pisarlo.
+const SW=path.join(RAIZ,'sw.js');
+function sellarSW(htmlSellado){
+  if(!fs.existsSync(SW))return null;
+  const src=fs.readFileSync(SW,'utf8');
+  const m=src.match(/const VERSION\s*=\s*'([^']*)'/);
+  if(!m)return null;
+  if(m[1]==='desactivado')return{apagado:true};
+  const nuevo=crypto.createHash('sha1').update(htmlSellado).digest('hex').slice(0,8);
+  if(m[1]===nuevo)return{sello:nuevo,igual:true};
+  fs.writeFileSync(SW,src.replace(m[0],"const VERSION = '"+nuevo+"'"));
+  return{sello:nuevo,viejo:m[1]};
+}
+
 function revisar(){
   const html=fs.readFileSync(HTML,'utf8');
   const casos=[];
@@ -80,13 +103,20 @@ if(VERIFICAR){
 }
 
 if(!viejos.length){
-  console.log('\n  '+C.verde+'Ya estaban todos al día'+C.fin+C.gris+'  ('+casos.length+' archivos)'+C.fin+'\n');
+  // Aunque el índice no cambie, el sello del service worker puede estar
+  // desfasado si alguien lo editó a mano.
+  const sw=sellarSW(html);
+  console.log('\n  '+C.verde+'Ya estaban todos al día'+C.fin+C.gris+'  ('+casos.length+' archivos)'+C.fin);
+  if(sw&&sw.apagado)console.log('  '+C.ambar+'sw.js está DESACTIVADO'+C.fin+C.gris+'  se borrará solo en cada navegador'+C.fin);
+  else if(sw&&!sw.igual)console.log('  sw.js'.padEnd(36)+C.gris+sw.viejo+C.fin+' → '+C.verde+sw.sello+C.fin);
+  console.log('');
   process.exit(0);
 }
 
 let salida=html;
 viejos.forEach(c=>{ salida=salida.split(c.texto).join(c.reemplazo); });
 fs.writeFileSync(HTML,salida);
+sellarSW(salida);
 
 console.log('\n'+C.neg+'Sellados'+C.fin+C.gris+'  '+viejos.length+' de '+casos.length+C.fin+'\n');
 viejos.forEach(c=>console.log('  '+c.rel.padEnd(34)

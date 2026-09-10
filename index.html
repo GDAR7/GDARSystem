@@ -3366,5 +3366,17 @@
 <!-- Autocomplete Entrada Múltiple -->
 <div id="emAcDrop" style="display:none;background:var(--panel);border:1px solid var(--border);border-radius:7px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px #00000070;"></div>
 
+<!-- Que la aplicación abra sin red. Ver sw.js: guarda el cascarón, nunca los
+     datos. Si algo sale mal, VERSION='desactivado' en sw.js lo borra solo. -->
+<script>
+if('serviceWorker' in navigator){
+  // Después de load, para no competir con la carga de la aplicación.
+  addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js')
+      .catch(e=>console.warn('[sw] no se pudo registrar:',e&&e.message));
+  });
+}
+</script>
+
 </body>
 </html>
