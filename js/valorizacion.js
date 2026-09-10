@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════════
 //  VALORIZACIÓN AL CLIENTE — motor de cálculo (formato VALEC)
-//  Toma las partidas de VAL_PRESUP y llena la cantidad de cada una con los
+//  Toma las partidas del presupuesto contractual y llena la cantidad de
 //  datos que YA están en el sistema: Partes Diarios (horas de equipo),
 //  Tareaje (mes-hombre por cargo) y el Máster de Equipos.
 //  Lo que no se puede deducir (hitos, stand by) se escribe a mano.
@@ -97,7 +97,9 @@ function _vlMesHombre(cargo,desde,hasta){
 // Devuelve las filas con su cantidad, monto y avance, más los totales.
 function _vlCalcular(){
   const d=_vlDesde,h=_vlHasta;
-  const filas=VAL_PRESUP.map(p=>({...p}));
+  // Las partidas salen de la tabla si esta cargada, y del respaldo del
+  // codigo si no. Ver valPresupuesto() en js/valPresupuesto.js.
+  const filas=valPresupuesto().map(p=>({...p}));
   const detalle={};
 
   // 1ª pasada: todo salvo los porcentajes, que dependen de los demás
