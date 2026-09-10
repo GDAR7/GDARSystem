@@ -39,7 +39,8 @@ const mal =(t,d)=>{fallos++;console.log('  '+C.rojo+'MAL'+C.fin+'  '+t+(d?NL+'  
 const nota=(t,d)=>{avisos++;console.log('  '+C.ambar+'··'+C.fin+'   '+t+(d?C.gris+'  '+d+C.fin:''));};
 
 const html=fs.readFileSync(path.join(RAIZ,'index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="js\/([^"?]+)(\?v=(\d+))?/g)]
+// El sello ya no es un número que se sube a mano: es el hash del contenido.
+const scripts=[...html.matchAll(/<script src="js\/([^"?]+)(\?v=([A-Za-z0-9]+))?/g)]
   .map(m=>({archivo:m[1],version:m[3]}));
 const jsDir=path.join(RAIZ,'js');
 const todosJs=fs.readdirSync(jsDir).filter(f=>f.endsWith('.js'));
@@ -124,6 +125,25 @@ faltantes.length?mal('index.html carga archivos que no están',faltantes.join(',
 const sinVersion=scripts.filter(s=>!s.version);
 if(sinVersion.length)nota(sinVersion.length+' script(s) sin ?v=',
   sinVersion.map(s=>s.archivo).join(', ')+' — el navegador podría servir una copia vieja');
+
+// El sello de cada archivo es su contenido. Si alguien cambia un módulo y no
+// vuelve a sellar, el navegador de quien ya tenga la copia vieja se queda con
+// ella: la aplicación sigue funcionando, con el archivo de antes. El error
+// aparece después, en la máquina de otro, y como "a mí me funciona".
+const crypto=require('crypto');
+const selloDe=rel=>crypto.createHash('sha1')
+  .update(fs.readFileSync(path.join(RAIZ,rel))).digest('hex').slice(0,8);
+const desellados=[];
+for(const m of html.matchAll(/(?:src|href)="((?:js|css)\/[^"?]+)(?:\?v=([A-Za-z0-9]+))?"/g)){
+  const rel=m[1];
+  if(!fs.existsSync(path.join(RAIZ,rel)))continue;
+  const esperado=selloDe(rel);
+  if(m[2]!==esperado)desellados.push(rel+'  '+(m[2]||'(sin sello)')+' → '+esperado);
+}
+desellados.length
+  ? mal(desellados.length+' archivo(s) cambiaron y su sello no',
+      desellados.join(NL+'       ')+NL+'       Se arregla con: npm run sellar')
+  : bien('los sellos de índice están al día','nadie se quedará con una copia vieja');
 const huerfanos=todosJs.filter(f=>!scripts.some(s=>s.archivo===f)&&f!=='empresa.ejemplo.js');
 if(huerfanos.length)nota(huerfanos.length+' archivo(s) en js/ que nadie carga',huerfanos.join(', '));
 

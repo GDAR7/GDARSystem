@@ -100,7 +100,9 @@ es('  y también el proyecto filtrado',/_ccProyecto!=='undefined'\?_ccProyecto:'
 es('  y se descarta al recargar datos',/if\(typeof _ccaCache!=='undefined'\)_ccaCache=null/.test(cc),true);
 
 console.log('\n== Enganche en la página ==');
-es('el script está declarado',/js\/costcontrolAnual\.js\?v=\d+/.test(html),true);
+// El sello ya no es un número que se sube a mano: es el hash del contenido,
+// que pone `npm run sellar`.
+es('el script está declarado',/js\/costcontrolAnual\.js\?v=[A-Za-z0-9]+/.test(html),true);
 es('  después de costcontrol.js',
   html.indexOf('costcontrolAnual.js')>html.indexOf('js/costcontrol.js'),true);
 es('la pestaña aparece en la barra',/_tabBtn\('anual','📅 Anual'\)/.test(cc),true);
