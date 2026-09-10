@@ -763,7 +763,7 @@ function rLinea(tipo){
     if(tbP)tbP.innerHTML=partesF.map(p=>{
       const eq=DB.equipos.find(x=>x.id===p.eqId);
       const _can48=p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
-      return`<tr><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td>
+      return`<tr${colaMarca('partes',p.id)}><td class="mono">${p.fecha}</td><td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td><td>${p.op}</td><td class="mono" style="color:${(+p.ef)<0?'#ef4444':'#f59e0b'};font-weight:600">${parseFloat((+p.ef).toFixed(2))}h</td><td class="mono">${parseFloat((+p.im).toFixed(2))}h</td><td class="mono" style="display:none">${p.comb} gal</td><td>${p.act}</td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-out btn-sm" onclick="editParte(${p.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
         ${_can48?`<button class="btn btn-out btn-sm" onclick="delParte(${p.id})" style="color:#ef4444;border-color:#ef444460" title="Eliminar (disponible 48h)">🗑️</button>`:`<button class="btn btn-out btn-sm" disabled style="color:#3d5070;border-color:#2a3a5a;cursor:not-allowed" title="Eliminación bloqueada (+48h)">🔒</button>`}
@@ -823,7 +823,7 @@ function rLinea(tipo){
       const eq=DB.equipos.find(x=>x.id===p.eqId);
       const vMat=_vMat(p);const m3=vMat*12.5;
       const _can48=p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
-      return`<tr>
+      return`<tr${colaMarca('partes',p.id)}>
         <td class="mono">${p.fecha}</td>
         <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo}`:''}</td>
         <td>${p.op}</td>
@@ -883,7 +883,7 @@ function rLinea(tipo){
           const eq=DB.equipos.find(x=>x.id===p.eqId);
           const kmIni=+p.kmIni||0,kmFin=+p.kmFin||0;
           const kmTot=kmFin>kmIni?kmFin-kmIni:0;
-          return`<tr>
+          return`<tr${colaMarca('partes',p.id)}>
             <td class="mono">${p.fecha}</td>
             <td>${eq?`<span class="badge b-cyan" style="font-size:.62rem;margin-right:.3rem">${eq.placa||eq.codigo}</span>${eq.codigo} ${(eq.nombre||'').split(' ').slice(0,3).join(' ')}`:''}</td>
             <td>${p.op||'—'}</td>
@@ -940,7 +940,7 @@ function rLinea(tipo){
         const _can48=p=>p.createdAt&&((Date.now()-new Date(p.createdAt).getTime())/3600000)<48;
         tbPartesEM.innerHTML=partesEM.map(p=>{
           const eq=DB.equipos.find(x=>x.id===p.eqId);
-          return`<tr>
+          return`<tr${colaMarca('partes',p.id)}>
             <td class="mono">${p.fecha}</td>
             <td>${eq?`<span class="badge b-cyan" style="font-size:.65rem;margin-right:.3rem">${eq.sub||''}</span>${eq.codigo}`:''}</td>
             <td>${p.op||'—'}</td>

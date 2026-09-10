@@ -172,6 +172,19 @@ function colaPendiente(dbKey,id){
   return _colaPendientes.has(dbKey+'|'+id);
 }
 
+// La apariencia, en un solo sitio. Si cada módulo escribiera la suya, en un año
+// habría cinco marcas distintas para lo mismo.
+const COLA_MARCA_CSS='outline:2px dashed #f59e0b;outline-offset:-2px;';
+const COLA_MARCA_TIT='Sin enviar · se guardará solo al volver la red';
+
+// Devuelve los atributos para una fila pendiente, o nada. Se pega dentro del
+// <tr>: `<tr${colaMarca('combustible',r.id)}>`. Solo sirve donde el <tr> no
+// lleve ya su propio style, porque el segundo se ignoraría.
+function colaMarca(dbKey,id){
+  if(typeof colaPendiente!=='function'||!colaPendiente(dbKey,id))return'';
+  return' style="'+COLA_MARCA_CSS+'" title="'+COLA_MARCA_TIT+'"';
+}
+
 async function colaAplicar(){
   if(typeof DB==='undefined')return 0;
   const lista=await colaListar();

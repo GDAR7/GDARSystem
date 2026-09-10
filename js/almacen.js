@@ -697,7 +697,7 @@ function rAlm(){
   }
   document.getElementById('tbAlm').innerHTML=filasMostrar.slice(_almDesde,_almHasta).map(r=>{
     const saldo=saldoMap[r.id];
-    return`<tr><td class="mono">${r.fecha}</td>
+    return`<tr${colaMarca('almacen',r.id)}><td class="mono">${r.fecha}</td>
       <td style="font-size:.78rem;color:var(--muted2)">${r.proyecto||'—'}</td>
       <td class="mono" style="font-size:.78rem;color:${r.tipo==='S'?'#3b82f6':'#d97706'}">${r.tipo==='S'?(r.numVale||'—'):(r.rqRef||'—')}</td>
       <td class="mono">${r.codigo}</td><td><strong>${r.nombre}</strong></td><td>${r.unidad}</td>

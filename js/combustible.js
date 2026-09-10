@@ -139,7 +139,7 @@ function rComb(){
         (r.numAtendido?`<span style="font-size:.68rem;color:#10b981">Atn: ${r.numAtendido}</span>`:'')]
         .filter(Boolean).join('<br>')||`<span style="color:var(--muted)">—</span>`
       :(r.refPedido?`<span style="font-size:.68rem;color:#3b82f6">Ref: ${r.refPedido}</span>`:`<span style="color:var(--muted)">—</span>`);
-    return`<tr data-id="${r.id}">
+    return`<tr data-id="${r.id}"${colaMarca('combustible',r.id)}>
       <td class="mono">${r.fecha}</td>
       <td>${tipoBadge}</td>
       <td style="font-size:.78rem">${referencia}</td>

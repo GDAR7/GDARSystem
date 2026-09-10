@@ -34,7 +34,7 @@
 
 // Lo escribe herramientas/sellar.js con el hash de index.html: cuando cambia
 // el índice, cambia el nombre de la caché y la anterior se borra sola.
-const VERSION = '532602d1';
+const VERSION = '5ebfa350';
 
 const CACHE = 'gdar-' + VERSION;
 const DESACTIVADO = VERSION === 'desactivado';

@@ -75,7 +75,7 @@ function montar(op){
   };
   const api=new Function('indexedDB','supa','DB','SUPA_TABLES','toSnake','toast',
     'document','window','console',
-    SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar,colaAplicar,colaPendiente};')(
+    SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar,colaAplicar,colaPendiente,colaMarca};')(
     ctx.indexedDB,ctx.supa,ctx.DB,ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
     ctx.document,ctx.window,ctx.console);
   return Object.assign(api,{datos,enviados,avisos,DB:ctx.DB});
@@ -283,6 +283,45 @@ console.log('\n== Y se ve cuál es cuál en el tareo ==');
   const tar=fs.readFileSync(R+'js/tareaje.js','utf8');
   es('la celda pendiente se distingue',/colaPendiente\('tareaje'/.test(tar),true);
   es('  y dice por qué',/Sin enviar/.test(tar),true);
+  es('  con la apariencia común, no una copia',/COLA_MARCA_CSS/.test(tar),true);
+}
+
+console.log('\n== La marca es la misma en todos los módulos ==');
+// Si cada módulo escribiera la suya, en un año habría cinco marcas distintas
+// para lo mismo. colaMarca() devuelve los atributos ya armados.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',record:{id:999,tipo:'TN'},cuando:'a'}}});
+  await c.colaAplicar();
+  const m=c.colaMarca('tareaje',999);
+  es('la fila pendiente lleva atributos',/style=/.test(m)&&/title=/.test(m),true);
+  es('  y explica qué pasa',/Sin enviar/.test(m),true);
+  es('la que no está pendiente no lleva nada',c.colaMarca('tareaje',998),'');
+  es('  ni la de otra tabla con el mismo id',c.colaMarca('combustible',999),'');
+}
+
+console.log('\n== Lo capturado en faena se ve pendiente en su módulo ==');
+// La cola ya cubría el GUARDADO de todos estos, porque syncSheet pasa por
+// supaUpsert. Lo que faltaba era que se notara en pantalla.
+for(const[archivo,clave]of[['combustible.js','combustible'],['almacen.js','almacen'],
+                           ['partesDiarios.js','partes']]){
+  const src=fs.readFileSync(R+'js/'+archivo,'utf8');
+  es(archivo+' marca sus filas',src.includes("colaMarca('"+clave+"'"),true);
+}
+// El atributo style de colaMarca se perdería sin avisar si el <tr> ya trae uno.
+{
+  let choques=0;
+  for(const f of fs.readdirSync(R+'js').filter(n=>n.endsWith('.js'))){
+    const src=fs.readFileSync(R+'js/'+f,'utf8');
+    for(const tag of src.match(/<tr[^>]*colaMarca[^>]*>/g)||[])
+      if(/style=/.test(tag))choques++;
+  }
+  es('ningún <tr> marcado trae ya su propio style',choques,0);
+}
+// cola.js es núcleo: colaMarca existe aunque el cliente no contrate el módulo.
+{
+  const arm=fs.readFileSync(R+'herramientas/armar.js','utf8');
+  es('y colaMarca siempre está disponible',/'cola\.js'/.test(arm),true);
 }
 
 console.log('\n== El enganche en supaUpsert ==');
