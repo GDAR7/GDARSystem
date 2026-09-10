@@ -362,6 +362,14 @@ async function loadSheetsData(){
     }
     // Carga inicial almacén: últimos 60 días
     await cargarAlmacen(false);
+    // Lo que quedó sin enviar se vuelve a poner encima de lo que trajo el
+    // servidor: es lo más nuevo que existe. Sin esto, el tareo hecho sin red
+    // desaparecería de la grilla al recargar y alguien lo escribiría otra vez.
+    // Ver js/cola.js.
+    if(typeof colaAplicar==='function'){
+      const n=await colaAplicar();
+      if(n)toast('⏳ '+n+' registro(s) sin enviar, visibles pero aún no guardados');
+    }
     if(loaded){renderPage(AP);recalcularEstadosRQ();toast('✓ Datos cargados');}
   }catch(e){console.warn('Supabase load error:',e);}
 }

@@ -92,6 +92,9 @@ async function colaPendientes(){ return (await colaListar()).length; }
 
 async function _colaQuitar(clave){
   try{ await _colaTx('readwrite',st=>st.delete(clave)); }catch(e){}
+  // Deja de estar pendiente también para la pantalla: si no, seguiría marcado
+  // como sin enviar hasta la próxima recarga.
+  if(typeof _colaPendientes!=='undefined')_colaPendientes.delete(clave);
 }
 
 // ── Reenviar ───────────────────────────────────────────────────────────────
@@ -149,6 +152,41 @@ async function _colaResolverChoque(item){
     if(+data[0].id===+item.record.id)return item.record;
     return Object.assign({},item.record,{id:data[0].id});
   }catch(e){ return item.record; }
+}
+
+// ── Que lo pendiente se siga viendo ────────────────────────────────────────
+// Sin esto la cola guarda el trabajo pero la pantalla lo pierde: al recargar,
+// DB se rellena desde Supabase, que todavía no tiene esos registros, y el
+// tareo hecho sin red desaparece de la grilla. La persona lo volvería a
+// escribir, y ahí sí saldrían dos filas.
+//
+// Se aplica DESPUÉS de cargar los datos, así que lo pendiente pisa lo que haya
+// venido del servidor: es lo más nuevo que existe.
+const _colaPendientes=new Set();
+
+// ¿Este registro está esperando salir? Lo usan los módulos de captura para
+// marcarlo en pantalla. Se pregunta por (tabla, id) en vez de marcar el propio
+// registro: un campo de más viajaría a Supabase en el siguiente upsert y sería
+// una columna que no existe.
+function colaPendiente(dbKey,id){
+  return _colaPendientes.has(dbKey+'|'+id);
+}
+
+async function colaAplicar(){
+  if(typeof DB==='undefined')return 0;
+  const lista=await colaListar();
+  _colaPendientes.clear();
+  let n=0;
+  for(const item of lista){
+    const arr=DB[item.dbKey];
+    if(!Array.isArray(arr))continue;
+    const i=arr.findIndex(r=>+r.id===+item.record.id);
+    if(i>=0)arr[i]=Object.assign({},arr[i],item.record);
+    else arr.push(item.record);
+    _colaPendientes.add(item.clave);
+    n++;
+  }
+  return n;
 }
 
 // ── El aviso en pantalla ───────────────────────────────────────────────────

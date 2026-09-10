@@ -8,6 +8,8 @@
 //     un rechazo solo repetiría el mismo rechazo, para siempre.
 //   · Que reenviar dos veces no cree dos filas.
 //   · Que el reenvío de tareaje no duplique lo que el servidor ya tiene.
+//   · Que al recargar, lo pendiente vuelva a verse en pantalla. Si no, la
+//     persona lo escribiría otra vez y ahí sí saldrían dos filas.
 //
 // IndexedDB no existe en Node, así que se simula. Lo que se prueba es la
 // lógica de la cola, que es donde están las decisiones.
@@ -64,19 +66,19 @@ function montar(op){
     })
   };
   const ctx={
-    indexedDB:idb, supa,
+    indexedDB:idb, supa, DB:op.DB||{},
     SUPA_TABLES:{tareaje:'tareaje',asistencia:'asistencia',combustible:'combustible'},
     toSnake:o=>o,
     toast:m=>avisos.push(String(m)),
     document:undefined, window:undefined,
     console:{warn(){},info(){}}
   };
-  const api=new Function('indexedDB','supa','SUPA_TABLES','toSnake','toast',
+  const api=new Function('indexedDB','supa','DB','SUPA_TABLES','toSnake','toast',
     'document','window','console',
-    SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar};')(
-    ctx.indexedDB,ctx.supa,ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
+    SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar,colaAplicar,colaPendiente};')(
+    ctx.indexedDB,ctx.supa,ctx.DB,ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
     ctx.document,ctx.window,ctx.console);
-  return Object.assign(api,{datos,enviados,avisos});
+  return Object.assign(api,{datos,enviados,avisos,DB:ctx.DB});
 }
 
 (async()=>{
@@ -173,6 +175,115 @@ es('las tablas con identidad propia están declaradas',
 es('  y son las mismas que el índice único de la migración',
    fs.readFileSync(R+'supabase/migrations/20260909235900_unicidad_tareaje_asistencia.sql','utf8')
      .includes('ux_asistencia_persona_fecha'),true);
+
+console.log('\n== Al recargar, lo pendiente sigue en pantalla ==');
+// Este es el agujero que quedaba: la cola guardaba el trabajo, pero al recargar
+// DB se rellena desde Supabase —que todavía no tiene esos registros— y el tareo
+// hecho sin red desaparecía de la grilla. La persona lo escribiría otra vez y
+// ahí sí saldrían dos filas.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',
+      record:{id:999,personalId:7,fecha:'2026-09-10',tipo:'TN'},cuando:'a'}}});
+  const n=await c.colaAplicar();
+  es('vuelve a la copia en memoria',n,1);
+  es('  y se ve en la grilla',c.DB.tareaje.length,1);
+  es('  con lo que se tareó',c.DB.tareaje[0].tipo,'TN');
+  es('  marcado como sin enviar',c.colaPendiente('tareaje',999),true);
+  es('  y solo ese',c.colaPendiente('tareaje',998),false);
+}
+
+console.log('\n== Lo pendiente pisa lo que vino del servidor ==');
+// Si alguien corrigió la celda sin red, lo suyo es más nuevo que la fila que
+// bajó de Supabase. Se aplica DESPUÉS de cargar precisamente por esto.
+{
+  const c=montar({DB:{tareaje:[{id:999,personalId:7,fecha:'2026-09-10',tipo:'TD'}]},
+    inicial:{'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',
+      record:{id:999,personalId:7,fecha:'2026-09-10',tipo:'DL'},cuando:'a'}}});
+  await c.colaAplicar();
+  es('no se agrega una fila más',c.DB.tareaje.length,1);
+  es('  gana lo que no se pudo enviar',c.DB.tareaje[0].tipo,'DL');
+}
+
+console.log('\n== Aplicar dos veces no duplica ==');
+// loadSheetsData corre en cada recarga y también al cambiar de período.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',record:{id:999,tipo:'TN'},cuando:'a'}}});
+  await c.colaAplicar();
+  await c.colaAplicar();
+  es('sigue habiendo una sola fila',c.DB.tareaje.length,1);
+}
+
+console.log('\n== La marca no viaja a Supabase ==');
+// Se pregunta por (tabla, id) en vez de marcar el propio registro: un campo de
+// más sería una columna que no existe, y el upsert entero fallaría.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',
+      record:{id:999,personalId:7,fecha:'2026-09-10',tipo:'TN'},cuando:'a'}}});
+  await c.colaAplicar();
+  es('el registro no gana campos',
+     Object.keys(c.DB.tareaje[0]).sort().join(','),'fecha,id,personalId,tipo');
+  await c.colaVaciar();
+  es('  ni se manda ninguno de más',
+     Object.keys(c.enviados[0].registro).sort().join(','),'fecha,id,personalId,tipo');
+}
+
+console.log('\n== Cuando por fin sale, deja de estar marcado ==');
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',record:{id:999,tipo:'TN'},cuando:'a'}}});
+  await c.colaAplicar();
+  es('antes de enviar está marcado',c.colaPendiente('tareaje',999),true);
+  await c.colaVaciar();
+  es('  después ya no',c.colaPendiente('tareaje',999),false);
+  es('  pero el dato sigue en pantalla',c.DB.tareaje.length,1);
+}
+
+console.log('\n== Y la marca no sobrevive a lo que ya no está en la cola ==');
+// _colaPendientes se rehace en cada pasada. Si no, una celda podría quedar
+// punteada para siempre.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'tareaje|999':{clave:'tareaje|999',dbKey:'tareaje',record:{id:999,tipo:'TN'},cuando:'a'}}});
+  await c.colaAplicar();
+  c.datos.delete('tareaje|999');
+  await c.colaAplicar();
+  es('deja de estar marcado',c.colaPendiente('tareaje',999),false);
+}
+
+console.log('\n== Una tabla que este cliente no tiene no rompe nada ==');
+// Con el plan por módulos, DB solo trae las tablas contratadas. Un pendiente
+// de un módulo que ya no está no debe reventar la carga.
+{
+  const c=montar({DB:{tareaje:[]},inicial:{
+    'combustible|9':{clave:'combustible|9',dbKey:'combustible',record:{id:9},cuando:'a'}}});
+  const n=await c.colaAplicar();
+  es('no se aplica',n,0);
+  es('  y no se marca',c.colaPendiente('combustible',9),false);
+}
+
+console.log('\n== El enganche al cargar los datos ==');
+{
+  const cfgA=fs.readFileSync(R+'js/config.js','utf8');
+  const carga=cfgA.slice(cfgA.indexOf('async function loadSheetsData'));
+  const fin=carga.indexOf('renderPage(AP)');
+  es('se aplica lo pendiente al terminar de cargar',
+     /colaAplicar\(\)/.test(carga.slice(0,fin)),true);
+  es('  después de traer los datos, no antes',
+     carga.indexOf('colaAplicar')>carga.indexOf('await Promise.all'),true);
+  es('  y se avisa cuánto falta enviar',/sin enviar/.test(carga.slice(0,fin)),true);
+  es('  con la cuenta que devuelve la cola',
+     /n=await colaAplicar\(\)[\s\S]{0,160}if\(n\)toast/.test(carga),true);
+}
+
+console.log('\n== Y se ve cuál es cuál en el tareo ==');
+{
+  const tar=fs.readFileSync(R+'js/tareaje.js','utf8');
+  es('la celda pendiente se distingue',/colaPendiente\('tareaje'/.test(tar),true);
+  es('  y dice por qué',/Sin enviar/.test(tar),true);
+}
 
 console.log('\n== El enganche en supaUpsert ==');
 const cfg=fs.readFileSync(R+'js/config.js','utf8');

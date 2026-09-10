@@ -694,7 +694,11 @@ function rTareaje(){
       const tipo=rec?rec.tipo:'';
       const t=tipo?_TARE_T[tipo]:null;
       const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-      return`<td id="tar-${p.id}-${fecha}" ${_tarRO?'':` onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)"`} style="text-align:center;${_tarRO?'':'cursor:pointer;'}height:26px;padding:0;border:1px solid var(--border);${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${t?t.l:fecha}">${tipo}</td>`;
+      // Un tareo que se hizo sin red está en la pantalla pero todavía no en el
+      // servidor. Se marca con un borde punteado para que se note de un
+      // vistazo: si no, nadie distingue lo guardado de lo que está esperando.
+      const pend=rec&&typeof colaPendiente==='function'&&colaPendiente('tareaje',rec.id);
+      return`<td id="tar-${p.id}-${fecha}" ${_tarRO?'':` onclick="_tarCellClick(${p.id},'${fecha}',this)" onmouseover="_tarHoverOver(${p.id},'${fecha}',this)"`} style="text-align:center;${_tarRO?'':'cursor:pointer;'}height:26px;padding:0;border:1px solid var(--border);${pend?'outline:2px dashed #f59e0b;outline-offset:-2px;':''}${t?`background:${t.bg};color:${t.tx};`:''}${isSun&&!tipo?'background:rgba(245,158,11,.06);':''}font-size:.6rem;font-weight:700" title="${pend?'Sin enviar · '+(t?t.l:fecha):(t?t.l:fecha)}">${tipo}</td>`;
     }).join('');
     const totD=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&(r.tipo==='TD'||r.tipo==='A5')&&_matchProy(r)).map(r=>r.fecha)).size;
     const totN=new Set(DB.tareaje.filter(r=>r.personalId===p.id&&_tarEnRango(r.fecha)&&r.tipo==='TN'&&_matchProy(r)).map(r=>r.fecha)).size;
