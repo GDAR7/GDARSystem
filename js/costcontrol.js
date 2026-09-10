@@ -187,6 +187,20 @@ async function cargarTarifasIniciales(){
 
 // ══ COST CONTROL ══
 let _ccOffset=0, _ccTarifaModo='seca', _ccTabActiva='equipos';
+// ── Filtro de proyecto ──────────────────────────────────────────────────────
+// Vive dentro de _ccCalcEq, así que alcanza a todo el módulo a la vez: los KPI
+// de arriba, la tabla de Equipos, el Resumen y la matriz Anual. Antes era una
+// columna de la tabla; se convirtió en selector para liberar ancho.
+let _ccProyecto='';
+function _ccSetProyecto(v){
+  _ccProyecto=v||'';
+  if(typeof _ccaCache!=='undefined')_ccaCache=null;
+  rCostControl();
+}
+// Proyectos que hoy tienen algún equipo asignado en el Máster
+function _ccProyectosDisponibles(){
+  return [...new Set((DB.equipos||[]).map(e=>String(e.proyecto||'')).filter(Boolean))].sort();
+}
 // Precio S/ por galón para valorizar combustible en Cost Control (independiente del costo de almacén)
 let _ccPrecioComb=+(localStorage.getItem('ccPrecioComb')||0)||null;
 // ── Sin IGV — SOLO combustible ──────────────────────────────────────────────
@@ -321,6 +335,19 @@ function _ccMatchHH(cargo){
 function _ccFmt(n){return 'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── Render principal ──
+// ── Personal del período ────────────────────────────────────────────────────
+// Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
+// aquí solo se contaban los días trabajados y salía menos venta que allá.
+// Vive aparte para que el exportador use exactamente estas filas.
+function _ccCalcHH(per){
+  return hhVentaPeriodo(per.desde,per.hasta).filas.map(r=>({
+    persona:r.p,dias:r.trab+r.libre+r.dlt,
+    tarifa:{lab:r.cargo,mes:r.tarifa},
+    costoDia:per.dias>0?r.tarifa/per.dias:0,
+    costo:r.venta
+  }));
+}
+
 // ── Motor de cálculo por período ────────────────────────────────────────────
 // Todo el costo/venta/margen de los equipos de UN período. Se extrajo de
 // rCostControl sin tocar una sola operación para que la matriz anual
@@ -363,6 +390,10 @@ function _ccCalcEq(per,KEY){
   const eqMap={};
   partes.forEach(p=>{
     const eq=DB.equipos.find(e=>e.id===p.eqId);if(!eq)return;
+    // Filtro de proyecto: sale del Máster del equipo, no del parte. Un equipo
+    // que trabajó en dos proyectos el mismo mes queda entero en el que tiene
+    // asignado en su ficha.
+    if(_ccProyecto&&String(eq.proyecto||'')!==_ccProyecto)return;
     if(!eqMap[eq.id])eqMap[eq.id]={eq,horasEf:0,diasPresentes:new Set(),tarifa:_ccMatchEq(eq)};
     eqMap[eq.id].horasEf+=Math.max(0,+p.ef||0);
     eqMap[eq.id].diasPresentes.add(p.fecha);
@@ -407,15 +438,30 @@ function _ccCalcEq(per,KEY){
     // Margen: Full → Venta − (Costo Prov. + Combustible) · Seca → Venta − Costo Prov.
     const margen=venta-costoProveedor-(KEY==='full'?costoComb:0);
 
-    return{...r,costo:venta,costoProveedor,galones,costoComb,margen,tarifaObj:t,un:unVenta,unCosto,edp:_edp||null};
+    // La diferencia entre la tarifa Full y la Seca ES la venta del combustible:
+    // en Seca el cliente pone el petróleo y en Full lo pone el proveedor. Aquí
+    // solo se abre la venta en sus dos partes; el total no cambia, porque
+    // ventaEq se despeja restando (así la suma cuadra exacta, sin arrastres).
+    let ventaComb=0;
+    if(t&&KEY==='full'){
+      const dif=(+t.full||0)-(+t.seca||0);
+      if(unVenta==='HM')       ventaComb=r.horasEf*dif;
+      else if(unVenta==='DIA') ventaComb=dias*dif;
+      else                     ventaComb=factor*dif;
+    }
+    const ventaEq=venta-ventaComb;
+
+    return{...r,costo:venta,ventaEq,ventaComb,costoProveedor,galones,costoComb,margen,tarifaObj:t,un:unVenta,unCosto,edp:_edp||null};
   });
   const totalVentaEq=eqRows.reduce((s,r)=>s+r.costo,0);
   const totalCostoEq=eqRows.reduce((s,r)=>s+r.costoProveedor,0);
   const totalGalEq=eqRows.reduce((s,r)=>s+r.galones,0);
   const totalCombEq=eqRows.reduce((s,r)=>s+r.costoComb,0);
   const totalMargenEq=eqRows.reduce((s,r)=>s+r.margen,0);
+  const totalVentaEqSolo=eqRows.reduce((s,r)=>s+(r.ventaEq||0),0);
+  const totalVentaComb=eqRows.reduce((s,r)=>s+(r.ventaComb||0),0);
   return{eqRows,totalVentaEq,totalCostoEq,totalGalEq,totalCombEq,totalMargenEq,
-         precioAlm,precioComb};
+         totalVentaEqSolo,totalVentaComb,precioAlm,precioComb};
 }
 
 function rCostControl(){
@@ -433,14 +479,7 @@ function rCostControl(){
   const totalGalEq=_C.totalGalEq, totalCombEq=_C.totalCombEq, totalMargenEq=_C.totalMargenEq;
 
   // — Costos de personal —
-  // Misma regla que el módulo HH Venta (TD + TN + A5 + DL + DLT×2.5): antes
-  // aquí solo se contaban los días trabajados y salía menos venta que allá.
-  const hhRows=hhVentaPeriodo(per.desde,per.hasta).filas.map(r=>({
-    persona:r.p,dias:r.trab+r.libre+r.dlt,
-    tarifa:{lab:r.cargo,mes:r.tarifa},
-    costoDia:per.dias>0?r.tarifa/per.dias:0,
-    costo:r.venta
-  }));
+  const hhRows=_ccCalcHH(per);
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
   const totalGen=totalVentaEq+totalHH;
 
@@ -457,7 +496,8 @@ function rCostControl(){
         <h2 style="font-size:1.45rem;font-weight:900;color:var(--text);margin:0;letter-spacing:-.02em">Cost Control</h2>
         <div style="font-size:.76rem;color:var(--muted2);margin-top:.2rem">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días
           ${_ccSinIgv?'<span style="color:#10b981;font-weight:700;margin-left:.4rem">· COMB. SIN IGV</span>':''}
-          ${_ccPrecioManual?'<span style="color:#f97316;font-weight:700;margin-left:.4rem">· PRECIO MANUAL</span>':''}</div>
+          ${_ccPrecioManual?'<span style="color:#f97316;font-weight:700;margin-left:.4rem">· PRECIO MANUAL</span>':''}
+          ${_ccProyecto?`<span style="color:#a78bfa;font-weight:700;margin-left:.4rem">· SOLO ${_ccProyecto}</span>`:''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
         <!-- Navegación de período -->
@@ -502,7 +542,9 @@ function rCostControl(){
     <!-- KPIs -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.65rem;margin-bottom:1.2rem">
       ${[
-        {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`, ico:'🚜'},
+        {l:'Venta Equipos',       v:_ccFmt(totalVentaEq), c:'#06b6d4', s:`${eqRows.length} equipo(s) con partes`
+          +(modo==='full'?` · <span style="color:#06b6d4">eq. ${_ccFmt(_C.totalVentaEqSolo)}</span> + <span style="color:#8b5cf6">comb. ${_ccFmt(_C.totalVentaComb)}</span>`:'')
+          +(_ccProyecto?` · <span style="color:#a78bfa;font-weight:700">solo ${_ccProyecto}</span>`:''), ico:'🚜'},
         {l:'Venta Personal HH',   v:_ccFmt(totalHH),      c:'#8b5cf6', s:`${hhRows.length} persona(s) — ${per.dias}d`, ico:'👷'},
         {l:'Costo Prov. Eq.',     v:_ccFmt(totalCostoEq), c:'#f59e0b', s:(()=>{
           const nE=eqRows.filter(r=>r.edp).length,nS=eqRows.length-nE;
@@ -519,12 +561,24 @@ function rCostControl(){
       </div>`).join('')}
     </div>
 
-    <!-- Tabs -->
-    <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+    <!-- Tabs · a la derecha el selector de proyecto (antes era una columna) -->
+    <div style="display:flex;gap:.2rem;align-items:center;border-bottom:2px solid var(--border);margin-bottom:.9rem">
       ${_tabBtn('equipos','🚜 Equipos')}
       ${_tabBtn('personal','👷 Personal')}
       ${_tabBtn('resumen','📊 Resumen')}
       ${_tabBtn('anual','📅 Anual')}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.4rem;padding-bottom:.3rem">
+        <span style="font-size:.68rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Proyecto</span>
+        <select onchange="_ccSetProyecto(this.value)" title="Filtra todo el módulo: KPI, Equipos, Resumen y Anual. El proyecto sale del Máster de Equipos."
+          style="background:var(--panel2);border:1px solid ${_ccProyecto?'#a78bfa':'var(--border)'};color:${_ccProyecto?'#a78bfa':'var(--text)'};border-radius:7px;padding:.28rem .55rem;font-size:.75rem;font-weight:${_ccProyecto?'700':'400'};max-width:200px">
+          <option value="">— Todos los proyectos —</option>
+          ${_ccProyectosDisponibles().map(p=>`<option value="${p}"${p===_ccProyecto?' selected':''}>${p}</option>`).join('')}
+        </select>
+        ${_ccProyecto?`<button onclick="_ccSetProyecto('')" title="Quitar el filtro" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px;padding:.26rem .5rem;font-size:.72rem;cursor:pointer">✕</button>`:''}
+        <span style="width:1px;height:20px;background:var(--border);margin:0 .2rem"></span>
+        ${_ccTabActiva==='equipos'?`<button class="btn btn-out btn-sm" onclick="ccMenuVista(event)" title="Elegir qué columnas se ven en la tabla de Equipos">👁 Vista ▾</button>`:''}
+        <button class="btn btn-out btn-sm" onclick="ccMenuExportar(event)" title="Descargar en PDF o Excel la pestaña abierta">⬇ Exportar ▾</button>
+      </div>
     </div>
 
     <!-- Paneles -->
@@ -551,6 +605,115 @@ function _ccTab(t){
   });
 }
 
+// ── Columnas de la tabla de Equipos ─────────────────────────────────────────
+// Cada columna sabe pintar su encabezado, su celda, su subtotal y su total. Al
+// estar todo en una lista, ocultar una columna recalcula solo los colspan: no
+// hay ningún número de columnas escrito a mano que se pueda quedar viejo.
+// Código y Equipo no están aquí porque no se pueden ocultar.
+const _CC_COLS_EQ=[
+  {k:'un',l:'Un.',c:'#06b6d4',al:'center',
+   celda:x=>`<td style="${x.TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${x.un}</span></td>`},
+  {k:'inc',l:'Incidencia',c:'#06b6d4',al:'center',
+   celda:x=>`<td style="${x.TD};text-align:center">${x.incCell}</td>`},
+  {k:'tar',l:'Tarifa',c:'#94a3b8',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace">${x.tarifaCell}</td>`},
+  {k:'vta',l:'Venta Equipo',c:'#06b6d4',th:f=>f?'Venta Equipo':'Venta',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace;font-weight:900;color:${x.sinTarifa?'#f59e0b':x.r.ventaEq>0?'#06b6d4':'var(--muted2)'}">${x.sinTarifa?'—':_ccFmt(x.esFull?x.r.ventaEq:x.r.costo)}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">${_ccFmt(s.esFull?s.subVentaEq:s.subVenta)}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#06b6d4">${_ccFmt(t.esFull?t.totVentaEq:t.totVenta)}</td>`},
+  {k:'vcomb',l:'Venta Comb.',c:'#8b5cf6',soloFull:true,thCol:'#8b5cf6',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace;font-weight:800;color:${x.r.ventaComb>0?'#8b5cf6':'var(--muted2)'}"
+     title="${x.sinTarifa?'':'Venta del combustible: la diferencia entre la tarifa Full y la Seca ('+_ccFmt((+x.t.full||0)-(+x.t.seca||0))+' por '+x.unLabel+')'}">${x.sinTarifa?'—':(x.r.ventaComb?_ccFmt(x.r.ventaComb):'<span style="color:var(--muted2)">—</span>')}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#8b5cf6">${_ccFmt(s.subVentaComb)}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#8b5cf6">${_ccFmt(t.totVentaComb)}</td>`},
+  {k:'gal',l:'Combustible',c:'#f97316',
+   celda:x=>`<td style="${x.TD};text-align:right">${x.combCell}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${s.subGal>0?s.subGal.toFixed(1)+' gal':''}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${t.totGal>0?t.totGal.toFixed(1)+' gal':''}</td>`},
+  {k:'ccomb',l:'Costo Comb.',c:'#f97316',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace;font-weight:700;color:#f97316">${x.costoCombCell}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${_ccFmt(s.subComb)}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f97316">${_ccFmt(t.totComb)}</td>`},
+  {k:'cprov',l:'Costo Prov.',c:'#f59e0b',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace;font-weight:700;color:#f59e0b">${x.costoPCell}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b">${_ccFmt(s.subCosto)}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f59e0b">${_ccFmt(t.totCosto)}</td>`},
+  {k:'mar',l:'Margen',c:'#10b981',
+   celda:x=>`<td style="${x.TD};text-align:right;font-family:monospace;font-weight:700;color:${x.margenColor}">${x.margenPct!==null?x.margenPct+'%':'—'}</td>`,
+   sub:s=>`<td style="${s.TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${_ccFmt(s.subMargen)}</td>`,
+   tot:t=>`<td style="${t.TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#10b981">${_ccFmt(t.totMargen)}</td>`}
+];
+
+// Se guardan las OCULTAS, no las visibles: así, si mañana se agrega una columna
+// nueva, aparece encendida para quien ya tenía su configuración guardada.
+let _ccColsOcultas=(()=>{
+  try{return new Set(JSON.parse(localStorage.getItem('ccColsOcultas')||'[]'));}
+  catch(e){return new Set();}
+})();
+function _ccColVis(k){return !_ccColsOcultas.has(k);}
+function _ccColsGuardar(){
+  try{localStorage.setItem('ccColsOcultas',JSON.stringify([..._ccColsOcultas]));}catch(e){}
+}
+function _ccSetCol(k,on){
+  if(on)_ccColsOcultas.delete(k); else _ccColsOcultas.add(k);
+  _ccColsGuardar();rCostControl();
+}
+function _ccColsTodas(on){
+  _ccColsOcultas=on?new Set():new Set(_CC_COLS_EQ.map(c=>c.k));
+  _ccColsGuardar();rCostControl();
+}
+// Las que se pintan hoy: las visibles, y Venta Comb. solo en Tarifa Full
+function _ccColsEq(esFull){
+  return _CC_COLS_EQ.filter(c=>(!c.soloFull||esFull)&&_ccColVis(c.k));
+}
+
+// ── Menús de la barra (mismo patrón que el Tareaje) ─────────────────────────
+// Reusan los ayudantes _tmn* de js/tareajeMenus.js para que los desplegables
+// se vean y se comporten igual en los dos módulos.
+function ccMenuVista(ev){
+  _tmnAbrir(ev,'ccvista',215,div=>{
+    div.appendChild(_tmnTitulo('Columnas de Equipos'));
+    const esFull=_ccTarifaModo==='full';
+    _CC_COLS_EQ.forEach(c=>{
+      const row=_tmnCheck(c.l+(c.soloFull&&!esFull?'  (solo en Full)':''),c.c,
+        ()=>_ccColVis(c.k),on=>_ccSetCol(c.k,on));
+      if(c.soloFull&&!esFull)row.style.opacity='.5';
+      div.appendChild(row);
+    });
+    const pie=document.createElement('div');
+    pie.style.cssText='display:flex;gap:.3rem;padding:.4rem .35rem .1rem;'
+      +'border-top:1px solid var(--border);margin-top:.3rem';
+    const bt=(txt,col,fn)=>{
+      const b=document.createElement('button');
+      b.textContent=txt;
+      b.style.cssText='flex:1;font-size:.68rem;font-weight:700;padding:.25rem 0;border-radius:6px;'
+        +'border:1px solid '+col+'55;background:'+col+'18;color:'+col+';cursor:pointer';
+      b.onclick=()=>{_tmnCerrar();fn();};
+      return b;
+    };
+    pie.appendChild(bt('Todas','#22d3ee',()=>_ccColsTodas(true)));
+    pie.appendChild(bt('Ninguna','#94a3b8',()=>_ccColsTodas(false)));
+    div.appendChild(pie);
+    const nota=document.createElement('div');
+    nota.textContent='Código y Equipo no se ocultan · afecta solo a la pestaña Equipos';
+    nota.style.cssText='font-size:.62rem;color:var(--muted2);padding:.4rem .45rem .1rem;line-height:1.35';
+    div.appendChild(nota);
+  });
+}
+function ccMenuExportar(ev){
+  _tmnAbrir(ev,'ccexportar',180,div=>{
+    const tab={equipos:'Equipos',personal:'Personal',resumen:'Resumen',anual:'Matriz Anual'}[_ccTabActiva]||'';
+    div.appendChild(_tmnTitulo('Exportar '+tab));
+    div.appendChild(_tmnAccion('🖨️  PDF','#ef4444',()=>_ccxPdf()));
+    div.appendChild(_tmnAccion('📥  Excel','#10b981',()=>_ccxExcel()));
+    const nota=document.createElement('div');
+    nota.textContent='Sale la pestaña abierta, con los filtros puestos.'
+      +(_ccTabActiva==='equipos'?' El Excel trae todas las columnas, aunque estén ocultas.':'');
+    nota.style.cssText='font-size:.62rem;color:var(--muted2);padding:.45rem .45rem .1rem;line-height:1.35';
+    div.appendChild(nota);
+  });
+}
+
 // ── Panel Equipos ──
 function _ccPanelEquipos(rows,KEY,diasPeriodo){
   if(!rows.length) return`<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.88rem">Sin partes registrados en este período</div>`;
@@ -558,17 +721,32 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
   const TH=`background:var(--panel2);color:var(--muted2);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.5rem .7rem;white-space:nowrap`;
   const TD=`padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.81rem;vertical-align:middle`;
 
+  // En Tarifa Full la venta se muestra abierta en dos: lo que se cobra por la
+  // máquina (tarifa seca) y lo que se cobra por el combustible (la diferencia
+  // entre Full y Seca). En Máq. Seca no hay venta de combustible, así que esa
+  // columna no aparece y la tabla queda con una menos.
+  const esFull=KEY==='full';
+  // Las columnas visibles salen del menú 👁 Vista. Código y Equipo van siempre:
+  // sin ellas no se sabría de qué fila se está hablando.
+  const COLS=_ccColsEq(esFull);
+  const NC=2+COLS.length;
+  // Cuántas columnas de la izquierda no llevan subtotal (Un., Incidencia,
+  // Tarifa): sobre ellas se estira la etiqueta "Subtotal".
+  let lead=0; for(const c of COLS){ if(c.sub) break; lead++; }
+
   const grupos={};
   rows.forEach(r=>{const k=r.eq.tipo||'Otros';if(!grupos[k])grupos[k]=[];grupos[k].push(r);});
 
   let body='';
   Object.entries(grupos).forEach(([tipo,items])=>{
     const subVenta=items.reduce((s,r)=>s+r.costo,0);
+    const subVentaEq=items.reduce((s,r)=>s+(r.ventaEq||0),0);
+    const subVentaComb=items.reduce((s,r)=>s+(r.ventaComb||0),0);
     const subCosto=items.reduce((s,r)=>s+r.costoProveedor,0);
     const subGal=items.reduce((s,r)=>s+(r.galones||0),0);
     const subComb=items.reduce((s,r)=>s+(r.costoComb||0),0);
     const subMargen=items.reduce((s,r)=>s+(r.margen||0),0);
-    body+=`<tr><td colspan="11" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
+    body+=`<tr><td colspan="${NC}" style="${TH};background:rgba(6,182,212,.07);color:#06b6d4;font-size:.71rem">${tipo} &nbsp;·&nbsp; ${items.length} equipo(s)</td></tr>`;
     items.forEach(r=>{
       const t=r.tarifaObj;
       const sinTarifa=!t;
@@ -622,28 +800,19 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
       const margenPct=r.costo>0?(margen/r.costo*100).toFixed(0):null;
       const margenColor=margen>0?'#10b981':margen<0?'#ef4444':'var(--muted2)';
 
+      // Cada celda se pide a su columna: así, ocultar una no descuadra la fila
+      const x={r,un,unLabel,t,sinTarifa,incCell,tarifaCell,costoPCell,combCell,
+               costoCombCell,margenPct,margenColor,esFull,TD};
       body+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
         <td style="${TD}"><span ondblclick="editEquipo(${r.eq.id})" title="Doble click: editar en Master de Equipos" style="font-family:monospace;font-size:.74rem;font-weight:700;color:#06b6d4;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${r.eq.codigo}</span></td>
         <td style="${TD}"><div style="font-weight:600">${r.eq.marca||''} ${r.eq.modelo||''}</div><div style="font-size:.68rem;color:var(--muted2)">${r.eq.sub||''}</div></td>
-        <td style="${TD};text-align:center"><span style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700">${un}</span></td>
-        <td style="${TD};text-align:center">${incCell}</td>
-        <td style="${TD};text-align:right;font-family:monospace">${tarifaCell}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${sinTarifa?'#f59e0b':r.costo>0?'#06b6d4':'var(--muted2)'}">${sinTarifa?'—':_ccFmt(r.costo)}</td>
-        <td style="${TD};text-align:right">${combCell}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#f97316">${costoCombCell}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:#f59e0b">${costoPCell}</td>
-        <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${margenColor}">${margenPct!==null?margenPct+'%':'—'}</td>
-        <td style="${TD};font-size:.72rem;color:#a78bfa">${r.eq.proyecto||'—'}</td>
+        ${COLS.map(c=>c.celda(x)).join('')}
       </tr>`;
     });
+    const sx={subVenta,subVentaEq,subVentaComb,subGal,subComb,subCosto,subMargen,esFull,TD};
     body+=`<tr style="background:rgba(6,182,212,.04)">
-      <td colspan="5" style="${TD};text-align:right;font-size:.76rem;font-weight:700;color:var(--muted2)">Subtotal ${tipo}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#06b6d4">${_ccFmt(subVenta)}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${subGal>0?subGal.toFixed(1)+' gal':''}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${_ccFmt(subComb)}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f59e0b">${_ccFmt(subCosto)}</td>
-      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#10b981">${_ccFmt(subMargen)}</td>
-      <td style="${TD}"></td>
+      <td colspan="${2+lead}" style="${TD};text-align:right;font-size:.76rem;font-weight:700;color:var(--muted2)">Subtotal ${tipo}</td>
+      ${COLS.slice(lead).map(c=>c.sub?c.sub(sx):`<td style="${TD}"></td>`).join('')}
     </tr>`;
   });
 
@@ -652,31 +821,33 @@ function _ccPanelEquipos(rows,KEY,diasPeriodo){
   const totGal=rows.reduce((s,r)=>s+(r.galones||0),0);
   const totComb=rows.reduce((s,r)=>s+(r.costoComb||0),0);
   const totMargen=rows.reduce((s,r)=>s+(r.margen||0),0);
+  const totVentaEq=rows.reduce((s,r)=>s+(r.ventaEq||0),0);
+  const totVentaComb=rows.reduce((s,r)=>s+(r.ventaComb||0),0);
+  const tx={totVenta,totVentaEq,totVentaComb,totGal,totComb,totCosto,totMargen,esFull,TD};
   body+=`<tr style="background:rgba(6,182,212,.08)">
-    <td colspan="5" style="${TD};font-weight:900;color:var(--text);font-size:.84rem;text-align:right">TOTAL EQUIPOS</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#06b6d4">${_ccFmt(totVenta)}</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#f97316">${totGal>0?totGal.toFixed(1)+' gal':''}</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f97316">${_ccFmt(totComb)}</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#f59e0b">${_ccFmt(totCosto)}</td>
-    <td style="${TD};text-align:right;font-family:monospace;font-weight:900;font-size:.95rem;color:#10b981">${_ccFmt(totMargen)}</td>
-    <td style="${TD}"></td>
+    <td colspan="${2+lead}" style="${TD};font-weight:900;color:var(--text);font-size:.84rem;text-align:right">TOTAL EQUIPOS</td>
+    ${COLS.slice(lead).map(c=>c.tot?c.tot(tx):`<td style="${TD}"></td>`).join('')}
   </tr>`;
+  // En Full la venta abierta debe sumar exactamente la venta total de siempre.
+  // Si la columna de venta de combustible está oculta, la explicación sobra.
+  if(esFull&&_ccColVis('vcomb'))body+=`<tr><td colspan="${NC}" style="padding:.4rem .7rem;font-size:.68rem;color:var(--muted2);border-bottom:none">
+    Venta Equipo ${_ccFmt(totVentaEq)} + Venta Comb. ${_ccFmt(totVentaComb)} = <strong style="color:#06b6d4">${_ccFmt(totVenta)}</strong> de venta total ·
+    la venta de combustible es la diferencia entre la tarifa Full y la Seca</td></tr>`;
 
+  const ocultas=_CC_COLS_EQ.filter(c=>(!c.soloFull||esFull)&&!_ccColVis(c.k));
   return`<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
-    <table style="width:100%;border-collapse:collapse;min-width:1050px">
+    <table style="width:100%;border-collapse:collapse;min-width:${Math.max(520,NC*98)}px">
       <thead><tr>
-        <th style="${TH}">Código</th><th style="${TH}">Equipo</th><th style="${TH};text-align:center">Un.</th>
-        <th style="${TH};text-align:center">Incidencia</th><th style="${TH};text-align:right">Tarifa</th>
-        <th style="${TH};text-align:right">Venta</th>
-        <th style="${TH};text-align:right">Combustible</th>
-        <th style="${TH};text-align:right">Costo Comb.</th>
-        <th style="${TH};text-align:right">Costo Prov.</th>
-        <th style="${TH};text-align:right">Margen</th>
-        <th style="${TH}">Proyecto</th>
+        <th style="${TH}">Código</th><th style="${TH}">Equipo</th>
+        ${COLS.map(c=>`<th style="${TH};text-align:${c.al||'right'}${c.thCol?';color:'+c.thCol:''}">${c.th?c.th(esFull):c.l}</th>`).join('')}
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
-  </div>`;
+  </div>
+  ${ocultas.length?`<div style="padding:.4rem .2rem 0;font-size:.68rem;color:var(--muted2)">
+    ${ocultas.length} columna(s) oculta(s): ${ocultas.map(c=>c.l).join(' · ')}
+    <button onclick="_ccColsTodas(true)" style="margin-left:.4rem;background:transparent;border:1px solid var(--border);color:#22d3ee;border-radius:6px;padding:.1rem .5rem;font-size:.66rem;font-weight:700;cursor:pointer">Mostrar todas</button>
+  </div>`:''}`;
 }
 
 // ── Panel Personal ──
