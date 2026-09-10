@@ -154,25 +154,122 @@ function gdarDibujo(clave){
   return typeof f==='function'?f:null;
 }
 
+// ── QUÉ CONTRATÓ ESTA EMPRESA ──────────────────────────────────────────────
+// El plan vive en js/empresa.js, que se carga antes que este archivo y es lo
+// único que cambia entre un cliente y otro.
+//
+// Esto decide qué se OFRECE, no a qué se puede llegar. Lo que de verdad
+// protege los datos son las políticas RLS y qué tablas existen en la base de
+// cada cliente: el JavaScript viaja al navegador y cualquiera puede leerlo.
+// Apagar un módulo aquí lo saca del menú; no es una cerradura.
+function gdarPlan(){
+  return typeof EMPRESA_PLAN!=='undefined'&&EMPRESA_PLAN?EMPRESA_PLAN:null;
+}
+
+// Las claves contratadas. Un plan sin nada declarado es "todo": es lo que
+// tiene el cliente de siempre, y hace que el archivo de un cliente que ya
+// existía siga funcionando igual sin tocarlo.
+//
+//   areas    todo lo que ofrecen esas áreas.  null = todas.
+//   modulos  módulos sueltos, del área que sean.  null = ninguno aparte.
+//
+// Se suman: `areas:['almacenLogistica'], modulos:['tareaje']` da el almacén
+// completo más el tareaje. Para vender módulos sueltos y ningún área entera,
+// `areas:[]` con la lista en `modulos`.
+function gdarContratados(){
+  const todas=new Set();
+  for(const k of Object.keys(GDAR_MODULOS))
+    if(GDAR_MODULOS[k].sistema)todas.add(k);      // el panel y Mi Seguridad, siempre
+
+  const plan=gdarPlan();
+  const areas=plan&&plan.areas!==undefined&&plan.areas!==null?plan.areas:null;
+  const sueltos=plan&&Array.isArray(plan.modulos)?plan.modulos:[];
+
+  const deArea=clave=>{
+    const a=GDAR_AREAS[clave];
+    if(!a)return;
+    for(const k of a.modulos){
+      todas.add(k);
+      for(const h of (GDAR_MODULOS[k]||{}).grupo||[])todas.add(h);
+    }
+  };
+  if(areas===null)Object.keys(GDAR_AREAS).forEach(deArea);
+  else areas.forEach(deArea);
+
+  for(const k of sueltos){
+    todas.add(k);
+    for(const h of (GDAR_MODULOS[k]||{}).grupo||[])todas.add(h);
+  }
+  return todas;
+}
+
+let _gdarContratados=null;
+function gdarContratado(clave){
+  if(!_gdarContratados)_gdarContratados=gdarContratados();
+  return _gdarContratados.has(clave);
+}
+
+// Qué áreas entran en el menú. NO es "las que tienen algún módulo contratado":
+// insumosAux lo ofrecen Almacén y Mantenimiento, así que comprar Almacén hacía
+// aparecer Mantenimiento entera con un solo item dentro. Un área entra si se
+// contrató, o si contiene alguno de los módulos sueltos que sí se compraron.
+function gdarAreasContratadas(){
+  const plan=gdarPlan();
+  const areas=plan&&plan.areas!==undefined&&plan.areas!==null?plan.areas:null;
+  if(areas===null)return new Set(Object.keys(GDAR_AREAS));
+  const set=new Set(areas.filter(k=>GDAR_AREAS[k]));
+  const sueltos=plan&&Array.isArray(plan.modulos)?plan.modulos:[];
+  for(const [clave,a] of Object.entries(GDAR_AREAS))
+    if(sueltos.some(m=>a.modulos.includes(m)||
+        a.modulos.some(k=>((GDAR_MODULOS[k]||{}).grupo||[]).includes(m))))
+      set.add(clave);
+  return set;
+}
+
 // ── AREAS, con la forma de siempre ─────────────────────────────────────────
 // config.js la usa tal cual, y empresa.js reparte permisos con sus claves, así
-// que la estructura no cambia. Lo que cambia es de dónde sale.
+// que la estructura no cambia. Lo que cambia es de dónde sale — y que un
+// módulo no contratado no llega a aparecer.
 function gdarConstruirAreas(){
   const areas={};
+  const contratadas=gdarAreasContratadas();
   for(const [clave,a] of Object.entries(GDAR_AREAS)){
-    areas[clave]={label:a.label,icon:a.icon,color:a.color,prefix:a.prefix,
-      modules:a.modulos.map(k=>{
-        const m=GDAR_MODULOS[k]||{label:k,icon:'•'};
-        const salida={key:k,label:m.label,icon:m.icon};
-        if(m.grupo){
-          salida.isSubgroup=true;
-          salida.children=m.grupo.map(h=>{
-            const hijo=GDAR_MODULOS[h]||{label:h,icon:'•'};
-            return{key:h,label:hijo.label,icon:hijo.icon};
-          });
-        }
-        return salida;
-      })};
+    if(!contratadas.has(clave))continue;
+    const modules=[];
+    for(const k of a.modulos){
+      const m=GDAR_MODULOS[k]||{label:k,icon:'•'};
+      if(m.grupo){
+        // Una cabecera de grupo sin hijos contratados no pinta nada.
+        const children=m.grupo.filter(gdarContratado).map(h=>{
+          const hijo=GDAR_MODULOS[h]||{label:h,icon:'•'};
+          return{key:h,label:hijo.label,icon:hijo.icon};
+        });
+        if(!children.length)continue;
+        modules.push({key:k,label:m.label,icon:m.icon,isSubgroup:true,children});
+        continue;
+      }
+      if(!gdarContratado(k))continue;
+      modules.push({key:k,label:m.label,icon:m.icon});
+    }
+    // No hace falta descartar las áreas que quedaron sin módulos: contratar un
+    // área contrata todo lo que ofrece, y un módulo suelto siempre arrastra la
+    // suya, así que un área contratada nunca queda vacía. La guarda que había
+    // aquí era inalcanzable — que un área del registro no ofrezca nada lo
+    // comprueba pruebas/tRegistro.js, donde sí se puede detectar.
+    areas[clave]={label:a.label,icon:a.icon,color:a.color,prefix:a.prefix,modules};
   }
   return areas;
+}
+
+// Las áreas de una persona que además existen para esta empresa.
+//
+// Hace falta porque los permisos de cada usuario se escribieron pensando en el
+// catálogo completo: si alguien tiene 'controlProyecto' y la empresa no lo
+// contrató, buildSidebar haría AREAS[ak].modules sobre undefined y launchApp
+// leería a1.label — las dos revientan y la aplicación se queda en blanco.
+function gdarAreasDeUsuario(areas){
+  // Se usa el AREAS ya construido por config.js en vez de rehacerlo por cada
+  // área que se comprueba.
+  const disponibles=typeof AREAS!=='undefined'&&AREAS?AREAS:gdarConstruirAreas();
+  return (areas||[]).filter(k=>!!disponibles[k]);
 }

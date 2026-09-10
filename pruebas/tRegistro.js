@@ -53,6 +53,15 @@ es('el orden del menú se respeta',
    AREAS.administracion.modules.map(m=>m.key).join(','),
    'personal,asistencia,tareaje,resumenTareaje,roster');
 
+console.log('\n== Ningún área se queda sin nada que ofrecer ==');
+// gdarConstruirAreas ya no descarta áreas vacías: con los planes de hoy no
+// pueden darse. La que sí podría quedar vacía es un área del registro que no
+// liste ningún módulo, y eso se detecta aquí.
+const vacias=Object.keys(AREAS_REG).filter(k=>!(AREAS_REG[k].modulos||[]).length);
+es('todas ofrecen al menos un módulo',vacias.join(',')||'—','—');
+es('  y ninguna aparece vacía en el menú',
+   Object.values(AREAS).filter(a=>!a.modules.length).length,0);
+
 console.log('\n== Un módulo es UN objeto, aunque lo ofrezcan dos áreas ==');
 // insumosAux lo ofrecen Almacén y Mantenimiento. Con una sola lista habría que
 // duplicarlo, y volveríamos a tener dos sitios donde cambiar su nombre.

@@ -24,6 +24,32 @@ const EMPRESA={
 const SUPA_URL = 'https://XXXXXXXXXXXX.supabase.co';
 const SUPA_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
 
+// ── Qué contrató esta empresa ─────────────────────────────────────────────
+// Lo que no esté aquí no aparece en el menú de nadie, por más permisos que
+// tenga la persona. Es lo que permite vender el sistema por partes.
+//
+//   areas    todo lo que ofrecen esas áreas.  null = todas.
+//   modulos  módulos sueltos, del área que sean.  null = ninguno aparte.
+//
+// Se suman, así que el ejemplo de abajo da RR.HH., almacén y equipos
+// completos, más el histograma de recursos que vive en General.
+//
+// Las áreas válidas salen de GDAR_AREAS y los módulos de GDAR_MODULOS, los
+// dos en js/registro.js.
+//
+// ⚠ Esto decide qué se OFRECE, no a qué se puede llegar: el JavaScript viaja
+//   al navegador y cualquiera puede leerlo. Lo que protege los datos son las
+//   políticas RLS y qué tablas existen en la base de este cliente. Si de
+//   verdad no debe poder tocar un módulo, sus tablas no van en su base.
+const EMPRESA_PLAN={
+  nombre:'Operación',
+  areas:['administracion','almacenLogistica','controlEquipos','mantenimiento'],
+  modulos:['histograma']
+};
+
+// Para el que contrata todo:
+//   const EMPRESA_PLAN={nombre:'Integral',areas:null,modulos:null};
+
 // ── Quién entra y qué ve ──────────────────────────────────────────────────
 // El código de acceso es lo que la persona escribe en la pantalla de inicio;
 // conviene que sea corto y fácil de dictar. Debe ser único dentro de la lista.

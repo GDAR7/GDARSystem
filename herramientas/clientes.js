@@ -59,7 +59,7 @@ async function listar(){
       :d>7 ?C.a+'respaldo hace '+d+' d'+C.x
       :     C.v+'respaldo hace '+d+' d'+C.x;
     console.log('  '+colorEstado(c.estado)+'●'+C.x+' '+C.n+(c.nombre||'').padEnd(22)+C.x
-      +(c.subdominio||'—').padEnd(26)+resp);
+      +(c.subdominio||'—').padEnd(26)+(c.plan||'—').padEnd(12)+resp);
   });
   const act=cl.filter(c=>c.estado==='activo').length;
   console.log('\n  '+act+' activo(s) de '+cl.length+'\n');
@@ -75,6 +75,9 @@ async function ver(busca){
   f('RUC',c.ruc); f('Subdominio',c.subdominio); f('Repositorio',c.repo);
   f('Base de datos',c.supa_url); f('Proyecto',c.supa_proyecto);
   f('Alta',c.alta); f('Contacto',c.contacto); f('Email',c.email); f('Teléfono',c.telefono);
+  f('Plan',c.plan);
+  f('Alcance',(!c.areas&&!c.modulos)?'todo el sistema':[(c.areas||[]).length+' area(s)',(c.modulos||[]).length+' modulo(s) suelto(s)'].join(' + '));
+  f('Mensualidad',c.mensualidad?((c.moneda||'PEN')+' '+c.mensualidad):null);
   const d=dias(c.ultimo_respaldo);
   f('Último respaldo',c.ultimo_respaldo?c.ultimo_respaldo.slice(0,10)+' ('+d+' días)':'nunca');
   if(c.notas)console.log('\n  '+C.g+'Notas'+C.x+'\n  '+c.notas.split('\n').join('\n  '));
@@ -99,6 +102,22 @@ async function alta(){
   c.supa_url=await preguntar(rl,'URL de su Supabase');
   const m=(c.supa_url||'').match(/https:\/\/([a-z0-9]+)\.supabase\.co/);
   c.supa_proyecto=m?m[1]:'';
+  c.plan=await preguntar(rl,'Plan (Base / Operación / Integral)','Integral');
+  // Lo que se anota aquí es el registro comercial. Lo que la aplicación del
+  // cliente lee de verdad es EMPRESA_PLAN en su js/empresa.js: los dos se
+  // mantienen a mano en sincronía, porque la base de un cliente no alcanza a
+  // la maestra, y esa separación es justamente lo que lo protege.
+  const rec=await preguntar(rl,'¿Contrató todo el sistema? (s/n)','s');
+  if(rec.toLowerCase().startsWith('n')){
+    const a=await preguntar(rl,'Áreas contratadas, separadas por coma');
+    const m=await preguntar(rl,'Módulos sueltos, separados por coma');
+    const lista=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
+    if(a)c.areas=lista(a);
+    if(m)c.modulos=lista(m);
+    console.log('  '+C.a+'Recuerde poner el mismo recorte en EMPRESA_PLAN de su js/empresa.js'+C.x);
+  }
+  const mens=await preguntar(rl,'Mensualidad en soles');
+  if(mens)c.mensualidad=+mens||null;
   c.contacto=await preguntar(rl,'Persona de contacto');
   c.email=await preguntar(rl,'Email');
   c.telefono=await preguntar(rl,'Teléfono');

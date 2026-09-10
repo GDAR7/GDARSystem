@@ -277,6 +277,26 @@ function launchApp(){
   document.getElementById('loginScreen').style.display='none';
   const app=document.getElementById('appShell');
   app.style.display='flex';
+
+  // Los permisos de cada persona se escribieron pensando en el catalogo
+  // completo. Si esta empresa no contrato un area, hay que quitarla de su
+  // lista antes de seguir: buildSidebar haria AREAS[ak].modules sobre
+  // undefined y la aplicacion se quedaria en blanco sin decir por que.
+  CU.areas=gdarAreasDeUsuario(CU.areas);
+  if(!CU.areas.length){
+    document.getElementById('hArea').textContent='SIN ACCESO';
+    document.getElementById('hName').textContent=CU.nombre||'';
+    document.getElementById('hRole').textContent=CU.cargo||'';
+    document.getElementById('sideNav').innerHTML='';
+    document.getElementById('mainContent').innerHTML=
+      '<div class="card" style="margin:2rem;padding:1.5rem">'
+      +'<div style="font-weight:700;margin-bottom:.4rem">No hay nada que mostrarle</div>'
+      +'<div style="color:var(--muted2);font-size:.85rem">Sus permisos apuntan a '
+      +'areas que esta empresa no tiene contratadas. Avise al administrador.</div></div>';
+    startClock();
+    return;
+  }
+
   const a1=AREAS[CU.areas[0]];
   const multi=CU.areas.length>1;
   const lbl=document.getElementById('hArea');
@@ -395,6 +415,10 @@ function renderPage(k){
   // Qué función dibuja cada módulo lo dice js/registro.js. Antes era una
   // tabla escrita aquí, que había que acordarse de ampliar al agregar un
   // módulo — y si se olvidaba, la página quedaba en blanco sin decir nada.
+  // Un modulo no contratado no se dibuja aunque alguien llegue a setPage() por
+  // su cuenta. El menu ya no lo ofrece; esto es el segundo cerrojo del lado
+  // del navegador. El de verdad son las politicas RLS.
+  if(!gdarContratado(k))return;
   const dibujar=gdarDibujo(k);
   if(!dibujar)return;
   // Antes, si una seccion reventaba, quedaba en blanco y no habia forma de

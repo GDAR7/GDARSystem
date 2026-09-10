@@ -47,6 +47,26 @@ const _GDAR_DEV = typeof location !== 'undefined' && (
 const SUPA_URL = _GDAR_DEV ? SUPA_URL_DEV : SUPA_URL_PROD;
 const SUPA_KEY = _GDAR_DEV ? SUPA_KEY_DEV : SUPA_KEY_PROD;
 
+// ── Qué contrató esta empresa ─────────────────────────────────────────────
+// No todas compran lo mismo: una contratista de movimiento de tierras suele
+// querer RR.HH., almacén y equipos, y no el Last Planner sobre el plano del
+// dique. Lo que no está contratado no aparece en el menú de nadie, por más
+// permisos que tenga la persona.
+//
+//   areas    todo lo que ofrecen esas áreas.  null = todas.
+//   modulos  módulos sueltos, del área que sean.  null = ninguno aparte.
+//
+// Se suman. Para vender módulos sueltos sin ningún área entera, deje
+// `areas:[]` y ponga la lista en `modulos`. Los nombres válidos salen de
+// js/registro.js.
+//
+// ⚠ Esto decide qué se OFRECE, no a qué se puede llegar: el JavaScript viaja
+//   al navegador. Lo que protege los datos son las políticas RLS y qué tablas
+//   existen en la base de este cliente.
+//
+// ECOSERMO tiene todo, así que no hay nada que recortar.
+const EMPRESA_PLAN={nombre:'Integral',areas:null,modulos:null};
+
 // ── Cómo se valida quién entra ────────────────────────────────────────────
 // 'local'    → esquema anterior: la credencial se compara contra la lista de
 //              aquí abajo. Solo funciona con las políticas RLS abiertas.

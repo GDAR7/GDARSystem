@@ -75,8 +75,38 @@ adelante.
 cp js/empresa.ejemplo.js js/empresa.js
 ```
 
-Rellene los tres bloques: `EMPRESA` (nombre, RUC, logo), `SUPA_URL`/`SUPA_KEY`
-del paso 1, y `EMPRESA_USERS` con las personas y sus áreas.
+Rellene los cuatro bloques: `EMPRESA` (nombre, RUC, logo), `SUPA_URL`/`SUPA_KEY`
+del paso 1, `EMPRESA_PLAN` con lo que contrató, y `EMPRESA_USERS` con las
+personas y sus áreas.
+
+### Qué contrató
+
+No todas las empresas compran lo mismo. `EMPRESA_PLAN` recorta el sistema a lo
+que se le vendió, y lo que quede fuera no aparece en el menú de nadie por más
+permisos que tenga la persona:
+
+```js
+const EMPRESA_PLAN={
+  nombre:'Operación',
+  areas:['administracion','almacenLogistica','controlEquipos'],
+  modulos:['histograma']          // sueltos, del área que sean
+};
+```
+
+`areas:null` y `modulos:null` significan «todo», que es lo que tiene ECOSERMO.
+Las áreas válidas salen de `GDAR_AREAS` y los módulos de `GDAR_MODULOS`, los
+dos en `js/registro.js`.
+
+Anote el mismo recorte en el registro de clientes, que es donde se factura:
+
+```
+node herramientas/clientes.js alta
+```
+
+> **Esto decide qué se ofrece, no a qué se puede llegar.** El JavaScript viaja
+> al navegador y cualquiera puede leerlo. Si un módulo no debe ser alcanzable
+> de ninguna manera, sus tablas no van en la base de ese cliente — eso sí es
+> una cerradura, y lo controlan las migraciones y las políticas RLS.
 
 Ponga el logo del cliente en `09.-ERP/Imagenes/` y apunte `EMPRESA.logo` a él.
 
