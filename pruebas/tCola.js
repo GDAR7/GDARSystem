@@ -10,6 +10,8 @@
 //   · Que el reenvío de tareaje no duplique lo que el servidor ya tiene.
 //   · Que al recargar, lo pendiente vuelva a verse en pantalla. Si no, la
 //     persona lo escribiría otra vez y ahí sí saldrían dos filas.
+//   · Que borrar sin red también espere, y que un borrado no deje resucitar
+//     lo que todavía no había salido.
 //
 // IndexedDB no existe en Node, así que se simula. Lo que se prueba es la
 // lógica de la cola, que es donde están las decisiones.
@@ -54,6 +56,7 @@ function montar(op){
   op=op||{};
   const{datos,idb}=fakeIDB(op.inicial);
   const enviados=[];
+  const borrados=[];
   const avisos=[];
   const supa={
     from:t=>({
@@ -62,7 +65,12 @@ function montar(op){
         if(op.sinRed)throw new TypeError('Failed to fetch');
         enviados.push({tabla:t,registro:r});
         return{error:op.rechaza?{message:'rechazado'}:null};
-      }
+      },
+      delete:()=>({eq:async(col,v)=>{
+        if(op.sinRed)throw new TypeError('Failed to fetch');
+        borrados.push({tabla:t,[col]:v,id:v});
+        return{error:op.rechaza?{message:'rechazado'}:null};
+      }})
     })
   };
   const ctx={
@@ -78,7 +86,7 @@ function montar(op){
     SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar,colaAplicar,colaPendiente,colaMarca};')(
     ctx.indexedDB,ctx.supa,ctx.DB,ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
     ctx.document,ctx.window,ctx.console);
-  return Object.assign(api,{datos,enviados,avisos,DB:ctx.DB});
+  return Object.assign(api,{datos,enviados,borrados,avisos,DB:ctx.DB});
 }
 
 (async()=>{
@@ -322,6 +330,57 @@ for(const[archivo,clave]of[['combustible.js','combustible'],['almacen.js','almac
 {
   const arm=fs.readFileSync(R+'herramientas/armar.js','utf8');
   es('y colaMarca siempre está disponible',/'cola\.js'/.test(arm),true);
+}
+
+console.log('\n== Borrar sin red también espera ==');
+// del() quita el registro de la pantalla y dice "Eliminado" sin esperar a
+// supaDelete. Sin encolar el borrado, el registro reaparecía al recargar: la
+// persona creía haberlo borrado y no.
+{
+  const c=montar({DB:{combustible:[{id:9,gal:40}]},inicial:{}});
+  await c.colaGuardar('combustible',{id:9},{borrar:true});
+  es('el borrado queda pendiente',await c.colaPendientes(),1);
+  await c.colaAplicar();
+  es('  y no reaparece al recargar',c.DB.combustible.length,0);
+  await c.colaVaciar();
+  es('  y al volver la red se borra de verdad',c.borrados.length,1);
+  es('    ese y no otro',c.borrados[0].id,9);
+  es('  sin haberlo escrito nunca',c.enviados.length,0);
+}
+
+console.log('\n== Borrar algo que aún no había salido no lo resucita ==');
+// Comparten la clave tabla|id a propósito: el borrado reemplaza al pendiente
+// de escritura. Si no, la cola crearía en el servidor un registro que la
+// persona ya borró.
+{
+  const c=montar({DB:{combustible:[]},inicial:{}});
+  await c.colaGuardar('combustible',{id:9,gal:40});
+  await c.colaGuardar('combustible',{id:9},{borrar:true});
+  es('queda un solo pendiente',await c.colaPendientes(),1);
+  await c.colaVaciar();
+  es('  y es el borrado',c.borrados.length,1);
+  es('  nunca se escribe',c.enviados.length,0);
+}
+
+console.log('\n== Un borrado normal sigue siendo un borrado normal ==');
+// Solo lo encolado con {borrar:true} borra. Un pendiente corriente escribe.
+{
+  const c=montar({DB:{combustible:[]},inicial:{
+    'combustible|9':{clave:'combustible|9',dbKey:'combustible',record:{id:9,gal:40},cuando:'a'}}});
+  await c.colaVaciar();
+  es('se escribe',c.enviados.length,1);
+  es('  y no se borra nada',c.borrados.length,0);
+}
+
+console.log('\n== El enganche en supaDelete ==');
+{
+  const cfgB=fs.readFileSync(R+'js/config.js','utf8');
+  const bloqueDel=cfgB.slice(cfgB.indexOf('async function supaDelete'),
+                             cfgB.indexOf('function syncSheet'));
+  es('un fallo de red encola el borrado',/borrar:true/.test(bloqueDel),true);
+  es('  y se dice que se hará después',/se eliminará al volver la red/.test(bloqueDel),true);
+  es('un rechazo del servidor NO se encola',
+     bloqueDel.indexOf('colaGuardar')>bloqueDel.indexOf('Error al eliminar: '),true);
 }
 
 console.log('\n== El enganche en supaUpsert ==');

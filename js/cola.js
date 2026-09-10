@@ -68,11 +68,15 @@ function _colaTx(modo,fn){
 // ── Meter y sacar ──────────────────────────────────────────────────────────
 // La clave es tabla|id: guardar dos veces el mismo registro lo reemplaza, así
 // que la cola nunca crece con correcciones sobre la misma celda.
-async function colaGuardar(dbKey,record){
+// `op.borrar` marca que lo pendiente no es escribir el registro sino
+// eliminarlo. Comparte la clave tabla|id a propósito: si el registro estaba
+// esperando salir, el borrado lo reemplaza y nunca llega a crearse.
+async function colaGuardar(dbKey,record,op){
   try{
     await _colaTx('readwrite',st=>st.put({
       clave:dbKey+'|'+(record&&record.id),
       dbKey,record,
+      borrar:!!(op&&op.borrar),
       cuando:new Date().toISOString()
     }));
     _colaPintar();
@@ -113,8 +117,15 @@ async function colaVaciar(){
       const tabla=SUPA_TABLES[item.dbKey];
       if(!tabla){ await _colaQuitar(item.clave); continue; }   // tabla que ya no existe
       try{
-        const registro=await _colaResolverChoque(item);
-        const{error}=await supa.from(tabla).upsert(toSnake(registro));
+        let error;
+        if(item.borrar){
+          // Si nunca llegó a existir en el servidor, borrar no encuentra nada.
+          // Eso no es un fallo: el resultado buscado —que no esté— ya se dio.
+          ({error}=await supa.from(tabla).delete().eq('id',+item.record.id));
+        }else{
+          const registro=await _colaResolverChoque(item);
+          ({error}=await supa.from(tabla).upsert(toSnake(registro)));
+        }
         if(error){
           console.warn('[cola] el servidor rechazó',tabla,error.message);
           continue;                       // se queda para el próximo intento
@@ -194,7 +205,13 @@ async function colaAplicar(){
     const arr=DB[item.dbKey];
     if(!Array.isArray(arr))continue;
     const i=arr.findIndex(r=>+r.id===+item.record.id);
-    if(i>=0)arr[i]=Object.assign({},arr[i],item.record);
+    if(item.borrar){
+      // Ya se borró de la pantalla cuando la persona lo pidió; el servidor
+      // todavía lo tiene, así que vuelve a bajar en cada carga. Se quita otra
+      // vez, o volvería a aparecer un registro que para ella ya no existe.
+      if(i>=0)arr.splice(i,1);
+    }
+    else if(i>=0)arr[i]=Object.assign({},arr[i],item.record);
     else arr.push(item.record);
     _colaPendientes.add(item.clave);
     n++;

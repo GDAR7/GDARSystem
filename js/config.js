@@ -216,7 +216,21 @@ async function supaDelete(dbKey,id){
     const {data,error}=await supa.from(table).delete().eq('id',+id).select();
     if(error){toast('Error al eliminar: '+error.message,true);return;}
     if(!data||data.length===0){toast('No se encontró en BD (ID:'+id+')',true);}
-  }catch(e){toast('Error al eliminar: '+e.message,true);}
+  }catch(e){
+    // Se cayó la red. del() ya lo quitó de la pantalla y dijo "Eliminado" sin
+    // esperar a esto, así que sin encolar el borrado el registro reaparecería
+    // al recargar: la persona creería haberlo borrado y no. Peor, si estaba
+    // pendiente de enviarse, la cola lo habría resucitado en el servidor.
+    // Guardar el borrado con la misma clave tabla|id reemplaza ese pendiente.
+    console.warn('[Supabase delete]',e);
+    if(typeof colaGuardar==='function'&&id!==undefined){
+      colaGuardar(dbKey,{id:+id},{borrar:true}).then(guardado=>{
+        toast(guardado
+          ? '⏳ Sin conexión: se eliminará al volver la red'
+          : 'Error al eliminar: '+e.message,!guardado);
+      });
+    }else toast('Error al eliminar: '+e.message,true);
+  }
 }
 
 function syncSheet(action,data){
@@ -368,7 +382,7 @@ async function loadSheetsData(){
     // Ver js/cola.js.
     if(typeof colaAplicar==='function'){
       const n=await colaAplicar();
-      if(n)toast('⏳ '+n+' registro(s) sin enviar, visibles pero aún no guardados');
+      if(n)toast('⏳ '+n+' cambio(s) sin enviar, se guardarán al volver la red');
     }
     if(loaded){renderPage(AP);recalcularEstadosRQ();toast('✓ Datos cargados');}
   }catch(e){console.warn('Supabase load error:',e);}
