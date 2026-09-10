@@ -1,8 +1,9 @@
 # Montar GDAR para una empresa nueva
 
 El sistema es el mismo para todos los clientes. Lo único que cambia es
-`js/empresa.js`: identidad, base de datos y usuarios. Todo lo demás —los 52
-scripts, el HTML, los estilos— se sincroniza desde este repositorio.
+`js/empresa.js`: identidad, base de datos, convenciones del contrato, qué
+módulos contrató y quiénes entran. Todo lo demás —los 59 scripts, el HTML, los
+estilos— se sincroniza desde este repositorio.
 
 Cada cliente tiene **su propio proyecto de Supabase y su propio repositorio**.
 No comparten base de datos, y esa es justamente la garantía de que los datos de
@@ -75,9 +76,42 @@ adelante.
 cp js/empresa.ejemplo.js js/empresa.js
 ```
 
-Rellene los cuatro bloques: `EMPRESA` (nombre, RUC, logo), `SUPA_URL`/`SUPA_KEY`
-del paso 1, `EMPRESA_PLAN` con lo que contrató, y `EMPRESA_USERS` con las
-personas y sus áreas.
+Rellene los bloques que trae, todos comentados en el propio archivo:
+
+| bloque | qué es |
+|---|---|
+| `EMPRESA` | nombre corto, RUC, razón social, sede y logo |
+| `SUPA_URL_PROD` / `SUPA_KEY_PROD` | la base del paso 1 |
+| `SUPA_URL_DEV` / `SUPA_KEY_DEV` | la base de pruebas; si no tiene, repita la de producción |
+| `EMPRESA_CORTE` / `EMPRESA_DIAS_MES` | las convenciones del contrato, abajo |
+| `EMPRESA_VAL_RESPALDO` | déjelo en `false`, ver §3.2 |
+| `EMPRESA_PLAN` | qué contrató |
+| `EMPRESA_USERS` | las personas y sus áreas |
+
+Copie **tal cual** el bloque final, el que repinta la pantalla: `index.html`
+trae los textos del primer cliente como valor por defecto, y sin ese bloque el
+cliente nuevo mostraría el nombre de otra empresa en su pantalla de acceso, en
+el título de la pestaña y en las firmas del reporte diario.
+
+### 3.1 · Las convenciones del contrato
+
+`EMPRESA_CORTE` es el día en que abre el período con el que se valoriza: 21
+significa «del 21 de un mes al 20 del siguiente», y 1 el mes calendario.
+`EMPRESA_DIAS_MES` es el divisor que pasa días-hombre a mes-hombre.
+
+Los dos cambian **lo que se le factura al cliente**. Confírmelos contra el
+contrato antes de la primera valorización, no después.
+
+### 3.2 · Las partidas de la valorización
+
+`js/valPresupuesto.js` lleva dentro, como respaldo, el presupuesto contractual
+del PRIMER cliente. `EMPRESA_VAL_RESPALDO=false` lo desactiva, y así debe
+quedarse: en `true`, este cliente valorizaría con los precios de otra empresa y
+el error saldría en un documento firmado.
+
+Las partidas propias van a la tabla `val_presupuesto`, que la migración crea
+vacía. Tome `sql/val_presupuesto_ecosermo.sql` como molde —es de ECOSERMO, no
+lo ejecute— y escriba el del cliente con sus propios precios.
 
 ### Qué contrató
 
@@ -109,6 +143,25 @@ node herramientas/clientes.js alta
 > una cerradura, y lo controlan las migraciones y las políticas RLS.
 
 Ponga el logo del cliente en `09.-ERP/Imagenes/` y apunte `EMPRESA.logo` a él.
+
+### 3.3 · Sellar antes de subir
+
+Cada vez que cambie un archivo de `js/`, de `css/` o el logo:
+
+```
+npm run sellar
+```
+
+Reescribe `index.html` marcando qué scripts pertenecen a módulos contratados
+—los del plan se descargan, el resto no— y le pone a cada archivo un sello con
+su contenido (`?v=a1b2c3d4`). Ese sello es lo que hace que el navegador se
+entere de que hay una versión nueva.
+
+Importa porque el sistema instala un *service worker* (`sw.js`) que guarda los
+archivos en el equipo para que funcione sin señal. Sin sellar, ese service
+worker seguiría sirviendo la versión anterior, y quien ya hubiera entrado una
+vez no vería el cambio nunca. `npm test` se niega a pasar si algún sello está
+viejo, así que no depende de que alguien se acuerde.
 
 ## 4 · Dominio
 
@@ -190,10 +243,11 @@ git merge base/main
 que no genera conflicto. Si alguna vez se toca en los dos lados, conserve
 siempre la versión del cliente.
 
-Después del merge, verifique antes de subir:
+Después del merge, selle y verifique antes de subir:
 
 ```
-npm test                    # sintaxis, choques de nombres, botones muertos y las 43 suites
+npm run sellar              # sellos y qué scripts se descargan, según el plan
+npm test                    # sintaxis, choques de nombres, botones muertos y las 55 suites
 ```
 
 Si el merge trajo migraciones nuevas, aplíquelas también a la base del cliente:

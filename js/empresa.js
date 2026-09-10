@@ -174,7 +174,7 @@ const EMPRESA_USERS=A=>[
     // cada esquina. Estaba escrito como 'ECO' y 'SERMO', que es por lo que
     // buscar el nombre completo en los archivos no lo encontraba: se ve
     // mirando la pantalla, no leyendo el codigo.
-    const n=(EMPRESA.nombre||'').replace(/s+/g,'');
+    const n=(EMPRESA.nombre||'').replace(/\s+/g,'');
     const mitad=Math.ceil(n.length/2);
     poner('.login-float.lf1',n.slice(0,mitad));
     poner('.login-float.lf2',n.slice(mitad));
