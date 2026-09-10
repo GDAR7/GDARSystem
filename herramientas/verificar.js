@@ -40,7 +40,13 @@ const nota=(t,d)=>{avisos++;console.log('  '+C.ambar+'··'+C.fin+'   '+t+(d?C.g
 
 const html=fs.readFileSync(path.join(RAIZ,'index.html'),'utf8');
 // El sello ya no es un número que se sube a mano: es el hash del contenido.
-const scripts=[...html.matchAll(/<script src="js\/([^"?]+)(\?v=([A-Za-z0-9]+))?/g)]
+//
+// Se cuentan también los módulos diferidos, que llevan `data-src` para que el
+// navegador no los descargue hasta que el cargador decida. Si esta expresión
+// solo mirara `src`, la comprobación de choques de nombres —la que protege el
+// ámbito global compartido— pasaría a revisar 22 archivos de 58 y no diría
+// nada. Que un archivo se cargue al final no lo saca del mismo ámbito.
+const scripts=[...html.matchAll(/<script (?:src|type="text\/gdar" data-src)="js\/([^"?]+)(\?v=([A-Za-z0-9]+))?/g)]
   .map(m=>({archivo:m[1],version:m[3]}));
 const jsDir=path.join(RAIZ,'js');
 const todosJs=fs.readdirSync(jsDir).filter(f=>f.endsWith('.js'));

@@ -136,6 +136,13 @@ async function doLogin(){
   const btn=document.querySelector('#loginScreen .login-btn');
   err.style.display='none';
   if(!cod)return;
+
+  // Los módulos que esta empresa contrató se inyectan al arrancar (ver
+  // js/cargador.js). Si alguien escribe su clave muy rápido, hay que esperar a
+  // que estén: entrar a medio cargar dejaría pantallas en blanco sin decir por
+  // qué. En la práctica ya llegaron, pero con la red de faena no se asume.
+  if(typeof gdarCargaListo==='function')await gdarCargaListo();
+
   const modo=_authModo();
 
   if(modo==='supabase'||modo==='mixto'){

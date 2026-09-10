@@ -18,8 +18,10 @@
     "types:gen": "supabase gen types typescript --linked > src/types/database.ts",
     "cliente:verificar": "node herramientas/verificar.js && node herramientas/verificarDominio.js",
     "respaldo": "node herramientas/backupSupabase.js",
-    "sellar": "node herramientas/sellar.js",
-    "sellar:verificar": "node herramientas/sellar.js --verificar"
+    "sellar": "node herramientas/armar.js && node herramientas/sellar.js",
+    "sellar:verificar": "node herramientas/sellar.js --verificar",
+    "armar": "node herramientas/armar.js",
+    "armar:verificar": "node herramientas/armar.js --verificar"
   },
   "devDependencies": {
     "supabase": "2.117.0"

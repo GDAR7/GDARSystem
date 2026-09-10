@@ -40,8 +40,10 @@ const C={verde:_E+'[32m',rojo:_E+'[31m',ambar:_E+'[33m',gris:_E+'[90m',neg:_E+'[
 const sello=ruta=>crypto.createHash('sha1')
   .update(fs.readFileSync(ruta)).digest('hex').slice(0,8);
 
-// Los dos sitios donde aparece: los <script src="js/…"> y la hoja de estilos.
-const PATRON=/(src|href)="((?:js|css)\/[^"?]+)(?:\?v=([A-Za-z0-9]+))?"/g;
+// Los tres sitios donde aparece: los <script src="js/…">, la hoja de estilos,
+// y los módulos diferidos, que llevan data-src en vez de src para que el
+// navegador no los descargue hasta que el cargador decida (ver armar.js).
+const PATRON=/(src|href|data-src)="((?:js|css)\/[^"?]+)(?:\?v=([A-Za-z0-9]+))?"/g;
 
 // ── El service worker ──────────────────────────────────────────────────────
 // Su VERSION nombra la caché. Se le pone el hash del index.html ya sellado:
