@@ -68,77 +68,104 @@ const GDAR_AREAS={
 };
 
 const GDAR_MODULOS={
-  personal:{label:'Personal / RR.HH.',icon:'👷',dibuja:'rPersonal'},
-  asistencia:{label:'Asistencia del día',icon:'✅',dibuja:'rAsistencia'},
-  tareaje:{label:'Tareaje Mensual',icon:'📋',dibuja:'rTareaje'},
-  resumenTareaje:{label:'Resumen Diario Tareaje',icon:'📊',dibuja:'rTareResumenPg'},
-  roster:{label:'Roster de Guardias',icon:'🗓️',dibuja:()=>_rosterTab(_rosterTabAct)},
-  planilla:{label:'Planilla de Sueldos',icon:'💵',dibuja:'_plRenderTabs'},
-  renta5ta:{label:'Renta 5ta Categoría',icon:'📑',dibuja:'rRenta5ta'},
-  afpTasas:{label:'Tasas de Pensiones',icon:'🏦',dibuja:'rAfpTasas'},
-  asistentaSocial:{label:'Asistenta Social',icon:'💼',dibuja:'rSocial'},
-  residencia:{label:'Residencia',icon:'🏠',dibuja:'rResidencia'},
-  alimentacion:{label:'Alimentación',icon:'🍽️',dibuja:'rAli'},
-  hospedaje:{label:'Hospedaje',icon:'🛏️',dibuja:'rHosp'},
-  lavanderia:{label:'Lavandería',icon:'👕',dibuja:'rLav'},
-  viaticos:{label:'Reembolsables B.S.',icon:'🧾',dibuja:'rViaticos'},
-  proyectos:{label:'Proyectos',icon:'🏗️',dibuja:'rProyectos'},
-  almacen:{label:'Kardex / Almacén',icon:'📋',dibuja:'rAlm'},
-  combustible:{label:'Combustible',icon:'⛽',dibuja:'rComb'},
-  requerimientos:{label:'Requerimientos',icon:'📝',dibuja:'rReq'},
-  materiales:{label:'Materiales',icon:'🏗️',dibuja:'rMateriales'},
-  facturasPago:{label:'Facturas / Boletas',icon:'🧾',dibuja:'rFPago'},
-  kardexEpp:{label:'Cardex EPP',icon:'🦺',dibuja:'rKardexEpp'},
-  insumosAux:{label:'Insumos Aux. Mecánicos',icon:'🛠️',dibuja:'rInsumosAux'},
-  analisisAbc:{label:'Análisis de Consumo',icon:'📈',dibuja:'rAnalisisAbc'},
-  supervision:{label:'Supervisión',icon:'🔍',dibuja:'rSuper'},
-  liberacion:{label:'Liberación de Restricciones',icon:'🚦',dibuja:'rLiberacion'},
-  seguridad:{label:'Seguridad',icon:'⛑️',dibuja:'rSeg'},
-  cursosSeguridad:{label:'Cursos / Capacitaciones',icon:'🎓',dibuja:'rCursosSeguridad'},
-  medioAmbiente:{label:'Medio Ambiente',icon:'🌿',dibuja:'rAmb'},
-  masterEquipos:{label:'Máster de Equipos',icon:'🗂️',dibuja:'rMaster'},
-  programacionEquipos:{label:'Programación',icon:'📅',dibuja:'rProg'},
-  auxiliosMecanicos:{label:'Auxilios Mecánicos',icon:'🚨',dibuja:'rAuxMec'},
-  engraseEquipos:{label:'Engrase Mensual',icon:'🛢️',dibuja:'rEngrase'},
-  salidaEquipos:{label:'Control de Salida EQ',icon:'🚚',dibuja:'rSalidaEquipos'},
-  planner:{label:'Planner',icon:'📈',dibuja:'rPlanner'},
-  lps:{label:'Planning & Monitoring',icon:'🗂️',dibuja:'rLps'},
-  pizarra:{label:'Mapa de Proyecto - R3',icon:'🗺️',dibuja:'rPizarra'},
-  avanceMT:{label:'Avance MT',icon:'📦',dibuja:'rAvanceMT'},
-  dailyReport:{label:'Daily Report',icon:'📋',dibuja:'rDailyReport'},
-  recrecimiento:{label:'Recrecimiento R3',icon:'🏔️',dibuja:'rRecrecimiento'},
-  informePeriodo:{label:'Informe de Período',icon:'📑',dibuja:'rInformePeriodo'},
-  seguimiento:{label:'Seguimiento General',icon:'📌',dibuja:'rSeguimiento'},
-  histograma:{label:'Histograma Recursos',icon:'📊',dibuja:'rHistograma'},
-  dashEquipos:{label:'Dashboard',icon:'📊',dibuja:'rDashEquipos'},
-  flotaEquipos:{label:'Flota de Equipos',icon:'🗂️',dibuja:'rFlotaEquipos'},
-  lineaAmarilla:{label:'Línea Amarilla',icon:'🟡',dibuja:()=>rLinea('Línea Amarilla')},
-  lineaBlanca:{label:'Línea Blanca',icon:'⚪',dibuja:()=>rLinea('Línea Blanca')},
-  vehiculosMenores:{label:'Vehículos Menores',icon:'🚗',dibuja:()=>rLinea('Vehículo Menor')},
-  equiposMenores:{label:'Menores',icon:'🔩',dibuja:()=>rLinea('Equipos Menores')},
-  panelHoras:{label:'Panel Horas Máq.',icon:'⏱️',dibuja:'rPanelHoras'},
-  reporteMensual:{label:'Mensual al Corte',icon:'📈',dibuja:'rReporteMensual'},
-  reporteEquipos:{label:'Reporte de Equipos',icon:'📄',dibuja:'rReporteEquipos'},
+  personal:{label:'Personal / RR.HH.',icon:'👷',dibuja:'rPersonal',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  asistencia:{label:'Asistencia del día',icon:'✅',dibuja:'rAsistencia',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  tareaje:{label:'Tareaje Mensual',icon:'📋',dibuja:'rTareaje',tablas:['personal','planillaCerrada','planillaCierre','planillaMes','proyectos','rosterOvr','tareaje']},
+  resumenTareaje:{label:'Resumen Diario Tareaje',icon:'📊',dibuja:'rTareResumenPg',tablas:['personal','planillaCerrada','planillaCierre','planillaMes','proyectos','rosterOvr','tareaje']},
+  roster:{label:'Roster de Guardias',icon:'🗓️',dibuja:()=>_rosterTab(_rosterTabAct),tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  planilla:{label:'Planilla de Sueldos',icon:'💵',dibuja:'_plRenderTabs',tablas:['personal','planillaCerrada','planillaCierre','planillaMes','proyectos','tareaje']},
+  renta5ta:{label:'Renta 5ta Categoría',icon:'📑',dibuja:'rRenta5ta',tablas:['personal','planillaMes','renta5ta','renta5taCfg']},
+  afpTasas:{label:'Tasas de Pensiones',icon:'🏦',dibuja:'rAfpTasas',tablas:['afpTasas','personal']},
+  asistentaSocial:{label:'Asistenta Social',icon:'💼',dibuja:'rSocial',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  residencia:{label:'Residencia',icon:'🏠',dibuja:'rResidencia',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  alimentacion:{label:'Alimentación',icon:'🍽️',dibuja:'rAli',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  hospedaje:{label:'Hospedaje',icon:'🛏️',dibuja:'rHosp',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  lavanderia:{label:'Lavandería',icon:'👕',dibuja:'rLav',tablas:['alimentacion','asistencia','combustible','costos','equipos','facturas','hospedaje','incidentes','lavanderia','mantenimientos','personal','personalRosterCfg','planner','proyectos','residencia','rosterConfig','rosterOvr','social','tareaje']},
+  viaticos:{label:'Reembolsables B.S.',icon:'🧾',dibuja:'rViaticos',tablas:['proyectos','viaticos']},
+  proyectos:{label:'Proyectos',icon:'🏗️',dibuja:'rProyectos',tablas:['almacen','catalogoItems','codigoReemb','facturasPago','personal','proyectos','reembolsables','requerimientos','unidades']},
+  almacen:{label:'Kardex / Almacén',icon:'📋',dibuja:'rAlm',tablas:['almacen','catalogoItems','equipos','personal','proyectos','requerimientos','tipoMaterial']},
+  combustible:{label:'Combustible',icon:'⛽',dibuja:'rComb',tablas:['combustible','equipos','partes','personal']},
+  requerimientos:{label:'Requerimientos',icon:'📝',dibuja:'rReq',tablas:['almacen','catalogoItems','codigoReemb','facturasPago','personal','proyectos','reembolsables','requerimientos','unidades']},
+  materiales:{label:'Materiales',icon:'🏗️',dibuja:'rMateriales',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  facturasPago:{label:'Facturas / Boletas',icon:'🧾',dibuja:'rFPago',tablas:['almacen','catalogoItems','codigoReemb','facturasPago','personal','proyectos','reembolsables','requerimientos','unidades']},
+  kardexEpp:{label:'Cardex EPP',icon:'🦺',dibuja:'rKardexEpp',tablas:['almacen','catalogoItems','personal','proyectos']},
+  insumosAux:{label:'Insumos Aux. Mecánicos',icon:'🛠️',dibuja:'rInsumosAux',tablas:['auxMecInsumos','auxiliosMecanicos','catalogoItems','equipos']},
+  analisisAbc:{label:'Análisis de Consumo',icon:'📈',dibuja:'rAnalisisAbc',tablas:['almacen','catalogoItems','proyectos']},
+  supervision:{label:'Supervisión',icon:'🔍',dibuja:'rSuper',tablas:['ambiental','equipos','incidentes','mantenimientos','petar','proyectos','subtiposEquipo','supervision']},
+  liberacion:{label:'Liberación de Restricciones',icon:'🚦',dibuja:'rLiberacion',tablas:['libActividades','libBitacora','libRequisitos','proyectos']},
+  seguridad:{label:'Seguridad',icon:'⛑️',dibuja:'rSeg',tablas:['ambiental','equipos','incidentes','mantenimientos','petar','proyectos','subtiposEquipo','supervision']},
+  cursosSeguridad:{label:'Cursos / Capacitaciones',icon:'🎓',dibuja:'rCursosSeguridad',tablas:['cursos','cursosPersonal','personal']},
+  medioAmbiente:{label:'Medio Ambiente',icon:'🌿',dibuja:'rAmb',tablas:['ambiental','equipos','incidentes','mantenimientos','petar','proyectos','subtiposEquipo','supervision']},
+  masterEquipos:{label:'Máster de Equipos',icon:'🗂️',dibuja:'rMaster',tablas:['ambiental','equipos','incidentes','mantenimientos','petar','proyectos','subtiposEquipo','supervision']},
+  programacionEquipos:{label:'Programación',icon:'📅',dibuja:'rProg',tablas:['ambiental','equipos','incidentes','mantenimientos','petar','proyectos','subtiposEquipo','supervision']},
+  auxiliosMecanicos:{label:'Auxilios Mecánicos',icon:'🚨',dibuja:'rAuxMec',tablas:['auxMecInsumos','auxiliosMecanicos','catalogoItems','equipos','frentesTrabajo']},
+  engraseEquipos:{label:'Engrase Mensual',icon:'🛢️',dibuja:'rEngrase',tablas:['engrase','equipos','proyectos']},
+  salidaEquipos:{label:'Control de Salida EQ',icon:'🚚',dibuja:'rSalidaEquipos',tablas:['equipos','salidaEquipos']},
+  planner:{label:'Planner',icon:'📈',dibuja:'rPlanner',tablas:['catalogoItems','equipos','lpsConfig','lpsPlanSemanal','lpsRestricciones','lpsSectores','lpsWbs','lpsWbsDeps','lpsWbsRecursos','personal','planner']},
+  lps:{label:'Planning & Monitoring',icon:'🗂️',dibuja:'rLps',tablas:['catalogoItems','equipos','lpsConfig','lpsLookahead','lpsPlanSemanal','lpsRestricciones','lpsSectores','lpsWbs','lpsWbsDeps','lpsWbsRecursos','personal','planner']},
+  pizarra:{label:'Mapa de Proyecto - R3',icon:'🗺️',dibuja:'rPizarra',tablas:['equipos','frentesTrabajo','lpsPlanSemanal','lpsWbs','lpsWbsRecursos','partes','personal','pizarraItems','planDibujos','tramos']},
+  avanceMT:{label:'Avance MT',icon:'📦',dibuja:'rAvanceMT',tablas:['equipos','partes','tramos']},
+  dailyReport:{label:'Daily Report',icon:'📋',dibuja:'rDailyReport',tablas:['equipos','partes','personal','proyectos','tareaje']},
+  recrecimiento:{label:'Recrecimiento R3',icon:'🏔️',dibuja:'rRecrecimiento',tablas:['capas','capasAvance','lpsWbs','recElemCapas','recElementos','recPlanos','wbsAvance','wbsMapa']},
+  informePeriodo:{label:'Informe de Período',icon:'📑',dibuja:'rInformePeriodo',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','combustible','equipos','partes','personal','tareaje']},
+  seguimiento:{label:'Seguimiento General',icon:'📌',dibuja:'rSeguimiento',tablas:['personal','seguimiento']},
+  histograma:{label:'Histograma Recursos',icon:'📊',dibuja:'rHistograma',tablas:['equipos','histogramaPlan','partes','personal','tareaje']},
+  dashEquipos:{label:'Dashboard',icon:'📊',dibuja:'rDashEquipos',tablas:['equipos','partes']},
+  flotaEquipos:{label:'Flota de Equipos',icon:'🗂️',dibuja:'rFlotaEquipos',tablas:['equipos','partes']},
+  lineaAmarilla:{label:'Línea Amarilla',icon:'🟡',dibuja:()=>rLinea('Línea Amarilla'),tablas:['equipos','frentesTrabajo','partes','personal','tipoMaterial','tramos']},
+  lineaBlanca:{label:'Línea Blanca',icon:'⚪',dibuja:()=>rLinea('Línea Blanca'),tablas:['equipos','frentesTrabajo','partes','personal','tipoMaterial','tramos']},
+  vehiculosMenores:{label:'Vehículos Menores',icon:'🚗',dibuja:()=>rLinea('Vehículo Menor'),tablas:['equipos','frentesTrabajo','partes','personal','tipoMaterial','tramos']},
+  equiposMenores:{label:'Menores',icon:'🔩',dibuja:()=>rLinea('Equipos Menores'),tablas:['equipos','frentesTrabajo','partes','personal','tipoMaterial','tramos']},
+  panelHoras:{label:'Panel Horas Máq.',icon:'⏱️',dibuja:'rPanelHoras',tablas:['equipos','partes','personal','tareaje','tramos']},
+  reporteMensual:{label:'Mensual al Corte',icon:'📈',dibuja:'rReporteMensual',tablas:['equipos','partes','personal','tareaje','tramos']},
+  reporteEquipos:{label:'Reporte de Equipos',icon:'📄',dibuja:'rReporteEquipos',tablas:['equipos','partes']},
   dataIngresos:{label:'Data de Ingresos',icon:'🗄️',grupo:['frentesTrabajo','tipoMaterial','tramos']},
-  frentesTrabajo:{label:'Frentes de Trabajo',icon:'📍',dibuja:'rFrentes'},
-  tipoMaterial:{label:'Tipo de Material',icon:'🪨',dibuja:'rTipoMaterial'},
-  tramos:{label:'Tramos',icon:'🗺️',dibuja:'rTramos'},
-  valorizaciones:{label:'Valorizaciones / EDP',icon:'📋',dibuja:'rValorizaciones'},
-  hes:{label:'HES',icon:'📑',dibuja:'rHes'},
-  facturacion:{label:'Facturación',icon:'🧾',dibuja:'rFact'},
-  costControl:{label:'Cost Control',icon:'📊',dibuja:'rCostControl'},
-  tarifas:{label:'Tarifas',icon:'🏷️',dibuja:'rTarifas'},
-  venta:{label:'Venta',icon:'💼',dibuja:'rVenta'},
-  costos:{label:'Costos',icon:'💰',dibuja:'rCostos'},
-  proveedores:{label:'Proveedores',icon:'🧾',dibuja:()=>_edpTab(_edpTabAct)},
-  resultadoOperativo:{label:'Resultado Operativo',icon:'⚖️',dibuja:'rResultadoOperativo'},
-  hhVenta:{label:'HH Venta',icon:'👷',dibuja:'rHhVenta'},
-  corteEquipos:{label:'Corte Equipos',icon:'✂️',dibuja:'rCorteEquipos'},
-  costoM3:{label:'Costo por m³',icon:'🧱',dibuja:'rCostoM3'},
-  notificaciones:{label:'Notificaciones',icon:'🔔',dibuja:'rNotificaciones'},
+  frentesTrabajo:{label:'Frentes de Trabajo',icon:'📍',dibuja:'rFrentes',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  tipoMaterial:{label:'Tipo de Material',icon:'🪨',dibuja:'rTipoMaterial',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  tramos:{label:'Tramos',icon:'🗺️',dibuja:'rTramos',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  valorizaciones:{label:'Valorizaciones / EDP',icon:'📋',dibuja:'rValorizaciones',tablas:['proyectos','ventas']},
+  hes:{label:'HES',icon:'📑',dibuja:'rHes',tablas:['proyectos','ventas']},
+  facturacion:{label:'Facturación',icon:'🧾',dibuja:'rFact',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  costControl:{label:'Cost Control',icon:'📊',dibuja:'rCostControl',tablas:['combustible','edpProveedores','equipos','partes','personal','proyectos','tareaje','tarifasEq','ventaPersonal']},
+  tarifas:{label:'Tarifas',icon:'🏷️',dibuja:'rTarifas',tablas:['combustible','edpProveedores','equipos','partes','personal','proyectos','tareaje','tarifasEq','ventaPersonal']},
+  venta:{label:'Venta',icon:'💼',dibuja:'rVenta',tablas:['combustible','edpProveedores','equipos','partes','personal','proyectos','tareaje','tarifasEq','ventaPersonal']},
+  costos:{label:'Costos',icon:'💰',dibuja:'rCostos',tablas:['almacen','auxMecInsumos','auxiliosMecanicos','catalogoItems','costos','equipos','facturas','frentesTrabajo','mantenimientos','partes','tipoMaterial','tramos','unidades']},
+  proveedores:{label:'Proveedores',icon:'🧾',dibuja:()=>_edpTab(_edpTabAct),tablas:['atencionRecursos','auxMecInsumos','auxiliosMecanicos','catalogoItems','edpProveedores','equipos','firmas','partes']},
+  resultadoOperativo:{label:'Resultado Operativo',icon:'⚖️',dibuja:'rResultadoOperativo',tablas:['combustible','edpProveedores','equipos']},
+  hhVenta:{label:'HH Venta',icon:'👷',dibuja:'rHhVenta',tablas:['personal','proyectos','tareaje','ventaPersonal']},
+  corteEquipos:{label:'Corte Equipos',icon:'✂️',dibuja:'rCorteEquipos',tablas:['equipos','partes','proyectos']},
+  costoM3:{label:'Costo por m³',icon:'🧱',dibuja:'rCostoM3',tablas:['equipos','partes','tareaje']},
+  notificaciones:{label:'Notificaciones',icon:'🔔',dibuja:'rNotificaciones',tablas:['asistencia','equipos','partes']},
   dashboard:{label:'Panel General',icon:'📊',dibuja:'rDash',sistema:true},
   miSeguridad:{label:'Mi Seguridad',icon:'🔐',dibuja:'rMiSeguridad',sistema:true},
 };
+
+// ── Las tablas que hacen falta siempre ─────────────────────────────────────
+// Las tocan config.js y utils.js, que son de todos, o las mira el panel de
+// inicio antes de que nadie elija un modulo. Se cargan aunque el cliente no
+// haya contratado el area de la que salen.
+const GDAR_TABLAS_NUCLEO=['almacen','catalogoItems','equipos','frentesTrabajo','personal','requerimientos'];
+
+// ── Qué tablas hay que traer ───────────────────────────────────────────────
+// Las del núcleo, más las de cada módulo contratado. Un cliente que no compró
+// Control de Proyecto no descarga las quince tablas del Last Planner cada vez
+// que alguien entra.
+//
+// Las listas de `tablas` se derivaron leyendo qué claves de DB toca el archivo
+// de cada módulo, y se atribuye POR ARCHIVO: personal.js pinta nueve pantallas
+// y todas se llevan sus diecinueve tablas. Atribuir de más solo cuesta una
+// descarga; atribuir de menos deja un módulo sin datos y con la pantalla a
+// medias, así que ante la duda, de más.
+//
+// El panel de inicio y Mi Seguridad no declaran tablas a propósito: el panel
+// filtra sus indicadores por área, así que lo que llega a mostrar sale de
+// tablas que los módulos contratados ya trajeron.
+function gdarTablas(){
+  const set=new Set(typeof GDAR_TABLAS_NUCLEO!=='undefined'?GDAR_TABLAS_NUCLEO:[]);
+  for(const clave of gdarContratados())
+    for(const t of (GDAR_MODULOS[clave]||{}).tablas||[])set.add(t);
+  return set;
+}
 
 // ── Lo que ve un módulo del catálogo ───────────────────────────────────────
 function gdarModulo(clave){ return GDAR_MODULOS[clave]||null; }

@@ -102,6 +102,60 @@ es('con todo contratado no quita nada',
    todo.areasDe(['administracion','controlProyecto']).join(','),
    'administracion,controlProyecto');
 
+console.log('\n== Solo se descargan las tablas de lo contratado ==');
+const cfg=fs.readFileSync(R+'js/config.js','utf8');
+const TABLAS=Object.keys(new Function(
+  cfg.match(/const SUPA_TABLES=\{[\s\S]*?\n\};/)[0]+'return SUPA_TABLES;')());
+const conT=plan=>new Function('EMPRESA_PLAN',reg+';return gdarTablas();')(plan);
+
+// Lo que no puede pasar de ninguna manera: que el cliente de siempre deje de
+// descargar algo. Con todo contratado tienen que venir las 75.
+const todasT=conT({areas:null,modulos:null});
+es('con todo contratado vienen todas',todasT.size,TABLAS.length);
+es('  y sin plan declarado, igual',conT(undefined).size,TABLAS.length);
+
+const opT=conT({areas:['administracion','almacenLogistica','controlEquipos'],modulos:['histograma']});
+es('un plan recortado trae menos',opT.size<TABLAS.length,true);
+es('  bastantes menos',opT.size<TABLAS.length*0.7,true);
+es('  pero nunca cero',opT.size>0,true);
+es('la renta de 5ta no viaja si no se contrató',opT.has('renta5ta'),false);
+es('  ni las tasas de pensiones',opT.has('afpTasas'),false);
+es('  ni las tablas del Last Planner',opT.has('lpsWbs'),false);
+es('el tareaje sí, que lo compró',opT.has('tareaje'),true);
+
+// El cierre de planilla SÍ viaja aunque no se compre Remuneraciones, y está
+// bien: tareaje.js llama a plTareajeBloqueado() para no dejar corregir un mes
+// ya pagado. Sin esas tablas creería que no hay nada cerrado. Es justo el tipo
+// de dependencia que una lista escrita a mano se habría comido.
+es('el cierre de planilla acompaña al tareaje',opT.has('planillaCierre'),true);
+es('  porque el tareaje pregunta si el mes está pagado',
+   /plTareajeBloqueado/.test(fs.readFileSync(R+'js/tareaje.js','utf8')),true);
+
+// La que de verdad importa: ningún módulo contratado puede quedarse sin sus
+// datos. Se comprueba módulo por módulo, con un plan que solo tenga ese.
+const MOD=new Function(reg+';return GDAR_MODULOS;')();
+const sinSusDatos=[];
+for(const clave of Object.keys(MOD)){
+  const m=MOD[clave];
+  if(m.grupo||!m.tablas||!m.tablas.length)continue;
+  const t=conT({areas:[],modulos:[clave]});
+  const faltan=m.tablas.filter(x=>!t.has(x));
+  if(faltan.length)sinSusDatos.push(clave+': '+faltan.join(','));
+}
+es('cada módulo recibe las tablas que declara',sinSusDatos.join(' | ')||'—','—');
+
+console.log('\n== El núcleo llega pase lo que pase ==');
+const nadaT=conT({areas:[],modulos:[]});
+es('sin contratar nada, sigue habiendo núcleo',nadaT.size>0,true);
+es('  con el personal',nadaT.has('personal'),true);
+es('  y los equipos',nadaT.has('equipos'),true);
+es('el núcleo está en todos los planes',
+   [...nadaT].every(t=>opT.has(t)&&todasT.has(t)),true);
+
+console.log('\n== La carga inicial respeta el plan ==');
+es('loadSheetsData filtra por gdarTablas',/_tablasDelPlan=gdarTablas\(\)/.test(cfg),true);
+es('  y lo aplica a la lista de tablas',/_tablasDelPlan\.has\(k\)/.test(cfg),true);
+
 console.log('\n== La aplicación no se rompe sin áreas ==');
 const uts=fs.readFileSync(R+'js/utils.js','utf8');
 es('launchApp recorta las áreas del usuario',/CU\.areas=gdarAreasDeUsuario\(CU\.areas\)/.test(uts),true);

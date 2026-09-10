@@ -296,7 +296,14 @@ async function loadSheetsData(){
       }
       return{data:all,error:err};
     };
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen');
+    // Solo las tablas de lo que esta empresa contrató. Un cliente que no
+    // compró Control de Proyecto no tiene por qué descargar las quince tablas
+    // del Last Planner cada vez que alguien entra. Con todo contratado —el
+    // caso de siempre— la lista sale igual de larga que antes.
+    // Quién necesita qué lo declara js/registro.js.
+    const _tablasDelPlan=gdarTablas();
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>
+      k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen'&&_tablasDelPlan.has(k));
     const results=await Promise.all(
       simpleKeys.map(dbKey=>
         cargarPaginado(SUPA_TABLES[dbKey]).then(({data,error})=>({dbKey,data,error}))
