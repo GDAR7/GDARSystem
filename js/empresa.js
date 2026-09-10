@@ -67,6 +67,20 @@ const SUPA_KEY = _GDAR_DEV ? SUPA_KEY_DEV : SUPA_KEY_PROD;
 // ECOSERMO tiene todo, así que no hay nada que recortar.
 const EMPRESA_PLAN={nombre:'Integral',areas:null,modulos:null};
 
+// ── El corte contable ─────────────────────────────────────────────────────
+// El día en que empieza el período con el que se valoriza. ECOSERMO cierra el
+// 20, así que su período va del 21 de un mes al 20 del siguiente, y ese corte
+// gobierna los partes diarios, el combustible, los EDP de proveedores, el
+// tareaje, el costo por m³ y el informe de período.
+//
+// Otro cliente cierra a fin de mes: ahí va 1 y el período pasa a ser el mes
+// calendario, del 1 al último día. Cualquier otro día se comporta igual que el
+// 21: empieza ese día y termina el anterior del mes siguiente.
+//
+// Estaba escrito como un 21 suelto en trece módulos, cada uno con su propia
+// función para calcular lo mismo.
+const EMPRESA_CORTE=21;
+
 // ── Cómo se valida quién entra ────────────────────────────────────────────
 // 'local'    → esquema anterior: la credencial se compara contra la lista de
 //              aquí abajo. Solo funciona con las políticas RLS abiertas.

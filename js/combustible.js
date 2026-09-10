@@ -5,13 +5,9 @@ function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 // Es el corte con el que se valorizan equipos y proveedores, así que el kardex
 // arranca mostrando el período en curso según la fecha de hoy.
 const _cbIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-function _cbPeriodoDe(base){
-  const d=base?new Date(base+'T12:00:00'):new Date();
-  // Del 21 en adelante ya se está en el período que cierra el 20 del mes próximo
-  const ini=d.getDate()>=21?new Date(d.getFullYear(),d.getMonth(),21)
-                           :new Date(d.getFullYear(),d.getMonth()-1,21);
-  return{desde:_cbIso(ini),hasta:_cbIso(new Date(ini.getFullYear(),ini.getMonth()+1,20))};
-}
+// El corte contable sale de gdarPeriodo(), en js/utils.js, y su dia de
+// EMPRESA_CORTE en js/empresa.js: cambia entre clientes.
+function _cbPeriodoDe(base){ return gdarPeriodo(base); }
 let _cbDesde='',_cbHasta='',_cbPerInit=false;
 function _cbPerSet(campo,val){
   if(campo==='desde')_cbDesde=val;else _cbHasta=val;
@@ -705,21 +701,10 @@ function _combTab(t){
 }
 
 // Período 21→20 propio del dashboard (offset independiente de Cost Control)
-function _combPeriodo(){
-  const hoy=new Date();
-  const d=hoy.getDate(), m=hoy.getMonth(), y=hoy.getFullYear();
-  let baseY=y, baseM=m;
-  if(d<21){baseM=m-1; if(baseM<0){baseM=11;baseY=y-1;}}
-  let iniM=baseM+_combDashOffset, iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21);
-  const fin=new Date(iniY,iniM+1,20);
-  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const diasTot=Math.round((fin-ini)/86400000)+1;
-  return {desde:fmtD(ini), hasta:fmtD(fin), ini, fin, label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`, dias:diasTot};
-}
+// El corte contable sale de gdarPeriodoOffset(), en js/utils.js, y su dia de
+// EMPRESA_CORTE en js/empresa.js. El dashboard lleva su propio offset, pero
+// el corte es el mismo de toda la empresa.
+function _combPeriodo(){ return gdarPeriodoOffset(_combDashOffset); }
 function _combDashNav(dir){_combDashOffset+=dir;rCombDash();}
 
 function rCombDash(){

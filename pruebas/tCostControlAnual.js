@@ -24,6 +24,14 @@ es('devuelve todo lo que el render necesita',
 
 console.log('\n== Los doce períodos 21→20 ==');
 // Se ejecuta la función real
+// costcontrolAnual.js delega el corte contable en gdarPeriodoDeMes(), que vive
+// en js/utils.js. Hay que dárselo igual que se lo da el navegador, o la función
+// no encuentra de dónde saca las fechas.
+const _uts=fs.readFileSync(R+'js/utils.js','utf8');
+const _per=_uts.slice(_uts.indexOf('// ══ EL PERÍODO CONTABLE'),_uts.indexOf('// ══ CLOCK ══'));
+Object.assign(global,new Function('EMPRESA_CORTE',
+  _per+';return{gdarPeriodoDeMes,gdarPeriodo,gdarPeriodoOffset,gdarCorte};')(21));
+
 const iP=ca.indexOf('function _ccaPeriodos');
 const _ccaPeriodos=new Function('_CCA_MESES','return '+
   ca.slice(iP,ca.indexOf('\n}',iP)+2))(

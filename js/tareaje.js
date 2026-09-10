@@ -105,14 +105,9 @@ function _tarSetRango(campo,val){
   rTareaje();
 }
 // Período contable 21→20 que contiene la fecha dada (o la de hoy)
-function _tarPeriodo2120(base){
-  const d=base?new Date(base+'T12:00:00'):new Date();
-  const y=d.getFullYear(),m=d.getMonth(),dia=d.getDate();
-  const ini=dia>=21?new Date(y,m,21):new Date(y,m-1,21);
-  const fin=new Date(ini.getFullYear(),ini.getMonth()+1,20);
-  const iso=x=>`${x.getFullYear()}-${_tarPad(x.getMonth()+1)}-${_tarPad(x.getDate())}`;
-  return{desde:iso(ini),hasta:iso(fin)};
-}
+// El corte contable sale de gdarPeriodo(), en js/utils.js, y su dia de
+// EMPRESA_CORTE en js/empresa.js: cambia entre clientes.
+function _tarPeriodo2120(base){ return gdarPeriodo(base); }
 function _tarPer2120(){
   const p=_tarPeriodo2120();_tarDesde=p.desde;_tarHasta=p.hasta;_tarModo='rango';rTareaje();
 }

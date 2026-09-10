@@ -22,17 +22,11 @@ function _ipEsKm(eq){
 }
 
 // Período 21 → 20
-function _ipPeriodo(off){
-  const hoy=new Date(),d=hoy.getDate();
-  let baseY=hoy.getFullYear(),baseM=hoy.getMonth();
-  if(d<21){baseM--;if(baseM<0){baseM=11;baseY--;}}
-  let iniM=baseM+(off||0),iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21),fin=new Date(iniY,iniM+1,20);
-  const f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  return{desde:f(ini),hasta:f(fin),label:`${_IP_MESES[fin.getMonth()]} ${fin.getFullYear()}`};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _ipPeriodo(off){ return gdarPeriodoOffset(off||0); }
 function _ipInit(){
   if(!_ipDesde||!_ipHasta){const p=_ipPeriodo(_ipOffset);_ipDesde=p.desde;_ipHasta=p.hasta;}
 }

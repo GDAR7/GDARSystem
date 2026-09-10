@@ -16,17 +16,11 @@ function _iaEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 function _iaDMY(f){const p=String(f||'').split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:(f||'');}
 
 // Período 21 → 20 (mismo criterio que Auxilios Mecánicos, con su propio desplazamiento)
-function _iaPeriodo(){
-  const hoy=new Date(),d=hoy.getDate();
-  let baseY=hoy.getFullYear(),baseM=hoy.getMonth();
-  if(d<21){baseM--;if(baseM<0){baseM=11;baseY--;}}
-  let iniM=baseM+_iaOffset,iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21),fin=new Date(iniY,iniM+1,20);
-  const f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  return{desde:f(ini),hasta:f(fin),label:`${_IA_MESES[fin.getMonth()]} ${fin.getFullYear()}`,dias:Math.round((fin-ini)/864e5)+1};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _iaPeriodo(){ return gdarPeriodoOffset(_iaOffset); }
 
 // Todas las líneas de insumo del período, ya cruzadas con auxilio, equipo y P.U.R. del catálogo
 function _iaLineas(){

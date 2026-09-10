@@ -453,6 +453,105 @@ function _paginaFallo(k,e){
   p.insertBefore(d,p.firstChild);
 }
 
+// ══ EL PERÍODO CONTABLE ══════════════════════════════════════════════════
+// El corte con el que se valoriza todo: partes diarios, combustible, EDP de
+// proveedores, tareaje, costo por m³, informe de período. En ECOSERMO va del
+// 21 de un mes al 20 del siguiente.
+//
+// El día de corte lo declara EMPRESA_CORTE en js/empresa.js, porque cambia
+// entre clientes: el que cierra a fin de mes pone 1 y su período pasa a ser el
+// mes calendario.
+//
+// Antes esto era un 21 suelto repetido en trece módulos, cada uno con su
+// propia función para calcular lo mismo. Cambiar de cliente habría sido
+// buscar y reemplazar en trece sitios, con la seguridad de que uno se queda.
+function gdarCorte(){
+  const c=typeof EMPRESA_CORTE!=='undefined'?+EMPRESA_CORTE:21;
+  return (c>=1&&c<=28)?c:21;   // más allá del 28 no existe en febrero
+}
+
+const gdarIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+  +'-'+String(d.getDate()).padStart(2,'0');
+
+// El período en el que cae una fecha. Sin argumento, el de hoy.
+//
+// Del día de corte en adelante ya se está en el período que cierra el mes que
+// viene; antes, en el que arrancó el mes pasado.
+//
+// Con corte 1 el período es el mes calendario y termina el último día del mes,
+// que es lo que da `new Date(año, mes+1, 0)`: el día cero del mes siguiente.
+function gdarPeriodo(base){
+  const corte=gdarCorte();
+  const d=base?new Date(base+'T12:00:00'):new Date();
+  const ini=d.getDate()>=corte
+    ?new Date(d.getFullYear(),d.getMonth(),corte)
+    :new Date(d.getFullYear(),d.getMonth()-1,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
+}
+
+// El cierre del período que empieza en `ini`: el día anterior al corte, del
+// mes siguiente. Con corte 1, el último día del mes de `ini`.
+function gdarFinDe(ini){
+  const corte=gdarCorte();
+  return corte===1
+    ?new Date(ini.getFullYear(),ini.getMonth()+1,0)
+    :new Date(ini.getFullYear(),ini.getMonth()+1,corte-1);
+}
+
+// Salta n períodos completos hacia atrás o adelante desde uno que ya empezó.
+function gdarPeriodoNav(desde,n){
+  const corte=gdarCorte();
+  const d=desde?new Date(desde+'T12:00:00'):new Date();
+  const ini=new Date(d.getFullYear(),d.getMonth()+n,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
+}
+
+const GDAR_MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+  'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// El período desplazado n períodos desde el de hoy. n=0 es el actual, -1 el
+// anterior. Es lo que necesitan las pantallas con flechas para navegar.
+//
+// Devuelve también `ini`/`fin` como fechas, la etiqueta del mes de cierre y
+// los días que dura. Los siete módulos que calculaban esto por su cuenta
+// pedían justo estas cosas, cada uno con su propia copia del arreglo de meses.
+//
+// El período se nombra por su mes de CIERRE: el que va del 21 de enero al 20
+// de febrero es "Febrero". Es como lo llama el cliente en sus valorizaciones.
+function gdarPeriodoOffset(n){
+  const corte=gdarCorte();
+  const hoy=new Date();
+  let baseY=hoy.getFullYear(),baseM=hoy.getMonth();
+  if(hoy.getDate()<corte){baseM--;if(baseM<0){baseM=11;baseY--;}}
+  let iniM=baseM+(n||0),iniY=baseY;
+  while(iniM>11){iniM-=12;iniY++;}
+  while(iniM<0){iniM+=12;iniY--;}
+  const ini=corte===1?new Date(iniY,iniM,1):new Date(iniY,iniM,corte);
+  const fin=gdarFinDe(ini);
+  return{desde:gdarIso(ini),hasta:gdarIso(fin),ini,fin,
+    label:GDAR_MESES[fin.getMonth()]+' '+fin.getFullYear(),
+    dias:Math.round((fin-ini)/864e5)+1};
+}
+
+// El período que CIERRA en un mes dado. `mesCierre` va 0-11, como los meses de
+// Date. Lo usa el consolidado anual, que lista los doce del año por el mes en
+// que cada uno cierra.
+//
+// El mes de cierre es la referencia, no el de inicio, y por eso hay que mirar
+// el corte: con 21, el período que cierra en enero arranca el 21 de diciembre
+// del año anterior; con mes calendario, el que cierra en enero ES enero.
+//
+// La primera versión restaba un mes siempre. Con corte 21 daba bien, pero con
+// corte 1 etiquetaba diciembre como "Enero" y el consolidado anual salía
+// corrido un mes entero.
+function gdarPeriodoDeMes(anio,mesCierre){
+  const corte=gdarCorte();
+  const ini=corte===1
+    ?new Date(anio,mesCierre,1)
+    :new Date(anio,mesCierre-1,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
+}
+
 // ══ CLOCK ══
 function startClock(){
   const u=()=>document.getElementById('hDate').textContent=new Date().toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()+' · '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
