@@ -43,10 +43,19 @@ es('  ni dejan huecos',
     return p.desde===d.toISOString().slice(0,10);}),true);
 es('febrero de año bisiesto sale bien',_ccaPeriodos(2024)[2].desde,'2024-02-21');
 
-console.log('\n== Los cuatro conceptos del Excel ==');
-const cons=[...ca.matchAll(/lab:'(0\d\.-[^']+)'/g)].map(m=>m[1]);
-es('en el orden del Excel',cons.join(' · '),
+console.log('\n== Los conceptos, según el modo de tarifa ==');
+const lista=n=>[...(ca.match(new RegExp('const '+n+'=\\[[\\s\\S]*?\\];'))||[''])[0]
+  .matchAll(/lab:'(0\d\.-[^']+)'/g)].map(m=>m[1]).join(' · ');
+es('Máq. Seca: las cuatro de siempre',lista('_CCA_CONCEPTOS_SECA'),
   '01.-Alquiler · 02.-Combustible · 03.-Venta · 04.-Margen');
+es('Tarifa Full: la venta se abre en dos',lista('_CCA_CONCEPTOS_FULL'),
+  '01.-Alquiler · 02.-Combustible · 03.-Venta Equipo · 04.-Venta Combustible · 05.-Margen');
+es('la lista se elige por el modo',
+  /return _ccTarifaModo==='full'\?_CCA_CONCEPTOS_FULL:_CCA_CONCEPTOS_SECA/.test(ca),true);
+es('  y el panel usa la función, no una lista fija',/_ccaConceptos\(\)\.forEach/.test(ca),true);
+es('  el Excel también',/_ccaConceptos\(\)\.forEach/.test(ca.slice(ca.indexOf('function _ccaExcel'))),true);
+es('el color del Excel va por clave, no por etiqueta',/XL_COL\[C\.k\]/.test(ca),true);
+es('  porque la etiqueta cambia de número entre modos',/XL_COL\[C\.lab\]/.test(ca),false);
 es('Alquiler ← costoProveedor',/m\.alquiler=r\.costoProveedor/.test(ca),true);
 es('Combustible ← costoComb',/m\.comb=r\.costoComb/.test(ca),true);
 es('Venta ← costo',/m\.venta=r\.costo;/.test(ca),true);
@@ -78,7 +87,8 @@ es('_ccTab lo pinta al entrar',/if\(t==='anual'&&typeof _ccaPintar==='function'\
 es('  y conoce las cuatro pestañas',/\['equipos','personal','resumen','anual'\]/.test(cc),true);
 es('hay caché por año',/_ccaCache&&_ccaCache\.clave===clave/.test(ca),true);
 es('  que distingue modo y combustible',
-  /\[anio,KEY,_ccSinIgv\?1:0,_ccPrecioManual\?1:0,_ccPrecioComb\|\|0\]/.test(ca),true);
+  /\[anio,KEY,_ccSinIgv\?1:0,_ccPrecioManual\?1:0,_ccPrecioComb\|\|0,/.test(ca),true);
+es('  y también el proyecto filtrado',/_ccProyecto!=='undefined'\?_ccProyecto:''\]/.test(ca),true);
 es('  y se descarta al recargar datos',/if\(typeof _ccaCache!=='undefined'\)_ccaCache=null/.test(cc),true);
 
 console.log('\n== Enganche en la página ==');
@@ -96,8 +106,42 @@ console.log('\n== Filtros ==');
 es('el buscador no pierde el foco al tipear',/setSelectionRange\(pos,pos\)/.test(ca),true);
 es('los combos no se vacían al filtrar',/D\.grupos\.map\(G=>G\.nombre\)/.test(ca),true);
 es('el total de familia se recalcula sobre lo visible',
-  /equipos\.forEach\(a=>\{[\s\S]{0,200}meses\[i\]\.alquiler\+=m\.alquiler/.test(ca),true);
+  /equipos\.forEach\(a=>\{\s*a\.meses\.forEach\(\(m,i\)=>sumar\(meses\[i\],m\)\);/.test(ca),true);
+es('  sumando todos los campos, no solo cuatro',
+  /_CCA_CAMPOS=\['alquiler','comb','venta','ventaEq','ventaComb','margen'\]/.test(ca),true);
 es('se escapa el HTML del usuario',/function _ccaEsc/.test(ca),true);
+
+console.log('\n== La venta partida en dos ==');
+es('el motor la calcula',/const dif=\(\+t\.full\|\|0\)-\(\+t\.seca\|\|0\);/.test(cc),true);
+es('  solo en Tarifa Full',/if\(t&&KEY==='full'\)\{/.test(cc),true);
+es('  ventaEq se despeja restando, para que la suma cuadre exacta',
+  /const ventaEq=venta-ventaComb;/.test(cc),true);
+es('  y se devuelven en la fila',/costo:venta,ventaEq,ventaComb,/.test(cc),true);
+es('el motor entrega los dos totales',
+  /totalVentaEqSolo,totalVentaComb,precioAlm,precioComb/.test(cc),true);
+es('la tabla parte la columna solo en Full',/const esFull=KEY==='full';/.test(cc),true);
+es('  con una columna menos en Seca',/const NC=esFull\?11:10;/.test(cc),true);
+es('  la cabecera cambia de nombre',/\$\{esFull\?'Venta Equipo':'Venta'\}/.test(cc),true);
+es('  y aparece Venta Comb.',/>Venta Comb\.<\/th>/.test(cc),true);
+es('el anual guarda las dos ventas',/m\.ventaComb=r\.ventaComb\|\|0;/.test(ca),true);
+es('  y en Seca ventaEq es toda la venta',
+  /m\.ventaEq=r\.ventaEq!=null\?r\.ventaEq:r\.costo;/.test(ca),true);
+
+console.log('\n== Proyecto: de columna a selector ==');
+es('ya no es una columna de la tabla',/<th style="\$\{TH\}">Proyecto<\/th>/.test(cc),false);
+es('  ni una celda por fila',/r\.eq\.proyecto\|\|'—'/.test(cc),false);
+es('el filtro vive en el motor',
+  /if\(_ccProyecto&&String\(eq\.proyecto\|\|''\)!==_ccProyecto\)return;/.test(cc),true);
+es('  así alcanza a KPI, tabla, Resumen y Anual',
+  cc.indexOf('_ccProyecto&&String(eq.proyecto')>cc.indexOf('function _ccCalcEq'),true);
+es('hay estado y setter',/let _ccProyecto='';/.test(cc)&&/function _ccSetProyecto\(v\)/.test(cc),true);
+es('  que invalida el caché del anual',
+  /_ccSetProyecto[\s\S]{0,160}_ccaCache=null/.test(cc),true);
+es('las opciones salen del Máster',/function _ccProyectosDisponibles\(\)/.test(cc),true);
+es('el selector va en la barra de pestañas',
+  /_tabBtn\('anual','📅 Anual'\)\}[\s\S]{0,400}_ccSetProyecto\(this\.value\)/.test(cc),true);
+es('se avisa cuando hay filtro puesto',/· SOLO \$\{_ccProyecto\}/.test(cc),true);
+es('  también en el KPI de venta',/solo \$\{_ccProyecto\}/.test(cc),true);
 
 console.log('\n== Sin choques de nombres ==');
 const glob=n=>new RegExp('^(?:const|let|function)\\s+'+n+'\\b','m');

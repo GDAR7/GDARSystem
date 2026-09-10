@@ -17,11 +17,11 @@ const DB={
   ventaPersonal:[],
   equipos:[
     {id:1,codigo:'EXC-01',nombre:'Excavadora N° 01 HYUNDAI',sub:'EXCAVADORA',
-     tipo:'Línea Amarilla',proveedor:'2MMICON',tarifa:100,tarifaUn:'HM'},
+     tipo:'Línea Amarilla',proveedor:'2MMICON',tarifa:100,tarifaUn:'HM',proyecto:'EPY-001-26'},
     {id:2,codigo:'EXC-02',nombre:'Excavadora N° 02 336 CAT',sub:'EXCAVADORA',
-     tipo:'Línea Amarilla',proveedor:'Ecosermo',tarifa:120,tarifaUn:'HM'},
+     tipo:'Línea Amarilla',proveedor:'Ecosermo',tarifa:120,tarifaUn:'HM',proyecto:'EPY-004-26'},
     {id:3,codigo:'TRA-01',nombre:'Tractor Oruga D6',sub:'TRACTOR',
-     tipo:'Línea Amarilla',proveedor:'PANDAL',tarifa:150,tarifaUn:'HM'}
+     tipo:'Línea Amarilla',proveedor:'PANDAL',tarifa:150,tarifaUn:'HM',proyecto:'EPY-004-26'}
   ],
   partes:[
     // Febrero = 21-ene al 20-feb
@@ -167,6 +167,54 @@ es('el buscador encuentra por nombre',
   ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))').map(g=>g.equipos.length).join(),'1');
 ev('_ccaBuscar=""');
 
+console.log('\n== La venta abierta: equipo + combustible ==');
+// Excavadora: Seca 253.45 · Full 383.32 → la diferencia (129.87/h) es el petróleo
+ev('_ccaCache=null');
+const FU=ev('_ccaCalcular(2026,"full")');
+const AF=FU.grupos.find(g=>g.nombre==='EXCAVADORA')
+          .equipos.find(a=>a.eq.codigo==='EXC-01').meses[FEB];
+es('venta total full: 16 h × S/383.32',AF.venta.toFixed(2),'6133.12');
+es('  venta equipo:  16 h × S/253.45',AF.ventaEq.toFixed(2),'4055.20');
+es('  venta comb.:   16 h × S/129.87',AF.ventaComb.toFixed(2),'2077.92');
+es('las dos partes suman la venta total',
+  (AF.ventaEq+AF.ventaComb).toFixed(2),AF.venta.toFixed(2));
+es('  y cuadra al céntimo, sin arrastre',AF.ventaEq+AF.ventaComb===AF.venta,true);
+es('el margen no cambió al partir la venta',
+  AF.margen.toFixed(2),(AF.venta-AF.alquiler-AF.comb).toFixed(2));
+ev('_ccaCache=null');
+const SE=ev('_ccaCalcular(2026,"seca")');
+const AS=SE.grupos.find(g=>g.nombre==='EXCAVADORA')
+          .equipos.find(a=>a.eq.codigo==='EXC-01').meses[FEB];
+es('en Máq. Seca no hay venta de combustible',AS.ventaComb,0);
+es('  y la venta equipo es toda la venta',AS.ventaEq.toFixed(2),AS.venta.toFixed(2));
+// Un equipo cuya tarifa Full es igual a la Seca no vende combustible
+const R1=ev(`(()=>{const r=_ccCalcEq(${JSON.stringify(D.periodos[FEB])},"full").eqRows
+  .find(x=>x.eq.codigo==="EXC-01");return{eq:r.ventaEq,cb:r.ventaComb,to:r.costo};})()`);
+es('el motor entrega lo mismo que la matriz',R1.cb.toFixed(2),AF.ventaComb.toFixed(2));
+
+console.log('\n== El filtro de proyecto alcanza a todo el módulo ==');
+ev('_ccProyecto="EPY-001-26";_ccaCache=null');
+const P1=ev('_ccaCalcular(2026,"seca")');
+es('solo queda el equipo de ese proyecto',P1.nEquipos,1);
+es('  y es EXC-01',P1.grupos[0].equipos[0].eq.codigo,'EXC-01');
+es('  TRACTOR desapareció',P1.grupos.some(g=>g.nombre==='TRACTOR'),false);
+const M1=ev(`_ccCalcEq(${JSON.stringify(D.periodos[MAR])},"seca")`);
+es('el motor también filtra (marzo sin EXC-02 ni TRA-01)',M1.eqRows.length,0);
+ev('_ccProyecto="EPY-004-26";_ccaCache=null');
+const P2=ev('_ccaCalcular(2026,"seca")');
+es('el otro proyecto trae dos equipos',P2.nEquipos,2);
+es('  en dos familias',P2.grupos.map(g=>g.nombre).join(' · '),'EXCAVADORA · TRACTOR');
+es('los importes no se alteran al filtrar',
+  P2.grupos.find(g=>g.nombre==='EXCAVADORA').equipos[0].meses[MAR].venta.toFixed(2),
+  eq('EXCAVADORA','EXC-02').meses[MAR].venta.toFixed(2));
+es('el proyecto entra en la clave del caché',
+  ev('_ccProyecto="";_ccaClave(2026,"seca")')!==ev('_ccProyecto="EPY-001-26";_ccaClave(2026,"seca")'),true);
+ev('_ccProyecto="";_ccaCache=null');
+const P0=ev('_ccaCalcular(2026,"seca")');
+es('sin filtro vuelven los tres',P0.nEquipos,3);
+es('las opciones salen del Máster',
+  ev('_ccProyectosDisponibles().join(",")'),'EPY-001-26,EPY-004-26');
+
 console.log('\n== El HTML se arma sin reventar ==');
 // El panel es una plantilla larga: si una función interna falla, la pestaña
 // saldría en blanco sin decir por qué. Aquí se pinta de verdad.
@@ -201,6 +249,54 @@ try{H0=ev('_ccaPanel()');}catch(e){es('1999 lanzó: '+e.message,false,true);}
 es('avisa que no hay movimientos',H0.includes('Sin movimientos en 1999'),true);
 es('  y aun así pinta la tabla',H0.includes('MARGEN TOTAL'),true);
 ev('_ccaAnio=2026;_ccaCache=null');
+
+console.log('\n== La tabla de Equipos: que todas las filas tengan el mismo ancho ==');
+// Al partir la venta cambia el número de columnas, y con él todos los colspan.
+// Si uno queda mal la tabla se descuadra sin dar ningún error.
+function anchos(modo){
+  ev(`_ccTarifaModo="${modo}"`);
+  const per=JSON.stringify(D.periodos[FEB]);
+  const H=ev(`(()=>{const R=_ccCalcEq(${per},"${modo}");
+    return _ccPanelEquipos(R.eqRows,"${modo}",${D.periodos[FEB].dias});})()`);
+  const thead=(H.match(/<thead>[\s\S]*?<\/thead>/)||[''])[0];
+  const nTh=(thead.match(/<th[ >]/g)||[]).length;
+  const cuerpo=H.slice(H.indexOf('<tbody>'));
+  const filas=[...cuerpo.matchAll(/<tr[\s\S]*?<\/tr>/g)].map(m=>m[0]);
+  const anchoDe=tr=>[...tr.matchAll(/<td([^>]*)>/g)]
+    .reduce((s,c)=>s+(+((c[1].match(/colspan="(\d+)"/)||[])[1])||1),0);
+  return{H,nTh,filas:filas.length,malas:filas.filter(t=>anchoDe(t)!==nTh).length,
+         anchos:[...new Set(filas.map(anchoDe))]};
+}
+const S1=anchos('seca');
+es('Máq. Seca: 10 columnas',S1.nTh,10);
+es('  todas las filas miden lo mismo',S1.malas,0);
+es('  (anchos encontrados)',S1.anchos.join(','),'10');
+es('  no hay columna Proyecto',/>Proyecto</.test(S1.H),false);
+es('  ni columna Venta Comb.',/Venta Comb\./.test(S1.H),false);
+es('  la cabecera dice solo "Venta"',/>Venta<\/th>/.test(S1.H),true);
+
+const F1=anchos('full');
+es('Tarifa Full: 11 columnas',F1.nTh,11);
+es('  todas las filas miden lo mismo',F1.malas,0);
+es('  (anchos encontrados)',F1.anchos.join(','),'11');
+es('  aparece Venta Equipo',/>Venta Equipo<\/th>/.test(F1.H),true);
+es('  y Venta Comb.',/>Venta Comb\.<\/th>/.test(F1.H),true);
+es('  con el pie que explica la suma',/de venta total/.test(F1.H),true);
+es('  y sigue sin columna Proyecto',/>Proyecto</.test(F1.H),false);
+es('ninguna celda quedó en undefined',/undefined|NaN/.test(F1.H+S1.H),false);
+
+console.log('\n== La matriz Anual en Tarifa Full ==');
+ev('_ccTarifaModo="full";_ccaCache=null;_ccaAnio=2026');
+const HF=ev('_ccaPanel()');
+es('cinco conceptos por equipo',
+  ['01.-Alquiler','02.-Combustible','03.-Venta Equipo','04.-Venta Combustible','05.-Margen']
+    .every(c=>HF.includes(c)),true);
+es('  ya no aparece "03.-Venta" a secas',/03\.-Venta</.test(HF),false);
+es('las filas siguen parejas',
+  (HF.match(/<tr[ >]/g)||[]).length,(HF.match(/<\/tr>/g)||[]).length);
+ev('_ccTarifaModo="seca";_ccaCache=null');
+const HS=ev('_ccaPanel()');
+es('en Seca vuelven a ser cuatro',/04\.-Margen/.test(HS)&&!/05\.-Margen/.test(HS),true);
 
 console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);

@@ -1,7 +1,8 @@
 // ══════════════════════════════════════════════════════════════════════════
 //  COST CONTROL — MATRIZ ANUAL (R.O. por equipo, 12 períodos)
-//  Cuatro líneas por equipo —Alquiler, Combustible, Venta, Margen— con los
-//  doce períodos 21→20 del año en columnas.
+//  Una línea por concepto y equipo, con los doce períodos 21→20 en columnas.
+//  En Máq. Seca son cuatro —Alquiler, Combustible, Venta, Margen— y en Tarifa
+//  Full son cinco, porque la venta se abre en máquina y combustible.
 //
 //  No calcula nada por su cuenta: llama doce veces a _ccCalcEq(), el mismo
 //  motor que alimenta la pestaña Equipos. Si los números de una pestaña
@@ -16,13 +17,29 @@ const _CCA_MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const _CCA_MES3=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
 
-// Los cuatro conceptos, en el orden y con los colores del módulo
-const _CCA_CONCEPTOS=[
+// Los conceptos, en el orden y con los colores del módulo.
+// En Tarifa Full la venta va abierta en dos —máquina y combustible—, porque la
+// diferencia entre la tarifa Full y la Seca ES lo que se cobra por el petróleo.
+// En Máq. Seca esa venta no existe, así que quedan las cuatro líneas de siempre.
+const _CCA_CONCEPTOS_SECA=[
   {k:'alquiler', lab:'01.-Alquiler',    col:'#f59e0b'},
   {k:'comb',     lab:'02.-Combustible', col:'#f97316'},
   {k:'venta',    lab:'03.-Venta',       col:'#06b6d4'},
   {k:'margen',   lab:'04.-Margen',      col:'#10b981'}
 ];
+const _CCA_CONCEPTOS_FULL=[
+  {k:'alquiler',  lab:'01.-Alquiler',         col:'#f59e0b'},
+  {k:'comb',      lab:'02.-Combustible',      col:'#f97316'},
+  {k:'ventaEq',   lab:'03.-Venta Equipo',     col:'#06b6d4'},
+  {k:'ventaComb', lab:'04.-Venta Combustible',col:'#8b5cf6'},
+  {k:'margen',    lab:'05.-Margen',           col:'#10b981'}
+];
+function _ccaConceptos(){
+  return _ccTarifaModo==='full'?_CCA_CONCEPTOS_FULL:_CCA_CONCEPTOS_SECA;
+}
+// Todo lo que se acumula por mes, en las dos modalidades
+const _CCA_CAMPOS=['alquiler','comb','venta','ventaEq','ventaComb','margen'];
+const _ccaCero=()=>({alquiler:0,comb:0,venta:0,ventaEq:0,ventaComb:0,margen:0});
 
 let _ccaAnio=null;                       // null = todavía sin abrir; se fija al entrar
 let _ccaTipo='', _ccaContratista='', _ccaBuscar='';
@@ -61,7 +78,8 @@ function _ccaAnioPorDefecto(){
 // La clave del caché incluye todo lo que cambia los importes: si el usuario
 // mueve el modo de tarifa o el precio del combustible, se recalcula solo.
 function _ccaClave(anio,KEY){
-  return [anio,KEY,_ccSinIgv?1:0,_ccPrecioManual?1:0,_ccPrecioComb||0].join('|');
+  return [anio,KEY,_ccSinIgv?1:0,_ccPrecioManual?1:0,_ccPrecioComb||0,
+          typeof _ccProyecto!=='undefined'?_ccProyecto:''].join('|');
 }
 
 function _ccaCalcular(anio,KEY){
@@ -70,7 +88,8 @@ function _ccaCalcular(anio,KEY){
 
   const periodos=_ccaPeriodos(anio);
   const eqs=new Map();                   // eqId → {eq, meses:[12], tot:{...}}
-  const totMes=periodos.map(()=>({alquiler:0,comb:0,venta:0,margen:0}));
+  const totMes=periodos.map(_ccaCero);
+  const sumar=(dst,src)=>_CCA_CAMPOS.forEach(k=>{dst[k]+=src[k]||0;});
 
   periodos.forEach((per,i)=>{
     const R=_ccCalcEq(per,KEY);
@@ -79,22 +98,23 @@ function _ccaCalcular(anio,KEY){
       let a=eqs.get(id);
       if(!a){
         a={eq:r.eq,
-           meses:periodos.map(()=>({alquiler:0,comb:0,venta:0,margen:0,est:false,hay:false})),
-           tot:{alquiler:0,comb:0,venta:0,margen:0},
+           meses:periodos.map(()=>Object.assign(_ccaCero(),{est:false,hay:false})),
+           tot:_ccaCero(),
            moneda:'SOLES', nEdp:0, nEst:0};
         eqs.set(id,a);
       }
       const m=a.meses[i];
       m.alquiler=r.costoProveedor; m.comb=r.costoComb;
       m.venta=r.costo;             m.margen=r.margen;
+      // En Máq. Seca no hay venta de combustible: ventaEq es toda la venta
+      m.ventaEq=r.ventaEq!=null?r.ventaEq:r.costo;
+      m.ventaComb=r.ventaComb||0;
       m.est=!r.edp;                                    // sin EDP → alquiler estimado
       m.hay=true;
       if(r.edp){a.nEdp++; if(r.edp.moneda&&r.edp.moneda!=='SOLES')a.moneda=r.edp.moneda;}
       else if(r.costoProveedor)a.nEst++;
-      a.tot.alquiler+=m.alquiler; a.tot.comb+=m.comb;
-      a.tot.venta+=m.venta;       a.tot.margen+=m.margen;
-      totMes[i].alquiler+=m.alquiler; totMes[i].comb+=m.comb;
-      totMes[i].venta+=m.venta;       totMes[i].margen+=m.margen;
+      sumar(a.tot,m);
+      sumar(totMes[i],m);
     });
   });
 
@@ -103,26 +123,18 @@ function _ccaCalcular(anio,KEY){
   [...eqs.values()].forEach(a=>{
     const g=String(a.eq.sub||a.eq.tipo||'Sin clasificar').toUpperCase();
     if(!grupos.has(g))grupos.set(g,{nombre:g,equipos:[],
-      meses:periodos.map(()=>({alquiler:0,comb:0,venta:0,margen:0})),
-      tot:{alquiler:0,comb:0,venta:0,margen:0}});
+      meses:periodos.map(_ccaCero), tot:_ccaCero()});
     const G=grupos.get(g);
     G.equipos.push(a);
-    a.meses.forEach((m,i)=>{
-      G.meses[i].alquiler+=m.alquiler; G.meses[i].comb+=m.comb;
-      G.meses[i].venta+=m.venta;       G.meses[i].margen+=m.margen;
-    });
-    G.tot.alquiler+=a.tot.alquiler; G.tot.comb+=a.tot.comb;
-    G.tot.venta+=a.tot.venta;       G.tot.margen+=a.tot.margen;
+    a.meses.forEach((m,i)=>sumar(G.meses[i],m));
+    sumar(G.tot,a.tot);
   });
 
   const lista=[...grupos.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre));
   lista.forEach(G=>G.equipos.sort((a,b)=>
     String(a.eq.codigo||'').localeCompare(String(b.eq.codigo||''))));
 
-  const totAnio=totMes.reduce((s,m)=>({
-    alquiler:s.alquiler+m.alquiler, comb:s.comb+m.comb,
-    venta:s.venta+m.venta,          margen:s.margen+m.margen}),
-    {alquiler:0,comb:0,venta:0,margen:0});
+  const totAnio=totMes.reduce((s,m)=>{sumar(s,m);return s;},_ccaCero());
 
   _ccaCache={clave,anio,KEY,periodos,grupos:lista,totMes,totAnio,
              nEquipos:eqs.size};
@@ -145,15 +157,12 @@ function _ccaFiltrar(D){
     if(!equipos.length)return null;
     // Los totales del grupo se recalculan sobre lo que quedó visible, para que
     // la fila de familia siempre cuadre con lo que se está viendo.
-    const meses=D.periodos.map(()=>({alquiler:0,comb:0,venta:0,margen:0}));
-    const tot={alquiler:0,comb:0,venta:0,margen:0};
+    const sumar=(dst,src)=>_CCA_CAMPOS.forEach(k=>{dst[k]+=src[k]||0;});
+    const meses=D.periodos.map(_ccaCero);
+    const tot=_ccaCero();
     equipos.forEach(a=>{
-      a.meses.forEach((m,i)=>{
-        meses[i].alquiler+=m.alquiler; meses[i].comb+=m.comb;
-        meses[i].venta+=m.venta;       meses[i].margen+=m.margen;
-      });
-      tot.alquiler+=a.tot.alquiler; tot.comb+=a.tot.comb;
-      tot.venta+=a.tot.venta;       tot.margen+=a.tot.margen;
+      a.meses.forEach((m,i)=>sumar(meses[i],m));
+      sumar(tot,a.tot);
     });
     return{...G,equipos,meses,tot};
   }).filter(Boolean);
@@ -226,7 +235,7 @@ function _ccaPanel(){
           ${a.nEst?`<span title="${a.nEst} mes(es) con el alquiler estimado por horas × tarifa del Máster, sin EDP emitido" style="margin-left:.3rem;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:#f97316">${a.nEst} estimado${a.nEst===1?'':'s'}</span>`:''}
         </td>
       </tr>`;
-      _CCA_CONCEPTOS.forEach(C=>{
+      _ccaConceptos().forEach(C=>{
         filas+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
           <td style="${TDn};${STICKY};text-align:left;color:${C.col};font-weight:700;font-family:inherit;font-size:.7rem;padding-left:1.4rem">${C.lab}</td>
           ${a.meses.map(m=>{
@@ -278,9 +287,9 @@ function _ccaPanel(){
 
   <!-- Leyenda -->
   <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem;font-size:.67rem;color:var(--muted2)">
-    ${_CCA_CONCEPTOS.map(C=>`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:${C.col};border-radius:2px"></span>${C.lab}</span>`).join('')}
+    ${_ccaConceptos().map(C=>`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:${C.col};border-radius:2px"></span>${C.lab}</span>`).join('')}
     <span style="display:flex;align-items:center;gap:.3rem"><em style="border-bottom:1px dotted #f59e0b;font-family:monospace">0.00</em> alquiler estimado (sin EDP)</span>
-    <span>Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}${_ccSinIgv?' · comb. sin IGV':''}</span>
+    <span>Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}${_ccSinIgv?' · comb. sin IGV':''}${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?` · <strong style="color:#a78bfa">solo ${_ccaEsc(_ccProyecto)}</strong>`:''}</span>
   </div>
 
   <!-- Matriz -->
@@ -323,14 +332,17 @@ function _ccaExcel(){
   const HDR=['TIPO DE EQUIPO','CONTRATISTA','EQUIPO CODIGO','EQUIPO','CONCEPTO','MONEDA',
              ..._CCA_MESES.map(m=>m.toUpperCase()),'TOTAL '+_ccaAnio];
   const NC=HDR.length;
-  const XL_COL={'01.-Alquiler':'B45309','02.-Combustible':'C2410C',
-                '03.-Venta':'0E7490','04.-Margen':'047857'};
+  // Se indexa por la clave del concepto, no por su etiqueta: la etiqueta cambia
+  // de número entre Máq. Seca (cuatro líneas) y Tarifa Full (cinco).
+  const XL_COL={alquiler:'B45309',comb:'C2410C',venta:'0E7490',
+                ventaEq:'0E7490',ventaComb:'6D28D9',margen:'047857'};
 
   const aoa=[
     [S('COST CONTROL — MATRIZ ANUAL POR EQUIPO',{b:1,bg:'1E3A5F',col:'FFFFFF',al:'center'}),
       ...Array(NC-1).fill(S('',{bg:'1E3A5F'}))],
     [S(`Año ${_ccaAnio} · períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`
        +`${_ccSinIgv?' · combustible sin IGV':''}${_ccPrecioManual?' · precio de combustible manual':''}`
+       +`${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?' · solo proyecto '+_ccProyecto:''}`
        +` · ${grupos.reduce((s,G)=>s+G.equipos.length,0)} equipo(s)`,
       {bg:'EEF2F8',col:'475569',al:'center'}),...Array(NC-1).fill(S('',{bg:'EEF2F8'}))],
     HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'}))
@@ -339,16 +351,16 @@ function _ccaExcel(){
   grupos.forEach(G=>{
     G.equipos.forEach(a=>{
       const mon=a.moneda==='SOLES'?'S/':a.moneda;
-      _CCA_CONCEPTOS.forEach(C=>{
+      _ccaConceptos().forEach(C=>{
         // Un mes con alquiler estimado sale en cursiva, igual que en pantalla
         const cel=a.meses.map(m=>S(+(m[C.k]||0).toFixed(2),{
-          al:'right',numFmt:'#,##0.00',col:XL_COL[C.lab],
+          al:'right',numFmt:'#,##0.00',col:XL_COL[C.k],
           it:C.k==='alquiler'&&m.hay&&m.est&&Math.abs(m[C.k])>=0.005}));
         aoa.push([
           S(G.nombre),S(a.eq.proveedor||'—'),S(a.eq.codigo||'',{b:1}),S(a.eq.nombre||''),
-          S(C.lab,{b:1,col:XL_COL[C.lab]}),S(mon,{al:'center'}),
+          S(C.lab,{b:1,col:XL_COL[C.k]}),S(mon,{al:'center'}),
           ...cel,
-          S(+(a.tot[C.k]||0).toFixed(2),{al:'right',numFmt:'#,##0.00',b:1,col:XL_COL[C.lab]})
+          S(+(a.tot[C.k]||0).toFixed(2),{al:'right',numFmt:'#,##0.00',b:1,col:XL_COL[C.k]})
         ]);
       });
     });
