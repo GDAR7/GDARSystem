@@ -535,7 +535,7 @@ function imprimirAuxMec(id){
     <img src="${_logoUrl}" style="height:44px;object-fit:contain">
     <div style="text-align:center;flex:1">
       <div style="font-size:15px;font-weight:900;color:#1e293b">INFORME DE AUXILIO MECÁNICO</div>
-      <div style="font-size:10px;color:#64748b">ECOSERMO – Sistema de Control de Mantenimiento – GDAR</div>
+      <div style="font-size:10px;color:#64748b">${EMPRESA.nombre} – Sistema de Control de Mantenimiento – GDAR</div>
     </div>
     <div style="font-size:18px;font-weight:900;color:#ef4444;font-family:monospace;background:#fef2f2;border:2px solid #ef4444;padding:4px 10px;border-radius:6px">${r.cod}</div>
   </div>

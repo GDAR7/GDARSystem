@@ -366,7 +366,7 @@ function _csPrint(){
     .lg span{padding:1px 7px;border-radius:3px;font-weight:700}
   </style></head><body>
   <div class="hdr"><img src="${logo}" alt="">
-    <div class="t"><h1>MATRIZ DE CAPACITACIONES — SEGURIDAD</h1><p>ECOSERMO · ${_csEsc(_csFiltroTxt())} · ${pers.length} trabajadores · ${cursos.length} cursos</p></div>
+    <div class="t"><h1>MATRIZ DE CAPACITACIONES — SEGURIDAD</h1><p>${EMPRESA.nombre} · ${_csEsc(_csFiltroTxt())} · ${pers.length} trabajadores · ${cursos.length} cursos</p></div>
     <div style="text-align:right;font-size:8px;color:#475569">Emitido<br><strong>${new Date().toLocaleDateString('es-PE')}</strong></div>
   </div>
   <table>

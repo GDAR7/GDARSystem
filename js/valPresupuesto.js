@@ -193,7 +193,17 @@ const VAL_PRESUP_BASE=[
 // para valorizar su obra.
 function valPresupuesto(){
   const t=(typeof DB!=='undefined'&&DB.valPresupuesto)||[];
-  if(!t.length)return VAL_PRESUP_BASE;
+  // Sin filas se cae al respaldo, pero SOLO si es de esta empresa. El respaldo
+  // de aquí abajo es el contrato de ECOSERMO: sin esta condición, un cliente
+  // nuevo con su tabla vacía valorizaría con las partidas y los precios de
+  // otro, y el error saldría en un documento que se firma.
+  //
+  // Su empresa.js declara EMPRESA_VAL_RESPALDO en false y ve una valorización
+  // vacía hasta que cargue su contrato, que es lo correcto.
+  if(!t.length){
+    const propio=typeof EMPRESA_VAL_RESPALDO==='undefined'||EMPRESA_VAL_RESPALDO;
+    return propio?VAL_PRESUP_BASE:[];
+  }
   // El orden del documento es el del contrato, no el que devuelva la base.
   return t.slice().sort((a,b)=>(+a.orden||0)-(+b.orden||0)).map(r=>{
     const p={t:r.t,item:r.item||'',desc:r.desc||r.descripcion||''};

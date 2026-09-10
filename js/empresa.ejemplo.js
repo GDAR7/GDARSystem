@@ -21,8 +21,27 @@ const EMPRESA={
 // los datos de una empresa no sean alcanzables desde otra: no comparten base,
 // así que no hay forma de cruzarlas. Nunca reutilice aquí la URL de otro
 // cliente.
-const SUPA_URL = 'https://XXXXXXXXXXXX.supabase.co';
-const SUPA_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
+const SUPA_URL_PROD = 'https://XXXXXXXXXXXX.supabase.co';
+const SUPA_KEY_PROD = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
+
+// Una segunda base para probar migraciones y cambios sin tocar la que usa la
+// gente. Si todavía no tiene una, apunte las dos a la misma: el sistema
+// funciona igual, pero pierde la red.
+const SUPA_URL_DEV  = 'https://XXXXXXXXXXXX.supabase.co';
+const SUPA_KEY_DEV  = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
+
+// Cuál se usa lo decide DÓNDE está abierta la aplicación, no una bandera que
+// alguien pueda olvidarse de volver a cambiar: en el dominio del cliente,
+// producción; en localhost y en las vistas previas, desarrollo.
+const _GDAR_DEV = typeof location !== 'undefined' && (
+  location.hostname === 'localhost'  ||
+  location.hostname === '127.0.0.1'  ||
+  location.hostname === '' ||
+  location.hostname.endsWith('.pages.dev')
+);
+
+const SUPA_URL = _GDAR_DEV ? SUPA_URL_DEV : SUPA_URL_PROD;
+const SUPA_KEY = _GDAR_DEV ? SUPA_KEY_DEV : SUPA_KEY_PROD;
 
 // ── Las convenciones del contrato ─────────────────────────────────────────
 // EMPRESA_CORTE es el día en que abre el período con el que se valoriza: 21
@@ -38,6 +57,12 @@ const SUPA_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXX';
 // confirmarlos contra el contrato antes de la primera valorización.
 const EMPRESA_CORTE=21;
 const EMPRESA_DIAS_MES=30;
+
+// El respaldo de partidas que queda en js/valPresupuesto.js es el contrato
+// del PRIMER cliente, no el suyo. En false, la valorización sale vacía hasta
+// que cargue su contrato en la tabla val_presupuesto — que es lo que debe
+// pasar. Dejarlo en true haría que valorizara con precios de otra empresa.
+const EMPRESA_VAL_RESPALDO=false;
 
 // ── Qué contrató esta empresa ─────────────────────────────────────────────
 // Lo que no esté aquí no aparece en el menú de nadie, por más permisos que

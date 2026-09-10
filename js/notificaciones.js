@@ -55,7 +55,7 @@ async function _notifEnviarDiarioCompleto(){
   const presentes=asist.filter(a=>['TD','TN','DLT'].includes(a.tareo)).length;
   const detEq=partes.length?'\nDetalle equipos:\n'+partes.map(p=>{const eq=equipos.find(e=>e.id===p.eqId);return`  • ${eq?.cod||'—'} ${eq?.marca||''}: ${(+p.ef||0).toFixed(1)}h (${eq?.tipo||'—'})`;}).join('\n'):'  Sin partes registrados.';
   const asunto=`✅ Reporte Diario Completado — ${fechaFmt}`;
-  const cuerpo=`REPORTE DIARIO COMPLETADO — ECOSERMO ERP
+  const cuerpo=`REPORTE DIARIO COMPLETADO — ${EMPRESA.nombre} ERP
 Fecha: ${fechaFmt}
 Reportado por: ${CU?.nombre||'—'}
 
@@ -70,7 +70,7 @@ Personal registrado: ${asist.length}
 Con tareo activo (TD/TN): ${presentes}
 
 --
-Sistema GDAR-ECOSERMO
+Sistema GDAR-${EMPRESA.nombre}
 Generado automáticamente al completar el reporte diario.`;
   const ok=await _notifSend(asunto,cuerpo);
   if(ok)toast('📧 Reporte diario enviado correctamente');
@@ -267,8 +267,8 @@ async function _notifSend(asunto,cuerpo){
 async function _notifTest(){
   _notifSave();
   const ok=await _notifSend(
-    '✓ Prueba — ECOSERMO ERP',
-    `Esta es una prueba del sistema de notificaciones ECOSERMO ERP.\n\nFecha: ${new Date().toLocaleString('es-PE')}\nUsuario: ${CU?.nombre||'—'}\n\nSi recibes este correo, las notificaciones están correctamente configuradas.`
+    '✓ Prueba — '+EMPRESA.nombre+' ERP',
+    `Esta es una prueba del sistema de notificaciones ${EMPRESA.nombre} ERP.\n\nFecha: ${new Date().toLocaleString('es-PE')}\nUsuario: ${CU?.nombre||'—'}\n\nSi recibes este correo, las notificaciones están correctamente configuradas.`
   );
   if(ok)toast('✓ Correo de prueba enviado');
   else toast('✗ Error al enviar — revisa las credenciales',true);
@@ -293,7 +293,7 @@ async function _notifEnviarAhora(){
     return`  • ${eq?.cod||'—'} ${eq?.marca||''}: ${(+p.ef||0).toFixed(1)}h ef. (${eq?.tipo||'—'})`;
   }).join('\n');
 
-  const cuerpo=`REPORTE DE EQUIPOS — ECOSERMO ERP
+  const cuerpo=`REPORTE DE EQUIPOS — ${EMPRESA.nombre} ERP
 Fecha: ${fechaFmt}
 Generado por: ${CU?.nombre||'—'}
 
@@ -308,7 +308,7 @@ DETALLE POR EQUIPO
 ${detalle}
 
 --
-Sistema GDAR-ECOSERMO | Control de Equipos
+Sistema GDAR-${EMPRESA.nombre} | Control de Equipos
 Este mensaje fue generado automáticamente.`;
 
   const ok=await _notifSend(asunto,cuerpo);
@@ -327,7 +327,7 @@ async function _notifTrigger(evento,datos={}){
   const fechaFmt=new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
 
   const asunto=`Parte guardado — ${eq?.cod||'Equipo'} · ${fechaFmt}`;
-  const cuerpo=`Se registró un parte de equipo en ECOSERMO ERP.
+  const cuerpo=`Se registró un parte de equipo en ${EMPRESA.nombre} ERP.
 
 Equipo: ${eq?.cod||'—'} ${eq?.marca||''} ${eq?.modelo||''}
 Tipo: ${eq?.tipo||'—'}
@@ -336,7 +336,7 @@ Parte ID: #${datos.parteId||'—'}
 Horas efectivas: ${datos.ef||'—'} h
 
 --
-Sistema GDAR-ECOSERMO | Control de Equipos`;
+Sistema GDAR-${EMPRESA.nombre} | Control de Equipos`;
 
   await _notifSend(asunto,cuerpo);
 }

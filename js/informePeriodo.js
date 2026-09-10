@@ -336,7 +336,7 @@ function _ipDoc(){
   return`
   <div class="ip-hdr">
     <img src="${logo}" alt="">
-    <div class="ip-t1"><h1>INFORME DE PERÍODO</h1><p>ECOSERMO · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
+    <div class="ip-t1"><h1>INFORME DE PERÍODO</h1><p>${EMPRESA.nombre} · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
     <div class="ip-r">Emitido<br><strong>${new Date().toLocaleDateString('es-PE')}</strong></div>
   </div>
 
@@ -394,7 +394,7 @@ function _ipDoc(){
     <div><div class="sp"></div><div class="ln"></div><strong>REVISADO POR</strong><br>Residente de Proyecto</div>
     <div><div class="sp"></div><div class="ln"></div><strong>APROBADO POR</strong><br>Gerencia de Operaciones</div>
   </div>
-  <div class="ip-pie"><span>ECOSERMO · Informe generado por el sistema GDAR</span><span>Período ${_ipDMY(d.desde)} — ${_ipDMY(d.hasta)}</span></div>`;
+  <div class="ip-pie"><span>${EMPRESA.nombre} · Informe generado por el sistema GDAR</span><span>Período ${_ipDMY(d.desde)} — ${_ipDMY(d.hasta)}</span></div>`;
 }
 
 // Estilos del documento — compartidos por la vista previa y la impresión

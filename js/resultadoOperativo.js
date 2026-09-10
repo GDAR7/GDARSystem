@@ -428,7 +428,7 @@ function _roPrint(){
       Los contratos en moneda extranjera se expresan en soles al tipo de cambio indicado bajo cada importe${_roDatos().filas.some(a=>a.moneda!=='SOLES')?` (US$ ${_tcGet('DOLARES')} / S/)`:''}.
       El combustible corresponde a los despachos del equipo dentro del rango, valorizados al precio de cada despacho.
     </div>
-    <div style="margin-top:14px;font-size:8px;color:#94a3b8;text-align:center">Generado por GDAR – ECOSERMO · ${new Date().toLocaleString('es-PE')}</div>
+    <div style="margin-top:14px;font-size:8px;color:#94a3b8;text-align:center">Generado por GDAR – ${EMPRESA.nombre} · ${new Date().toLocaleString('es-PE')}</div>
     <script>window.onload=function(){window.print();}<${'/'}script>
   </body></html>`);
   w.document.close();

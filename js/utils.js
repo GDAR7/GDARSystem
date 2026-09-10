@@ -442,7 +442,7 @@ function _paginaFallo(k,e){
 
 // ══ EL PERÍODO CONTABLE ══════════════════════════════════════════════════
 // El corte con el que se valoriza todo: partes diarios, combustible, EDP de
-// proveedores, tareaje, costo por m³, informe de período. En ECOSERMO va del
+// proveedores, tareaje, costo por m³, informe de período. Con corte 21 va del
 // 21 de un mes al 20 del siguiente.
 //
 // El día de corte lo declara EMPRESA_CORTE en js/empresa.js, porque cambia

@@ -476,7 +476,7 @@ function verComb(id){
   <div class="firma">V°B° Jefe de Almacén</div>
 </div>
 <div style="text-align:center;margin-top:1.5rem;font-size:.65rem;color:#aaa">
-  Generado por GDAR – ECOSERMO · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}
+  Generado por GDAR – ${EMPRESA.nombre} · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}
 </div>
 <script>window.onload=function(){window.print();}<${'/'}script>
 ${S}body>${S}html>`;
@@ -598,7 +598,7 @@ ${filtVal?`<div style="margin-bottom:.6rem;padding:4px 8px;border-left:3px solid
     <td colspan="3"></td>
   </tr></tfoot>
 </table>
-<div class="footer">Generado por GDAR – ECOSERMO · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</div>
+<div class="footer">Generado por GDAR – ${EMPRESA.nombre} · Sistema de Gestión Operativa · ${new Date().toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</div>
 <script>window.onload=function(){window.print();}<${'/'}script>
 ${S}body>${S}html>`);
   win.document.close();

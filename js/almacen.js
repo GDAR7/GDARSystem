@@ -494,7 +494,7 @@ function _almImprimirVale(vale,codProy){
   </style></head><body>
   <div class="header">
     <div class="header-logo"><img src="${_logoUrl}" alt="Ecosermo"></div>
-    <div class="header-title"><h2>VALE DE SALIDA DE MATERIALES</h2><p>ECOSERMO – Sistema de Control de Almacén – GDAR</p></div>
+    <div class="header-title"><h2>VALE DE SALIDA DE MATERIALES</h2><p>${EMPRESA.nombre} – Sistema de Control de Almacén – GDAR</p></div>
     <div class="vale-num">${vale}</div>
   </div>
   <div class="info">

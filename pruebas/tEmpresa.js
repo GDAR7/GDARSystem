@@ -59,6 +59,36 @@ es('no lleva la lista de usuarios',/codigo:'EIBEL25'/.test(cfg),false);
 es('  pero sí la arma',/const USERS=EMPRESA_USERS\(AREAS\)/.test(cfg),true);
 es('AREAS se queda (es común a todos)',/const AREAS=/.test(cfg),true);
 
+console.log('\n== El nombre del cliente no está escrito en el código común ==');
+// El logo ya salía de EMPRESA.logo, pero el NOMBRE se había quedado a medias:
+// estaba escrito en 61 sitios de 23 módulos, sobre todo en cabeceras y pies de
+// PDF. Un cliente nuevo habría emitido sus documentos con el nombre de otro.
+let conNombre=[],conRuc=[];
+fs.readdirSync(R+'js').filter(f=>f.endsWith('.js')&&!f.startsWith('empresa')).forEach(f=>{
+  const s=fs.readFileSync(R+'js/'+f,'utf8');
+  // Se busca el nombre en CÓDIGO, no en comentarios: uno que cuente la
+  // historia del respaldo de partidas es información, no una fuga.
+  const enCodigo=s.split(/\r?\n/).filter(l=>!l.trim().startsWith('//')&&l.includes(EMPRESA.nombre));
+  if(enCodigo.length)conNombre.push(f+'('+enCodigo.length+')');
+  if(s.includes(EMPRESA.ruc))conRuc.push(f);
+});
+es('ningún módulo lleva el nombre escrito',conNombre.join(' ')||'—','—');
+es('  ni el RUC',conRuc.join(' ')||'—','—');
+es('  ni la razón social',
+   fs.readdirSync(R+'js').filter(f=>f.endsWith('.js')&&!f.startsWith('empresa'))
+     .filter(f=>fs.readFileSync(R+'js/'+f,'utf8').includes('EMPRESA COMUNAL')).join(' ')||'—','—');
+es('EMPRESA declara la razón social',!!EMPRESA.razon,true);
+
+console.log('\n== La plantilla sirve tal cual para un cliente nuevo ==');
+const ejSrc=fs.readFileSync(R+'js/empresa.ejemplo.js','utf8');
+es('separa producción de desarrollo',/const SUPA_URL_PROD/.test(ejSrc)&&/const SUPA_URL_DEV/.test(ejSrc),true);
+es('  y conmuta por hostname',/_GDAR_DEV/.test(ejSrc),true);
+es('trae las convenciones del contrato',/EMPRESA_CORTE/.test(ejSrc)&&/EMPRESA_DIAS_MES/.test(ejSrc),true);
+// El respaldo de partidas que queda en el código es el contrato del primer
+// cliente. Con la bandera en true, un cliente nuevo valorizaría con precios
+// de otra empresa, y el error saldría en un documento firmado.
+es('no hereda el contrato del primer cliente',/const EMPRESA_VAL_RESPALDO=false/.test(ejSrc),true);
+
 console.log('\n== El logo de los PDF sale de la config ==');
 let conLogo=0,sueltas=0;
 fs.readdirSync(R+'js').filter(f=>f.endsWith('.js')).forEach(f=>{

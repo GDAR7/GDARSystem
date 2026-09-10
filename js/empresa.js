@@ -11,8 +11,15 @@
 
 // ── Identidad, la que sale en pantalla y en los PDF ────────────────────────
 const EMPRESA={
+  // El nombre corto, el que va en cabeceras y pies de los documentos.
   nombre:'ECOSERMO',
   ruc:'20571533180',
+  // La razón social completa, para los documentos que la exigen: la boleta de
+  // pago y el cajetín de proveedor del corte de equipos. Si no se declara, se
+  // usa `nombre`.
+  razon:'EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON (ECOSERMO)',
+  // Dónde opera. Es la línea que va bajo el nombre en la pantalla de acceso.
+  sitio:'Oyón / Uchuchacua',
   logo:'09.-ERP/Imagenes/ECOSERMO-LOGO.png'   // relativa a index.html
 };
 
@@ -90,6 +97,12 @@ const EMPRESA_CORTE=21;
 // directamente lo que se le factura al cliente por mano de obra.
 const EMPRESA_DIAS_MES=30;
 
+// El contrato de esta empresa es el que quedó de respaldo en
+// js/valPresupuesto.js, de cuando las partidas vivían en el código. Mientras
+// la tabla val_presupuesto esté vacía, se usa ese. Un cliente distinto pone
+// false y ve la valorización vacía hasta cargar el suyo.
+const EMPRESA_VAL_RESPALDO=true;
+
 // ── Cómo se valida quién entra ────────────────────────────────────────────
 // 'local'    → esquema anterior: la credencial se compara contra la lista de
 //              aquí abajo. Solo funciona con las políticas RLS abiertas.
@@ -129,10 +142,50 @@ const EMPRESA_USERS=A=>[
   {codigo:'CP.BISA_',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
 ];
 
-// El logo de la pantalla de acceso. El src del HTML queda como respaldo:
-// si este archivo no cargara, al menos se ve algo en lugar de un hueco.
+// ── Lo que index.html lleva escrito y hay que repintar ────────────────────
+// El HTML es igual para todas las empresas, así que trae el nombre del primer
+// cliente como marcador de posición y aquí se sustituye por el de esta. Lo que
+// esté en el HTML queda de respaldo: si este archivo no cargara, se ve algo en
+// lugar de un hueco.
+//
+// El logo ya se hacía así. Faltaban el título de la pestaña, la marca y el
+// sitio de la pantalla de acceso, la de la ficha de trabajador y las dos
+// etiquetas de firma del daily report, que seguían diciendo ECOSERMO.
+// ⚠ La PRIMERA LÍNEA de la función que sigue es una marca. migrarAuth.js y
+//   cinco suites cortan este archivo desde ella hasta el final, para poder
+//   evaluar la configuración fuera del navegador. Si se reescribe esa línea,
+//   los seis dejan de encontrar el corte y evalúan código que toca el DOM.
+//
+//   Todo lo que use document va DESPUÉS. Y nada de escribir el patrón del
+//   corte en un comentario: el recorte busca la primera coincidencia, así que
+//   se cortaría aquí. Ya pasó.
 (()=>{const el=document.getElementById('logoEmpresa');
-  if(el){el.src=EMPRESA.logo;el.alt=EMPRESA.nombre;}})();
+  if(el){el.src=EMPRESA.logo;el.alt=EMPRESA.nombre;}
+
+  const poner=(sel,txt)=>document.querySelectorAll(sel).forEach(e=>{e.textContent=txt;});
+
+  const pintar=()=>{
+    document.title='GDAR - '+EMPRESA.nombre+' · Sistema Operativo';
+    poner('.login-brand','GDAR - '+EMPRESA.nombre);
+    if(EMPRESA.sitio)poner('.login-site','Sistema de Gestión Operativa · '+EMPRESA.sitio);
+    poner('.fc-brand',EMPRESA.nombre);
+
+    // El adorno de fondo del acceso: el nombre partido en dos mitades, una en
+    // cada esquina. Estaba escrito como 'ECO' y 'SERMO', que es por lo que
+    // buscar el nombre completo en los archivos no lo encontraba: se ve
+    // mirando la pantalla, no leyendo el codigo.
+    const n=(EMPRESA.nombre||'').replace(/s+/g,'');
+    const mitad=Math.ceil(n.length/2);
+    poner('.login-float.lf1',n.slice(0,mitad));
+    poner('.login-float.lf2',n.slice(mitad));
+    // Las firmas del daily report: el rol se queda, la empresa cambia.
+    document.querySelectorAll('.emp-firma').forEach(e=>{
+      e.textContent=(e.dataset.rol||'')+' – '+EMPRESA.nombre;
+    });
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pintar);
+  else pintar();
+})();
 
 // Aviso de que esto NO es producción. La base de desarrollo lleva una copia de
 // los datos reales, así que las dos pantallas se ven idénticas: sin una marca

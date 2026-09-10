@@ -1094,7 +1094,7 @@ function _phResumenDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
@@ -1487,7 +1487,7 @@ function _rmDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — AVANCE DEL MES</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
@@ -1721,7 +1721,7 @@ function _rmMatDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — MATERIAL MOVIDO</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px">

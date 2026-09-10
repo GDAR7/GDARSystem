@@ -400,7 +400,7 @@ function _libEnsureModals(){
     <div class="fg-grid">
       <div class="fg" style="grid-column:1/-1"><label>Actividad *</label><input id="libNNombre" placeholder="¿Qué se va a ejecutar esta semana?"></div>
       <div class="fg"><label>Frente</label><input id="libNFrente" list="libFrenteList" placeholder="Dique Principal..."><datalist id="libFrenteList"></datalist></div>
-      <div class="fg"><label>Ejecutor</label><input id="libNEjec" list="libEjecList" placeholder="ECOSERMO"><datalist id="libEjecList"><option>ECOSERMO</option><option>Buenaventura</option></datalist></div>
+      <div class="fg"><label>Ejecutor</label><input id="libNEjec" list="libEjecList" placeholder="${EMPRESA.nombre}"><datalist id="libEjecList"><option>${EMPRESA.nombre}</option><option>Buenaventura</option></datalist></div>
       <div class="fg"><label>Meta</label><input id="libNMeta" type="number" step="0.01" placeholder="0"></div>
       <div class="fg"><label>Unidad</label><input id="libNUnidad" placeholder="m3, m2, glb..."></div>
       <div class="fg" style="grid-column:1/-1"><label>Proyecto</label><select id="libNProy"></select></div>
@@ -476,7 +476,7 @@ function _libNuevaAct(){
   _libEnsureModals();
   document.getElementById('libNNombre').value='';
   document.getElementById('libNFrente').value=_libFrente||'';
-  document.getElementById('libNEjec').value='ECOSERMO';
+  document.getElementById('libNEjec').value=EMPRESA.nombre;
   document.getElementById('libNMeta').value='';
   document.getElementById('libNUnidad').value='';
   document.getElementById('libFrenteList').innerHTML=
@@ -495,7 +495,7 @@ function _libGuardarAct(){
     nombre,
     unidad:document.getElementById('libNUnidad').value.trim()||'glb',
     meta:+document.getElementById('libNMeta').value||0,
-    ejecutor:document.getElementById('libNEjec').value.trim()||'ECOSERMO',
+    ejecutor:document.getElementById('libNEjec').value.trim()||EMPRESA.nombre,
     semanaInicio:_libSem,
     wbsId:null,cumplio:null,causaNoCump:'',
     creadoPor:CU?CU.nombre:''

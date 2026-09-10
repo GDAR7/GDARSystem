@@ -246,7 +246,7 @@ function _seqDocHtml(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">
       <img src="${_logoUrl}" style="height:34px;object-fit:contain">
       <div>
-        <div style="font-size:12px;font-weight:900;color:${AZ}">ECOSERMO</div>
+        <div style="font-size:12px;font-weight:900;color:${AZ}">${EMPRESA.nombre}</div>
         <div style="font-size:11px;font-weight:800;color:#111">CONTROL DE SALIDA DE EQUIPOS A MANTENIMIENTO</div>
         <div style="font-size:8px;font-style:italic;color:#333">Proyecto: Recrecimiento Dique Relavera R3 – Cota 4416 | U.M. Uchuchacua – Cía. de Minas Buenaventura S.A.A.${proy?' | '+proy:''}</div>
       </div>

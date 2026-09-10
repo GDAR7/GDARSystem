@@ -13,9 +13,9 @@
 // equipo) y la salida se imprime en PDF o se baja a Excel, una hoja por equipo.
 
 const _CE_CLIENTE='COMPAÑÍA DE MINAS BUENAVENTURA S.A.A.';
-// Esto es la VENTA al cliente: quien presta el servicio siempre es ECOSERMO.
+// Esto es la VENTA al cliente: quien presta el servicio es siempre la propia empresa.
 // La empresa que nos alquila el equipo va en el EDP de proveedores, no aqui.
-const _CE_PROVEEDOR='EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON(ECOSERMO)';
+const _CE_PROVEEDOR=EMPRESA.razon||EMPRESA.nombre;
 const _CE_AREA_DEF='PROYECTOS';
 const _CE_DISP_MIN=85;                       // % de disponibilidad que exige el contrato
 const _CE_TIPOS_HORA=['Línea Amarilla','Línea Blanca'];   // los que se valorizan por horas
@@ -228,7 +228,7 @@ function _ceHojaHtml(eq,per,num){
   const TH=`background:${_CE_AZ};color:#fff;padding:4px 5px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${_CE_AZ}`;
   const TD='border:1px solid #cbd5e1;padding:3px 5px;font-size:8.5px;vertical-align:middle;color:#111';
   const rot='font-size:9px;font-weight:900;color:#111;white-space:nowrap';
-  const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+  const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES '+EMPRESA.nombre;
   const etiqueta=`${eq.sub||eq.tipo||'EQUIPO'} ${eq.codigo||''}`.trim();
 
   // Cabecera — el modelo por horas lleva "VALORIZACIÓN", el de días va numerado
@@ -431,7 +431,7 @@ function _ceExportXls(){
   eqs.forEach((eq,idx)=>{
     const D=_ceDatos(eq,per);
     const esHora=_ceEsHora(eq);
-    const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+    const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES '+EMPRESA.nombre;
     const titulo=esHora?`VALORIZACIÓN - ${eq.tipo||''} - ${eq.codigo||''}`
       :`${String(idx+1).padStart(2,'0')}.- ${(eq.sub||eq.tipo||'').toUpperCase()} ${eq.codigo||''}`;
 
@@ -697,7 +697,7 @@ function _ceResumenDocHtml(per){
   const TH=`background:${_CE_AZ};color:#fff;padding:5px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #000`;
   const TD='padding:4px 8px;font-size:9.5px;vertical-align:middle;color:#111;border-bottom:1px solid #cbd5e1';
   const AM='#fff2cc';   // el amarillo suave del sub total, como en el formato
-  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES '+EMPRESA.nombre;
   const rot='font-size:9px;font-weight:900;color:#111;white-space:nowrap';
   const cuerpo=filas.map(({eq,D})=>{
     const lin=(cond,mapa,sub,fuerte)=>`<tr>
@@ -755,7 +755,7 @@ function _ceResumenXls(){
   const{filas,cols,total}=_ceResumenDatos(per);
   if(!filas.length){toast('No hay equipos de línea amarilla o blanca en el período',true);return;}
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
-  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
+  const proyecto=((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES '+EMPRESA.nombre;
 
   const aoa=[['RESUMEN HORAS DE EQUIPO POR AREA DE TRABAJO'],
     ['PROYECTO:',proyecto],

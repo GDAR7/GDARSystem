@@ -327,7 +327,7 @@ function _iaPrint(){
     <div class="t"><h1>DETALLE DE CONSUMO DE INSUMOS</h1><p>Auxilios Mecánicos · ${_iaEsc(_iaFiltroTxt())} · ${sub}</p></div>
     <div style="text-align:right;font-size:9px;color:#475569">${lista.length} líneas<br><strong style="font-size:12px;color:#b91c1c">S/ ${_iaN2(tot)}</strong></div>
   </div>
-  <div class="sec">A. CONSUMO DE INSUMOS — ALMACÉN ECOSERMO</div>
+  <div class="sec">A. CONSUMO DE INSUMOS — ALMACÉN ${EMPRESA.nombre}</div>
   <table>
     <thead><tr>
       <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Equipo</th>
