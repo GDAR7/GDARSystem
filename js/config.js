@@ -250,7 +250,7 @@ async function supaGuardarRequerimiento(req){
       created_at:new Date().toISOString()
     };
     const {data:ret,error:re}=await supa.from('requerimientos').upsert(reqData).select();
-    if(re){console.warn('[Req]',re.message);return;}
+    if(re){console.warn('[Req]',re.message);toast('Error al guardar el requerimiento: '+re.message,true);return re;}
     const reqId=ret[0].id;
     const localReq=DB.requerimientos.find(r=>r.num===req.num);
     if(localReq)localReq.id=reqId;
@@ -274,7 +274,23 @@ async function supaGuardarRequerimiento(req){
         });
       }
     }
-  }catch(e){console.warn('[Req]',e);}
+    return null;
+  }catch(e){
+    // Un requerimiento no cabe en un upsert: son tres tablas y la de enlace
+    // necesita el id que devuelve la primera. Por eso este camino no pasa por
+    // supaUpsert y, hasta ahora, un corte de red lo perdía sin un solo aviso:
+    // la pantalla lo mostraba creado y en la base no quedaba nada.
+    // Se encola entero, con sus ítems, y al volver la red se rehace esta misma
+    // secuencia. Ver js/cola.js.
+    console.warn('[Req]',e);
+    if(typeof colaGuardar==='function'&&req&&req.id!==undefined){
+      const guardado=await colaGuardar('requerimientos',req,{requerimiento:true});
+      toast(guardado
+        ? '⏳ Sin conexión: el requerimiento se enviará al volver la red'
+        : 'Error de conexión: el requerimiento no se guardó',!guardado);
+    }else toast('Error de conexión: el requerimiento no se guardó',true);
+    return e;
+  }
 }
 
 // ══ ACTUALIZAR DATOS SIN CERRAR SESIÓN ══

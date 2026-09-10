@@ -77,6 +77,7 @@ async function colaGuardar(dbKey,record,op){
       clave:dbKey+'|'+(record&&record.id),
       dbKey,record,
       borrar:!!(op&&op.borrar),
+      requerimiento:!!(op&&op.requerimiento),
       cuando:new Date().toISOString()
     }));
     _colaPintar();
@@ -115,10 +116,26 @@ async function colaVaciar(){
     const lista=(await colaListar()).sort((a,b)=>String(a.cuando).localeCompare(b.cuando));
     for(const item of lista){
       const tabla=SUPA_TABLES[item.dbKey];
-      if(!tabla){ await _colaQuitar(item.clave); continue; }   // tabla que ya no existe
+      // Un requerimiento no se dirige a una sola tabla, así que no se le pide
+      // una: se descartaría antes de llegar a su rama.
+      if(!tabla&&!item.requerimiento){ await _colaQuitar(item.clave); continue; }  // tabla que ya no existe
       try{
         let error;
-        if(item.borrar){
+        if(item.requerimiento){
+          // Tres tablas y un id que solo da el servidor: no cabe en un upsert.
+          // Se rehace la secuencia entera llamando a quien sabe hacerla. Si
+          // vuelve a caerse la red, esa función encola otra vez con la misma
+          // clave —se reemplaza, no se acumula— y devuelve el fallo, que aquí
+          // corta la pasada como cualquier otro corte.
+          if(typeof supaGuardarRequerimiento!=='function')continue;
+          // Un fallo de red llega como Error (lo lanzó fetch); un rechazo de
+          // Supabase llega como objeto plano {message,code,...}. Es lo único
+          // que los separa, y separarlos importa: uno se reintenta, el otro no.
+          const r=await supaGuardarRequerimiento(item.record);
+          if(r instanceof Error)throw r;   // se cayó otra vez la red
+          error=r||null;
+        }
+        else if(item.borrar){
           // Si nunca llegó a existir en el servidor, borrar no encuentra nada.
           // Eso no es un fallo: el resultado buscado —que no esté— ya se dio.
           ({error}=await supa.from(tabla).delete().eq('id',+item.record.id));

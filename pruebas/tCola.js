@@ -73,20 +73,32 @@ function montar(op){
       }})
     })
   };
+  // El doble de supaGuardarRequerimiento devuelve lo mismo que el de verdad:
+  // null si salió, un Error si se cayó la red, un objeto plano {message} si el
+  // servidor lo rechazó. Que el original ADEMÁS reencole en el caso de red es
+  // cosa suya, y lo comprueba la aserción de texto sobre config.js.
+  const reqs=[];
+  const req={falla:null};
   const ctx={
     indexedDB:idb, supa, DB:op.DB||{},
-    SUPA_TABLES:{tareaje:'tareaje',asistencia:'asistencia',combustible:'combustible'},
+    supaGuardarRequerimiento:async r=>{
+      if(req.falla)return req.falla;
+      reqs.push(r);return null;
+    },
+    SUPA_TABLES:op.tablas||{tareaje:'tareaje',asistencia:'asistencia',
+      combustible:'combustible',requerimientos:'requerimientos'},
     toSnake:o=>o,
     toast:m=>avisos.push(String(m)),
     document:undefined, window:undefined,
     console:{warn(){},info(){}}
   };
-  const api=new Function('indexedDB','supa','DB','SUPA_TABLES','toSnake','toast',
-    'document','window','console',
+  const api=new Function('indexedDB','supa','DB','supaGuardarRequerimiento',
+    'SUPA_TABLES','toSnake','toast','document','window','console',
     SRC+';return{colaGuardar,colaListar,colaPendientes,colaVaciar,colaAplicar,colaPendiente,colaMarca};')(
-    ctx.indexedDB,ctx.supa,ctx.DB,ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
+    ctx.indexedDB,ctx.supa,ctx.DB,ctx.supaGuardarRequerimiento,
+    ctx.SUPA_TABLES,ctx.toSnake,ctx.toast,
     ctx.document,ctx.window,ctx.console);
-  return Object.assign(api,{datos,enviados,borrados,avisos,DB:ctx.DB});
+  return Object.assign(api,{datos,enviados,borrados,avisos,reqs,req,DB:ctx.DB});
 }
 
 (async()=>{
@@ -370,6 +382,87 @@ console.log('\n== Un borrado normal sigue siendo un borrado normal ==');
   await c.colaVaciar();
   es('se escribe',c.enviados.length,1);
   es('  y no se borra nada',c.borrados.length,0);
+}
+
+console.log('\n== Un requerimiento no cabe en un upsert ==');
+// Son tres tablas y la de enlace necesita el id que devuelve la primera, así
+// que este camino no pasa por supaUpsert. Hasta ahora un corte de red lo
+// perdía sin un solo aviso: console.warn y nada más.
+{
+  const c=montar({DB:{requerimientos:[]},inicial:{}});
+  await c.colaGuardar('requerimientos',{id:5,num:'RQ-001',items:[{cod:'A',desc:'Cemento'}]},
+                      {requerimiento:true});
+  await c.colaAplicar();
+  es('el requerimiento no se pierde',c.DB.requerimientos.length,1);
+  es('  con sus ítems',c.DB.requerimientos[0].items.length,1);
+  await c.colaVaciar();
+  es('  y al volver la red se rehace la secuencia',c.reqs.length,1);
+  es('    entera, no solo la cabecera',(c.reqs[0].items||[]).length,1);
+  es('  sin pasar por el upsert normal',c.enviados.length,0);
+  es('  y sale de la cola',await c.colaPendientes(),0);
+}
+
+console.log('\n== Si la red sigue caída, el requerimiento se queda ==');
+// Un Error lo lanzó fetch: no hubo respuesta, se reintenta.
+{
+  const c=montar({DB:{requerimientos:[]},inicial:{
+    'requerimientos|5':{clave:'requerimientos|5',dbKey:'requerimientos',
+      requerimiento:true,record:{id:5,num:'RQ-001'},cuando:'a'}}});
+  c.req.falla=new TypeError('Failed to fetch');
+  const a=await c.colaVaciar();
+  es('no se da por enviado',a.enviados,0);
+  es('  y sigue pendiente',a.pendientes,1);
+}
+
+console.log('\n== Si el servidor lo rechaza, no se reintenta a ciegas ==');
+// Un objeto plano {message} vino del servidor: reintentarlo repetiría el mismo
+// rechazo para siempre. Es la misma regla que en supaUpsert.
+{
+  const c=montar({DB:{requerimientos:[]},inicial:{
+    'requerimientos|5':{clave:'requerimientos|5',dbKey:'requerimientos',
+      requerimiento:true,record:{id:5,num:'RQ-001'},cuando:'a'}}});
+  c.req.falla={message:'columna inexistente'};
+  const a=await c.colaVaciar();
+  es('no se da por enviado',a.enviados,0);
+  es('  y se queda para revisarlo',a.pendientes,1);
+  es('  pero no se confunde con un corte',c.reqs.length,0);
+}
+
+console.log('\n== Un corte de red detiene la pasada ==');
+// Si la red se cayó, seguir intentando los demás es tiempo perdido y ruido en
+// la consola. Se corta y se reintenta entero más tarde.
+{
+  const c=montar({DB:{requerimientos:[],combustible:[]},inicial:{
+    'requerimientos|5':{clave:'requerimientos|5',dbKey:'requerimientos',
+      requerimiento:true,record:{id:5},cuando:'a'},
+    'combustible|9':{clave:'combustible|9',dbKey:'combustible',record:{id:9},cuando:'b'}}});
+  c.req.falla=new TypeError('Failed to fetch');
+  await c.colaVaciar();
+  es('no se intenta lo que venía detrás',c.enviados.length,0);
+  es('  y los dos siguen pendientes',await c.colaPendientes(),2);
+}
+
+console.log('\n== La rama del requerimiento no depende de SUPA_TABLES ==');
+// No se dirige a una sola tabla, así que pedirle una lo descartaría antes de
+// llegar a su rama, y se perdería de la cola sin haberse enviado.
+{
+  const c=montar({tablas:{combustible:'combustible'},DB:{requerimientos:[]},inicial:{
+    'requerimientos|5':{clave:'requerimientos|5',dbKey:'requerimientos',
+      requerimiento:true,record:{id:5,num:'RQ-001'},cuando:'a'}}});
+  await c.colaVaciar();
+  es('se envía igual',c.reqs.length,1);
+  es('  y no se descarta en silencio',await c.colaPendientes(),0);
+}
+
+console.log('\n== El enganche en supaGuardarRequerimiento ==');
+{
+  const cfgC=fs.readFileSync(R+'js/config.js','utf8');
+  const bq=cfgC.slice(cfgC.indexOf('async function supaGuardarRequerimiento'),
+                      cfgC.indexOf('async function loadSheetsData'));
+  es('un fallo de red lo encola entero',/requerimiento:true/.test(bq),true);
+  es('  y por fin se avisa',/el requerimiento se enviará al volver la red/.test(bq),true);
+  es('antes se perdía en silencio: ya no',/console\.warn\('\[Req\]',e\);\}\n\}/.test(cfgC),false);
+  es('un rechazo del servidor se devuelve, no se encola',/return re;/.test(bq),true);
 }
 
 console.log('\n== El enganche en supaDelete ==');
