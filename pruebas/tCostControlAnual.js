@@ -120,9 +120,15 @@ es('  y se devuelven en la fila',/costo:venta,ventaEq,ventaComb,/.test(cc),true)
 es('el motor entrega los dos totales',
   /totalVentaEqSolo,totalVentaComb,precioAlm,precioComb/.test(cc),true);
 es('la tabla parte la columna solo en Full',/const esFull=KEY==='full';/.test(cc),true);
-es('  con una columna menos en Seca',/const NC=esFull\?11:10;/.test(cc),true);
-es('  la cabecera cambia de nombre',/\$\{esFull\?'Venta Equipo':'Venta'\}/.test(cc),true);
-es('  y aparece Venta Comb.',/>Venta Comb\.<\/th>/.test(cc),true);
+// Las columnas dejaron de estar escritas a mano: ahora son una lista, y el
+// ancho de la tabla sale de contarla. Así ocultar una no descuadra los colspan.
+es('  el ancho se calcula, no está escrito',/const NC=2\+COLS\.length;/.test(cc),true);
+es('  ya no hay un número de columnas fijo',/const NC=esFull\?11:10;/.test(cc),false);
+es('  Venta Comb. está marcada como solo-Full',/k:'vcomb'[\s\S]{0,80}soloFull:true/.test(cc),true);
+es('  y la cabecera de Venta cambia de nombre',
+  /th:f=>f\?'Venta Equipo':'Venta'/.test(cc),true);
+es('el colspan del subtotal se calcula',/colspan="\$\{2\+lead\}"/.test(cc),true);
+es('  contando las columnas sin subtotal',/for\(const c of COLS\)\{ if\(c\.sub\) break; lead\+\+; \}/.test(cc),true);
 es('el anual guarda las dos ventas',/m\.ventaComb=r\.ventaComb\|\|0;/.test(ca),true);
 es('  y en Seca ventaEq es toda la venta',
   /m\.ventaEq=r\.ventaEq!=null\?r\.ventaEq:r\.costo;/.test(ca),true);

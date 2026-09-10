@@ -288,6 +288,67 @@ es('  con el pie que explica la suma',/de venta total/.test(F1.H),true);
 es('  y sigue sin columna Proyecto',/>Proyecto</.test(F1.H),false);
 es('ninguna celda quedó en undefined',/undefined|NaN/.test(F1.H+S1.H),false);
 
+console.log('\n== Ocultar columnas ==');
+// El punto de haber pasado las columnas a una lista: los colspan se recalculan
+// solos. Si quedara alguno escrito a mano, la tabla saldría descuadrada.
+function conOcultas(modo,ocultas){
+  ev(`_ccColsOcultas=new Set(${JSON.stringify(ocultas)})`);
+  return anchos(modo);
+}
+const T1=conOcultas('full',['tar']);
+es('ocultar Tarifa deja diez columnas',T1.nTh,10);
+es('  y todas las filas miden diez',T1.anchos.join(','),'10');
+es('  la Tarifa ya no está',/>Tarifa</.test(T1.H),false);
+es('  pero Venta sigue',/>Venta Equipo</.test(T1.H),true);
+
+const T2=conOcultas('full',['un','inc','tar']);
+es('ocultar las tres de la izquierda deja ocho',T2.nTh,8);
+es('  y las filas siguen parejas',T2.anchos.join(','),'8');
+es('  el Subtotal se estira solo sobre Código y Equipo',
+  /colspan="2"[^>]*>Subtotal/.test(T2.H),true);
+
+const T3=conOcultas('full',['vta','mar']);
+es('ocultar columnas del medio no descuadra',T3.anchos.join(','),'9');
+es('  la fila de totales tampoco',T3.malas,0);
+
+const T4=conOcultas('full',['vcomb']);
+es('se puede ocultar solo la venta de combustible',T4.nTh,10);
+es('  y su columna ya no está',/>Venta Comb\.<\/th>/.test(T4.H),false);
+es('  el pie deja de explicar una columna que no se ve',/de venta total/.test(T4.H),false);
+es('  pero la Venta Equipo sigue',/>Venta Equipo<\/th>/.test(T4.H),true);
+
+const TODAS=['un','inc','tar','vta','vcomb','gal','ccomb','cprov','mar'];
+const T5=conOcultas('full',TODAS);
+es('ocultarlas todas deja Código y Equipo',T5.nTh,2);
+es('  sin ninguna fila rota',T5.malas,0);
+es('  y avisa cuáles se ocultaron',/columna\(s\) oculta\(s\)/.test(T5.H),true);
+es('  con un botón para recuperarlas',/_ccColsTodas\(true\)/.test(T5.H),true);
+
+const T6=conOcultas('seca',['gal','ccomb']);
+es('en Máq. Seca también funciona',T6.nTh,8);
+es('  filas parejas',T6.anchos.join(','),'8');
+es('  y Venta Comb. no aparece aunque esté visible',/Venta Comb\./.test(T6.H),false);
+
+ev('_ccColsOcultas=new Set()');
+const T7=anchos('full');
+es('sin nada oculto vuelven las once',T7.nTh,11);
+es('  y no hay aviso de ocultas',/columna\(s\) oculta\(s\)/.test(T7.H),false);
+
+console.log('\n== Las columnas ocultas no afectan al Excel ==');
+// El archivo es para analizar fuera: debe traer todo, se vea o no en pantalla.
+const cc2=fs.readFileSync(R+'js/costcontrol.js','utf8');
+const cx2=fs.readFileSync(R+'js/costcontrolExport.js','utf8');
+es('el exportador no consulta la visibilidad',/_ccColVis|_ccColsOcultas/.test(cx2),false);
+es('se guardan las ocultas, no las visibles',/localStorage\.setItem\('ccColsOcultas'/.test(cc2),true);
+es('  para que una columna nueva nazca visible',
+  /_ccColVis\(k\)\{return !_ccColsOcultas\.has\(k\)/.test(cc2),true);
+es('Código y Equipo no están en la lista ocultable',
+  /_CC_COLS_EQ=\[[\s\S]*?\];/.exec(cc2)[0].includes("k:'codigo'"),false);
+es('el menú Vista solo sale en la pestaña Equipos',
+  /_ccTabActiva==='equipos'\?`<button class="btn btn-out btn-sm" onclick="ccMenuVista/.test(cc2),true);
+es('los menús reusan los ayudantes del Tareaje',
+  /_tmnAbrir\(ev,'ccvista'/.test(cc2)&&/_tmnAbrir\(ev,'ccexportar'/.test(cc2),true);
+
 console.log('\n== La matriz Anual en Tarifa Full ==');
 ev('_ccTarifaModo="full";_ccaCache=null;_ccaAnio=2026');
 const HF=ev('_ccaPanel()');
