@@ -10,7 +10,7 @@
 // Qué revisa y por qué cada cosa:
 //
 //  1 · Sintaxis archivo por archivo.
-//  2 · Carga conjunta. Los 53 scripts comparten un mismo espacio global; si dos
+//  2 · Carga conjunta. Los scripts comparten un mismo espacio global; si dos
 //      declaran el mismo `const`, el navegador falla al cargar y el módulo
 //      entero deja de existir sin ningún aviso. Ya pasó con el prefijo `_ip`.
 //  3 · Funciones que se llaman y no existen — incluidos los onclick de
@@ -18,8 +18,10 @@
 //  4 · Que cada script de index.html exista, y que lleve su ?v=.
 //  5 · Modales dentro de una página. Un modal en un contenedor oculto se abre
 //      pero no se ve. Pasó con el de cambio de clave.
-//  6 · Que no haya credenciales camino a un repositorio público.
-//  7 · Las suites de pruebas/.
+//  6 · La configuración del cliente: el único archivo que cambia de una
+//      empresa a otra, y donde se concentran los errores de un alta.
+//  7 · Que no haya credenciales camino a un repositorio público.
+//  8 · Las suites de pruebas/.
 
 const fs=require('fs');
 const path=require('path');
@@ -191,8 +193,27 @@ else if(profP!==0)
       profP<0?'hay '+(-profP)+' </div> de más':'faltan '+profP+' </div>');
 else bien('las '+nPag+' páginas cuelgan del nivel correcto');
 
-// ── 6 · Credenciales camino al repositorio ─────────────────────────────────
-titulo('6 · Nada sensible rumbo a GitHub');
+// ── 6 · La configuración de ESTE cliente ───────────────────────────────────
+// Todo lo anterior comprueba el sistema, que es igual para todos. Esto
+// comprueba el único archivo que cambia de un cliente a otro, y donde por lo
+// tanto se concentran los errores de un alta: un plan que nombra un módulo que
+// no existe deja un área vacía, un corte fuera de rango descuadra todas las
+// valorizaciones, y un marcador de la plantilla sin rellenar llega a
+// producción sin que nada se queje.
+titulo('6 · La configuración de este cliente');
+{
+  const{revisarCliente}=require('./revisarCliente');
+  try{
+    revisarCliente({
+      empresaSrc :fs.readFileSync(path.join(RAIZ,'js','empresa.js'),'utf8'),
+      registroSrc:fs.readFileSync(path.join(RAIZ,'js','registro.js'),'utf8'),
+      existe     :rel=>fs.existsSync(path.join(RAIZ,rel))
+    }).forEach(h=>h.ok?bien(h.texto,h.detalle):mal(h.texto,h.detalle));
+  }catch(e){ mal('no se pudo revisar js/empresa.js',e.message); }
+}
+
+// ── 7 · Credenciales camino al repositorio ─────────────────────────────────
+titulo('7 · Nada sensible rumbo a GitHub');
 let gitignore='';
 try{gitignore=fs.readFileSync(path.join(RAIZ,'.gitignore'),'utf8');}catch(e){}
 const debenIgnorarse=['respaldos/','herramientas/.credenciales.json','credenciales-nuevas.txt','.env'];
@@ -219,7 +240,7 @@ conLlave.length?mal('llave secreta dentro de archivos que van al repo',conLlave.
 
 // ── 7 · Las suites ─────────────────────────────────────────────────────────
 if(!RAPIDO){
-  titulo('7 · Suites de pruebas');
+  titulo('8 · Suites de pruebas');
   const dirP=path.join(RAIZ,'pruebas');
   if(!fs.existsSync(dirP))nota('no hay carpeta pruebas/');
   else{
