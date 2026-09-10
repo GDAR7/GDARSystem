@@ -392,11 +392,14 @@ function setPage(k){
   renderPage(k);
 }
 function renderPage(k){
-  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
-  if(!m[k])return;
+  // Qué función dibuja cada módulo lo dice js/registro.js. Antes era una
+  // tabla escrita aquí, que había que acordarse de ampliar al agregar un
+  // módulo — y si se olvidaba, la página quedaba en blanco sin decir nada.
+  const dibujar=gdarDibujo(k);
+  if(!dibujar)return;
   // Antes, si una seccion reventaba, quedaba en blanco y no habia forma de
   // saber por que sin abrir la consola del navegador.
-  try{ m[k](); _paginaFalloLimpiar(k); }
+  try{ dibujar(); _paginaFalloLimpiar(k); }
   catch(e){ _paginaFallo(k,e); }
 }
 

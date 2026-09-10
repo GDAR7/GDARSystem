@@ -102,7 +102,12 @@ const reset=()=>{signIn=null;claveNueva=null;respUpdate=null;toasts=[];
   es('  con su propio desplegable',/na-cfgGeneral/.test(u),true);
   es('  que no sale de AREAS (lo ven todos)',/AREAS.cfgGeneral/.test(u),false);
   es('  y no depende de permisos',/_authModo\(\)!=='local'/.test(u),true);
-  es('renderPage la conoce',/miSeguridad:rMiSeguridad/.test(u),true);
+  // Ya no se comprueba grepeando utils.js: quien dice que funcion dibuja cada
+  // modulo es el registro, y se le pregunta a el.
+  const reg=fs.readFileSync(R+'js/registro.js','utf8');
+  const MODS=new Function(reg+';return GDAR_MODULOS;')();
+  es('el registro la conoce',MODS.miSeguridad&&MODS.miSeguridad.dibuja,'rMiSeguridad');
+  es('  marcada como del sistema',!!(MODS.miSeguridad||{}).sistema,true);
 
   const h=fs.readFileSync(R+'index.html','utf8');
   es('la pagina existe',/id="page-miSeguridad"/.test(h),true);

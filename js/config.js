@@ -1,43 +1,9 @@
-﻿// ══ AREAS CONFIG ══
-const AREAS={
-  administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
-    modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia del día',icon:'✅'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'},{key:'resumenTareaje',label:'Resumen Diario Tareaje',icon:'📊'},{key:'roster',label:'Roster de Guardias',icon:'🗓️'}]},
-  // Área aparte: los sueldos no deben verse por tener acceso a Administración
-  remuneraciones:{label:'Remuneraciones',icon:'💵',color:'#ca8a04',prefix:'ECOREM',
-    modules:[{key:'planilla',label:'Planilla de Sueldos',icon:'💵'},{key:'renta5ta',label:'Renta 5ta Categoría',icon:'📑'},{key:'afpTasas',label:'Tasas de Pensiones',icon:'🏦'}]},
-  bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
-    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'},{key:'viaticos',label:'Reembolsables B.S.',icon:'🧾'}]},
-  almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
-    modules:[{key:'proyectos',label:'Proyectos',icon:'🏗️'},{key:'almacen',label:'Kardex / Almacén',icon:'📋'},{key:'combustible',label:'Combustible',icon:'⛽'},{key:'requerimientos',label:'Requerimientos',icon:'📝'},{key:'materiales',label:'Materiales',icon:'🏗️'},{key:'facturasPago',label:'Facturas / Boletas',icon:'🧾'},{key:'kardexEpp',label:'Cardex EPP',icon:'🦺'},{key:'insumosAux',label:'Insumos Aux. Mecánicos',icon:'🛠️'},{key:'analisisAbc',label:'Análisis de Consumo',icon:'📈'}]},
-  operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
-    modules:[{key:'supervision',label:'Supervisión',icon:'🔍'},{key:'liberacion',label:'Liberación de Restricciones',icon:'🚦'}]},
-  seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',prefix:'ECOSEG',
-    
-    modules:[{key:'seguridad',label:'Seguridad',icon:'⛑️'},{key:'cursosSeguridad',label:'Cursos / Capacitaciones',icon:'🎓'},{key:'medioAmbiente',label:'Medio Ambiente',icon:'🌿'}]},
-  mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
-    modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'},{key:'salidaEquipos',label:'Control de Salida EQ',icon:'🚚'},{key:'insumosAux',label:'Insumos Aux. Mecánicos',icon:'🛠️'}]},
-  controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'},{key:'informePeriodo',label:'Informe de Período',icon:'📑'}]},
-  // Área compartida para accesos externos — Seguimiento General e Histograma Recursos viven solo aquí
-  general:{label:'General',icon:'📋',color:'#14b8a6',prefix:'ECOGEN',
-    modules:[{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
-    //-Menu para control de equipos.
-  controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
-    modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteMensual',label:'Mensual al Corte',icon:'📈'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
-              key:'dataIngresos', label:'Data de Ingresos', icon:'🗄️', isSubgroup: true,
-              children:[
-                {key:'frentesTrabajo', label:'Frentes de Trabajo', icon:'📍'},
-                {key:'tipoMaterial',   label:'Tipo de Material',   icon:'🪨'},
-                {key:'tramos',         label:'Tramos',              icon:'🗺️'}
-                      ]
-            }]},
-  otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
-    modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
-  costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'},{key:'hhVenta',label:'HH Venta',icon:'👷'},{key:'corteEquipos',label:'Corte Equipos',icon:'✂️'},{key:'costoM3',label:'Costo por m³',icon:'🧱'}]},
-  configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
-    modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
-};
+﻿// ══ AREAS ══
+// Qué áreas hay y qué módulos ofrece cada una vive ahora en js/registro.js,
+// que se carga antes que este archivo. Aquí se reconstruye con la forma de
+// siempre, para que empresa.js siga repartiendo permisos con las mismas
+// claves y el menú no note el cambio.
+const AREAS=gdarConstruirAreas();
 
 // ══ USERS ══
 // La lista vive en js/empresa.js: cambia con cada cliente. Se arma aquí

@@ -87,12 +87,18 @@ function leerUsuarios(){
   return EU(leerAreas());
 }
 
+// Las áreas viven en js/registro.js. Se evalúa el archivo en vez de sacarlas
+// con una expresión regular: la versión anterior leía el AREAS literal de
+// config.js y dejó de funcionar en silencio el día que ese literal pasó a
+// construirse desde el registro. Evaluando, o hay áreas o revienta con un
+// error que se entiende.
 function leerAreas(){
-  const cfg=fs.readFileSync(path.join(RAIZ,'js','config.js'),'utf8');
-  const bloque=cfg.match(/const AREAS=\{[\s\S]*?\n\};/);
-  if(!bloque)throw new Error('No encontré AREAS en js/config.js');
+  const reg=fs.readFileSync(path.join(RAIZ,'js','registro.js'),'utf8');
+  const AREAS=new Function(reg+';return GDAR_AREAS;')();
+  const claves=Object.keys(AREAS||{});
+  if(!claves.length)throw new Error('js/registro.js no declaró ningún área');
   const A={};
-  [...bloque[0].matchAll(/^  (\w+):\{/gm)].forEach(m=>{A[m[1]]=true;});
+  claves.forEach(k=>{A[k]=true;});
   return A;
 }
 

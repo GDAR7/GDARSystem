@@ -22,7 +22,11 @@ global.localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 let creado=null;
 global.supabase={createClient:(u,k)=>{creado={u,k};return{from:()=>({})};}};
 
-const src=fs.readFileSync(R+'js/empresa.js','utf8')+'\n'+fs.readFileSync(R+'js/config.js','utf8')
+// El mismo orden que index.html: empresa.js, registro.js y después config.js,
+// que construye su AREAS a partir del registro.
+const src=fs.readFileSync(R+'js/empresa.js','utf8')+'\n'
+ +fs.readFileSync(R+'js/registro.js','utf8')+'\n'
+ +fs.readFileSync(R+'js/config.js','utf8')
  +'\n;global.EMPRESA=EMPRESA;global.USERS=USERS;global.AREAS=AREAS;'
  +'global.SUPA_URL=SUPA_URL;global.EMPRESA_USERS=EMPRESA_USERS;';
 eval(src);
@@ -53,7 +57,7 @@ es('no declara SUPA_URL',/const SUPA_URL\s*=/.test(cfg),false);
 es('no declara SUPA_KEY',/const SUPA_KEY\s*=/.test(cfg),false);
 es('no lleva la lista de usuarios',/codigo:'EIBEL25'/.test(cfg),false);
 es('  pero sí la arma',/const USERS=EMPRESA_USERS\(AREAS\)/.test(cfg),true);
-es('AREAS se queda (es común a todos)',/const AREAS=\{/.test(cfg),true);
+es('AREAS se queda (es común a todos)',/const AREAS=/.test(cfg),true);
 
 console.log('\n== El logo de los PDF sale de la config ==');
 let conLogo=0,sueltas=0;
