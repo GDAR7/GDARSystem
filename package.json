@@ -21,7 +21,8 @@
     "sellar": "node herramientas/armar.js && node herramientas/sellar.js",
     "sellar:verificar": "node herramientas/sellar.js --verificar",
     "armar": "node herramientas/armar.js",
-    "armar:verificar": "node herramientas/armar.js --verificar"
+    "armar:verificar": "node herramientas/armar.js --verificar",
+    "duplicados": "node herramientas/duplicados.js"
   },
   "devDependencies": {
     "supabase": "2.117.0"
