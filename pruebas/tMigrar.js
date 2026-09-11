@@ -120,6 +120,17 @@ console.log('\n== Lo que cuenta como crear y como usar ==');
   es('  ni una función',M.tablasUsadas('select * from unnest(array[1]);').length,0);
   es('  ni lo que está en un comentario',M.tablasUsadas('-- from fantasma\nselect 1;').length,0);
   es('  ni en un comentario de bloque',M.tablasUsadas('/* alter table fantasma */ select 1;').length,0);
+  // El formato de `supabase db dump`: todo entre comillas.
+  es('create table con esquema y nombre entre comillas',
+     M.tablasCreadas('CREATE TABLE IF NOT EXISTS "public"."tareaje" (id int);').join(),'tareaje');
+  es('  y alter table only igual',
+     M.tablasUsadas('ALTER TABLE ONLY "public"."tareaje" ADD CONSTRAINT x;').join(),'tareaje');
+  es('"auth"."users" entre comillas tampoco es de este esquema',
+     M.tablasUsadas('select 1 from "auth"."users";').length,0);
+  es('COPY ... FROM stdin no usa una tabla "stdin"',
+     M.tablasUsadas('COPY "public"."x" ("id") FROM stdin;').length,0);
+  es('  ni FROM ONLY una tabla "only"',
+     M.tablasUsadas('select * from only "public"."t";').join(),'t');
 }
 
 console.log('\n== El ref sale de la URL ==');

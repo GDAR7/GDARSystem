@@ -66,8 +66,10 @@ se sabe en qué punto está cada una.
 > Los `.sql` sueltos de la carpeta `sql/` son el registro de lo que se aplicó
 > antes de versionar el esquema, más los diagnósticos de solo lectura
 > (`auditoria_rls.sql`, `diagnostico_duplicados.sql`) y la red de emergencia
-> (`rls_revertir.sql`). No se ejecutan en un alta: ya vienen dentro de la
-> migración inicial.
+> (`rls_revertir.sql`). No se ejecutan en un alta: la estructura entera viene
+> en la migración base, `supabase/migrations/20260101000000_esquema_base.sql`,
+> que se genera desde el esquema de producción con `npm run base`. Mientras esa
+> migración no exista, `db:push` se niega a migrar y dice por qué.
 
 ## 2 · Repositorio
 
@@ -259,7 +261,7 @@ Después del merge, selle y verifique antes de subir:
 
 ```
 npm run sellar              # sellos y qué scripts se descargan, según el plan
-npm test                    # sintaxis, choques de nombres, botones muertos y las 59 suites
+npm test                    # sintaxis, choques de nombres, botones muertos y las 60 suites
 ```
 
 Si el merge trajo migraciones nuevas, aplíquelas también a la base del cliente:

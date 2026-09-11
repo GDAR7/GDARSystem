@@ -23,7 +23,8 @@
     "armar": "node herramientas/armar.js",
     "armar:verificar": "node herramientas/armar.js --verificar",
     "duplicados": "node herramientas/duplicados.js",
-    "llaves": "node herramientas/llaves.js"
+    "llaves": "node herramientas/llaves.js",
+    "base": "node herramientas/base.js"
   },
   "devDependencies": {
     "supabase": "2.117.0"

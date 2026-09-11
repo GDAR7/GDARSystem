@@ -51,7 +51,13 @@ const SIN_COMENTARIOS=s=>s.replace(/--[^\n]*/g,'').replace(/\/\*[\s\S]*?\*\//g,'
 // El \b cierra el nombre: sin él, cuando la condición de después falla, el
 // motor retrocede una letra y captura "tareaj" en vez de "tareaje". Pasó, y
 // fue la ejecución contra las migraciones reales la que lo destapó.
-const NOMBRE='(?:public\\.)?"?([a-z_][a-z0-9_]*)\\b"?(?!\\.)';
+//
+// El volcado de `supabase db dump` escribe todo entre comillas —
+// "public"."tareaje"—, así que el esquema admite comillas. Y el "no seguido
+// de punto" va ANTES de la comilla de cierre: puesto después, en
+// "auth"."users" el motor dejaba la comilla sin consumir, el punto ya no
+// quedaba justo detrás, y "auth" pasaba por una tabla.
+const NOMBRE='(?:"?public"?\\.)?"?([a-z_][a-z0-9_]*)\\b(?!"?\\.)"?';
 // Solo tras from/join puede venir una función —unnest(...)— en vez de una
 // tabla. En create table y en index ... on, el paréntesis que sigue al nombre
 // son las columnas, así que ahí esta condición descartaría la tabla de verdad.
@@ -69,16 +75,22 @@ function tablasUsadas(sql){
     'alter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?'+NOMBRE,
     'create\\s+(?:unique\\s+)?index\\s+(?:concurrently\\s+)?(?:if\\s+not\\s+exists\\s+)?\\w*\\s*on\\s+(?:only\\s+)?'+NOMBRE,
     'create\\s+policy\\s+(?:"[^"]*"|\\w+)\\s+on\\s+'+NOMBRE,
-    '\\bfrom\\s+'+NOMBRE+NO_FUNCION,
+    '\\bfrom\\s+(?:only\\s+)?'+NOMBRE+NO_FUNCION,
     '\\bjoin\\s+'+NOMBRE+NO_FUNCION,
     'insert\\s+into\\s+'+NOMBRE,
     '\\bupdate\\s+'+NOMBRE+'\\s+set\\b'
   ];
   const usadas=new Set();
   for(const p of patrones)
-    for(const m of s.matchAll(new RegExp(p,'g')))usadas.add(m[1]);
+    for(const m of s.matchAll(new RegExp(p,'g')))
+      if(!NO_SON_TABLAS.has(m[1]))usadas.add(m[1]);
   return[...usadas];
 }
+
+// Palabras que pueden venir detrás de un from sin ser una tabla. `COPY x FROM
+// stdin` es el caso que lo destapó: el volcado con datos se rechazaba igual,
+// pero diciendo "falta la tabla stdin" en vez de "trae datos".
+const NO_SON_TABLAS=new Set(['stdin','stdout','only','lateral','select']);
 
 // Recorre las migraciones en orden y devuelve, para cada una, las tablas que
 // usa sin que nadie las haya creado antes (o en ella misma).
