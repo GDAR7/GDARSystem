@@ -22,7 +22,8 @@
     "sellar:verificar": "node herramientas/sellar.js --verificar",
     "armar": "node herramientas/armar.js",
     "armar:verificar": "node herramientas/armar.js --verificar",
-    "duplicados": "node herramientas/duplicados.js"
+    "duplicados": "node herramientas/duplicados.js",
+    "llaves": "node herramientas/llaves.js"
   },
   "devDependencies": {
     "supabase": "2.117.0"

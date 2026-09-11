@@ -259,7 +259,7 @@ Después del merge, selle y verifique antes de subir:
 
 ```
 npm run sellar              # sellos y qué scripts se descargan, según el plan
-npm test                    # sintaxis, choques de nombres, botones muertos y las 58 suites
+npm test                    # sintaxis, choques de nombres, botones muertos y las 59 suites
 ```
 
 Si el merge trajo migraciones nuevas, aplíquelas también a la base del cliente:
