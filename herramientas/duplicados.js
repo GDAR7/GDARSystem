@@ -2,7 +2,8 @@
 // Cuenta y clasifica las filas repetidas de tareaje y asistencia antes de
 // aplicar el índice único de supabase/migrations/20260909235900.
 //
-//   node herramientas/duplicados.js            diagnóstico
+//   node herramientas/duplicados.js            diagnóstico de producción
+//   node herramientas/duplicados.js --dev      el de gdar-dev
 //   node herramientas/duplicados.js --csv      además, la lista a un archivo
 //
 // ── Por qué hace falta ────────────────────────────────────────────────────
@@ -84,9 +85,24 @@ async function traer(url,key,tabla,columnas){
   return filas;
 }
 
+// La URL sale de js/empresa.js y la llave del .env, elegidas las DOS por el
+// mismo --dev. Pedir la URL aparte en el .env permitía juntar la dirección de
+// un proyecto con la llave de otro; es lo que hacen backupSupabase.js y
+// probarAcceso.js, y por la misma razón.
+const DEV=process.argv.includes('--dev');
+function proyecto(){
+  const emp=fs.readFileSync(path.join(RAIZ,'js','empresa.js'),'utf8');
+  const n='SUPA_URL'+(DEV?'_DEV':'_PROD');
+  const m=emp.match(new RegExp('const\\s+'+n+"\\s*=\\s*'([^']+)'"));
+  if(!m)throw new Error('No se encontró '+n+' en js/empresa.js');
+  const[key]=exigir(DEV?'GDAR_SERVICE_KEY_DEV':'GDAR_SERVICE_KEY');
+  return{base:m[1].replace(/\/+$/,''),key};
+}
+
 async function principal(){
-  const[url,key]=exigir('GDAR_URL','GDAR_SERVICE_KEY');
-  const base=url.replace(/\/+$/,'');
+  const{base,key}=proyecto();
+  console.log('\n'+C.n+'Duplicados de persona y día · '+(DEV?'DESARROLLO':'PRODUCCIÓN')+C.x
+    +'\n'+C.g+'  '+base+C.x);
   // La publicable no lee nada con RLS cerrado: diría "cero duplicados" y sería
   // mentira. Es el mismo error que dejó el respaldo escribiendo vacíos.
   if(!/^sb_secret_|^ey/.test(key))

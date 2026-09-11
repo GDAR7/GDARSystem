@@ -10,7 +10,7 @@
     "test": "node herramientas/verificar.js",
     "test:rapido": "node herramientas/verificar.js --rapido",
     "db:pull": "supabase db pull",
-    "db:push": "supabase db push",
+    "db:push": "node herramientas/migrar.js",
     "db:diff": "supabase db diff -f",
     "db:reset": "supabase db reset",
     "db:advisors": "supabase db advisors --type security",

@@ -23,11 +23,23 @@ npm install                                   # trae el CLI de Supabase fijado
 npx supabase login                            # con la cuenta dueña de los proyectos
 npx supabase projects create gdar-<cliente> --region us-east-1
 npx supabase link --project-ref <ref-nuevo>
-npm run db:push                               # aplica TODAS las migraciones en orden
 ```
 
-Anote la **URL** y la **anon/publishable key** de Settings → API: van a
-`js/empresa.js` en el paso 3.
+Anote la **URL** y la **anon/publishable key** de Settings → API, y ponga la
+URL ya mismo en `SUPA_URL_PROD` de `js/empresa.js` (el resto del archivo se
+rellena en el paso 3). `npm run db:push` pasa por `herramientas/migrar.js`,
+que se niega a migrar un proyecto que `js/empresa.js` no reconozca: el
+enlace de `supabase/.temp` queda guardado de la última vez, y nadie se
+acuerda de a cuál apuntaba.
+
+```
+npm run db:push -- --produccion --sin-respaldo   # la primera vez: base vacía
+```
+
+`--produccion` porque lo es, y hay que pedirlo. `--sin-respaldo` solo esta
+primera vez, porque una base vacía no tiene nada que respaldar. En adelante,
+cada `db:push -- --produccion` respalda antes de tocar el esquema, y si el
+respaldo falla no migra.
 
 El cierre de RLS es una migración más, así que la base nace cerrada — no
 depende de que alguien se acuerde de ejecutar un script. Compruébelo antes de
@@ -247,7 +259,7 @@ Después del merge, selle y verifique antes de subir:
 
 ```
 npm run sellar              # sellos y qué scripts se descargan, según el plan
-npm test                    # sintaxis, choques de nombres, botones muertos y las 57 suites
+npm test                    # sintaxis, choques de nombres, botones muertos y las 58 suites
 ```
 
 Si el merge trajo migraciones nuevas, aplíquelas también a la base del cliente:

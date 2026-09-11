@@ -161,5 +161,18 @@ console.log('\n== No borra nada ==');
   es('pagina los resultados',/Range:desde/.test(src),true);
 }
 
+console.log('\n== La URL y la llave no pueden ser de proyectos distintos ==');
+// Pedir la URL aparte en el .env dejaba juntar la dirección de desarrollo con
+// la llave de producción, o al revés: el diagnóstico fallaba con un 401 en el
+// mejor caso, y en el peor miraba una base creyendo que era la otra.
+{
+  const src=fs.readFileSync(R+'herramientas/duplicados.js','utf8');
+  es('ya no pide GDAR_URL',/exigir\([^)]*GDAR_URL/.test(src),false);
+  es('  la saca de js/empresa.js',/SUPA_URL'\+\(DEV\?'_DEV':'_PROD'\)/.test(src),true);
+  es('  y la llave va con el mismo --dev',
+     /DEV\?'GDAR_SERVICE_KEY_DEV':'GDAR_SERVICE_KEY'/.test(src),true);
+  es('  y dice en cuál está mirando',/DESARROLLO':'PRODUCCIÓN'/.test(src),true);
+}
+
 console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);
