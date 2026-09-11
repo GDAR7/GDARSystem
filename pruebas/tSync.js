@@ -4,7 +4,7 @@ const{execFile}=require('child_process');
 const{promisify}=require('util');
 const pExec=promisify(execFile);
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
@@ -12,9 +12,12 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
 
 // Los usuarios reales de empresa.js, para que el test refleje el sistema
 const empSrc=fs.readFileSync(R+'js/empresa.js','utf8').replace(/\(\(\)=>\{const el=[\s\S]*$/,'');
-const cfg=fs.readFileSync(R+'js/config.js','utf8');
-const A={};[...cfg.match(/const AREAS=\{[\s\S]*?\n\};/)[0].matchAll(/^  (\w+):\{/gm)]
-  .forEach(m=>A[m[1]]=true);
+// Las areas viven en js/registro.js desde que el modulo es un objeto propio.
+// Se evalua el archivo en vez de sacarlas con regex: si manana cambia la forma
+// del registro, esto sigue funcionando o falla por algo de verdad.
+const reg=fs.readFileSync(R+'js/registro.js','utf8');
+const A={};
+Object.keys(new Function(reg+';return GDAR_AREAS;')()).forEach(k=>A[k]=true);
 const USERS=new Function('document',empSrc+';return EMPRESA_USERS;')
   ({getElementById:()=>null})(A);
 

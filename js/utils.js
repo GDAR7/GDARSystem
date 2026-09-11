@@ -108,27 +108,14 @@ function refreshSelects(){
   });
 }
 
-// ══ DEMO CHIPS ══
-function buildDemos(){
-  const demos=[
-    {c:'ECOADMIN00000001',l:'Administrador',s:'Acceso Total'},
-    {c:'ECOADM87654321',l:'Carmen Salazar',s:'Administración'},
-    {c:'ECOBSW11112222',l:'María Torres',s:'Bienestar Social'},
-    {c:'ECOALM33334444',l:'Zein Alcedo',s:'Almacén y Logística'},
-    {c:'ECOSEG12345678',l:'Pablo Quispe',s:'Seguridad'},
-    {c:'ECOMEC55556666',l:'Roberto Yauri',s:'Mantenimiento'},
-    {c:'ECOCTL99887766',l:'Marco Valdivia',s:'Control Proy./Equipos'},
-    {c:'ECOOTRO55667788',l:'Ana García',s:'Otros'},
-  ];
-  const demoEl=document.getElementById('demoChips');if(!demoEl)return;
-  demoEl.innerHTML=demos.map(d=>`
-    <div class="demo-chip" onclick="autoLogin('${d.c}')">
-      <span class="demo-code">${d.c}</span>
-      <span class="demo-name">${d.l}</span>
-      <span class="demo-area">${d.s}</span>
-    </div>`).join('');
-}
-function autoLogin(c){document.getElementById('loginCodigo').value=c;doLogin();}
+// Los accesos rapidos de demostracion se quitaron.
+//
+// Eran ocho credenciales de mentira con el prefijo del cliente (ECOADM...,
+// ECOSEG...) del esquema de acceso anterior, cuando el codigo y el DNI iban
+// juntos en un solo campo. Su contenedor lleva comentado en index.html desde
+// entonces, con un "descomentar para restaurar" que ya no era cierto: con
+// Supabase Auth hace falta la clave, y autoLogin solo rellenaba el codigo.
+// Restaurarlos habria dado ocho botones que no entran a ningun sitio.
 
 // ══ AUTH ══
 // El email se deriva de la credencial, asi que la persona sigue escribiendo una
@@ -149,6 +136,13 @@ async function doLogin(){
   const btn=document.querySelector('#loginScreen .login-btn');
   err.style.display='none';
   if(!cod)return;
+
+  // Los módulos que esta empresa contrató se inyectan al arrancar (ver
+  // js/cargador.js). Si alguien escribe su clave muy rápido, hay que esperar a
+  // que estén: entrar a medio cargar dejaría pantallas en blanco sin decir por
+  // qué. En la práctica ya llegaron, pero con la red de faena no se asume.
+  if(typeof gdarCargaListo==='function')await gdarCargaListo();
+
   const modo=_authModo();
 
   if(modo==='supabase'||modo==='mixto'){
@@ -277,6 +271,26 @@ function launchApp(){
   document.getElementById('loginScreen').style.display='none';
   const app=document.getElementById('appShell');
   app.style.display='flex';
+
+  // Los permisos de cada persona se escribieron pensando en el catalogo
+  // completo. Si esta empresa no contrato un area, hay que quitarla de su
+  // lista antes de seguir: buildSidebar haria AREAS[ak].modules sobre
+  // undefined y la aplicacion se quedaria en blanco sin decir por que.
+  CU.areas=gdarAreasDeUsuario(CU.areas);
+  if(!CU.areas.length){
+    document.getElementById('hArea').textContent='SIN ACCESO';
+    document.getElementById('hName').textContent=CU.nombre||'';
+    document.getElementById('hRole').textContent=CU.cargo||'';
+    document.getElementById('sideNav').innerHTML='';
+    document.getElementById('mainContent').innerHTML=
+      '<div class="card" style="margin:2rem;padding:1.5rem">'
+      +'<div style="font-weight:700;margin-bottom:.4rem">No hay nada que mostrarle</div>'
+      +'<div style="color:var(--muted2);font-size:.85rem">Sus permisos apuntan a '
+      +'areas que esta empresa no tiene contratadas. Avise al administrador.</div></div>';
+    startClock();
+    return;
+  }
+
   const a1=AREAS[CU.areas[0]];
   const multi=CU.areas.length>1;
   const lbl=document.getElementById('hArea');
@@ -392,11 +406,18 @@ function setPage(k){
   renderPage(k);
 }
 function renderPage(k){
-  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
-  if(!m[k])return;
+  // Qué función dibuja cada módulo lo dice js/registro.js. Antes era una
+  // tabla escrita aquí, que había que acordarse de ampliar al agregar un
+  // módulo — y si se olvidaba, la página quedaba en blanco sin decir nada.
+  // Un modulo no contratado no se dibuja aunque alguien llegue a setPage() por
+  // su cuenta. El menu ya no lo ofrece; esto es el segundo cerrojo del lado
+  // del navegador. El de verdad son las politicas RLS.
+  if(!gdarContratado(k))return;
+  const dibujar=gdarDibujo(k);
+  if(!dibujar)return;
   // Antes, si una seccion reventaba, quedaba en blanco y no habia forma de
   // saber por que sin abrir la consola del navegador.
-  try{ m[k](); _paginaFalloLimpiar(k); }
+  try{ dibujar(); _paginaFalloLimpiar(k); }
   catch(e){ _paginaFallo(k,e); }
 }
 
@@ -424,6 +445,105 @@ function _paginaFallo(k,e){
     +'<div style="font-size:.68rem;color:var(--muted2);margin-top:.4rem">'
     +'El resto del sistema sigue funcionando.</div>';
   p.insertBefore(d,p.firstChild);
+}
+
+// ══ EL PERÍODO CONTABLE ══════════════════════════════════════════════════
+// El corte con el que se valoriza todo: partes diarios, combustible, EDP de
+// proveedores, tareaje, costo por m³, informe de período. Con corte 21 va del
+// 21 de un mes al 20 del siguiente.
+//
+// El día de corte lo declara EMPRESA_CORTE en js/empresa.js, porque cambia
+// entre clientes: el que cierra a fin de mes pone 1 y su período pasa a ser el
+// mes calendario.
+//
+// Antes esto era un 21 suelto repetido en trece módulos, cada uno con su
+// propia función para calcular lo mismo. Cambiar de cliente habría sido
+// buscar y reemplazar en trece sitios, con la seguridad de que uno se queda.
+function gdarCorte(){
+  const c=typeof EMPRESA_CORTE!=='undefined'?+EMPRESA_CORTE:21;
+  return (c>=1&&c<=28)?c:21;   // más allá del 28 no existe en febrero
+}
+
+const gdarIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+  +'-'+String(d.getDate()).padStart(2,'0');
+
+// El período en el que cae una fecha. Sin argumento, el de hoy.
+//
+// Del día de corte en adelante ya se está en el período que cierra el mes que
+// viene; antes, en el que arrancó el mes pasado.
+//
+// Con corte 1 el período es el mes calendario y termina el último día del mes,
+// que es lo que da `new Date(año, mes+1, 0)`: el día cero del mes siguiente.
+function gdarPeriodo(base){
+  const corte=gdarCorte();
+  const d=base?new Date(base+'T12:00:00'):new Date();
+  const ini=d.getDate()>=corte
+    ?new Date(d.getFullYear(),d.getMonth(),corte)
+    :new Date(d.getFullYear(),d.getMonth()-1,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
+}
+
+// El cierre del período que empieza en `ini`: el día anterior al corte, del
+// mes siguiente. Con corte 1, el último día del mes de `ini`.
+function gdarFinDe(ini){
+  const corte=gdarCorte();
+  return corte===1
+    ?new Date(ini.getFullYear(),ini.getMonth()+1,0)
+    :new Date(ini.getFullYear(),ini.getMonth()+1,corte-1);
+}
+
+// Salta n períodos completos hacia atrás o adelante desde uno que ya empezó.
+function gdarPeriodoNav(desde,n){
+  const corte=gdarCorte();
+  const d=desde?new Date(desde+'T12:00:00'):new Date();
+  const ini=new Date(d.getFullYear(),d.getMonth()+n,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
+}
+
+const GDAR_MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+  'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// El período desplazado n períodos desde el de hoy. n=0 es el actual, -1 el
+// anterior. Es lo que necesitan las pantallas con flechas para navegar.
+//
+// Devuelve también `ini`/`fin` como fechas, la etiqueta del mes de cierre y
+// los días que dura. Los siete módulos que calculaban esto por su cuenta
+// pedían justo estas cosas, cada uno con su propia copia del arreglo de meses.
+//
+// El período se nombra por su mes de CIERRE: el que va del 21 de enero al 20
+// de febrero es "Febrero". Es como lo llama el cliente en sus valorizaciones.
+function gdarPeriodoOffset(n){
+  const corte=gdarCorte();
+  const hoy=new Date();
+  let baseY=hoy.getFullYear(),baseM=hoy.getMonth();
+  if(hoy.getDate()<corte){baseM--;if(baseM<0){baseM=11;baseY--;}}
+  let iniM=baseM+(n||0),iniY=baseY;
+  while(iniM>11){iniM-=12;iniY++;}
+  while(iniM<0){iniM+=12;iniY--;}
+  const ini=corte===1?new Date(iniY,iniM,1):new Date(iniY,iniM,corte);
+  const fin=gdarFinDe(ini);
+  return{desde:gdarIso(ini),hasta:gdarIso(fin),ini,fin,
+    label:GDAR_MESES[fin.getMonth()]+' '+fin.getFullYear(),
+    dias:Math.round((fin-ini)/864e5)+1};
+}
+
+// El período que CIERRA en un mes dado. `mesCierre` va 0-11, como los meses de
+// Date. Lo usa el consolidado anual, que lista los doce del año por el mes en
+// que cada uno cierra.
+//
+// El mes de cierre es la referencia, no el de inicio, y por eso hay que mirar
+// el corte: con 21, el período que cierra en enero arranca el 21 de diciembre
+// del año anterior; con mes calendario, el que cierra en enero ES enero.
+//
+// La primera versión restaba un mes siempre. Con corte 21 daba bien, pero con
+// corte 1 etiquetaba diciembre como "Enero" y el consolidado anual salía
+// corrido un mes entero.
+function gdarPeriodoDeMes(anio,mesCierre){
+  const corte=gdarCorte();
+  const ini=corte===1
+    ?new Date(anio,mesCierre,1)
+    :new Date(anio,mesCierre-1,corte);
+  return{desde:gdarIso(ini),hasta:gdarIso(gdarFinDe(ini))};
 }
 
 // ══ CLOCK ══

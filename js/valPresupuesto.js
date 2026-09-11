@@ -14,10 +14,20 @@
 //  el % de avance; las partidas hoja (tipo 'p') llevan el precio unitario.
 // ══════════════════════════════════════════════════════════════════════════
 
-// Mes-hombre = días-hombre trabajados ÷ este divisor. Convención del contrato.
-const VAL_DIAS_MES=30;
+// Mes-hombre = días-hombre trabajados ÷ este divisor.
+//
+// Es convención del contrato, no una constante del sistema: define cuántos
+// días-hombre valen un "mes" en las partidas de personal. Con 30, alguien que
+// trabajó 45 días vale 1.5 mes-hombre. Otro contrato puede decir 26 (días
+// útiles) o 30.4 (promedio del año), y esa diferencia cambia directamente lo
+// que se le factura al cliente por mano de obra.
+//
+// Vive con el resto de lo que cambia por empresa: EMPRESA_DIAS_MES en
+// js/empresa.js. Si no está declarado, 30, que es lo que había.
+const VAL_DIAS_MES=(typeof EMPRESA_DIAS_MES!=='undefined'&&+EMPRESA_DIAS_MES>0)
+  ?+EMPRESA_DIAS_MES:30;
 
-const VAL_PRESUP=[
+const VAL_PRESUP_BASE=[
 // ─── COSTO DIRECTO ────────────────────────────────────────────────────────
 {t:'s',item:'',   desc:'COSTO DIRECTO',                          pres:22522290.90,sec:'CD'},
 {t:'g',item:'1.0',desc:'PRELIMINARES',                           pres:209619.32,niv:1},
@@ -169,3 +179,42 @@ const VAL_PRESUP=[
 {t:'p',item:'3.14',desc:'Compresora de aire',und:'Und',cant:6,pu:1550.00,pres:9300.00,src:{t:'manual'}},
 {t:'p',item:'3.15',desc:'Plancha compactadora',und:'Und',cant:4.55,pu:2350.00,pres:21384.20,src:{t:'manual'}}
 ];
+
+// ── De dónde salen las partidas ────────────────────────────────────────────
+// De la tabla val_presupuesto en cuanto tenga filas. La lista de arriba es el
+// respaldo: el contrato de ECOSERMO, que es con el que arrancó el sistema.
+//
+// Es el mismo camino que se hizo con las tasas de AFP. Mientras la tabla esté
+// vacía no cambia nada; en cuanto se cargue el contrato, manda ella y una
+// adenda deja de necesitar un despliegue.
+//
+// Para un cliente nuevo la tabla es lo ÚNICO que hay que llenar: su contrato
+// no se parece en nada a este, y nadie debería tener que editar JavaScript
+// para valorizar su obra.
+function valPresupuesto(){
+  const t=(typeof DB!=='undefined'&&DB.valPresupuesto)||[];
+  // Sin filas se cae al respaldo, pero SOLO si es de esta empresa. El respaldo
+  // de aquí abajo es el contrato de ECOSERMO: sin esta condición, un cliente
+  // nuevo con su tabla vacía valorizaría con las partidas y los precios de
+  // otro, y el error saldría en un documento que se firma.
+  //
+  // Su empresa.js declara EMPRESA_VAL_RESPALDO en false y ve una valorización
+  // vacía hasta que cargue su contrato, que es lo correcto.
+  if(!t.length){
+    const propio=typeof EMPRESA_VAL_RESPALDO==='undefined'||EMPRESA_VAL_RESPALDO;
+    return propio?VAL_PRESUP_BASE:[];
+  }
+  // El orden del documento es el del contrato, no el que devuelva la base.
+  return t.slice().sort((a,b)=>(+a.orden||0)-(+b.orden||0)).map(r=>{
+    const p={t:r.t,item:r.item||'',desc:r.desc||r.descripcion||''};
+    if(r.und!=null&&r.und!=='')p.und=r.und;
+    if(r.cant!=null&&r.cant!=='')p.cant=+r.cant;
+    if(r.pu!=null&&r.pu!=='')p.pu=+r.pu;
+    if(r.pres!=null&&r.pres!=='')p.pres=+r.pres;
+    if(r.niv!=null&&r.niv!=='')p.niv=+r.niv;
+    if(r.sec!=null&&r.sec!=='')p.sec=r.sec;
+    if(r.mod!=null&&r.mod!=='')p.mod=+r.mod;
+    if(r.src)p.src=typeof r.src==='string'?JSON.parse(r.src):r.src;
+    return p;
+  });
+}

@@ -22,17 +22,11 @@ function _ipEsKm(eq){
 }
 
 // Período 21 → 20
-function _ipPeriodo(off){
-  const hoy=new Date(),d=hoy.getDate();
-  let baseY=hoy.getFullYear(),baseM=hoy.getMonth();
-  if(d<21){baseM--;if(baseM<0){baseM=11;baseY--;}}
-  let iniM=baseM+(off||0),iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21),fin=new Date(iniY,iniM+1,20);
-  const f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  return{desde:f(ini),hasta:f(fin),label:`${_IP_MESES[fin.getMonth()]} ${fin.getFullYear()}`};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _ipPeriodo(off){ return gdarPeriodoOffset(off||0); }
 function _ipInit(){
   if(!_ipDesde||!_ipHasta){const p=_ipPeriodo(_ipOffset);_ipDesde=p.desde;_ipHasta=p.hasta;}
 }
@@ -342,7 +336,7 @@ function _ipDoc(){
   return`
   <div class="ip-hdr">
     <img src="${logo}" alt="">
-    <div class="ip-t1"><h1>INFORME DE PERÍODO</h1><p>ECOSERMO · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
+    <div class="ip-t1"><h1>INFORME DE PERÍODO</h1><p>${EMPRESA.nombre} · Del ${_ipDMY(d.desde)} al ${_ipDMY(d.hasta)} · ${d.dias} días</p></div>
     <div class="ip-r">Emitido<br><strong>${new Date().toLocaleDateString('es-PE')}</strong></div>
   </div>
 
@@ -400,7 +394,7 @@ function _ipDoc(){
     <div><div class="sp"></div><div class="ln"></div><strong>REVISADO POR</strong><br>Residente de Proyecto</div>
     <div><div class="sp"></div><div class="ln"></div><strong>APROBADO POR</strong><br>Gerencia de Operaciones</div>
   </div>
-  <div class="ip-pie"><span>ECOSERMO · Informe generado por el sistema GDAR</span><span>Período ${_ipDMY(d.desde)} — ${_ipDMY(d.hasta)}</span></div>`;
+  <div class="ip-pie"><span>${EMPRESA.nombre} · Informe generado por el sistema GDAR</span><span>Período ${_ipDMY(d.desde)} — ${_ipDMY(d.hasta)}</span></div>`;
 }
 
 // Estilos del documento — compartidos por la vista previa y la impresión

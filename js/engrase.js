@@ -215,7 +215,7 @@ td{border:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{backgrou
 </style></head><body>
 <div class="hdr">
   <img src="${_logoUrl}" alt="Ecosermo">
-  <div style="text-align:center;flex:1"><div style="font-size:13px;font-weight:700;color:#1e3a5f">PROGRAMACIÓN MENSUAL DE ENGRASE DE EQUIPOS</div><div style="font-size:9px;color:#64748b">ECOSERMO – Sistema de Control de Mantenimiento Mecánico – GDAR</div></div>
+  <div style="text-align:center;flex:1"><div style="font-size:13px;font-weight:700;color:#1e3a5f">PROGRAMACIÓN MENSUAL DE ENGRASE DE EQUIPOS</div><div style="font-size:9px;color:#64748b">${EMPRESA.nombre} – Sistema de Control de Mantenimiento Mecánico – GDAR</div></div>
   <div style="text-align:right;font-size:8px;color:#64748b"><div style="font-weight:700;color:#1e3a5f;font-size:10px">${mesNombre} ${y}</div><div>Generado: ${new Date().toLocaleString('es-PE')}</div></div>
 </div>
 <div class="info-row">

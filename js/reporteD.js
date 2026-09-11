@@ -420,7 +420,7 @@ function printDailyReport(){
       <div style="font-size:.6rem;color:#475569">${g('drMatchBody')}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin-top:.9rem">
-      ${['C. de Proyectos – ECOSERMO','Residente o Super. – ECOSERMO','Representante Sponsor – BUENAVENTURA']
+      ${['C. de Proyectos – '+EMPRESA.nombre,'Residente o Super. – '+EMPRESA.nombre,'Representante Sponsor – BUENAVENTURA']
         .map(l=>`<div style="border:1px solid #94a3b8;border-radius:6px;padding:.9rem;text-align:center">
           <div style="height:38px;border-bottom:1px solid #94a3b8;margin-bottom:.4rem"></div>
           <div style="font-size:.58rem;color:#475569;text-transform:uppercase">${l}</div>

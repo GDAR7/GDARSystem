@@ -346,8 +346,11 @@ function _phRenderUtil(modo){
 
   // Corte 21→20 que contiene el fin de la semana
   const dF=new Date(fFin+'T12:00:00');
-  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
-  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  // El corte contable sale de gdarPeriodo(), en js/utils.js, y su día de
+  // EMPRESA_CORTE en js/empresa.js. Las fechas quedan a las 00:00 locales,
+  // como antes: más abajo se restan para contar los días del corte.
+  const _cp=gdarPeriodo(dF.getFullYear()+'-'+pad(dF.getMonth()+1)+'-'+pad(dF.getDate()));
+  const cIniD=new Date(_cp.desde+'T00:00:00'),cFinD=new Date(_cp.hasta+'T00:00:00');
   const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const cIni=isoD(cIniD),cFin=isoD(cFinD);
   const corteLbl=`${dmy(cIni)}/${String(cIniD.getFullYear()).slice(2)} al ${dmy(cFin)}/${String(cFinD.getFullYear()).slice(2)}`;
@@ -566,8 +569,11 @@ function _phRenderMenores(){
 
   // Corte 21→20 que contiene el fin de la semana
   const dF=new Date(fFin+'T12:00:00');
-  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
-  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  // El corte contable sale de gdarPeriodo(), en js/utils.js, y su día de
+  // EMPRESA_CORTE en js/empresa.js. Las fechas quedan a las 00:00 locales,
+  // como antes: más abajo se restan para contar los días del corte.
+  const _cp=gdarPeriodo(dF.getFullYear()+'-'+pad(dF.getMonth()+1)+'-'+pad(dF.getDate()));
+  const cIniD=new Date(_cp.desde+'T00:00:00'),cFinD=new Date(_cp.hasta+'T00:00:00');
   const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const cIni=isoD(cIniD),cFin=isoD(cFinD);
   const corteLbl=`${dmy(cIni)}/${String(cIniD.getFullYear()).slice(2)} al ${dmy(cFin)}/${String(cFinD.getFullYear()).slice(2)}`;
@@ -794,8 +800,11 @@ function _phResumenDoc(){
   const jue=new Date(dISO);jue.setDate(dISO.getDate()+(4-(dISO.getDay()||7)));
   const nSem=Math.ceil((((jue-new Date(jue.getFullYear(),0,1))/864e5)+1)/7);
   const dF=new Date(fFin+'T12:00:00');
-  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
-  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  // El corte contable sale de gdarPeriodo(), en js/utils.js, y su día de
+  // EMPRESA_CORTE en js/empresa.js. Las fechas quedan a las 00:00 locales,
+  // como antes: más abajo se restan para contar los días del corte.
+  const _cp=gdarPeriodo(dF.getFullYear()+'-'+pad(dF.getMonth()+1)+'-'+pad(dF.getDate()));
+  const cIniD=new Date(_cp.desde+'T00:00:00'),cFinD=new Date(_cp.hasta+'T00:00:00');
   const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const cIni=isoD(cIniD),cFin=isoD(cFinD);
   const semTit=`Semana ${jue.getFullYear()}-S${pad(nSem)} · ${dmy(fIni)} al ${dmy(fFin)}`;
@@ -1085,7 +1094,7 @@ function _phResumenDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
@@ -1296,8 +1305,11 @@ function _rmPeriodo(){
 
   // Corte 21→20 que contiene el fin de la semana elegida
   const dF=new Date(fFin+'T12:00:00');
-  const cIniD=dF.getDate()>=21?new Date(dF.getFullYear(),dF.getMonth(),21):new Date(dF.getFullYear(),dF.getMonth()-1,21);
-  const cFinD=new Date(cIniD.getFullYear(),cIniD.getMonth()+1,20);
+  // El corte contable sale de gdarPeriodo(), en js/utils.js, y su día de
+  // EMPRESA_CORTE en js/empresa.js. Las fechas quedan a las 00:00 locales,
+  // como antes: más abajo se restan para contar los días del corte.
+  const _cp=gdarPeriodo(dF.getFullYear()+'-'+pad(dF.getMonth()+1)+'-'+pad(dF.getDate()));
+  const cIniD=new Date(_cp.desde+'T00:00:00'),cFinD=new Date(_cp.hasta+'T00:00:00');
   const isoD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const cIni=isoD(cIniD),cFin=isoD(cFinD);
   const diasCorte=Math.round((cFinD-cIniD)/864e5)+1;
@@ -1475,7 +1487,7 @@ function _rmDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — AVANCE DEL MES</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:10px">
@@ -1709,7 +1721,7 @@ function _rmMatDoc(){
         <div style="font-size:19px;font-weight:900;color:${AZ};letter-spacing:.03em">REPORTE SEMANAL — MATERIAL MOVIDO</div>
         <div style="font-size:11px;font-weight:800;color:#2563eb;margin-top:2px">RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE ETAPA 2 FASE 4</div>
       </div>
-      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="ECOSERMO" style="height:46px;max-width:175px;object-fit:contain"></div>
+      <div style="flex:1;text-align:right"><img src="${logoUrl}" alt="${EMPRESA.nombre}" style="height:46px;max-width:175px;object-fit:contain"></div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px">

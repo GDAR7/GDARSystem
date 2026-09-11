@@ -3,7 +3,7 @@
 // Lo que se busca demostrar es que la matriz no inventa nada: cada cifra sale
 // del mismo _ccCalcEq que alimenta la pestaña Equipos.
 const fs=require('fs'),vm=require('vm');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};
@@ -51,6 +51,14 @@ const ctx=vm.createContext({
   document:{getElementById:()=>null,addEventListener(){},querySelectorAll:()=>[]},
   toast(){}, hhVentaPeriodo:()=>({filas:[]})
 });
+// El corte contable vive en js/utils.js desde que dejó de estar repetido en
+// trece módulos. Se carga en el mismo contexto, igual que hace index.html:
+// costcontrolAnual.js llama a gdarPeriodoDeMes() para armar los doce períodos.
+const _uts=fs.readFileSync(R+'js/utils.js','utf8');
+vm.runInContext('const EMPRESA_CORTE=21;'
+  +_uts.slice(_uts.indexOf('// ══ EL PERÍODO CONTABLE'),_uts.indexOf('// ══ CLOCK ══')),
+  ctx,{filename:'utils.js (periodo)'});
+
 vm.runInContext(fs.readFileSync(R+'js/costcontrol.js','utf8'),ctx,{filename:'costcontrol.js'});
 vm.runInContext(fs.readFileSync(R+'js/costcontrolAnual.js','utf8'),ctx,{filename:'costcontrolAnual.js'});
 // El tipo de cambio lo pone el módulo de proveedores; aquí se fija en 3.75

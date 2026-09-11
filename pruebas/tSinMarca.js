@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 global.DB={partes:[]};
 const ep=fs.readFileSync(R+'js/edpProveedores.js','utf8');
 const i=ep.indexOf('function edpValeProveedor');

@@ -1,43 +1,9 @@
-﻿// ══ AREAS CONFIG ══
-const AREAS={
-  administracion:{label:'Administración',icon:'🏢',color:'#3b82f6',prefix:'ECOADM',
-    modules:[{key:'personal',label:'Personal / RR.HH.',icon:'👷'},{key:'asistencia',label:'Asistencia del día',icon:'✅'},{key:'tareaje',label:'Tareaje Mensual',icon:'📋'},{key:'resumenTareaje',label:'Resumen Diario Tareaje',icon:'📊'},{key:'roster',label:'Roster de Guardias',icon:'🗓️'}]},
-  // Área aparte: los sueldos no deben verse por tener acceso a Administración
-  remuneraciones:{label:'Remuneraciones',icon:'💵',color:'#ca8a04',prefix:'ECOREM',
-    modules:[{key:'planilla',label:'Planilla de Sueldos',icon:'💵'},{key:'renta5ta',label:'Renta 5ta Categoría',icon:'📑'},{key:'afpTasas',label:'Tasas de Pensiones',icon:'🏦'}]},
-  bienestarSocial:{label:'Bienestar Social',icon:'🤝',color:'#ec4899',prefix:'ECOBSW',
-    modules:[{key:'asistentaSocial',label:'Asistenta Social',icon:'💼'},{key:'residencia',label:'Residencia',icon:'🏠'},{key:'alimentacion',label:'Alimentación',icon:'🍽️'},{key:'hospedaje',label:'Hospedaje',icon:'🛏️'},{key:'lavanderia',label:'Lavandería',icon:'👕'},{key:'viaticos',label:'Reembolsables B.S.',icon:'🧾'}]},
-  almacenLogistica:{label:'Almacén y Logística',icon:'📦',color:'#f97316',prefix:'ECOALM',
-    modules:[{key:'proyectos',label:'Proyectos',icon:'🏗️'},{key:'almacen',label:'Kardex / Almacén',icon:'📋'},{key:'combustible',label:'Combustible',icon:'⛽'},{key:'requerimientos',label:'Requerimientos',icon:'📝'},{key:'materiales',label:'Materiales',icon:'🏗️'},{key:'facturasPago',label:'Facturas / Boletas',icon:'🧾'},{key:'kardexEpp',label:'Cardex EPP',icon:'🦺'},{key:'insumosAux',label:'Insumos Aux. Mecánicos',icon:'🛠️'},{key:'analisisAbc',label:'Análisis de Consumo',icon:'📈'}]},
-  operaciones:{label:'Operaciones',icon:'⚙️',color:'#f59e0b',prefix:'ECOOPE',
-    modules:[{key:'supervision',label:'Supervisión',icon:'🔍'},{key:'liberacion',label:'Liberación de Restricciones',icon:'🚦'}]},
-  seguridad:{label:'Seguridad',icon:'🛡️',color:'#ef4444',prefix:'ECOSEG',
-    
-    modules:[{key:'seguridad',label:'Seguridad',icon:'⛑️'},{key:'cursosSeguridad',label:'Cursos / Capacitaciones',icon:'🎓'},{key:'medioAmbiente',label:'Medio Ambiente',icon:'🌿'}]},
-  mantenimiento:{label:'Mantenimiento Mecánico',icon:'🔧',color:'#8b5cf6',prefix:'ECOMEC',
-    modules:[{key:'masterEquipos',label:'Máster de Equipos',icon:'🗂️'},{key:'programacionEquipos',label:'Programación',icon:'📅'},{key:'auxiliosMecanicos',label:'Auxilios Mecánicos',icon:'🚨'},{key:'engraseEquipos',label:'Engrase Mensual',icon:'🛢️'},{key:'salidaEquipos',label:'Control de Salida EQ',icon:'🚚'},{key:'insumosAux',label:'Insumos Aux. Mecánicos',icon:'🛠️'}]},
-  controlProyecto:{label:'Control de Proyecto',icon:'📊',color:'#10b981',prefix:'ECOCTL',
-    modules:[{key:'planner',label:'Planner',icon:'📈'},{key:'lps',label:'Planning & Monitoring',icon:'🗂️'},{key:'pizarra',label:'Mapa de Proyecto - R3',icon:'🗺️'},{key:'avanceMT',label:'Avance MT',icon:'📦'},{key:'dailyReport',label:'Daily Report',icon:'📋'},{key:'recrecimiento',label:'Recrecimiento R3',icon:'🏔️'},{key:'informePeriodo',label:'Informe de Período',icon:'📑'}]},
-  // Área compartida para accesos externos — Seguimiento General e Histograma Recursos viven solo aquí
-  general:{label:'General',icon:'📋',color:'#14b8a6',prefix:'ECOGEN',
-    modules:[{key:'seguimiento',label:'Seguimiento General',icon:'📌'},{key:'histograma',label:'Histograma Recursos',icon:'📊'}]},
-    //-Menu para control de equipos.
-  controlEquipos:{label:'Control de Equipos',icon:'🚜',color:'#06b6d4',prefix:'ECOCEQ',
-    modules:[{key:'dashEquipos',label:'Dashboard',icon:'📊'},{key:'flotaEquipos',label:'Flota de Equipos',icon:'🗂️'},{key:'lineaAmarilla',label:'Línea Amarilla',icon:'🟡'},{key:'lineaBlanca',label:'Línea Blanca',icon:'⚪'},{key:'vehiculosMenores',label:'Vehículos Menores',icon:'🚗'},{key:'equiposMenores',label:'Menores',icon:'🔩'},{key:'panelHoras',label:'Panel Horas Máq.',icon:'⏱️'},{key:'reporteMensual',label:'Mensual al Corte',icon:'📈'},{key:'reporteEquipos',label:'Reporte de Equipos',icon:'📄'},{
-              key:'dataIngresos', label:'Data de Ingresos', icon:'🗄️', isSubgroup: true,
-              children:[
-                {key:'frentesTrabajo', label:'Frentes de Trabajo', icon:'📍'},
-                {key:'tipoMaterial',   label:'Tipo de Material',   icon:'🪨'},
-                {key:'tramos',         label:'Tramos',              icon:'🗺️'}
-                      ]
-            }]},
-  otros:{label:'Ventas General',icon:'📁',color:'#a78bfa',prefix:'ECOOTRO',
-    modules:[{key:'valorizaciones',label:'Valorizaciones / EDP',icon:'📋'},{key:'hes',label:'HES',icon:'📑'},{key:'facturacion',label:'Facturación',icon:'🧾'}]},
-  costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
-    modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'},{key:'hhVenta',label:'HH Venta',icon:'👷'},{key:'corteEquipos',label:'Corte Equipos',icon:'✂️'},{key:'costoM3',label:'Costo por m³',icon:'🧱'}]},
-  configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
-    modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
-};
+﻿// ══ AREAS ══
+// Qué áreas hay y qué módulos ofrece cada una vive ahora en js/registro.js,
+// que se carga antes que este archivo. Aquí se reconstruye con la forma de
+// siempre, para que empresa.js siga repartiendo permisos con las mismas
+// claves y el menú no note el cambio.
+const AREAS=gdarConstruirAreas();
 
 // ══ USERS ══
 // La lista vive en js/empresa.js: cambia con cada cliente. Se arma aquí
@@ -164,6 +130,7 @@ const SUPA_TABLES={
   libActividades:'lib_actividades',   // Panel de Liberación de Restricciones
   libRequisitos:'lib_requisitos',
   libBitacora:'lib_bitacora',
+  valPresupuesto:'val_presupuesto',   // partidas del contrato, ver js/valPresupuesto.js
   viaticos:'reembolsables_bbss'   // Reembolsables de Bienestar Social
 };
 
@@ -221,9 +188,25 @@ async function supaUpsert(dbKey,record){
   _pendingSaves++;
   try{
     const {error}=await supa.from(table).upsert(toSnake(record));
+    // El servidor respondió y rechazó: no es un problema de red, así que
+    // guardarlo para reintentar solo repetiría el mismo rechazo.
     if(error){console.warn('[Supabase upsert]',table,error.message);toast('Error al guardar: '+error.message,true);return error;}
     return null;
-  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);return e;}
+  }catch(e){
+    // Aquí no hubo respuesta: se cayó la red. Antes esto perdía el registro
+    // —vivía solo en la copia en memoria y se iba al recargar— y en faena eso
+    // es una guardia entera de tareo. Ahora queda en el navegador y se reenvía
+    // cuando vuelva la conexión. Ver js/cola.js.
+    console.warn('[Supabase]',e);
+    if(typeof colaGuardar==='function'&&record&&record.id!==undefined){
+      colaGuardar(dbKey,record).then(guardado=>{
+        toast(guardado
+          ? '⏳ Sin conexión: guardado aquí, se enviará al volver la red'
+          : 'Error de conexión con Supabase',!guardado);
+      });
+    }else toast('Error de conexión con Supabase',true);
+    return e;
+  }
   finally{_pendingSaves--;}
 }
 
@@ -233,7 +216,21 @@ async function supaDelete(dbKey,id){
     const {data,error}=await supa.from(table).delete().eq('id',+id).select();
     if(error){toast('Error al eliminar: '+error.message,true);return;}
     if(!data||data.length===0){toast('No se encontró en BD (ID:'+id+')',true);}
-  }catch(e){toast('Error al eliminar: '+e.message,true);}
+  }catch(e){
+    // Se cayó la red. del() ya lo quitó de la pantalla y dijo "Eliminado" sin
+    // esperar a esto, así que sin encolar el borrado el registro reaparecería
+    // al recargar: la persona creería haberlo borrado y no. Peor, si estaba
+    // pendiente de enviarse, la cola lo habría resucitado en el servidor.
+    // Guardar el borrado con la misma clave tabla|id reemplaza ese pendiente.
+    console.warn('[Supabase delete]',e);
+    if(typeof colaGuardar==='function'&&id!==undefined){
+      colaGuardar(dbKey,{id:+id},{borrar:true}).then(guardado=>{
+        toast(guardado
+          ? '⏳ Sin conexión: se eliminará al volver la red'
+          : 'Error al eliminar: '+e.message,!guardado);
+      });
+    }else toast('Error al eliminar: '+e.message,true);
+  }
 }
 
 function syncSheet(action,data){
@@ -253,7 +250,7 @@ async function supaGuardarRequerimiento(req){
       created_at:new Date().toISOString()
     };
     const {data:ret,error:re}=await supa.from('requerimientos').upsert(reqData).select();
-    if(re){console.warn('[Req]',re.message);return;}
+    if(re){console.warn('[Req]',re.message);toast('Error al guardar el requerimiento: '+re.message,true);return re;}
     const reqId=ret[0].id;
     const localReq=DB.requerimientos.find(r=>r.num===req.num);
     if(localReq)localReq.id=reqId;
@@ -277,7 +274,23 @@ async function supaGuardarRequerimiento(req){
         });
       }
     }
-  }catch(e){console.warn('[Req]',e);}
+    return null;
+  }catch(e){
+    // Un requerimiento no cabe en un upsert: son tres tablas y la de enlace
+    // necesita el id que devuelve la primera. Por eso este camino no pasa por
+    // supaUpsert y, hasta ahora, un corte de red lo perdía sin un solo aviso:
+    // la pantalla lo mostraba creado y en la base no quedaba nada.
+    // Se encola entero, con sus ítems, y al volver la red se rehace esta misma
+    // secuencia. Ver js/cola.js.
+    console.warn('[Req]',e);
+    if(typeof colaGuardar==='function'&&req&&req.id!==undefined){
+      const guardado=await colaGuardar('requerimientos',req,{requerimiento:true});
+      toast(guardado
+        ? '⏳ Sin conexión: el requerimiento se enviará al volver la red'
+        : 'Error de conexión: el requerimiento no se guardó',!guardado);
+    }else toast('Error de conexión: el requerimiento no se guardó',true);
+    return e;
+  }
 }
 
 // ══ ACTUALIZAR DATOS SIN CERRAR SESIÓN ══
@@ -330,7 +343,14 @@ async function loadSheetsData(){
       }
       return{data:all,error:err};
     };
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen');
+    // Solo las tablas de lo que esta empresa contrató. Un cliente que no
+    // compró Control de Proyecto no tiene por qué descargar las quince tablas
+    // del Last Planner cada vez que alguien entra. Con todo contratado —el
+    // caso de siempre— la lista sale igual de larga que antes.
+    // Quién necesita qué lo declara js/registro.js.
+    const _tablasDelPlan=gdarTablas();
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>
+      k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen'&&_tablasDelPlan.has(k));
     const results=await Promise.all(
       simpleKeys.map(dbKey=>
         cargarPaginado(SUPA_TABLES[dbKey]).then(({data,error})=>({dbKey,data,error}))
@@ -372,6 +392,14 @@ async function loadSheetsData(){
     }
     // Carga inicial almacén: últimos 60 días
     await cargarAlmacen(false);
+    // Lo que quedó sin enviar se vuelve a poner encima de lo que trajo el
+    // servidor: es lo más nuevo que existe. Sin esto, el tareo hecho sin red
+    // desaparecería de la grilla al recargar y alguien lo escribiría otra vez.
+    // Ver js/cola.js.
+    if(typeof colaAplicar==='function'){
+      const n=await colaAplicar();
+      if(n)toast('⏳ '+n+' cambio(s) sin enviar, se guardarán al volver la red');
+    }
     if(loaded){renderPage(AP);recalcularEstadosRQ();toast('✓ Datos cargados');}
   }catch(e){console.warn('Supabase load error:',e);}
 }
@@ -465,7 +493,7 @@ const DB={
   incidentes:[],petar:[],ambiental:[],equipos:[],partes:[],mantenimientos:[],
   planner:[],facturas:[],costos:[],frentesTrabajo:[],tipoMaterial:[],tramos:[],
   catalogoItems:[],unidades:[],asistencia:[],proyectos:[],auxiliosMecanicos:[],auxMecInsumos:[],engrase:[],tareaje:[],subtiposEquipo:[],histogramaPlan:[],planillaMes:[],
-  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],ventaPersonal:[],viaticos:[],wbsAvance:[],wbsMapa:[],afpTasas:[],atencionRecursos:[],planillaCierre:[],planillaCerrada:[],
+  lpsWbs:[],lpsLookahead:[],lpsPlanSemanal:[],lpsRestricciones:[],lpsConfig:[],lpsWbsRecursos:[],lpsSectores:[],pizarraItems:[],lpsWbsDeps:[],capas:[],planDibujos:[],rosterConfig:[],rosterOvr:[],capasAvance:[],personalRosterCfg:[],seguimiento:[],tarifasEq:[],ventas:[],reembolsables:[],codigoReemb:[],recElementos:[],recElemCapas:[],recPlanos:[],edpProveedores:[],firmas:[],salidaEquipos:[],cursos:[],cursosPersonal:[],renta5ta:[],renta5taCfg:[],ventaPersonal:[],viaticos:[],wbsAvance:[],wbsMapa:[],afpTasas:[],atencionRecursos:[],planillaCierre:[],planillaCerrada:[],valPresupuesto:[],
   nx:{personal:1,social:1,res:1,ali:1,hosp:1,lav:1,alm:1,comb:1,super:1,inc:1,pet:1,amb:1,eq:1,mant:1,plan:1,fact:1,cost:1,ft:1,tm:1,tr:1,req:1,fpago:1,cat:1,und:1,proy:1,auxMec:1,auxMecIns:1,eng:1,tar:1,sub:1,plm:1,lpsW:1,lpsL:1,lpsP:1,lpsR:1,lpsWbsR:1,lpsS:1,piz:1,lpsDep:1,cap:1,pld:1,rc:1,rovr:1,cav:1,prc:1,seg:1,teq:1,vent:1,reemb:1,hpl:1,relem:1,relc:1,rpl:1,edpp:1,frm:1,sleq:1,cur:1,curp:1,r5:1,r5c:1,vper:1,via:1,wav:1,wmap:1,afpt:1,plcc:1,plc:1,arec:1}
 };
 

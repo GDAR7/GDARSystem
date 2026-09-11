@@ -924,11 +924,11 @@ function exportTareajePDF(){
     +'tr:nth-child(even){background:#f9f9f9}'
     +'.footer{margin-top:16px;font-size:9px;color:#888;text-align:right}'
     +'@media print{button{display:none}}';
-  let body='<div class="hdr"><h2>ECOSERMO — CONTROL DE ASISTENCIA / TAREAJE</h2>';
+  let body='<div class="hdr"><h2>'+EMPRESA.nombre+' — CONTROL DE ASISTENCIA / TAREAJE</h2>';
   body+='<p>Fecha: <strong>'+fecha+'</strong>'+(guardia?' · Guardia: '+guardia:'')+' · Generado por: '+CU.nombre+' · Presentes: '+presentes+'/'+trabajadores.length+'</p></div>';
   body+='<table><thead><tr><th>DNI</th><th>Apellidos y Nombres</th><th>Tipo</th><th>Guardia</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Estado</th><th>Firma / V°B°</th></tr></thead>';
   body+='<tbody>'+rows+'</tbody></table>';
-  body+='<div class="footer">ECOSERMO · Sistema de Gestion Operativa</div>';
+  body+='<div class="footer">'+EMPRESA.nombre+' · Sistema de Gestion Operativa</div>';
   const html='<!DOCTYPE html><html><head><meta charset=utf-8><title>Tareaje '+fecha+S+'title><style>'+css+S+'style>'+S+'head><body>'+body+S+'body>'+S+'html>';
   win.document.write(html);win.document.close();win.focus();
   setTimeout(function(){win.print();},400);

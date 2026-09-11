@@ -58,12 +58,14 @@ function _ccaEsc(s){
 // ── Los doce períodos 21→20 de un año ───────────────────────────────────────
 // Enero = 21-dic del año anterior al 20-ene. Es la misma convención de
 // _ccPeriodo(), que ya etiqueta cada período por su mes de cierre.
+// Los doce periodos de un anio. Con corte 21 el primero arranca el 21 de
+// diciembre del anio anterior; con corte 1 son los meses calendario.
+// El dia lo pone EMPRESA_CORTE en js/empresa.js.
 function _ccaPeriodos(anio){
-  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
   return _CCA_MESES.map((lab,m)=>{
-    const ini=new Date(anio,m-1,21);     // m=0 → 21 de diciembre del año anterior
-    const fin=new Date(anio,m,20);
-    return{desde:fmtD(ini),hasta:fmtD(fin),label:lab,
+    const p=gdarPeriodoDeMes(anio,m);
+    const ini=new Date(p.desde+'T12:00:00'),fin=new Date(p.hasta+'T12:00:00');
+    return{desde:p.desde,hasta:p.hasta,label:lab,
            dias:Math.round((fin-ini)/86400000)+1};
   });
 }

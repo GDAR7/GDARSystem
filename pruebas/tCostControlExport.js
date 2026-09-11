@@ -3,7 +3,7 @@
 // Lo que más importa: que el archivo diga lo mismo que la pantalla —mismos
 // filtros, mismo modo de tarifa— y que ninguna fila quede descuadrada.
 const fs=require('fs'),vm=require('vm');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};
@@ -57,6 +57,14 @@ const ctx=vm.createContext({
     {p:'Luis Cruz',cargo:'Operario',trab:18,libre:3,dlt:0,tarifa:5237.30,venta:3900.55}
   ]})
 });
+// El corte contable vive en js/utils.js desde que dejó de estar repetido en
+// trece módulos. Se carga en el mismo contexto, igual que hace index.html:
+// costcontrolAnual.js llama a gdarPeriodoDeMes() para armar los doce períodos.
+const _uts=fs.readFileSync(R+'js/utils.js','utf8');
+vm.runInContext('const EMPRESA_CORTE=21;'
+  +_uts.slice(_uts.indexOf('// ══ EL PERÍODO CONTABLE'),_uts.indexOf('// ══ CLOCK ══')),
+  ctx,{filename:'utils.js (periodo)'});
+
 ['js/costcontrol.js','js/costcontrolAnual.js','js/costcontrolExport.js'].forEach(f=>
   vm.runInContext(fs.readFileSync(R+f,'utf8'),ctx,{filename:f}));
 vm.runInContext('_aSoles=(v,m)=>(m&&m!=="SOLES")?(+v||0)*3.75:(+v||0);',ctx);

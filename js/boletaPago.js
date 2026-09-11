@@ -290,7 +290,7 @@ function blCorreo(personalId){
     `  NETO A PAGAR........ ${_blS(c.neto)}`,'',
     p.banco?`Abono en ${p.banco}${p.cuenta?' · cuenta '+p.cuenta:''}.`:'',
     '','Ante cualquier consulta, comuníquese con el área de Recursos Humanos.','',
-    'ECOSERMO'
+    EMPRESA.nombre
   ].filter(x=>x!=='').join('\n');
   const asunto=`Boleta de pago · ${mesLbl} · ${(p.ape||'')}, ${(p.nom||'')}`.trim();
   const url='mailto:'+encodeURIComponent(p.email)+'?subject='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(L);
@@ -420,8 +420,8 @@ function blVer(personalId){
 const _BL_OFI='#0070c0';        // RGB (0,112,192) — encabezados del formato oficial
 // Datos de la empresa. El RUC es el mismo que ya usa el EDP de proveedores.
 const _BL_EMPRESA={
-  ruc:'20571533180',
-  razon:'EMPRESA COMUNAL DE SERVICIOS MULTIPLES OYON (ECOSERMO)',
+  ruc:EMPRESA.ruc,
+  razon:EMPRESA.razon||EMPRESA.nombre,
   rubro:'TRANSPORTE, MINERÍA Y CONSTRUCCIÓN',
   direccion:''
 };

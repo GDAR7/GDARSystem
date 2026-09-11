@@ -150,20 +150,11 @@ async function amDelFoto(tipo,idx){
 }
 // ── Filtro de período 21→20 + chips por tipo/subtipo de equipo (mismo patrón que Combustible) ──
 let _amOffset=0,_amTodoPer=false,_amTipo=null,_amSub=null,_amEqId=null;
-function _amPeriodo(){
-  const hoy=new Date();
-  const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
-  let baseY=y,baseM=m;
-  if(d<21){baseM=m-1;if(baseM<0){baseM=11;baseY=y-1;}}
-  let iniM=baseM+_amOffset,iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21);
-  const fin=new Date(iniY,iniM+1,20);
-  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return{desde:fmtD(ini),hasta:fmtD(fin),label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,dias:Math.round((fin-ini)/86400000)+1};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _amPeriodo(){ return gdarPeriodoOffset(_amOffset); }
 function _amNav(dir){_amOffset+=dir;_amTodoPer=false;rAuxMec();}
 function _amTogglePeriodo(){_amTodoPer=!_amTodoPer;rAuxMec();}
 function _amSelTipo(t){
@@ -544,7 +535,7 @@ function imprimirAuxMec(id){
     <img src="${_logoUrl}" style="height:44px;object-fit:contain">
     <div style="text-align:center;flex:1">
       <div style="font-size:15px;font-weight:900;color:#1e293b">INFORME DE AUXILIO MECÁNICO</div>
-      <div style="font-size:10px;color:#64748b">ECOSERMO – Sistema de Control de Mantenimiento – GDAR</div>
+      <div style="font-size:10px;color:#64748b">${EMPRESA.nombre} – Sistema de Control de Mantenimiento – GDAR</div>
     </div>
     <div style="font-size:18px;font-weight:900;color:#ef4444;font-family:monospace;background:#fef2f2;border:2px solid #ef4444;padding:4px 10px;border-radius:6px">${r.cod}</div>
   </div>

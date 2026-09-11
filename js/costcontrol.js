@@ -277,23 +277,11 @@ const _CC_TARIFA_HH=[
 ];
 
 // ── Período 21→20 ──
-function _ccPeriodo(){
-  const hoy=new Date();
-  const d=hoy.getDate(), m=hoy.getMonth(), y=hoy.getFullYear();
-  // Inicio del período actual: si hoy ≥ 21 → empieza este mes; si no → empezó el mes pasado
-  let baseY=y, baseM=m;
-  if(d<21){baseM=m-1; if(baseM<0){baseM=11;baseY=y-1;}}
-  // Aplicar offset en meses completos
-  let iniM=baseM+_ccOffset, iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21);
-  const fin=new Date(iniY,iniM+1,20);
-  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const diasTot=Math.round((fin-ini)/86400000)+1;
-  return {desde:fmtD(ini), hasta:fmtD(fin), label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`, dias:diasTot};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _ccPeriodo(){ return gdarPeriodoOffset(_ccOffset); }
 
 // ── Coincidencia tarifa equipo (usa DB si tiene datos, sino fallback hardcoded) ──
 // Normaliza texto: minúsculas, sin tildes, sin puntuación

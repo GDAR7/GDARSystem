@@ -1,0 +1,194 @@
+# ══ RESPALDO DIARIO DE SUPABASE ═════════════════════════════════════════════
+#
+# Corre solo todos los días y guarda las tablas en un repositorio PRIVADO.
+# Si el respaldo sale mal, el job falla y GitHub avisa por correo.
+#
+# ── Por qué NO usa artifacts ───────────────────────────────────────────────
+# GDARSystem es un repositorio público, y en un repositorio público los
+# artifacts de Actions los descarga cualquiera. Subir ahí los JSON sería
+# publicar los DNI y los sueldos de la gente. Por eso el destino es un repo
+# aparte y privado, y lo único que se sube como artifact cuando algo falla es
+# _resumen.json, que solo lleva nombres de tabla y números de filas.
+#
+# ── Por qué a un repo privado y no a un bucket ─────────────────────────────
+# Sale gratis, queda versionado, y se restaura con un `git checkout` a la
+# fecha que sea. Como los JSON salen ordenados por id, el cambio de un día a
+# otro es pequeño y git guarda deltas: no crece como crecería subiendo un
+# archivo nuevo entero cada día.
+#
+# Cuando el volumen o la retención lo pidan, el paso "Guardar" se cambia por
+# una subida a Cloudflare R2 y lo demás queda igual.
+#
+# ── Qué hay que crear una sola vez ─────────────────────────────────────────
+#
+#  1. Un repositorio PRIVADO para los respaldos, por ejemplo
+#     GDAR7/gdar-respaldos. Créelo CON README: actions/checkout no puede
+#     clonar un repositorio sin ningún commit, y el primer respaldo fallaría.
+#
+#  2. Un token con permiso de escritura SOLO sobre ese repositorio:
+#     GitHub → Settings → Developer settings → Personal access tokens →
+#     Fine-grained tokens → Repository access: solo gdar-respaldos,
+#     Permissions → Contents: Read and write.
+#
+#  3. En GDARSystem → Settings → Secrets and variables → Actions:
+#
+#     Secrets                      qué es
+#     ─────────────────────────    ──────────────────────────────────────────
+#     SUPABASE_SERVICE_KEY_PROD    la service_role de producción
+#     RESPALDOS_TOKEN              el token del punto 2
+#
+#     Variables
+#     ─────────────────────────    ──────────────────────────────────────────
+#     RESPALDOS_REPO               GDAR7/gdar-respaldos
+#
+# ⚠ La service_role salta las políticas RLS: con ella se lee todo. Va como
+#   secret y nunca en un archivo del repositorio, que es público.
+
+name: Respaldo de Supabase
+
+on:
+  schedule:
+    # 07:00 UTC = 02:00 en Perú. Después de la jornada, antes de que nadie
+    # empiece a cargar datos al día siguiente.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      entorno:
+        description: Qué base respaldar
+        type: choice
+        options: [produccion, desarrollo]
+        default: produccion
+
+# Solo lectura sobre este repositorio: el workflow no le escribe nada.
+# La escritura va al repo privado, con su propio token.
+permissions:
+  contents: read
+
+# Si una corrida se solapa con la anterior, se espera en vez de pisarla: dos
+# respaldos a la vez del mismo minuto escribirían en la misma carpeta.
+concurrency:
+  group: respaldo-${{ github.event.inputs.entorno || 'produccion' }}
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Traer el código
+        uses: actions/checkout@v4
+
+      # El respaldo lee js/empresa.js y js/config.js, y usa el fetch que ya
+      # trae Node. No hace falta instalar nada: sin npm ci la corrida arranca
+      # en segundos en vez de descargar el CLI de Supabase para nada.
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Sin esto, faltar un secreto se manifiesta como un checkout que no
+      # encuentra el repositorio, y hay que leerse el log para entender por qué.
+      # El job igual falla —un respaldo que no corre es exactamente el problema
+      # que trajo todo esto— pero al menos dice qué falta.
+      - name: Comprobar la configuración
+        env:
+          REPO: ${{ vars.RESPALDOS_REPO }}
+          TOKEN: ${{ secrets.RESPALDOS_TOKEN }}
+          LLAVE: ${{ secrets.SUPABASE_SERVICE_KEY_PROD }}
+        run: |
+          FALTA=''
+          [ -z "$REPO"  ] && FALTA="$FALTA\n  - variable RESPALDOS_REPO (ej. GDAR7/gdar-respaldos)"
+          [ -z "$TOKEN" ] && FALTA="$FALTA\n  - secret RESPALDOS_TOKEN (acceso de escritura a ese repo)"
+          [ -z "$LLAVE" ] && FALTA="$FALTA\n  - secret SUPABASE_SERVICE_KEY_PROD (la service_role)"
+          if [ -n "$FALTA" ]; then
+            echo "El respaldo no está configurado todavía. Falta:"
+            printf "$FALTA\n"
+            echo ""
+            echo "Se crean en Settings → Secrets and variables → Actions."
+            echo "Los pasos completos están en el encabezado de este archivo."
+            exit 1
+          fi
+          echo "Configuración completa."
+
+      - name: Traer los respaldos anteriores
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.RESPALDOS_REPO }}
+          token: ${{ secrets.RESPALDOS_TOKEN }}
+          path: _respaldos
+          # Solo el último commit: el histórico no hace falta para comparar y
+          # clonarlo entero tardaría más cada día que pasa.
+          fetch-depth: 1
+
+      # Cada entorno en su propia carpeta. Si compartieran una, una corrida
+      # manual de desarrollo borraría el respaldo de producción en el paso de
+      # poda y dejaría a ECOSERMO sin copia y sin nada contra qué comparar.
+      - name: Respaldar
+        id: respaldar
+        env:
+          GDAR_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY_PROD }}
+          GDAR_SERVICE_KEY_DEV: ${{ secrets.SUPABASE_SERVICE_KEY_DEV }}
+          # La entrada llega por el entorno y no interpolada dentro del script:
+          # un ${{ }} pegado en un `run` se sustituye como texto antes de que
+          # bash lo lea, que es como se cuela un comando en un workflow con
+          # secretos a mano.
+          ENTORNO_IN: ${{ github.event.inputs.entorno }}
+        run: |
+          ENTORNO="${ENTORNO_IN:-produccion}"
+          DESTINO="$GITHUB_WORKSPACE/_respaldos/respaldos/$ENTORNO"
+          echo "DESTINO=$DESTINO" >> "$GITHUB_ENV"
+          mkdir -p "$DESTINO"
+          export GDAR_RESPALDOS="$DESTINO"
+          if [ "$ENTORNO" = 'desarrollo' ]; then
+            node herramientas/backupSupabase.js --dev
+          else
+            node herramientas/backupSupabase.js
+          fi
+
+      # Solo se llega aquí si el respaldo salió válido: si no, el paso anterior
+      # ya devolvió 1 y el job está fallando. Es a propósito — un respaldo malo
+      # no debe reemplazar al bueno que ya estaba guardado.
+      - name: Dejar solo el más reciente
+        run: |
+          cd "$DESTINO"
+          ls -1d supabase_* 2>/dev/null | sort | head -n -1 | xargs -r rm -rf || true
+          echo "queda: $(ls -1d supabase_* 2>/dev/null || echo ninguno)"
+
+      - name: Guardar
+        run: |
+          cd _respaldos
+          git config user.name  'Respaldo GDAR'
+          git config user.email 'respaldo@gdarei.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Sin cambios respecto al respaldo anterior."
+            exit 0
+          fi
+          FILAS=$(node -e "
+            const fs=require('fs'),p=process.env.DESTINO;
+            const d=fs.readdirSync(p).find(x=>x.startsWith('supabase_'));
+            const r=JSON.parse(fs.readFileSync(p+'/'+d+'/_resumen.json','utf8'));
+            process.stdout.write(r.entorno+' · '+r.filasTotales+' filas en '+r.tablas+' tablas');
+          ")
+          git commit -m "Respaldo $(date -u +%Y-%m-%d) · $FILAS"
+          git push
+
+      # _resumen.json no lleva ni un dato personal: solo nombres de tabla y
+      # cuántas filas trajo cada una. Es lo justo para entender qué falló sin
+      # tener que darle a nadie acceso al repositorio privado.
+      - name: Guardar el diagnóstico si algo falló
+        if: failure()
+        run: |
+          mkdir -p _diag
+          find _respaldos/respaldos -name _resumen.json -exec cp {} _diag/ \; 2>/dev/null || true
+          ls -la _diag || echo "no hubo resumen que copiar"
+
+      - name: Subir el diagnóstico
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-respaldo
+          path: _diag/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};
@@ -153,6 +153,8 @@ setTimeout(()=>{},0);
   const gi=fs.readFileSync(R+'.gitignore','utf8');
   es('.gitignore tapa las credenciales',gi.includes('herramientas/.credenciales.json'),true);
   es('  y el listado de credenciales nuevas',gi.includes('credenciales-nuevas.txt'),true);
+  es('  y el .env con las llaves',/^.env$/m.test(gi),true);
+  es('  pero no la plantilla',gi.includes('!.env.example'),true);
   es('migrarAuth no trae ninguna llave',/eyJ|sb_publishable_[A-Za-z0-9]/.test(mig),false);
 
   console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));

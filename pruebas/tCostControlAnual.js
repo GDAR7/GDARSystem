@@ -2,7 +2,7 @@
 // que la pestaña Equipos, porque si los dos cálculos se separan, dos pantallas
 // del mismo módulo mostrarían márgenes distintos y nadie sabría cuál creer.
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(60)+'= '+g+(b?'':'  (esperado '+e+')'));};
@@ -24,6 +24,14 @@ es('devuelve todo lo que el render necesita',
 
 console.log('\n== Los doce períodos 21→20 ==');
 // Se ejecuta la función real
+// costcontrolAnual.js delega el corte contable en gdarPeriodoDeMes(), que vive
+// en js/utils.js. Hay que dárselo igual que se lo da el navegador, o la función
+// no encuentra de dónde saca las fechas.
+const _uts=fs.readFileSync(R+'js/utils.js','utf8');
+const _per=_uts.slice(_uts.indexOf('// ══ EL PERÍODO CONTABLE'),_uts.indexOf('// ══ CLOCK ══'));
+Object.assign(global,new Function('EMPRESA_CORTE',
+  _per+';return{gdarPeriodoDeMes,gdarPeriodo,gdarPeriodoOffset,gdarCorte};')(21));
+
 const iP=ca.indexOf('function _ccaPeriodos');
 const _ccaPeriodos=new Function('_CCA_MESES','return '+
   ca.slice(iP,ca.indexOf('\n}',iP)+2))(
@@ -92,7 +100,9 @@ es('  y también el proyecto filtrado',/_ccProyecto!=='undefined'\?_ccProyecto:'
 es('  y se descarta al recargar datos',/if\(typeof _ccaCache!=='undefined'\)_ccaCache=null/.test(cc),true);
 
 console.log('\n== Enganche en la página ==');
-es('el script está declarado',/js\/costcontrolAnual\.js\?v=\d+/.test(html),true);
+// El sello ya no es un número que se sube a mano: es el hash del contenido,
+// que pone `npm run sellar`.
+es('el script está declarado',/js\/costcontrolAnual\.js\?v=[A-Za-z0-9]+/.test(html),true);
 es('  después de costcontrol.js',
   html.indexOf('costcontrolAnual.js')>html.indexOf('js/costcontrol.js'),true);
 es('la pestaña aparece en la barra',/_tabBtn\('anual','📅 Anual'\)/.test(cc),true);

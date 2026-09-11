@@ -46,20 +46,11 @@ function _cm3Restaurar(){
 function _cm3Nav(d){_cm3Offset+=d;rCostoM3();}
 
 // Período 21→20 con desplazamiento propio
-function _cm3Periodo(){
-  const hoy=new Date();
-  const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
-  let baseY=y,baseM=m;
-  if(d<21){baseM=m-1;if(baseM<0){baseM=11;baseY=y-1;}}
-  let iniM=baseM+_cm3Offset,iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21),fin=new Date(iniY,iniM+1,20);
-  const f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return{desde:f(ini),hasta:f(fin),label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,
-    dias:Math.round((fin-ini)/864e5)+1};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _cm3Periodo(){ return gdarPeriodoOffset(_cm3Offset); }
 
 // ── HM · venta de equipos del período ──────────────────────────────────────
 function _cm3Equipos(per,KEY){

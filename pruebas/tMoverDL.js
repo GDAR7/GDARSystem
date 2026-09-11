@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 global.localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 const nodos={};
 const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classList:{contains:()=>false,add(){}}};
@@ -7,6 +7,10 @@ const mk=id=>nodos[id]={id,innerHTML:'',style:{},value:'',textContent:'',classLi
  'plCierreBar','plMes','plAnio','plProy','blPanel','plTablaWrap','tbPlanilla','plCascada'].forEach(mk);
 nodos.plMes.value='7';nodos.plAnio.value='7115';nodos.plProy.value='';
 nodos.tbPlanilla.tHead=null;nodos.tbPlanilla.tBodies=[];nodos.tbPlanilla.tFoot=null;
+// Los módulos de impresión piden el nombre a EMPRESA, como en el navegador.
+// De mentira a propósito: una prueba no debe depender del nombre de un cliente.
+global.EMPRESA={nombre:'EMPRESA DE PRUEBA',ruc:'20000000001',
+  razon:'EMPRESA DE PRUEBA S.A.C.',logo:'logo.png'};
 global.document={getElementById:id=>nodos[id]||null,querySelector:()=>null,querySelectorAll:()=>[]};
 global.window={location:{href:'https://x/i.html'},open:()=>null};
 global.toast=()=>{};global.openM=()=>{};global.closeM=()=>{};global.confirm=()=>true;

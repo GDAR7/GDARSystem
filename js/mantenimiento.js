@@ -96,7 +96,7 @@ function _masterPrintPDF(){
       <img src="${logo}" class="logo" onerror="this.style.display='none'">
       <div>
         <div class="titulo">Máster de Equipos</div>
-        <div class="subtitulo">GDAR – ECOSERMO · Registro completo de flota · Total: ${equipos.length} equipos</div>
+        <div class="subtitulo">GDAR – ${EMPRESA.nombre} · Registro completo de flota · Total: ${equipos.length} equipos</div>
       </div>
     </div>
     <div class="fecha-box"><div style="font-size:11px;font-weight:700;color:#0f172a">${fecha}</div><div>Emitido por: ${typeof CU!=='undefined'?CU.nombre:'—'}</div></div>
@@ -111,7 +111,7 @@ function _masterPrintPDF(){
     <tbody>${filas}</tbody>
   </table>
   <div class="footer">
-    <span>GDAR – ECOSERMO ERP · Máster de Equipos</span>
+    <span>GDAR – ${EMPRESA.nombre} ERP · Máster de Equipos</span>
     <span>Generado el ${fecha}</span>
   </div>
   <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
@@ -608,11 +608,11 @@ function printEquipoFicha(){
 <div class="header">
   <div class="header-left">
     <div class="title">FICHA TÉCNICA DE EQUIPO</div>
-    <div class="subtitle">ECOSERMO – Sistema de Control de Equipos – GDAR</div>
+    <div class="subtitle">${EMPRESA.nombre} – Sistema de Control de Equipos – GDAR</div>
     <div class="equipo">${e.codigo} &nbsp;·&nbsp; ${e.nombre||''}</div>
   </div>
   <div class="header-right">
-    <img src="${logo}" alt="ECOSERMO">
+    <img src="${logo}" alt="${EMPRESA.nombre}">
     <div class="fecha">Impreso: ${today()}</div>
   </div>
 </div>
@@ -647,7 +647,7 @@ function printEquipoFicha(){
 </table>
 ${imgHtml}${docHtml}
 <div class="footer">
-  <span>Sistema GDAR – ECOSERMO S.A.C.</span>
+  <span>Sistema GDAR – ${EMPRESA.nombre}</span>
   <span>${e.codigo} | Generado: ${today()}</span>
 </div>
 <script>window.onload=()=>{window.print();}<\/script></body></html>`;
@@ -901,7 +901,7 @@ td{border:1px solid #e2e8f0;padding:3px 5px;vertical-align:middle}tr:nth-child(e
 </style></head><body>
 <div class="hdr">
   <div class="hdr-logo"><img src="__LOGO__" alt="Ecosermo"></div>
-  <div class="hdr-mid"><h1>PROGRAMACIÓN DE MANTENIMIENTO</h1><p>ECOSERMO – Sistema de Control de Mantenimiento Mecánico – GDAR</p></div>
+  <div class="hdr-mid"><h1>PROGRAMACIÓN DE MANTENIMIENTO</h1><p>${EMPRESA.nombre} – Sistema de Control de Mantenimiento Mecánico – GDAR</p></div>
   <div class="hdr-info"><div style="font-weight:700;color:#1e3a5f;font-size:10px">Semana N° ${semana}</div><div>${desde} → ${hasta}</div><div>${rows.length} orden(es)</div><div style="margin-top:3px">Generado: ${new Date().toLocaleString('es-PE')}</div></div>
 </div>
 <div style="margin-bottom:10px">

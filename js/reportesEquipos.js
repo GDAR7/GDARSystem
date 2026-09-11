@@ -20,20 +20,11 @@ function _deqSelEq(id){
 }
 function _deqNav(dir){_deqOffset+=dir;rDashEquipos();}
 // Período 21→20 (mismo esquema que el dashboard de Combustible)
-function _deqPeriodo(){
-  const hoy=new Date();
-  const d=hoy.getDate(),m=hoy.getMonth(),y=hoy.getFullYear();
-  let baseY=y,baseM=m;
-  if(d<21){baseM=m-1;if(baseM<0){baseM=11;baseY=y-1;}}
-  let iniM=baseM+_deqOffset,iniY=baseY;
-  while(iniM>11){iniM-=12;iniY++;}
-  while(iniM<0){iniM+=12;iniY--;}
-  const ini=new Date(iniY,iniM,21);
-  const fin=new Date(iniY,iniM+1,20);
-  const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return{desde:fmtD(ini),hasta:fmtD(fin),ini,fin,label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,dias:Math.round((fin-ini)/86400000)+1};
-}
+// El período con el que se valoriza sale de gdarPeriodoOffset(), en
+// js/utils.js, y su día de corte de EMPRESA_CORTE en js/empresa.js. Antes
+// esta función repetía la fórmula y su propio arreglo de meses, como otras
+// seis en otros seis archivos.
+function _deqPeriodo(){ return gdarPeriodoOffset(_deqOffset); }
 
 function rDashEquipos(){
   const el=document.getElementById('page-dashEquipos');if(!el)return;

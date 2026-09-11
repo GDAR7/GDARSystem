@@ -1565,7 +1565,7 @@ function _lpsPrintCurrent(){
   else body=_lpsPrintBodyRestr();
 
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
-<title>${tabName} – Planning ECOSERMO</title>
+<title>${tabName} – Planning ${EMPRESA.nombre}</title>
 <style>
 @page{size:A4 landscape;margin:.8cm}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1589,7 +1589,7 @@ tr:nth-child(even) td{background:#f0fdf4}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
 <div class="hdr">
-  <img src="${_logoUrl}" alt="ECOSERMO">
+  <img src="${_logoUrl}" alt="${EMPRESA.nombre}">
   <div><div class="hdr-title">PLANNING &amp; MONITORING – ${tabName.toUpperCase()}</div>
   <div class="hdr-sub">R3 Cota 4416 – Recrecimiento Dique Relavera · Buenaventura · UM Uchuchacua</div></div>
   <div class="hdr-right"><div style="font-weight:700;color:#059669;font-size:9px">Generado:</div><div>${fechaExp}</div></div>

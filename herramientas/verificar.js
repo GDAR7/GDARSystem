@@ -10,7 +10,7 @@
 // Qué revisa y por qué cada cosa:
 //
 //  1 · Sintaxis archivo por archivo.
-//  2 · Carga conjunta. Los 53 scripts comparten un mismo espacio global; si dos
+//  2 · Carga conjunta. Los scripts comparten un mismo espacio global; si dos
 //      declaran el mismo `const`, el navegador falla al cargar y el módulo
 //      entero deja de existir sin ningún aviso. Ya pasó con el prefijo `_ip`.
 //  3 · Funciones que se llaman y no existen — incluidos los onclick de
@@ -18,8 +18,10 @@
 //  4 · Que cada script de index.html exista, y que lleve su ?v=.
 //  5 · Modales dentro de una página. Un modal en un contenedor oculto se abre
 //      pero no se ve. Pasó con el de cambio de clave.
-//  6 · Que no haya credenciales camino a un repositorio público.
-//  7 · Las suites de pruebas/.
+//  6 · La configuración del cliente: el único archivo que cambia de una
+//      empresa a otra, y donde se concentran los errores de un alta.
+//  7 · Que no haya credenciales camino a un repositorio público.
+//  8 · Las suites de pruebas/.
 
 const fs=require('fs');
 const path=require('path');
@@ -39,7 +41,14 @@ const mal =(t,d)=>{fallos++;console.log('  '+C.rojo+'MAL'+C.fin+'  '+t+(d?NL+'  
 const nota=(t,d)=>{avisos++;console.log('  '+C.ambar+'··'+C.fin+'   '+t+(d?C.gris+'  '+d+C.fin:''));};
 
 const html=fs.readFileSync(path.join(RAIZ,'index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="js\/([^"?]+)(\?v=(\d+))?/g)]
+// El sello ya no es un número que se sube a mano: es el hash del contenido.
+//
+// Se cuentan también los módulos diferidos, que llevan `data-src` para que el
+// navegador no los descargue hasta que el cargador decida. Si esta expresión
+// solo mirara `src`, la comprobación de choques de nombres —la que protege el
+// ámbito global compartido— pasaría a revisar 22 archivos de 58 y no diría
+// nada. Que un archivo se cargue al final no lo saca del mismo ámbito.
+const scripts=[...html.matchAll(/<script (?:src|type="text\/gdar" data-src)="js\/([^"?]+)(\?v=([A-Za-z0-9]+))?/g)]
   .map(m=>({archivo:m[1],version:m[3]}));
 const jsDir=path.join(RAIZ,'js');
 const todosJs=fs.readdirSync(jsDir).filter(f=>f.endsWith('.js'));
@@ -124,6 +133,25 @@ faltantes.length?mal('index.html carga archivos que no están',faltantes.join(',
 const sinVersion=scripts.filter(s=>!s.version);
 if(sinVersion.length)nota(sinVersion.length+' script(s) sin ?v=',
   sinVersion.map(s=>s.archivo).join(', ')+' — el navegador podría servir una copia vieja');
+
+// El sello de cada archivo es su contenido. Si alguien cambia un módulo y no
+// vuelve a sellar, el navegador de quien ya tenga la copia vieja se queda con
+// ella: la aplicación sigue funcionando, con el archivo de antes. El error
+// aparece después, en la máquina de otro, y como "a mí me funciona".
+const crypto=require('crypto');
+const selloDe=rel=>crypto.createHash('sha1')
+  .update(fs.readFileSync(path.join(RAIZ,rel))).digest('hex').slice(0,8);
+const desellados=[];
+for(const m of html.matchAll(/(?:src|href)="((?:js|css)\/[^"?]+)(?:\?v=([A-Za-z0-9]+))?"/g)){
+  const rel=m[1];
+  if(!fs.existsSync(path.join(RAIZ,rel)))continue;
+  const esperado=selloDe(rel);
+  if(m[2]!==esperado)desellados.push(rel+'  '+(m[2]||'(sin sello)')+' → '+esperado);
+}
+desellados.length
+  ? mal(desellados.length+' archivo(s) cambiaron y su sello no',
+      desellados.join(NL+'       ')+NL+'       Se arregla con: npm run sellar')
+  : bien('los sellos de índice están al día','nadie se quedará con una copia vieja');
 const huerfanos=todosJs.filter(f=>!scripts.some(s=>s.archivo===f)&&f!=='empresa.ejemplo.js');
 if(huerfanos.length)nota(huerfanos.length+' archivo(s) en js/ que nadie carga',huerfanos.join(', '));
 
@@ -165,11 +193,30 @@ else if(profP!==0)
       profP<0?'hay '+(-profP)+' </div> de más':'faltan '+profP+' </div>');
 else bien('las '+nPag+' páginas cuelgan del nivel correcto');
 
-// ── 6 · Credenciales camino al repositorio ─────────────────────────────────
-titulo('6 · Nada sensible rumbo a GitHub');
+// ── 6 · La configuración de ESTE cliente ───────────────────────────────────
+// Todo lo anterior comprueba el sistema, que es igual para todos. Esto
+// comprueba el único archivo que cambia de un cliente a otro, y donde por lo
+// tanto se concentran los errores de un alta: un plan que nombra un módulo que
+// no existe deja un área vacía, un corte fuera de rango descuadra todas las
+// valorizaciones, y un marcador de la plantilla sin rellenar llega a
+// producción sin que nada se queje.
+titulo('6 · La configuración de este cliente');
+{
+  const{revisarCliente}=require('./revisarCliente');
+  try{
+    revisarCliente({
+      empresaSrc :fs.readFileSync(path.join(RAIZ,'js','empresa.js'),'utf8'),
+      registroSrc:fs.readFileSync(path.join(RAIZ,'js','registro.js'),'utf8'),
+      existe     :rel=>fs.existsSync(path.join(RAIZ,rel))
+    }).forEach(h=>h.ok?bien(h.texto,h.detalle):mal(h.texto,h.detalle));
+  }catch(e){ mal('no se pudo revisar js/empresa.js',e.message); }
+}
+
+// ── 7 · Credenciales camino al repositorio ─────────────────────────────────
+titulo('7 · Nada sensible rumbo a GitHub');
 let gitignore='';
 try{gitignore=fs.readFileSync(path.join(RAIZ,'.gitignore'),'utf8');}catch(e){}
-const debenIgnorarse=['respaldos/','herramientas/.credenciales.json','credenciales-nuevas.txt'];
+const debenIgnorarse=['respaldos/','herramientas/.credenciales.json','credenciales-nuevas.txt','.env'];
 const sinTapar=debenIgnorarse.filter(x=>!gitignore.includes(x));
 sinTapar.length?mal('.gitignore no cubre: '+sinTapar.join(', '))
                :bien('.gitignore cubre respaldos y credenciales');
@@ -193,7 +240,7 @@ conLlave.length?mal('llave secreta dentro de archivos que van al repo',conLlave.
 
 // ── 7 · Las suites ─────────────────────────────────────────────────────────
 if(!RAPIDO){
-  titulo('7 · Suites de pruebas');
+  titulo('8 · Suites de pruebas');
   const dirP=path.join(RAIZ,'pruebas');
   if(!fs.existsSync(dirP))nota('no hay carpeta pruebas/');
   else{

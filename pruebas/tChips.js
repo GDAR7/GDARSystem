@@ -1,7 +1,7 @@
 // Fila 2 del Tareaje: los chips de jornada se adaptan al período. Lo que tiene
 // al menos un día se muestra; lo que está en cero se agrupa en "Otros".
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 let ok=0,mal=0;
 const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(58)+'= '+g+(b?'':'  (esperado '+e+')'));};

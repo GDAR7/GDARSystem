@@ -1,5 +1,5 @@
 const fs=require('fs');
-const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
+const R=require('path').join(__dirname,'..')+'/';
 const campos={};
 const mk=id=>campos[id]={id,value:'',style:{},innerHTML:''};
 ['rpValoriza','rpCondicion'].forEach(mk);

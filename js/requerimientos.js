@@ -1120,8 +1120,8 @@ function _feParseHeader(lines,f){
     const fechas=txt.match(/\b\d{2}\/\d{2}\/\d{4}\b/g);
     if(fechas&&fechas.length)out.fecha=fechas[0];
   }
-  // RUC del emisor: primer RUC que no sea el de ECOSERMO (cliente)
-  const rucs=(txt.match(/\b(?:10|20)\d{9}\b/g)||[]).filter(r=>r!=='20571533180');
+  // RUC del emisor: el primero que no sea el de la propia empresa (el cliente)
+  const rucs=(txt.match(/\b(?:10|20)\d{9}\b/g)||[]).filter(r=>r!==EMPRESA.ruc);
   if(rucs.length)out.ruc=rucs[0];
   const lTot=lines.filter(l=>/importe\s+total|total\s+a\s+pagar|total\s+venta/i.test(l)).pop()
     ||lines.filter(l=>/^total\b|total\s*:/i.test(l)).pop();

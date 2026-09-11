@@ -278,15 +278,9 @@ function _hrSet(campo,val){
   rHhVenta(campo==='buscar');
 }
 // Período contable 21→20 que contiene la fecha dada
-function _hrPer2120(base){
-  const d=base?new Date(base+'T12:00:00'):new Date();
-  const y=d.getFullYear(),m=d.getMonth(),dia=d.getDate();
-  const p=n=>String(n).padStart(2,'0');
-  const ini=dia>=21?new Date(y,m,21):new Date(y,m-1,21);
-  const fin=new Date(ini.getFullYear(),ini.getMonth()+1,20);
-  const iso=x=>`${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
-  return{desde:iso(ini),hasta:iso(fin)};
-}
+// El corte contable sale de gdarPeriodo(), en js/utils.js, y su dia de
+// EMPRESA_CORTE en js/empresa.js: cambia entre clientes.
+function _hrPer2120(base){ return gdarPeriodo(base); }
 function _hrHoy(){const q=_hrPer2120();_hrDesde=q.desde;_hrHasta=q.hasta;rHhVenta();}
 function _hrNav(n){
   const p=_hrPer2120(_hrDesde||null);

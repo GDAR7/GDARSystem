@@ -13,7 +13,7 @@ const KEP_CFG={
   codigo:'PU-AL-001',
   version:'0',
   aprobado:'16/03/2025',
-  empresa:'ECOSERMO' 
+  empresa:EMPRESA.nombre 
 };
 const _KEP_MIN_FILAS=14;   // filas en blanco mínimas al imprimir
 
@@ -339,7 +339,7 @@ function _kepImprimir(){
     <tr>${d.cols.map(c=>`<td class="vh"><span>${_kepEsc(c.nom)}</span></td>`).join('')}</tr>
     ${filas}
   </table>
-  <div class="pie"><span>ECOSERMO · Cardex generado desde los vales de salida de Almacén – GDAR</span><span>${_kepAnio?'Periodo '+_kepAnio:'Todos los periodos'}${_kepProy?' · Proyecto '+_kepProy:''}</span></div>
+  <div class="pie"><span>${EMPRESA.nombre} · Cardex generado desde los vales de salida de Almacén – GDAR</span><span>${_kepAnio?'Periodo '+_kepAnio:'Todos los periodos'}${_kepProy?' · Proyecto '+_kepProy:''}</span></div>
   <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }

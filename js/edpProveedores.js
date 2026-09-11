@@ -51,13 +51,13 @@ function _edpAuxDistinto(){
   const p=_edpPerAux();
   return p.desde!==_edpDesde||p.hasta!==_edpHasta;
 }
-// Cliente fijo (abreviado): ECOSERMO · RUC 20571533180
-let _edpCliente='ECOSERMO', _edpRuc='20571533180', _edpDireccion='';
+// El cliente del EDP es la propia empresa: sale de EMPRESA en js/empresa.js.
+let _edpCliente=EMPRESA.nombre, _edpRuc=EMPRESA.ruc, _edpDireccion='';
 let _edpTarifaOv=null, _edpHminOv=null, _edpTarifaAtencion=0;
 let _edpCantPres=null;   // Cantidad contractual (columna PRESUPUESTO) — opcional
 let _edpAcumAnt=0;       // Total valorizado en EDP anteriores (para ACUMULADO ACTUAL)
 let _edpFirmaProv='', _edpFirmaEco=''; // Nombres bajo la línea de firma
-let _edpFirmaEcoId=null;               // Firma virtual (imagen) del residente para el cajetín ECOSERMO
+let _edpFirmaEcoId=null;               // Firma virtual (imagen) del residente para el cajetín de la empresa
 const _EDP_FIRMA_BUCKET='Equip_eco26'; // se reusa el bucket público de equipos, carpeta firmas/
 let _edpDescManual=[];
 let _edpRecon=0;          // Reconocimiento contractual (+/−) en unidades de la tarifa
@@ -687,9 +687,9 @@ function rEdpProveedores(){
         </div>`;
       })():''}
       <div class="fg"><label>Firma — Rep. Proveedor</label><input value="${(_edpFirmaProv||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaprov" oninput="_edpSet('firmaProv',this.value)" style="${inpS}"></div>
-      <div class="fg"><label>Firma — Rep. ECOSERMO</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
+      <div class="fg"><label>Firma — Rep. ${EMPRESA.nombre}</label><input value="${(_edpFirmaEco||'').replace(/"/g,'&quot;')}" placeholder="Nombre del representante" id="edp_firmaeco" oninput="_edpSet('firmaEco',this.value)" style="${inpS}"></div>
       <div class="fg" style="grid-column:1/-1">
-        <label>Firma virtual del Residente (se imprime en el cajetín de ECOSERMO)</label>
+        <label>Firma virtual del Residente (se imprime en el cajetín de ${EMPRESA.nombre})</label>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
           <select id="edp_firmaimg" onchange="_edpSet('firmaEcoId',this.value,1)" style="${inpS};min-width:200px">
             <option value="">— Sin firma virtual —</option>
@@ -1085,15 +1085,15 @@ function _edpDocHtml(eq,H,D,F){
         ${resumen(`NETO (${SIM})`,F.subTotal)}${resumen(`SUB TOTAL (${SIM})`,F.subTotal)}${resumen('IGV 18%',F.igv)}${resumen(`TOTAL (${SIM})`,F.total,'#fde047')}
       </tbody></table>
       <table style="border:1px solid #cbd5e1"><tbody>
-        <tr><td colspan="2" style="${TD};font-weight:800;background:#f1f5f9">ECOSERMO</td></tr>
+        <tr><td colspan="2" style="${TD};font-weight:800;background:#f1f5f9">${EMPRESA.nombre}</td></tr>
         ${resumen('DETRACCIÓN 10%',F.detraccion)}${resumen('A ABONAR',F.aAbonar,'#fde047')}
       </tbody></table>
     </div>
-    <!-- Firmas: Representante del Proveedor · Representante de ECOSERMO -->
+    <!-- Firmas: Representante del Proveedor · Representante de la empresa -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:26px;page-break-inside:avoid">
       ${[
         {tit:eq.proveedor||'PROVEEDOR',rol:'REPRESENTANTE DEL PROVEEDOR',nom:_edpFirmaProv,img:''},
-        {tit:'ECOSERMO',rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco,img:(_edpFirmaSel()||{}).imgUrl||''}
+        {tit:EMPRESA.nombre,rol:`RESIDENTE DE PROYECTO${eq.proyecto?' ('+eq.proyecto+')':''}`,nom:_edpFirmaEco,img:(_edpFirmaSel()||{}).imgUrl||''}
       ].map(f=>`<div style="border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px 8px">
         <div style="font-size:10px;font-weight:800;color:${AZ};border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:2px">${f.tit}</div>
         <div style="height:88px;display:flex;align-items:flex-end;justify-content:center">${f.img?`<img src="${f.img}" style="max-height:86px;max-width:100%;object-fit:contain">`:''}</div>
@@ -1244,7 +1244,7 @@ function _edpDocHtml(eq,H,D,F){
     const totManual=+(_edpDescManual.reduce((s,r)=>s+(+r.cant||0)*(+r.precio||0),0)*_fTCr).toFixed(2);
 
     const secIns=D.insumos.length?`
-      <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">A. CONSUMO DE INSUMOS — ALMACÉN ECOSERMO</div>
+      <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">A. CONSUMO DE INSUMOS — ALMACÉN ${EMPRESA.nombre}</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
         <thead><tr>
           <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Código</th>
@@ -1279,7 +1279,7 @@ function _edpDocHtml(eq,H,D,F){
       total:+(_arC0.total*_fTCc).toFixed(2)
     };
     const secAten=D.atenciones.length?`
-      <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">B. ATENCIÓN MECÁNICA — ECOSERMO (según tiempo de parada)</div>
+      <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">B. ATENCIÓN MECÁNICA — ${EMPRESA.nombre} (según tiempo de parada)</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
         <thead><tr>
           <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">N° Auxilio</th><th style="${TH}">Tipo Falla</th>
