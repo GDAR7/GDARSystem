@@ -5,6 +5,7 @@
 const _SEQ_BUCKET='Equip_eco26';      // se reusa el bucket público de equipos (carpeta salidas/)
 let _seqEditId=null, _seqImgUrl='', _seqImgPath='';
 let _seqFiltEst='', _seqFiltTipo='', _seqBuscar='';
+let _seqDesde='', _seqHasta='';   // rango de fecha de salida (vacío = todas)
 // Datos de cabecera del documento impreso (se recuerdan en el navegador)
 let _seqSolicita=localStorage.getItem('_seqSolicita')||'';
 let _seqDirigido=localStorage.getItem('_seqDirigido')||'';
@@ -25,8 +26,26 @@ function _seqSetCab(campo,val){
 function _seqSetFiltro(campo,val){
   if(campo==='est')_seqFiltEst=val;
   else if(campo==='tipo')_seqFiltTipo=val;
+  else if(campo==='desde'){
+    _seqDesde=val||'';
+    // Elegir una sola fecha muestra ese día: el «hasta» se iguala mientras esté
+    // vacío o haya quedado antes. Para ver un rango se cambia el «hasta» después.
+    if(_seqDesde&&(!_seqHasta||_seqHasta<_seqDesde))_seqHasta=_seqDesde;
+  }
+  else if(campo==='hasta'){
+    _seqHasta=val||'';
+    if(_seqHasta&&_seqDesde&&_seqHasta<_seqDesde)_seqDesde=_seqHasta;
+  }
   else _seqBuscar=val;
   rSalidaEquipos();
+}
+function _seqLimpiarFechas(){_seqDesde='';_seqHasta='';rSalidaEquipos();}
+// El rango en palabras, para la pantalla, el PDF y el Excel ('' sin filtro)
+function _seqRangoTxt(){
+  if(!_seqDesde&&!_seqHasta)return'';
+  if(_seqDesde&&_seqHasta)return _seqDesde===_seqHasta?_seqDMY(_seqDesde)
+    :_seqDMY(_seqDesde)+' al '+_seqDMY(_seqHasta);
+  return _seqDesde?'desde '+_seqDMY(_seqDesde):'hasta '+_seqDMY(_seqHasta);
 }
 
 function _seqLista(){
@@ -34,6 +53,10 @@ function _seqLista(){
   if(_seqFiltEst==='fuera')l=l.filter(r=>!r.fechaRetorno);
   else if(_seqFiltEst==='ret')l=l.filter(r=>r.fechaRetorno);
   if(_seqFiltTipo)l=l.filter(r=>(r.tipoMantto||'')===_seqFiltTipo);
+  // Por fecha de SALIDA. La pantalla, el PDF y el Excel leen esta misma lista,
+  // así que lo que se exporta es exactamente lo que se ve.
+  if(_seqDesde)l=l.filter(r=>(r.fechaSalida||'')>=_seqDesde);
+  if(_seqHasta)l=l.filter(r=>(r.fechaSalida||'')<=_seqHasta);
   const q=(_seqBuscar||'').toLowerCase().trim();
   if(q)l=l.filter(r=>[r.placa,r.codigo,r.tipoEquipo,r.motivo,r.operadorResp,r.obs].join(' ').toLowerCase().includes(q));
   return l.sort((a,b)=>(b.fechaSalida||'').localeCompare(a.fechaSalida||'')||b.id-a.id);
@@ -95,7 +118,7 @@ function rSalidaEquipos(){
     </div>
     <div class="card">
       <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
-        <span class="card-title">🚚 Control de Salida de Equipos a Mantenimiento</span>
+        <span class="card-title">🚚 Control de Salida de Equipos a Mantenimiento${_seqRangoTxt()?`<span style="margin-left:.5rem;font-size:.7rem;font-weight:700;color:var(--mec)">· ${rows.length} salida(s) · ${_seqRangoTxt()}</span>`:''}</span>
         <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
           <select onchange="_seqSetFiltro('est',this.value)" style="${inpS}">
             <option value="">— Todos —</option>
@@ -107,6 +130,13 @@ function rSalidaEquipos(){
             <option value="Preventivo" ${_seqFiltTipo==='Preventivo'?'selected':''}>Preventivo</option>
             <option value="Correctivo" ${_seqFiltTipo==='Correctivo'?'selected':''}>Correctivo</option>
           </select>
+          <div style="display:flex;align-items:center;gap:.3rem" title="Fecha de salida. Elija un día y se muestra solo ese día; cambie la segunda fecha para ver un rango.">
+            <span style="font-size:.7rem;color:var(--muted2);white-space:nowrap">📅 Salida</span>
+            <input type="date" id="seqDesde" value="${_seqDesde}" onchange="_seqSetFiltro('desde',this.value)" style="${inpS};color-scheme:dark;${_seqDesde?'border-color:var(--mec)':''}">
+            <span style="font-size:.7rem;color:var(--muted2)">a</span>
+            <input type="date" id="seqHasta" value="${_seqHasta}" onchange="_seqSetFiltro('hasta',this.value)" style="${inpS};color-scheme:dark;${_seqHasta?'border-color:var(--mec)':''}">
+            ${(_seqDesde||_seqHasta)?`<button onclick="_seqLimpiarFechas()" title="Quitar el filtro de fecha" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.28rem .5rem;font-size:.72rem;cursor:pointer">✕</button>`:''}
+          </div>
           <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." value="${_seqBuscar}" oninput="_seqSetFiltro('q',this.value)"></div>
           <button onclick="_seqPrint()" style="background:rgba(239,68,68,.12);border:1px solid #ef444460;border-radius:6px;color:#ef4444;padding:.3rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer">🖨 PDF</button>
           <button onclick="_seqExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.74rem;font-weight:700;cursor:pointer">📊 Excel</button>
@@ -121,7 +151,7 @@ function rSalidaEquipos(){
           <th style="${TH}">Fecha Retorno</th><th style="${TH};text-align:center">Días Fuera</th>
           <th style="${TH}">Operador Resp.</th><th style="${TH};text-align:center">Img.</th><th style="${TH}"></th>
         </tr></thead>
-        <tbody>${tbody||`<tr><td colspan="15" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin salidas registradas${(_seqFiltEst||_seqFiltTipo||_seqBuscar)?' con estos filtros':''}.</td></tr>`}</tbody>
+        <tbody>${tbody||`<tr><td colspan="15" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin salidas registradas${(_seqFiltEst||_seqFiltTipo||_seqBuscar||_seqDesde||_seqHasta)?' con estos filtros':''}.</td></tr>`}</tbody>
       </table></div></div>
     </div>`;
 }
@@ -256,6 +286,7 @@ function _seqDocHtml(){
         <td style="font-size:8px;padding:2px 4px;border:1px solid #b7c3d4"><b>Solicita:</b> ${_seqSolicita||'—'}</td>
         <td style="font-size:8px;padding:2px 4px;border:1px solid #b7c3d4"><b>Dirigido a:</b> ${_seqDirigido||'—'}</td>
         <td style="font-size:8px;padding:2px 4px;border:1px solid #b7c3d4"><b>Fecha de emisión:</b> ${new Date().toLocaleDateString('es-PE')}</td>
+        ${_seqRangoTxt()?`<td style="font-size:8px;padding:2px 4px;border:1px solid #b7c3d4"><b>Salidas:</b> ${_seqRangoTxt()}</td>`:''}
       </tr>
     </table>
     <table style="width:100%;border-collapse:collapse">
@@ -305,7 +336,8 @@ function _seqExportXls(){
   if(!rows.length){toast('No hay datos para exportar',true);return;}
   const aoa=[
     ['CONTROL DE SALIDA DE EQUIPOS A MANTENIMIENTO'],
-    ['Solicita: '+(_seqSolicita||''),'Dirigido a: '+(_seqDirigido||''),'Emitido: '+new Date().toLocaleDateString('es-PE')],
+    ['Solicita: '+(_seqSolicita||''),'Dirigido a: '+(_seqDirigido||''),'Emitido: '+new Date().toLocaleDateString('es-PE'),
+     ...(_seqRangoTxt()?['Salidas: '+_seqRangoTxt()]:[])],
     [],
     ['Ítem','Placa','Código Interno','Tipo de Equipo','Tipo de Mantto.','Motivo / Frecuencia','Fecha Salida','Hora Salida',
      'Horómetro Salida (h)','Kilometraje Salida (km)','Cant. Comb. Salida (GLN)','Horómetro Retorno (h)','Kilometraje Retorno (km)',
@@ -318,5 +350,6 @@ function _seqExportXls(){
   ws['!cols']=[{wch:6},{wch:12},{wch:14},{wch:16},{wch:14},{wch:28},{wch:12},{wch:11},{wch:14},{wch:15},{wch:15},{wch:14},{wch:15},{wch:15},{wch:12},{wch:12},{wch:22},{wch:30}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Salida de Equipos');
-  XLSX.writeFile(wb,'control_salida_equipos.xlsx');
+  XLSX.writeFile(wb,'control_salida_equipos'
+    +(_seqDesde?'_'+_seqDesde:'')+(_seqHasta&&_seqHasta!==_seqDesde?'_'+_seqHasta:'')+'.xlsx');
 }

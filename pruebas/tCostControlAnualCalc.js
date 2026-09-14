@@ -167,6 +167,48 @@ es('el buscador encuentra por nombre',
   ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))').map(g=>g.equipos.length).join(),'1');
 ev('_ccaBuscar=""');
 
+console.log('\n== Filtro por Tipo / Línea ==');
+// Los tres equipos de la prueba son de Línea Amarilla; el tractor se pasa un
+// momento a Línea Blanca para que haya algo que separar, y luego se devuelve.
+DB.equipos[2].tipo='Línea Blanca';
+ev('_ccaCache=null;_ccaTipo="";_ccaContratista="";_ccaBuscar="";_ccaLinea=""');
+const codigos=G=>G.flatMap(g=>g.equipos.map(a=>a.eq.codigo)).join(',');
+ev('_ccaLinea="Línea Blanca"');
+es('Línea Blanca deja solo el tractor',codigos(ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))')),'TRA-01');
+ev('_ccaLinea="Línea Amarilla"');
+es('Línea Amarilla deja las dos excavadoras',
+  codigos(ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))')),'EXC-01,EXC-02');
+es('  sin tocar los importes',
+  ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))')[0].equipos[1].meses[MAR].venta.toFixed(2),
+  eq('EXCAVADORA','EXC-02').meses[MAR].venta.toFixed(2));
+ev('_ccaLinea="Línea Blanca";_ccaTipo="EXCAVADORA"');
+es('se combina con el subtipo (Blanca + EXCAVADORA = nada)',
+  ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))').length,0);
+ev('_ccaTipo="";_ccaLinea="Vehículo Menor"');
+es('una línea sin equipos deja la tabla vacía',
+  ev('_ccaFiltrar(_ccaCalcular(2026,"seca"))').length,0);
+
+ev('_ccaLinea="Línea Blanca";_ccaAnio=2026');
+const HL=ev('_ccaPanel()');
+es('el combo nuevo está en la barra',/id="ccaLinea"/.test(HL),true);
+es('  con su texto propio',/— Todas las líneas —/.test(HL),true);
+es('  y el de subtipo ya no se llama "tipos"',
+  /— Todos los subtipos —/.test(HL)&&!/— Todos los tipos —/.test(HL),true);
+es('  va después del buscador',HL.indexOf('id="ccaLinea"')>HL.indexOf('id="ccaBuscar"'),true);
+const opts=[...(HL.match(/<select id="ccaLinea"[\s\S]*?<\/select>/)||[''])[0]
+  .matchAll(/<option value="([^"]*)"/g)].map(m=>m[1]).filter(Boolean);
+es('ofrece solo las líneas que tienen equipos',opts.join(' · '),'Línea Amarilla · Línea Blanca');
+es('  en el orden del Máster',opts[0],'Línea Amarilla');
+es('la opción elegida queda marcada',/<option value="Línea Blanca" selected>/.test(HL),true);
+es('cuenta como filtro activo',/Limpiar \(1\)/.test(HL),true);
+ev('_ccaLimpiar()');
+es('Limpiar también la quita',ev('_ccaLinea'),'');
+const ca2=fs.readFileSync(R+'js/costcontrolAnual.js','utf8');
+es('el PDF dice qué línea se imprimió',/ctx\.push\('línea: '\+_ccaLinea\)/.test(ca2),true);
+
+DB.equipos[2].tipo='Línea Amarilla';
+ev('_ccaCache=null;_ccaLinea=""');
+
 console.log('\n== La venta abierta: equipo + combustible ==');
 // Excavadora: Seca 253.45 · Full 383.32 → la diferencia (129.87/h) es el petróleo
 ev('_ccaCache=null');

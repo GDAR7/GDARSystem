@@ -43,6 +43,10 @@ const _ccaCero=()=>({alquiler:0,comb:0,venta:0,ventaEq:0,ventaComb:0,margen:0});
 
 let _ccaAnio=null;                       // null = todavía sin abrir; se fija al entrar
 let _ccaTipo='', _ccaContratista='', _ccaBuscar='';
+// Tipo / Línea del Máster (Línea Amarilla, Línea Blanca…). Distinto de _ccaTipo,
+// que filtra por el subtipo (EXCAVADORA, CAMIONETA…) con que se agrupa la tabla.
+let _ccaLinea='';
+const _CCA_LINEAS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
 let _ccaCache=null;                      // {clave, grupos, meses, totales}
 
 function _ccaFmt(v){
@@ -146,6 +150,7 @@ function _ccaFiltrar(D){
   const q=_ccaBuscar.trim().toLowerCase();
   return D.grupos.map(G=>{
     const equipos=G.equipos.filter(a=>{
+      if(_ccaLinea&&String(a.eq.tipo||'')!==_ccaLinea)return false;
       if(_ccaTipo&&G.nombre!==_ccaTipo)return false;
       if(_ccaContratista&&String(a.eq.proveedor||'—')!==_ccaContratista)return false;
       if(q){
@@ -170,12 +175,13 @@ function _ccaFiltrar(D){
 
 function _ccaSet(campo,val){
   if(campo==='tipo')_ccaTipo=val;
+  else if(campo==='linea')_ccaLinea=val;
   else if(campo==='contratista')_ccaContratista=val;
   else if(campo==='buscar')_ccaBuscar=val;
   _ccaPintar(campo==='buscar');
 }
 function _ccaNavAnio(d){_ccaAnio=(_ccaAnio||_ccaAnioPorDefecto())+d;_ccaPintar();}
-function _ccaLimpiar(){_ccaTipo='';_ccaContratista='';_ccaBuscar='';_ccaPintar();}
+function _ccaLimpiar(){_ccaTipo='';_ccaLinea='';_ccaContratista='';_ccaBuscar='';_ccaPintar();}
 
 // ── Pintado ─────────────────────────────────────────────────────────────────
 // mantenerFoco: al escribir en el buscador se vuelve a pintar la tabla, y sin
@@ -204,6 +210,9 @@ function _ccaPanel(){
   // Opciones de los combos: siempre sobre el año completo, no sobre lo filtrado,
   // para que no desaparezcan las opciones al elegir una.
   const tipos=D.grupos.map(G=>G.nombre);
+  const hayLinea=new Set(D.grupos.flatMap(G=>G.equipos.map(a=>String(a.eq.tipo||''))));
+  const lineas=[..._CCA_LINEAS.filter(l=>hayLinea.has(l)),
+    ...[...hayLinea].filter(l=>l&&!_CCA_LINEAS.includes(l)).sort()];
   const contratistas=[...new Set(D.grupos.flatMap(G=>
     G.equipos.map(a=>String(a.eq.proveedor||'—'))))].sort();
 
@@ -252,7 +261,7 @@ function _ccaPanel(){
   });
 
   if(!filas) filas=`<tr><td colspan="14" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">
-    Sin movimientos en ${_ccaAnio}${(_ccaTipo||_ccaContratista||_ccaBuscar)?' con los filtros aplicados':''}</td></tr>`;
+    Sin movimientos en ${_ccaAnio}${(_ccaTipo||_ccaLinea||_ccaContratista||_ccaBuscar)?' con los filtros aplicados':''}</td></tr>`;
 
   // Totales generales, sobre lo visible
   const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+G.meses[i].margen,0));
@@ -264,7 +273,7 @@ function _ccaPanel(){
     ${opts.map(o=>`<option value="${_ccaEsc(o)}"${o===val?' selected':''}>${_ccaEsc(o)}</option>`).join('')}
   </select>`;
 
-  const nFiltros=(_ccaTipo?1:0)+(_ccaContratista?1:0)+(_ccaBuscar.trim()?1:0);
+  const nFiltros=(_ccaTipo?1:0)+(_ccaLinea?1:0)+(_ccaContratista?1:0)+(_ccaBuscar.trim()?1:0);
 
   return`
   <!-- Barra de control -->
@@ -274,10 +283,11 @@ function _ccaPanel(){
       <span style="font-weight:800;font-size:.9rem;color:var(--text);min-width:64px;text-align:center;padding:0 .4rem">${_ccaAnio}</span>
       <button onclick="_ccaNavAnio(1)" title="Año siguiente" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.3rem .7rem;line-height:1">›</button>
     </div>
-    ${combo('ccaTipo','tipo',_ccaTipo,tipos,'— Todos los tipos —')}
+    ${combo('ccaTipo','tipo',_ccaTipo,tipos,'— Todos los subtipos —')}
     ${combo('ccaContratista','contratista',_ccaContratista,contratistas,'— Todos los contratistas —')}
     <input id="ccaBuscar" value="${_ccaEsc(_ccaBuscar)}" oninput="_ccaSet('buscar',this.value)" placeholder="🔍 Buscar equipo…"
       style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:.3rem .6rem;font-size:.74rem;width:180px">
+    ${combo('ccaLinea','linea',_ccaLinea,lineas,'— Todas las líneas —')}
     ${nFiltros?`<button onclick="_ccaLimpiar()" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px;padding:.3rem .7rem;font-size:.74rem;cursor:pointer">✕ Limpiar (${nFiltros})</button>`:''}
     <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem">
       <span style="font-size:.68rem;color:var(--muted2)">${grupos.reduce((s,G)=>s+G.equipos.length,0)} de ${D.nEquipos} equipo(s)
@@ -431,7 +441,8 @@ function _ccaPdf(){
   if(_ccSinIgv)ctx.push('combustible sin IGV');
   if(_ccPrecioManual)ctx.push('precio de combustible manual');
   if(typeof _ccProyecto!=='undefined'&&_ccProyecto)ctx.push('solo proyecto '+_ccProyecto);
-  if(_ccaTipo)ctx.push('tipo: '+_ccaTipo);
+  if(_ccaLinea)ctx.push('línea: '+_ccaLinea);
+  if(_ccaTipo)ctx.push('subtipo: '+_ccaTipo);
   if(_ccaContratista)ctx.push('contratista: '+_ccaContratista);
   if(_ccaBuscar.trim())ctx.push('búsqueda: '+_ccaBuscar.trim());
   ctx.push(grupos.reduce((s,G)=>s+G.equipos.length,0)+' equipo(s)');
