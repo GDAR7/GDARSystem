@@ -146,7 +146,8 @@ const utl=fs.readFileSync(R+'js/utils.js','utf8');
 const html=fs.readFileSync(R+'index.html','utf8');
 const sql=fs.readFileSync(R+'sql/areas_trabajo.sql','utf8');
 es('config: tabla registrada',/areasTrabajo:'areas_trabajo'/.test(cfg),true);
-es('config: arreglo inicial en DB',/areasTrabajo:\[\],\s*nx:\{/.test(cfg),true);
+// Dentro del objeto DB, sin exigir que sea el último arreglo antes de nx
+es('config: arreglo inicial en DB',/const DB=\{[\s\S]*?areasTrabajo:\[\][\s\S]*?nx:\{/.test(cfg),true);
 es('config: en el menú, dentro de Data de Ingresos',
   /key:'dataIngresos'[\s\S]{0,200}key:'frentesTrabajo'[\s\S]{0,80}key:'areasTrabajo'/.test(cfg),true);
 es('utils: la página se pinta (con flecha perezosa)',/areasTrabajo:\(\)=>rAreasTrabajo\(\)/.test(utl),true);

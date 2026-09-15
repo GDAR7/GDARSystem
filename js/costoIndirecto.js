@@ -2,7 +2,7 @@
 //  CONTROL DE COSTOS — PESTAÑAS · COSTO INDIRECTO
 //
 //  Control de Costos se ordena en pestañas: Costo Indirecto (este archivo),
-//  Costo Directo, Reembolsables y Utilidad (su contenido se definirá después)
+//  Costo Directo (js/costoDirecto.js), Reembolsables y Utilidad (por definir)
 //  y el Registro de egresos que ya existía, que sigue pintando rCostos en
 //  js/datos.js sin ningún cambio.
 //
@@ -23,7 +23,7 @@
 // ── Pestañas de Control de Costos ───────────────────────────────────────────
 const _CT_TABS=[
   {k:'ci',       l:'Costo Indirecto',     ico:'🏢'},
-  {k:'cd',       l:'Costo Directo',       ico:'🏗️', pronto:true},
+  {k:'cd',       l:'Costo Directo',       ico:'🏗️'},
   {k:'reemb',    l:'Reembolsables',       ico:'🧾', pronto:true},
   {k:'util',     l:'Utilidad',            ico:'📈', pronto:true},
   {k:'registro', l:'Registro de egresos', ico:'📒'}
@@ -40,9 +40,11 @@ function _ctRender(){
   const t=_CT_TABS.find(x=>x.k===_ctTabAct);
   const ver=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?'':'none';};
   ver('ctPanel-ci',t.k==='ci');
+  ver('ctPanel-cd',t.k==='cd');
   ver('ctPanel-registro',t.k==='registro');
   ver('ctPanel-pronto',!!t.pronto);
   if(t.k==='ci')rCostoIndirecto();
+  if(t.k==='cd'&&typeof rCostoDirecto==='function')rCostoDirecto();
   if(t.pronto){
     const el=document.getElementById('ctPanel-pronto');
     if(el)el.innerHTML=`<div class="card"><div class="card-body" style="text-align:center;padding:2.5rem 1rem;color:var(--muted2)">
@@ -53,8 +55,11 @@ function _ctRender(){
   }
 }
 function _ctTab(k){
-  if(_ciHayCambios()&&!confirm('Hay valorizaciones sin guardar. ¿Descartarlas?'))return;
+  // Cambios sin guardar en cualquiera de las dos pestañas de valorización
+  const hay=_ciHayCambios()||(typeof _cdHayCambios==='function'&&_cdHayCambios());
+  if(hay&&!confirm('Hay valorizaciones sin guardar. ¿Descartarlas?'))return;
   if(k!=='ci'){_ciCambios.clear();_ciModo='ver';}
+  if(k!=='cd'&&typeof _cdCambios!=='undefined'){_cdCambios.clear();_cdModo='ver';}
   _ctTabAct=k;
   try{localStorage.setItem('ctTab',k);}catch(e){}
   _ctRender();
