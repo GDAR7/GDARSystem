@@ -369,17 +369,23 @@ function hhPesoMarca(tipo){
   if(_HR_DLT.includes(tipo))return _HR_PESO_DLT;   // DLT = 2.5 jornadas
   return 0;                                // DM · F · P · licencias
 }
-function hhVentaPeriodo(desde,hasta){
+function hhVentaPeriodo(desde,hasta,proy){
   const F=[];
   const d=new Date(desde+'T12:00'),f=new Date(hasta+'T12:00');
   while(d<=f){F.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
   const nDias=F.length||1;
   const set=new Set(F);
 
+  // proy (opcional): solo las marcas de ese proyecto, con la regla del Tareaje:
+  // manda el proyecto de la marca y, si la marca no lo tiene, el de la persona.
+  // Sin proy se comporta exactamente como antes.
+  const _proyDe=proy?new Map((DB.personal||[]).map(p=>[+p.id,p.proy])):null;
+
   // Una marca por persona y fecha: dos registros el mismo día no cuentan doble
   const porPers=new Map();
   (DB.tareaje||[]).forEach(r=>{
     if(!set.has(r.fecha))return;
+    if(proy&&!(r.proy===proy||(!r.proy&&_proyDe.get(+r.personalId)===proy)))return;
     let a=porPers.get(+r.personalId);
     if(!a){a={};porPers.set(+r.personalId,a);}
     a[r.fecha]=r.tipo;

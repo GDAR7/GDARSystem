@@ -385,7 +385,7 @@ function _ciPanelHTML(){
   const D=_ciCalcular(_ciProyecto,_ciPeriodo,_ciCambios);
   const mes=_ciPerMes(_ciPeriodo), lab=_ciPerLabel(_ciPeriodo);
   const nEdp=_ciNumEdp(_ciProyecto,_ciPeriodo);
-  const val=_ciModo==='valorizar'&&!ro, par=_ciModo==='partidas'&&!ro;
+  const val=_ciModo==='valorizar'&&!ro, par=_ciModo==='partidas'&&!ro, sim=_ciModo==='simular'&&!ro;
   const nPend=_ciPendientes().length;
 
   const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:.3rem .55rem;color:var(--text);font-size:.76rem';
@@ -396,7 +396,9 @@ function _ciPanelHTML(){
   const botones=ro?`<span style="font-size:.72rem;color:var(--muted2)">Solo lectura</span>`
     :val?`<button id="ci-guardar" class="btn btn-a" style="--ba:var(--otr)" onclick="_ciGuardar()"${nPend?'':' disabled'}>💾 Guardar${nPend?' ('+nPend+')':''}</button>
           <button class="btn btn-out btn-sm" onclick="_ciSetModo('ver')">Cancelar</button>`
-    :`<button class="btn btn-out btn-sm" onclick="_ciSetModo('valorizar')"${D.filas.length?'':' disabled'} title="Ingresar las cantidades de ${lab}">✏ Valorizar ${mes}</button>
+    :sim?`<button class="btn btn-out btn-sm" onclick="_ciSetModo('ver')">← Volver a la tabla</button>`
+    :`<button class="btn btn-out btn-sm" onclick="_ciSetModo('simular')"${D.filas.length?'':' disabled'} title="Calcular la cantidad del personal con el tareo de ${lab}">🧮 Simular desde el tareo</button>
+      <button class="btn btn-out btn-sm" onclick="_ciSetModo('valorizar')"${D.filas.length?'':' disabled'} title="Ingresar las cantidades de ${lab}">✏ Valorizar ${mes}</button>
       <button class="btn btn-out btn-sm" onclick="_ciSetModo('${par?'ver':'partidas'}')" style="${par?'border-color:var(--otr);color:var(--otr)':''}" title="Agregar, editar o eliminar partidas del presupuesto">⚙ Partidas</button>
       ${par?`<button class="btn btn-a" style="--ba:var(--otr)" onclick="_ciModalPartida()">＋ Partida</button>`:''}`;
 
@@ -422,6 +424,9 @@ function _ciPanelHTML(){
       <div class="kpi-val" id="ci-KPI-${k.id}" style="font-size:1.25rem">${k.v}</div>
       <div id="ci-KPIs-${k.id}" style="font-size:.66rem;color:var(--muted2);margin-top:.15rem">${k.s}</div>
     </div>`).join('')}</div>`;
+
+  // Simular desde el tareo: su pantalla vive en js/costoIndirectoSim.js
+  if(sim&&D.filas.length&&typeof _cisPanelHTML==='function')return kpis+barra+_cisPanelHTML();
 
   if(!D.filas.length){
     return kpis+barra+`<div class="card"><div class="card-body" style="text-align:center;padding:2.5rem 1rem;color:var(--muted2);font-size:.84rem">
