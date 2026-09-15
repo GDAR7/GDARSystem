@@ -4,6 +4,9 @@ function gFact(){const n=document.getElementById('ftN').value.trim();if(!n){toas
 
 // ══ COSTOS ══
 function rCostos(){
+  // Pestañas de Control de Costos (js/costoIndirecto.js). El registro de
+  // egresos de abajo no cambia: ahora vive en su propia pestaña.
+  if(typeof _ctRender==='function')_ctRender();
   const tC=DB.costos.reduce((a,c)=>a+c.monto,0);
   document.getElementById('costosKpis').innerHTML=[{l:'Total Costos',v:fmt(tC),c:'#ef4444'},{l:'Combustible',v:fmt(DB.costos.filter(c=>c.cat==='Combustible').reduce((a,c)=>a+c.monto,0)),c:'#f97316'},{l:'Mantenimiento',v:fmt(DB.costos.filter(c=>['Mantenimiento','Repuestos'].includes(c.cat)).reduce((a,c)=>a+c.monto,0)),c:'#3b82f6'}].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
   document.getElementById('tbCostos').innerHTML=DB.costos.map(c=>{const eq=DB.equipos.find(e=>e.id===c.eqId);return`<tr><td class="mono">${c.fecha}</td><td><span class="badge b-blue">${c.cat}</span></td><td>${c.desc}</td><td class="mono">${eq?eq.codigo:'—'}</td><td class="tr mono text-red">${fmt(c.monto)}</td><td><button class="btn btn-del btn-sm" onclick="del('costos',${c.id})">🗑</button></td></tr>`;}).join('');

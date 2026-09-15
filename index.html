@@ -1767,7 +1767,12 @@
 
 <!-- COSTOS -->
 <div class="page" id="page-costos">
-  <div class="ph"><div class="ph-title" style="color:var(--otr)">Control de Costos</div><div class="ph-sub">Registro de egresos y costos operativos</div></div>
+  <div class="ph"><div class="ph-title" style="color:var(--otr)">Control de Costos</div><div class="ph-sub">Costo indirecto, costo directo, reembolsables y utilidad del proyecto</div></div>
+  <!-- Pestañas: las pinta js/costoIndirecto.js (_ctRender) -->
+  <div id="ctTabs" style="display:flex;gap:.2rem;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:.9rem"></div>
+  <div id="ctPanel-ci"></div>
+  <div id="ctPanel-pronto" style="display:none"></div>
+  <div id="ctPanel-registro" style="display:none">
   <div class="kpi-row" id="costosKpis"></div>
   <div class="card">
     <div class="card-head"><span class="card-title">Registro de Costos</span>
@@ -1781,6 +1786,7 @@
       <tbody id="tbCostos"></tbody>
     </table></div></div>
   </div>
+  </div><!-- /ctPanel-registro -->
 </div>
 
 <div class="page" id="page-notificaciones"></div>
@@ -3307,7 +3313,8 @@
 <script src="js/costcontrolExport.js?v=1"></script>
 <script src="js/costoM3.js?v=3"></script>
 <script src="js/venta.js?v=2"></script>
-<script src="js/datos.js?v=1"></script>
+<script src="js/datos.js?v=2"></script>
+<script src="js/costoIndirecto.js?v=1"></script>
 
 <!-- Modal: Tarifas de Equipos -->
 <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
