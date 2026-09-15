@@ -439,9 +439,13 @@ function openReporte(tipo){
   const selEq = document.getElementById('rpCodigo');
   selEq.innerHTML = '<option value="">— Seleccionar —</option>' + eqsLinea.map(e=>`<option value="${e.id}">${e.codigo}${e.placa?' – '+e.placa:''}</option>`).join('');
   // Poblar áreas
-  const areas = [...new Set(DB.partes.map(p=>p.areaT).filter(Boolean))];
+  // Catálogo de Data de Ingresos → Áreas de Trabajo (js/areasTrabajo.js).
+  // Antes salían de las áreas ya usadas en partes, y no se podía agregar otra.
+  const areas = typeof _atOpcionesParte==='function' ? _atOpcionesParte()
+    : [...new Set(DB.partes.map(p=>p.areaT).filter(Boolean))];
   if(areas.length === 0) areas.push('R3','NINGUNO');
-  document.getElementById('rpArea').innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option>${a}</option>`).join('');
+  const _escA = typeof _atEsc==='function' ? _atEsc : (x=>x);
+  document.getElementById('rpArea').innerHTML = '<option value="">— Seleccionar —</option>' + areas.map(a=>`<option value="${_escA(a)}">${_escA(a)}</option>`).join('');
   // Operadores filtrados por categoría según línea
   const _catOp={'Línea Amarilla':'Operador LA','Línea Blanca':'Operador LB'};
   const _catFiltro=_catOp[tipo];
@@ -540,7 +544,12 @@ function editParte(id){
   document.getElementById('rpDescuentos').value=p.descuentos||0;
   document.getElementById('rpHrsInop').value=p.im||0;
   const rpArea=document.getElementById('rpArea');
-  if(rpArea)rpArea.value=p.areaT||'';
+  if(rpArea){
+    // Si el área del parte ya no está en el catálogo, se agrega como opción:
+    // si no, el combo quedaría en blanco y al guardar se perdería.
+    if(typeof _atAsegurarOpcion==='function')_atAsegurarOpcion(rpArea,p.areaT);
+    else rpArea.value=p.areaT||'';
+  }
   _rpFrenteSelected=(p.frenteT||'').split(', ').map(s=>s.trim()).filter(Boolean);_rpFrenteUpdate();
   document.getElementById('rpDescripcion').value=p.act||'';
   document.getElementById('rpObservaciones').value=p.observaciones||'';
