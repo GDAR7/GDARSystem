@@ -133,6 +133,11 @@ es('el equipo sin parte se marca',/SIN PARTE/.test(doc),true);
 es('explica las fórmulas',/H\. Prog\. = Nº de partes del día × 10h/.test(doc),true);
 es('filas y celdas parejas',(doc.match(/<tr[ >]/g)||[]).length,(doc.match(/<\/tr>/g)||[]).length);
 es('ninguna celda rota',/undefined|NaN/.test(doc),false);
+es('se parte en tres hojas (dos saltos)',(doc.match(/class="salto-pdf"/g)||[]).length,2);
+es('  la 2ª hoja abre con la Línea Blanca',/REPORTE DIARIO — LÍNEA BLANCA/.test(doc),true);
+es('  la 3ª con el detalle',/REPORTE DIARIO — DETALLE DEL DÍA/.test(doc),true);
+es('  el salto va antes de cada cabecera de continuación',
+  doc.indexOf('salto-pdf')<doc.indexOf('REPORTE DIARIO — LÍNEA BLANCA'),true);
 
 console.log('\n== Navegación ==');
 ev('_phdNav(-1)');
@@ -158,6 +163,8 @@ ventana=null;ev('_phdPrint()');
 es('la impresión abre ventana',!!ventana,true);
 es('  con el documento dentro',/REPORTE DIARIO/.test(ventana.html),true);
 es('  y manda a imprimir',/window\.print\(\)/.test(ventana.html),true);
+es('  con el CSS que corta la hoja',/page-break-after:always/.test(ventana.html),true);
+es('  y midiendo bloque por bloque',/querySelectorAll\('\.salto-pdf'\)/.test(ventana.html),true);
 
 console.log('\n== Enganche ==');
 const ph=fs.readFileSync(R+'js/panelHoras.js','utf8');

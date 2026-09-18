@@ -185,20 +185,30 @@ function _phdDoc(){
     return url;
   };
 
-  // Un par de gráficos por línea: el día y su semana
-  let graficos='';
+  // Un par de gráficos por línea: el día y su semana. Cada línea va en su
+  // propia hoja del PDF y el detalle en otra: eso lo marcan los .salto-pdf.
+  // Las hojas 2 y 3 llevan una cabecera corta para que no queden sueltas.
+  const cont=txt=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:2px solid ${AZ};padding-bottom:4px;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:900;color:${AZ}">REPORTE DIARIO — ${txt}</div>
+      <div style="font-size:9.5px;color:#333">${D.diaNombre} ${_phdDMY(D.fecha)}</div>
+      ${logoUrl?`<img src="${logoUrl}" alt="ECOSERMO" style="height:30px;max-width:120px;object-fit:contain">`:''}
+    </div>`;
+  const bloquesG=[];
   D.lineas.forEach(linea=>{
     const items=D.filas.filter(r=>r.tipo===linea);
     if(!items.length)return;
     const gDia=chartImg(items,'UTILIZACIÓN — '+linea.toUpperCase()+' · '+D.diaNombre.toUpperCase()+' '+_phdDMY(D.fecha),'utilDia');
     const gSem=chartImg(items,'LA MISMA SEMANA — '+linea.toUpperCase()+' · '+_phdDMY(D.sem[0])+' al '+_phdDMY(D.sem[6]),'utilSem');
     if(!gDia&&!gSem)return;
-    graficos+=`<div style="page-break-inside:avoid">
+    bloquesG.push({linea,html:`<div style="page-break-inside:avoid">
       ${gDia?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;margin-top:8px"><img src="${gDia}" style="width:100%;display:block"></div>`:''}
       ${gSem?`<div style="border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;margin-top:6px"><img src="${gSem}" style="width:100%;display:block"></div>`:''}
-    </div>`;
+    </div>`});
   });
-  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barras = % de utilización (H. Efect. ÷ H. Prog.) · color del semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · el equipo sin parte del día aparece en 0%</div>`;
+  // Desde la segunda línea, cada bloque abre hoja nueva
+  let graficos=bloquesG.map((b,i)=>(i?'<div class="salto-pdf"></div>'+cont(b.linea.toUpperCase()):'')+b.html).join('');
+  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barras = % de utilización (H. Efect. ÷ H. Prog.) · color del semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · el equipo sin parte del día aparece en 0%</div>`
+    +'<div class="salto-pdf"></div>'+cont('DETALLE DEL DÍA');
 
   // Tabla del día, agrupada por línea
   let tabla='';
@@ -290,12 +300,20 @@ function _phdPrint(){
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte Diario Horas Máquina</title>
-  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box;zoom:0.7559}</style>
+  <style>body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}img{max-width:100%}#doc{width:1010px;padding:20px;box-sizing:content-box;zoom:0.7559}.salto-pdf{page-break-after:always;break-after:page;height:0}</style>
   </head><body><div id="doc">${_phdDoc()}</div>
   <script>
   window.onload=function(){
     var d=document.getElementById('doc');
-    var hpx=d.getBoundingClientRect().height+4;
+    // Una hoja por bloque: la altura de página es la del bloque más alto,
+    // así ninguno se parte a la mitad.
+    var r=d.getBoundingClientRect();
+    var cortes=[r.top];
+    Array.prototype.forEach.call(d.querySelectorAll('.salto-pdf'),function(m){cortes.push(m.getBoundingClientRect().bottom);});
+    cortes.push(r.bottom+60);
+    var altos=[];
+    for(var i=1;i<cortes.length;i++)altos.push(cortes[i]-cortes[i-1]);
+    var hpx=Math.max.apply(null,altos)+8;
     var hmm=Math.ceil(hpx/96*25.4);
     var st=document.createElement('style');
     st.textContent='@page{size:210mm '+hmm+'mm;margin:0}';
