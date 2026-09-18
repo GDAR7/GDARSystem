@@ -103,17 +103,16 @@ es('RODILLO: meta 180 h ÷ 31',f1(fil('ROD ECOP-001').metaDia),f1(180/31));
 console.log('\n== Los gráficos ==');
 charts=[];
 const doc=ev('_phdDoc()');
-es('cuatro gráficos: día y semana por cada línea',charts.length,4);
+es('dos gráficos: el del día de cada línea',charts.length,2);
 const g=i=>({lbl:charts[i].data.labels,meta:charts[i].data.datasets[0].data,
   horas:charts[i].data.datasets[1].data,tit:charts[i].options.plugins.title.text});
 es('1º: el día de Línea Amarilla',g(0).tit.includes('JUEVES 17/09/2026')&&g(0).tit.includes('LÍNEA AMARILLA'),true);
 es('  con sus tres equipos',g(0).lbl.join(','),'EXC ECOP-001,EXC ECOP-002,ROD ECOP-001');
 es('  barras = % de utilización del día',g(0).horas.join(','),'85,40,0');
 es('  línea = meta 75% pareja para todos',g(0).meta.join(','),'75,75,75');
-es('2º: la misma semana',g(1).tit.includes('LA MISMA SEMANA'),true);
-es('  barras = % de la semana',g(1).horas.join(','),'80,40,50');
-es('3º y 4º: Línea Blanca',g(2).tit.includes('LÍNEA BLANCA')&&g(3).tit.includes('LÍNEA BLANCA'),true);
-es('  con el volquete',g(2).lbl.join(','),'VOL ECOP-001');
+es('ya no se grafica la semana',charts.some(c=>c.options.plugins.title.text.includes('LA MISMA SEMANA')),false);
+es('2º: el día de Línea Blanca',g(1).tit.includes('LÍNEA BLANCA')&&g(1).tit.includes('JUEVES 17/09/2026'),true);
+es('  con el volquete',g(1).lbl.join(','),'VOL ECOP-001');
 es('el eje llega a 100%',charts.every(c=>c.options.scales.y.suggestedMax===100),true);
 es('las barras usan el semáforo (rojo el de 40%)',charts[0].data.datasets[1].backgroundColor[1],'#b91c1c');
 es('  y verde el de 85%',charts[0].data.datasets[1].backgroundColor[0],'#15803d');
@@ -127,17 +126,16 @@ es('semana y corte',/Semana 14\/09\/2026 al 20\/09\/2026/.test(doc)&&/Corte 21\/
 es('logo de la empresa',/ecosermo\.gdarei\.com\/img\/logo\.png/.test(doc),true);
 es('KPI de utilización del día',/77\.5%/.test(doc),true);
 es('KPI de equipos con parte',/3 \/ 4/.test(doc),true);
-es('las imágenes de los gráficos',(doc.match(/data:image\/png;base64,STUB/g)||[]).length,4);
+es('las imágenes de los gráficos',(doc.match(/data:image\/png;base64,STUB/g)||[]).length,2);
 es('tabla con subtotal por línea',/Subtotal Línea Amarilla/.test(doc)&&/Subtotal Línea Blanca/.test(doc),true);
 es('el equipo sin parte se marca',/SIN PARTE/.test(doc),true);
 es('explica las fórmulas',/H\. Prog\. = Nº de partes del día × 10h/.test(doc),true);
 es('filas y celdas parejas',(doc.match(/<tr[ >]/g)||[]).length,(doc.match(/<\/tr>/g)||[]).length);
 es('ninguna celda rota',/undefined|NaN/.test(doc),false);
-es('se parte en tres hojas (dos saltos)',(doc.match(/class="salto-pdf"/g)||[]).length,2);
-es('  la 2ª hoja abre con la Línea Blanca',/REPORTE DIARIO — LÍNEA BLANCA/.test(doc),true);
-es('  la 3ª con el detalle',/REPORTE DIARIO — DETALLE DEL DÍA/.test(doc),true);
-es('  el salto va antes de cada cabecera de continuación',
-  doc.indexOf('salto-pdf')<doc.indexOf('REPORTE DIARIO — LÍNEA BLANCA'),true);
+es('sale en un solo PDF, sin saltos de página',(doc.match(/class="salto-pdf"/g)||[]).length,0);
+es('  sin cabeceras de continuación',/REPORTE DIARIO — LÍNEA BLANCA|REPORTE DIARIO — DETALLE/.test(doc),false);
+es('  la semana sigue en el KPI',/Utilización de la semana/.test(doc),true);
+es('  y en la tabla',/Utiliz\. sem\. %/.test(doc),true);
 
 console.log('\n== Elegir equipos por código ==');
 es('sin selección entran todos',ev('_phdSelCuenta().n+" de "+_phdSelCuenta().total'),'4 de 4');
@@ -150,6 +148,7 @@ es('  el total del día se recalcula',f1(DS.total.utilDia),f1((17+10)/(20+10)*10
 es('  el contador lo dice',ev('_phdSelCuenta().n+" de "+_phdSelCuenta().total'),'2 de 4');
 charts=[];const docSel=ev('_phdDoc()');
 es('los gráficos solo traen los elegidos',charts[0].data.labels.join(','),'EXC ECOP-001');
+es('  y siguen siendo uno por línea',charts.length,2);
 es('  y el documento avisa la selección parcial',/selección parcial: 2 de 4 equipos/.test(docSel),true);
 ev('_phdSelToggle(1,false)');
 es('desmarcar deja uno',ev('_phdDatos().filas.map(f=>f.eq.codigo).join(",")'),'VOL ECOP-001');
