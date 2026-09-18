@@ -108,12 +108,15 @@ const g=i=>({lbl:charts[i].data.labels,meta:charts[i].data.datasets[0].data,
   horas:charts[i].data.datasets[1].data,tit:charts[i].options.plugins.title.text});
 es('1º: el día de Línea Amarilla',g(0).tit.includes('JUEVES 17/09/2026')&&g(0).tit.includes('LÍNEA AMARILLA'),true);
 es('  con sus tres equipos',g(0).lbl.join(','),'EXC ECOP-001,EXC ECOP-002,ROD ECOP-001');
-es('  barras = horas del día',g(0).horas.join(','),'17,4,0');
-es('  línea = meta del día',f1(g(0).meta[0]),f1(210/31));
+es('  barras = % de utilización del día',g(0).horas.join(','),'85,40,0');
+es('  línea = meta 75% pareja para todos',g(0).meta.join(','),'75,75,75');
 es('2º: la misma semana',g(1).tit.includes('LA MISMA SEMANA'),true);
-es('  barras = horas de la semana',g(1).horas.join(','),'24,4,5');
+es('  barras = % de la semana',g(1).horas.join(','),'80,40,50');
 es('3º y 4º: Línea Blanca',g(2).tit.includes('LÍNEA BLANCA')&&g(3).tit.includes('LÍNEA BLANCA'),true);
 es('  con el volquete',g(2).lbl.join(','),'VOL ECOP-001');
+es('el eje llega a 100%',charts.every(c=>c.options.scales.y.suggestedMax===100),true);
+es('las barras usan el semáforo (rojo el de 40%)',charts[0].data.datasets[1].backgroundColor[1],'#b91c1c');
+es('  y verde el de 85%',charts[0].data.datasets[1].backgroundColor[0],'#15803d');
 es('todos son de barras con la meta como línea',
   charts.every(c=>c.type==='bar'&&c.data.datasets[0].type==='line'),true);
 
