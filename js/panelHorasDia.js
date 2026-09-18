@@ -22,6 +22,63 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 let _phdFecha='';
+// Equipos elegidos para el análisis (ids). Vacío = todos los de la línea.
+// Se recuerda en el navegador para no volver a marcarlos cada día.
+let _phdSel=(()=>{try{return new Set(JSON.parse(localStorage.getItem('gdar_phd_eqs')||'[]').map(Number));}catch(e){return new Set();}})();
+function _phdSelGuardar(){try{localStorage.setItem('gdar_phd_eqs',JSON.stringify([..._phdSel]));}catch(e){}}
+// Los equipos que se pueden elegir: los de línea que no estén desmovilizados
+function _phdEquiposTodos(){
+  const L=(typeof _PH_LINEAS!=='undefined')?_PH_LINEAS:['Línea Amarilla','Línea Blanca'];
+  return (DB.equipos||[]).filter(e=>L.indexOf(e.tipo)>=0&&String(e.est||'')!=='Desmovilizado')
+    .sort((a,b)=>a.tipo!==b.tipo?a.tipo.localeCompare(b.tipo)
+      :String(a.codigo||'').localeCompare(String(b.codigo||'')));
+}
+function _phdSelCuenta(){
+  const todos=_phdEquiposTodos();
+  return{n:_phdSel.size?todos.filter(e=>_phdSel.has(+e.id)).length:todos.length,total:todos.length};
+}
+function _phdSelToggle(id,on){
+  const todos=_phdEquiposTodos();
+  // La primera vez que se desmarca uno, se parte de todos marcados
+  if(!_phdSel.size)todos.forEach(e=>_phdSel.add(+e.id));
+  if(on)_phdSel.add(+id); else _phdSel.delete(+id);
+  if(_phdSel.size===todos.length)_phdSel.clear();   // todos = sin filtro
+  _phdSelGuardar();rPanelHoras();
+}
+function _phdSelTodos(on){
+  _phdSel.clear();
+  if(!on)_phdSel.add(-1);      // ninguno: un id que no existe
+  _phdSelGuardar();rPanelHoras();
+}
+// Desplegable con casillas, el mismo de Tareaje y Cost Control
+function _phdMenuEquipos(ev){
+  if(typeof _tmnAbrir!=='function'){toast('El menú de equipos no está disponible',true);return;}
+  _tmnAbrir(ev,'phdEquipos',255,div=>{
+    const todos=_phdEquiposTodos();
+    const marcado=id=>!_phdSel.size||_phdSel.has(+id);
+    let linea='';
+    todos.forEach(e=>{
+      if(e.tipo!==linea){linea=e.tipo;div.appendChild(_tmnTitulo(linea));}
+      div.appendChild(_tmnCheck(String(e.codigo||('#'+e.id)),
+        e.tipo==='Línea Amarilla'?'#eab308':'#93a3b8',
+        ()=>marcado(e.id),on=>_phdSelToggle(e.id,on)));
+    });
+    if(!todos.length)div.appendChild(_tmnTitulo('Sin equipos de línea'));
+    const pie=document.createElement('div');
+    pie.style.cssText='display:flex;gap:.3rem;padding:.4rem .35rem .1rem;border-top:1px solid var(--border);margin-top:.3rem';
+    const bt=(txt,col,fn)=>{
+      const b=document.createElement('button');
+      b.textContent=txt;
+      b.style.cssText='flex:1;font-size:.68rem;font-weight:700;padding:.25rem 0;border-radius:6px;'
+        +'border:1px solid '+col+'55;background:'+col+'18;color:'+col+';cursor:pointer';
+      b.onclick=()=>{_tmnCerrar();fn();};
+      return b;
+    };
+    pie.appendChild(bt('Todos','#22d3ee',()=>_phdSelTodos(true)));
+    pie.appendChild(bt('Ninguno','#94a3b8',()=>_phdSelTodos(false)));
+    div.appendChild(pie);
+  });
+}
 
 const _phdPad=n=>String(n).padStart(2,'0');
 const _phdISO=d=>`${d.getFullYear()}-${_phdPad(d.getMonth()+1)}-${_phdPad(d.getDate())}`;
@@ -81,8 +138,10 @@ function _phdDatos(){
   const diasCorte=Math.round((cFinD-cIniD)/864e5)+1;
 
   const LINEAS=(typeof _PH_LINEAS!=='undefined')?_PH_LINEAS:['Línea Amarilla','Línea Blanca'];
-  // Todos los equipos de las dos líneas, menos los desmovilizados
-  const eqs=(DB.equipos||[]).filter(e=>LINEAS.indexOf(e.tipo)>=0&&String(e.est||'')!=='Desmovilizado');
+  // Los equipos de las dos líneas, menos los desmovilizados y menos los que
+  // se hayan quitado en el selector (vacío = todos)
+  const eqs=(DB.equipos||[]).filter(e=>LINEAS.indexOf(e.tipo)>=0&&String(e.est||'')!=='Desmovilizado'
+    &&(!_phdSel.size||_phdSel.has(+e.id)));
   const porId={};
   eqs.forEach(e=>{porId[e.id]={eq:e,tipo:e.tipo,sub:String(e.sub||'').toUpperCase(),
     nDia:0,efDia:0,imDia:0,nSem:0,efSem:0,imSem:0,diasSem:new Set()};});
@@ -291,6 +350,7 @@ function _phdDoc(){
       H. Prog. = Nº de partes del día × ${D.HP}h · Utiliz. = H. Efect. ÷ H. Prog. ·
       Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% ·
       las filas en rosado no tienen parte ese día · los equipos desmovilizados no se listan
+      ${_phdSel.size?'· <b style="color:#b45309">selección parcial: '+_phdSelCuenta().n+' de '+_phdSelCuenta().total+' equipos</b>':''}
     </div>
   </div>`;
 }
@@ -338,6 +398,8 @@ function _phdRender(){
     <button onclick="_phdNav(1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Día siguiente">›</button>
     <span style="font-size:.72rem;color:var(--ceq);font-weight:700;font-family:monospace;white-space:nowrap">${dNom} ${_phdDMY(_phdFecha)}</span>
     <button onclick="_phdFecha='';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer" title="Último día con partes de la semana">Último con partes</button>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <button onclick="_phdMenuEquipos(event)" style="font-size:.62rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${_phdSel.size?'var(--ceq)':'var(--border)'};background:${_phdSel.size?'rgba(249,115,22,.15)':'transparent'};color:${_phdSel.size?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${_phdSel.size?'700':'400'}" title="Elegir por código qué equipos entran en el análisis">🚜 Equipos (${_phdSelCuenta().n}/${_phdSelCuenta().total}) ▾</button>
     <span style="font-size:.62rem;color:var(--muted2)">Semana ${_phdDMY(sem[0])} al ${_phdDMY(sem[6])} · vista previa del documento</span>
     <button onclick="_phdPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
   </div>`;

@@ -139,6 +139,28 @@ es('  la 3ª con el detalle',/REPORTE DIARIO — DETALLE DEL DÍA/.test(doc),tru
 es('  el salto va antes de cada cabecera de continuación',
   doc.indexOf('salto-pdf')<doc.indexOf('REPORTE DIARIO — LÍNEA BLANCA'),true);
 
+console.log('\n== Elegir equipos por código ==');
+es('sin selección entran todos',ev('_phdSelCuenta().n+" de "+_phdSelCuenta().total'),'4 de 4');
+es('  y no se listan los desmovilizados',ev('_phdEquiposTodos().map(e=>e.codigo).join(",")'),
+  'EXC ECOP-001,EXC ECOP-002,ROD ECOP-001,VOL ECOP-001');
+ev('_phdSel=new Set([1,4])');
+let DS=ev('_phdDatos()');
+es('elegir dos deja dos',DS.filas.map(f=>f.eq.codigo).join(','),'EXC ECOP-001,VOL ECOP-001');
+es('  el total del día se recalcula',f1(DS.total.utilDia),f1((17+10)/(20+10)*100));
+es('  el contador lo dice',ev('_phdSelCuenta().n+" de "+_phdSelCuenta().total'),'2 de 4');
+charts=[];const docSel=ev('_phdDoc()');
+es('los gráficos solo traen los elegidos',charts[0].data.labels.join(','),'EXC ECOP-001');
+es('  y el documento avisa la selección parcial',/selección parcial: 2 de 4 equipos/.test(docSel),true);
+ev('_phdSelToggle(1,false)');
+es('desmarcar deja uno',ev('_phdDatos().filas.map(f=>f.eq.codigo).join(",")'),'VOL ECOP-001');
+ev('_phdSelTodos(true)');
+es('Todos quita el filtro',ev('_phdSel.size'),0);
+es('  y vuelven los cuatro',ev('_phdDatos().filas.length'),4);
+ev('_phdSelToggle(3,false)');
+es('desmarcar uno partiendo de todos deja tres',ev('_phdDatos().filas.length'),3);
+es('  sin el rodillo',ev('_phdDatos().filas.some(f=>f.eq.codigo==="ROD ECOP-001")'),false);
+ev('_phdSelTodos(true)');
+
 console.log('\n== Navegación ==');
 ev('_phdNav(-1)');
 es('un día atrás',ev('_phdFecha'),'2026-09-16');
