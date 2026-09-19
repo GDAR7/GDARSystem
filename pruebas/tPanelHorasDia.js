@@ -110,9 +110,14 @@ es('1º: el día de Línea Amarilla',g(0).tit.includes('JUEVES 17/09/2026')&&g(0
 es('  con sus tres equipos',g(0).lbl.join(','),'EXC ECOP-001,EXC ECOP-002,ROD ECOP-001');
 es('  barras = % de utilización del día',g(0).horas.join(','),'85,40,0');
 es('  línea = meta 75% pareja para todos',g(0).meta.join(','),'75,75,75');
-es('ya no se grafica la semana',charts.some(c=>c.options.plugins.title.text.includes('LA MISMA SEMANA')),false);
+es('no hay un gráfico semanal aparte',charts.some(c=>c.options.plugins.title.text.includes('LA MISMA SEMANA')),false);
 es('2º: el día de Línea Blanca',g(1).tit.includes('LÍNEA BLANCA')&&g(1).tit.includes('JUEVES 17/09/2026'),true);
 es('  con el volquete',g(1).lbl.join(','),'VOL ECOP-001');
+es('al costado, la barra de la semana',charts[0].data.datasets[2].label,'Semana');
+es('  con el % semanal de cada equipo',charts[0].data.datasets[2].data.join(','),'80,40,50');
+es('  en gris, para no confundirla con el semáforo del día',charts[0].data.datasets[2].backgroundColor,'#94a3b8');
+es('  la del día sigue siendo la 2ª serie',charts[0].data.datasets[1].label,'Día');
+es('  el título lo anuncia',g(0).tit.includes('vs. SEMANA 14/09–20/09'),true);
 es('el eje llega a 100%',charts.every(c=>c.options.scales.y.suggestedMax===100),true);
 es('las barras usan el semáforo (rojo el de 40%)',charts[0].data.datasets[1].backgroundColor[1],'#b91c1c');
 es('  y verde el de 85%',charts[0].data.datasets[1].backgroundColor[0],'#15803d');

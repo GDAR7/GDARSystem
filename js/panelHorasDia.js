@@ -201,10 +201,17 @@ function _phdDoc(){
 
   // Etiquetas sobre las barras y sobre la línea de meta
   const vlBarras={id:'vlBarrasDia',afterDatasetsDraw(chart){
-    const ctx=chart.ctx;const di=chart.data.datasets.length-1;
-    const meta=chart.getDatasetMeta(di);if(!meta)return;
-    ctx.save();ctx.fillStyle='#1e3a5f';ctx.font='bold 10px Arial';ctx.textAlign='center';
-    meta.data.forEach((bar,i)=>{const v=chart.data.datasets[di].data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE')+'%',bar.x,bar.y-4);});
+    const ctx=chart.ctx;
+    ctx.save();ctx.textAlign='center';
+    // Una etiqueta sobre cada barra: la del día en azul, la de la semana en gris
+    chart.data.datasets.forEach((ds,di)=>{
+      if(ds.type==='line')return;
+      const m=chart.getDatasetMeta(di);if(!m)return;
+      const esSem=ds.label==='Semana';
+      ctx.fillStyle=esSem?'#64748b':'#1e3a5f';
+      ctx.font='bold '+(esSem?'9':'10')+'px Arial';
+      m.data.forEach((bar,i)=>{const v=ds.data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE')+'%',bar.x,bar.y-4);});
+    });
     const dsL=chart.data.datasets[0];
     if(dsL&&dsL.type==='line'){
       const dmL=chart.getDatasetMeta(0);
@@ -227,7 +234,9 @@ function _phdDoc(){
         labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.eq),
         datasets:[
           {type:'line',label:'Meta '+META_PCT+'%',data:items.map(()=>META_PCT),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
-          {label:'% utilización',data:items.map(r=>+r[campoPct].toFixed(1)),backgroundColor:items.map(r=>utlCol(r[campoPct])),borderRadius:3}
+          {label:'Día',data:items.map(r=>+r[campoPct].toFixed(1)),backgroundColor:items.map(r=>utlCol(r[campoPct])),borderRadius:3},
+          // Al costado, la utilización de la semana del mismo equipo, en gris
+          {label:'Semana',data:items.map(r=>+(r.utilSem||0).toFixed(1)),backgroundColor:'#94a3b8',borderRadius:3}
         ]
       },
       options:{responsive:false,animation:false,devicePixelRatio:2,
@@ -251,11 +260,12 @@ function _phdDoc(){
   D.lineas.forEach(linea=>{
     const items=D.filas.filter(r=>r.tipo===linea);
     if(!items.length)return;
-    const gDia=chartImg(items,'UTILIZACIÓN — '+linea.toUpperCase()+' · '+D.diaNombre.toUpperCase()+' '+_phdDMY(D.fecha),'utilDia');
+    const gDia=chartImg(items,'UTILIZACIÓN — '+linea.toUpperCase()+' · '+D.diaNombre.toUpperCase()+' '+_phdDMY(D.fecha)
+      +' vs. SEMANA '+_phdDMY(D.sem[0]).slice(0,5)+'–'+_phdDMY(D.sem[6]).slice(0,5),'utilDia');
     if(!gDia)return;
     graficos+=`<div style="page-break-inside:avoid;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;margin-top:8px"><img src="${gDia}" style="width:100%;display:block"></div>`;
   });
-  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barras = % de utilización (H. Efect. ÷ H. Prog.) · color del semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · el equipo sin parte del día aparece en 0%</div>`;
+  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barra de color = % del día (H. Efect. ÷ H. Prog.), con el semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · <span style="color:#94a3b8">■</span> barra gris = utilización de la semana del ${_phdDMY(D.sem[0])} al ${_phdDMY(D.sem[6])} · el equipo sin parte del día aparece en 0%</div>`;
 
   // Tabla del día, agrupada por línea
   let tabla='';
