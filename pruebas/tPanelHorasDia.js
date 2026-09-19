@@ -149,7 +149,7 @@ es('  el contador lo dice',ev('_phdSelCuenta().n+" de "+_phdSelCuenta().total'),
 charts=[];const docSel=ev('_phdDoc()');
 es('los gráficos solo traen los elegidos',charts[0].data.labels.join(','),'EXC ECOP-001');
 es('  y siguen siendo uno por línea',charts.length,2);
-es('  y el documento avisa la selección parcial',/selección parcial: 2 de 4 equipos/.test(docSel),true);
+es('  y el documento NO lleva la nota de selección parcial',/selección parcial/.test(docSel),false);
 ev('_phdSelToggle(1,false)');
 es('desmarcar deja uno',ev('_phdDatos().filas.map(f=>f.eq.codigo).join(",")'),'VOL ECOP-001');
 ev('_phdSelTodos(true)');

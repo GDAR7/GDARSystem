@@ -338,7 +338,6 @@ function _phdDoc(){
       H. Prog. = Nº de partes del día × ${D.HP}h · Utiliz. = H. Efect. ÷ H. Prog. ·
       Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% ·
       las filas en rosado no tienen parte ese día · los equipos desmovilizados no se listan
-      ${_phdSel.size?'· <b style="color:#b45309">selección parcial: '+_phdSelCuenta().n+' de '+_phdSelCuenta().total+' equipos</b>':''}
     </div>
   </div>`;
 }
