@@ -80,6 +80,112 @@ function _phdMenuEquipos(ev){
   });
 }
 
+// ── Observaciones del día ───────────────────────────────────────────────────
+// Comentarios escritos a mano que se imprimen al pie del PDF, debajo de la
+// tabla de detalle. Van atados a la FECHA: cada reporte lleva los suyos y no
+// se arrastran al día siguiente. eqId vacío = comentario general del día.
+// Se guardan en Supabase (sql/comentarios_dia.sql), así los ve cualquier
+// usuario y quedan como historial del reporte.
+let _phdComEdit=null;
+
+const _phdEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function _phdComs(fecha){
+  const f=fecha||_phdFecha;
+  return (DB.comentariosDia||[]).filter(c=>String(c.fecha||'')===String(f))
+    .sort((a,b)=>(+a.id||0)-(+b.id||0));
+}
+// El nombre que se imprime en la columna Equipo
+function _phdComEqNom(eqId){
+  if(!eqId)return'GENERAL';
+  const e=(DB.equipos||[]).find(x=>+x.id===+eqId);
+  return e?String(e.codigo||('#'+e.id)):'#'+eqId;
+}
+
+function _phdComAbrir(){
+  _phdComEdit=null;
+  const sel=document.getElementById('phdComEq');
+  if(sel){
+    sel.innerHTML='<option value="">— General (todo el día) —</option>'
+      +_phdEquiposTodos().map(e=>`<option value="${+e.id}">${_phdEsc(e.codigo||('#'+e.id))}`
+        +`${e.sub?' · '+_phdEsc(e.sub):''}</option>`).join('');
+    sel.value='';
+  }
+  const t=document.getElementById('phdComTxt');if(t)t.value='';
+  const d=document.getElementById('phdComDia');
+  if(d)d.textContent=_PHD_DIAS[new Date(_phdFecha+'T12:00:00').getDay()]+' '+_phdDMY(_phdFecha);
+  _phdComBoton();
+  _phdComLista();
+  openM('mPhdCom');
+  setTimeout(()=>{const el=document.getElementById('phdComTxt');if(el)el.focus();},120);
+}
+function _phdComBoton(){
+  const b=document.getElementById('phdComBtn');
+  if(b)b.textContent=_phdComEdit==null?'＋ Agregar':'💾 Guardar cambios';
+  const c=document.getElementById('phdComCancel');
+  if(c)c.style.display=_phdComEdit==null?'none':'';
+}
+function _phdComCancelar(){
+  _phdComEdit=null;
+  const t=document.getElementById('phdComTxt');if(t)t.value='';
+  const s=document.getElementById('phdComEq');if(s)s.value='';
+  _phdComBoton();_phdComLista();
+}
+function _phdComLista(){
+  const el=document.getElementById('phdComLista');if(!el)return;
+  const lista=_phdComs();
+  el.innerHTML=lista.length?lista.map(c=>`
+    <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.4rem .5rem;border:1px solid ${+c.id===+_phdComEdit?'var(--ceq)':'var(--border)'};border-radius:6px;background:var(--panel2);margin-bottom:.35rem">
+      <span style="font-size:.64rem;font-weight:800;font-family:monospace;color:${c.eqId?'var(--ceq)':'var(--muted2)'};white-space:nowrap;padding-top:.1rem">${_phdEsc(_phdComEqNom(c.eqId))}</span>
+      <span style="flex:1;font-size:.72rem;color:var(--text);white-space:pre-wrap;line-height:1.35">${_phdEsc(c.texto)}</span>
+      <button onclick="_phdComEditar(${+c.id})" title="Editar" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.7rem;padding:.1rem .35rem">✏️</button>
+      <button onclick="_phdComBorrar(${+c.id})" title="Quitar" style="background:none;border:1px solid #7f1d1d;border-radius:5px;color:#f87171;cursor:pointer;font-size:.7rem;padding:.1rem .35rem">🗑</button>
+    </div>`).join('')
+    :`<div style="font-size:.72rem;color:var(--muted2);padding:.6rem;text-align:center">Sin observaciones para este día. Si no agrega ninguna, el PDF sale como hasta ahora.</div>`;
+}
+function _phdComEditar(id){
+  const c=(DB.comentariosDia||[]).find(x=>+x.id===+id);if(!c)return;
+  _phdComEdit=+c.id;
+  const s=document.getElementById('phdComEq');if(s)s.value=c.eqId?String(+c.eqId):'';
+  const t=document.getElementById('phdComTxt');if(t){t.value=c.texto||'';t.focus();}
+  _phdComBoton();_phdComLista();
+}
+async function _phdComGuardar(){
+  const txt=(document.getElementById('phdComTxt')?.value||'').trim();
+  if(!txt){toast('Escriba el comentario',true);return;}
+  const eqV=document.getElementById('phdComEq')?.value||'';
+  const eqId=eqV?+eqV:null;
+
+  DB.comentariosDia=DB.comentariosDia||[];
+  const nuevo=_phdComEdit==null;
+  const prev=nuevo?null:DB.comentariosDia.find(c=>+c.id===+_phdComEdit);
+  const rec={id:nuevo?nidSeguro('cmd','comentariosDia'):+_phdComEdit,
+    fecha:_phdFecha,eqId,texto:txt,
+    creadoPor:(typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'')||null};
+  // El id se reserva antes de esperar a Supabase, como en el resto del sistema
+  if(nuevo)DB.comentariosDia.push({...rec});
+  const err=await supaUpsert('comentariosDia',rec);
+  if(err){if(nuevo)DB.comentariosDia=DB.comentariosDia.filter(c=>+c.id!==+rec.id);return;}
+  if(prev)Object.assign(prev,rec);
+
+  _phdComEdit=null;
+  const t=document.getElementById('phdComTxt');if(t){t.value='';t.focus();}
+  _phdComBoton();_phdComLista();
+  rPanelHoras();                       // la vista previa se actualiza al instante
+  toast('✓ Observación '+(nuevo?'agregada':'actualizada'));
+}
+async function _phdComBorrar(id){
+  const c=(DB.comentariosDia||[]).find(x=>+x.id===+id);if(!c)return;
+  if(!confirm('¿Quitar esta observación del reporte?\n\n'+(c.texto||'')))return;
+  await supaDelete('comentariosDia',c.id);
+  DB.comentariosDia=(DB.comentariosDia||[]).filter(x=>+x.id!==+c.id);
+  if(+_phdComEdit===+c.id)_phdComEdit=null;
+  _phdComBoton();_phdComLista();
+  rPanelHoras();
+  toast('Observación quitada');
+}
+
 const _phdPad=n=>String(n).padStart(2,'0');
 const _phdISO=d=>`${d.getFullYear()}-${_phdPad(d.getMonth()+1)}-${_phdPad(d.getDate())}`;
 const _phdDMY=s=>String(s).slice(8,10)+'/'+String(s).slice(5,7)+'/'+String(s).slice(0,4);
@@ -299,6 +405,17 @@ function _phdDoc(){
     </tr>`;
   });
 
+  // Observaciones escritas para este día. Si no hay ninguna, la sección no se
+  // imprime y el documento queda exactamente como antes.
+  const coms=_phdComs(D.fecha);
+  const obs=coms.length?sec('Observaciones')+`<table style="${TBL}">
+      <tr><th style="${TH};text-align:left;width:130px">Equipo</th><th style="${TH};text-align:left">Comentario</th></tr>
+      ${coms.map(c=>`<tr>
+        <td style="${TD};white-space:nowrap;font-weight:800;color:${c.eqId?AZ:'#555'}">${_phdEsc(_phdComEqNom(c.eqId))}</td>
+        <td style="${TD};white-space:pre-wrap;line-height:1.35">${_phdEsc(c.texto)}</td>
+      </tr>`).join('')}
+    </table>`:'';
+
   const T=D.total;
   return`
   <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
@@ -349,6 +466,8 @@ function _phdDoc(){
       Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% ·
       las filas en rosado no tienen parte ese día · los equipos desmovilizados no se listan
     </div>
+
+    ${obs}
   </div>`;
 }
 
@@ -388,6 +507,7 @@ function _phdRender(){
   if(!_phdFecha||_phdFecha<sem[0]||_phdFecha>sem[6])_phdFecha=_phdDefault();
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
   const dNom=_PHD_DIAS[new Date(_phdFecha+'T12:00:00').getDay()];
+  const nCom=_phdComs().length;
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Día</span>
     <button onclick="_phdNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Día anterior">‹</button>
@@ -397,6 +517,7 @@ function _phdRender(){
     <button onclick="_phdFecha='';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer" title="Último día con partes de la semana">Último con partes</button>
     <div style="width:1px;height:18px;background:var(--border)"></div>
     <button onclick="_phdMenuEquipos(event)" style="font-size:.62rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${_phdSel.size?'var(--ceq)':'var(--border)'};background:${_phdSel.size?'rgba(249,115,22,.15)':'transparent'};color:${_phdSel.size?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${_phdSel.size?'700':'400'}" title="Elegir por código qué equipos entran en el análisis">🚜 Equipos (${_phdSelCuenta().n}/${_phdSelCuenta().total}) ▾</button>
+    <button onclick="_phdComAbrir()" style="font-size:.62rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${nCom?'#22c55e':'var(--border)'};background:${nCom?'rgba(34,197,94,.15)':'transparent'};color:${nCom?'#22c55e':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${nCom?'700':'400'}" title="Observaciones que salen al pie del PDF de este día">💬 Comentarios (${nCom}) ▾</button>
     <span style="font-size:.62rem;color:var(--muted2)">Semana ${_phdDMY(sem[0])} al ${_phdDMY(sem[6])} · vista previa del documento</span>
     <button onclick="_phdPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
   </div>`;

@@ -33,16 +33,24 @@ const DB={
     {id:8,eqId:5,fecha:'2026-09-17',ef:9,im:0,turno:'DIA'},
     {id:9,eqId:6,fecha:'2026-09-17',ef:6,im:0,turno:'DIA'}
   ],
+  comentariosDia:[],
   tareaje:[],personal:[],tramos:[]
 };
 
 const nodos={};
-const nodo=id=>nodos[id]||(nodos[id]={id,innerHTML:'',textContent:'',value:'',style:{}});
+const nodo=id=>nodos[id]||(nodos[id]={id,innerHTML:'',textContent:'',value:'',style:{},focus(){}});
 let charts=[],ventana=null,avisos=[];
+// Guardado simulado: se anota qué se mandó a Supabase y qué se borró
+let guardados=[],borrados=[],modales=[];
 // Chart.js simulado: guarda la configuración de cada gráfico
 function Chart(ctx,cfg){charts.push(cfg);this.destroy=()=>{};}
 const ctx=vm.createContext({
-  DB,console,Date,Math,Number,String,Object,Array,JSON,Set,Chart,URL,
+  DB,console,Date,Math,Number,String,Object,Array,JSON,Set,Chart,URL,setTimeout:()=>0,
+  openM:id=>modales.push('abrir:'+id),closeM:id=>modales.push('cerrar:'+id),
+  confirm:()=>true,
+  nidSeguro:(nx,k)=>(DB[k]||[]).reduce((m,r)=>Math.max(m,+r.id||0),0)+1,
+  supaUpsert:async(k,rec)=>{guardados.push({k,rec});return null;},
+  supaDelete:async(k,id)=>{borrados.push({k,id:+id});},
   localStorage:{getItem:k=>k==='gdar_ph_hsprog'?'10':null,setItem(){},removeItem(){}},
   document:{getElementById:nodo,
     createElement:()=>({width:0,height:0,getContext:()=>({}),toDataURL:()=>'data:image/png;base64,STUB'})},
@@ -204,8 +212,98 @@ es('index: script declarado después de panelHoras.js',
 es('no reimplementa las horas por turno ni la meta',
   /_phHsProgTurno==='function'/.test(mod)&&/_rmMetaDe==='function'/.test(mod),true);
 es('todo lo nuevo lleva prefijo _phd',
-  [...mod.matchAll(/^(?:const|let|function)\s+([A-Za-z_$][\w$]*)/gm)].map(m=>m[1])
+  [...mod.matchAll(/^(?:const|let|function|async function)\s+([A-Za-z_$][\w$]*)/gm)].map(m=>m[1])
     .every(n=>/^_(phd|PHD)/.test(n)),true);
+const cfg=fs.readFileSync(R+'js/config.js','utf8');
+es('la tabla está declarada en config',/comentariosDia:'comentarios_dia'/.test(cfg),true);
+es('  y con su arreglo en DB',/comentariosDia:\[\]/.test(cfg),true);
+es('index: el modal de observaciones existe',/id="mPhdCom"/.test(html),true);
+es('  con el selector de equipo y el texto',/id="phdComEq"/.test(html)&&/id="phdComTxt"/.test(html),true);
+es('  y la lista de lo agregado',/id="phdComLista"/.test(html),true);
+es('existe sql/comentarios_dia.sql',fs.existsSync(R+'sql/comentarios_dia.sql'),true);
+const sql=fs.readFileSync(R+'sql/comentarios_dia.sql','utf8');
+es('  crea la tabla',/create table if not exists public\.comentarios_dia/.test(sql),true);
+es('  con RLS como las demás',/create policy gdar_autenticado on public\.comentarios_dia/.test(sql),true);
+es('  eq_id admite nulo (comentario general)',/eq_id\s+bigint,/.test(sql),true);
 
-console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
-process.exit(mal?1:0);
+// ── Observaciones: el guardado es asíncrono, así que va al final ────────────
+(async()=>{
+  console.log('\n== Observaciones del reporte ==');
+  ev('_phSemIni="2026-09-14";_phdFecha="2026-09-17";_phdSel=new Set()');
+  charts=[];
+  es('sin observaciones, el documento no cambia',/OBSERVACIONES|Observaciones/.test(ev('_phdDoc()')),false);
+
+  // Una observación de un equipo
+  nodo('phdComTxt').value='Inoperativo por falla de mando final, espera repuesto';
+  nodo('phdComEq').value='1';
+  await ev('_phdComGuardar()');
+  es('queda una observación del día',ev('_phdComs().length'),1);
+  const c1=DB.comentariosDia[0];
+  es('  con la fecha del reporte',c1.fecha,'2026-09-17');
+  es('  y el equipo elegido',c1.eqId,1);
+  es('  se mandó a Supabase',guardados.filter(g=>g.k==='comentariosDia').length,1);
+  es('  el campo de texto queda limpio para el siguiente',nodo('phdComTxt').value,'');
+
+  // Una general y una de otro día, que no debe aparecer
+  nodo('phdComTxt').value='Turno noche suspendido por tormenta eléctrica';
+  nodo('phdComEq').value='';
+  await ev('_phdComGuardar()');
+  DB.comentariosDia.push({id:99,fecha:'2026-09-16',eqId:2,texto:'De otro día'});
+  es('la general se guarda sin equipo',DB.comentariosDia[1].eqId,null);
+  es('  y se rotula GENERAL',ev('_phdComEqNom(null)'),'GENERAL');
+  es('el equipo se rotula con su código',ev('_phdComEqNom(1)'),'EXC ECOP-001');
+  es('los comentarios son del día, no de la semana',ev('_phdComs().length'),2);
+
+  charts=[];
+  const docC=ev('_phdDoc()');
+  es('el PDF trae la sección al pie',/Observaciones/.test(docC),true);
+  es('  con el equipo',/EXC ECOP-001<\/td>/.test(docC),true);
+  es('  y el comentario',/falla de mando final/.test(docC),true);
+  es('  la general también',/GENERAL/.test(docC)&&/tormenta eléctrica/.test(docC),true);
+  es('  el de otro día no se cuela',/De otro día/.test(docC),false);
+  es('  va después del detalle, no antes',
+    docC.indexOf('Observaciones')>docC.indexOf('Detalle del día por equipo'),true);
+  es('  filas y celdas siguen parejas',(docC.match(/<tr[ >]/g)||[]).length,(docC.match(/<\/tr>/g)||[]).length);
+  es('  ninguna celda rota',/undefined|NaN/.test(docC),false);
+
+  // Lo escrito no puede romper el documento
+  nodo('phdComTxt').value='Revisar <b>hoy</b> & "urgente"';
+  nodo('phdComEq').value='2';
+  await ev('_phdComGuardar()');
+  const docE=ev('_phdDoc()');
+  es('el texto se escapa, no se interpreta',/Revisar &lt;b&gt;hoy&lt;\/b&gt; &amp; &quot;urgente&quot;/.test(docE),true);
+
+  // Editar
+  ev('_phdComEditar(1)');
+  es('editar carga el comentario en el formulario',nodo('phdComTxt').value,'Inoperativo por falla de mando final, espera repuesto');
+  nodo('phdComTxt').value='Ya operativo desde las 14:00';
+  await ev('_phdComGuardar()');
+  es('  al guardar no se duplica',ev('_phdComs().length'),3);
+  es('  y el texto cambió',DB.comentariosDia.find(c=>+c.id===1).texto,'Ya operativo desde las 14:00');
+
+  // Quitar
+  await ev('_phdComBorrar(1)');
+  es('quitar la saca de la lista',ev('_phdComs().length'),2);
+  es('  y de Supabase',borrados.filter(b=>b.k==='comentariosDia').length,1);
+  es('  y del documento',/Ya operativo desde las 14:00/.test(ev('_phdDoc()')),false);
+
+  // El botón de la barra
+  ev('_phdRender()');
+  const H2=nodo('phTabBody').innerHTML;
+  es('la barra tiene el botón de comentarios',/_phdComAbrir\(\)/.test(H2),true);
+  es('  con el contador del día',/💬 Comentarios \(2\)/.test(H2),true);
+  ev('_phdComAbrir()');
+  es('abrirlo muestra el modal',modales.includes('abrir:mPhdCom'),true);
+  es('  con los equipos de línea y la opción general',
+    /General \(todo el día\)/.test(nodo('phdComEq').innerHTML)&&/EXC ECOP-001/.test(nodo('phdComEq').innerHTML),true);
+  es('  y el día en el título',nodo('phdComDia').textContent,'Jueves 17/09/2026');
+  es('  la lista muestra las dos',(nodo('phdComLista').innerHTML.match(/_phdComBorrar\(/g)||[]).length,2);
+  es('  al reabrir no queda en modo edición',ev('_phdComEdit'),null);
+
+  // Otro día empieza limpio
+  ev('_phdSetFecha("2026-09-15")');
+  es('otro día no arrastra las observaciones',ev('_phdComs().length'),0);
+
+  console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
+  process.exit(mal?1:0);
+})();

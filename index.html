@@ -2922,6 +2922,28 @@
   <div class="mf"><button class="btn btn-out" onclick="closeM('mAreaTrabajo')">Cancelar</button><button class="btn btn-a" style="--ba:var(--ceq)" onclick="_atGuardar()">💾 Guardar</button></div>
 </div></div>
 
+<!-- Modal Observaciones del Reporte Diario de Utilización (js/panelHorasDia.js) -->
+<div class="mo" id="mPhdCom"><div class="modal" style="max-width:640px">
+  <div class="mh"><span class="mttl">💬 Observaciones del reporte — <span id="phdComDia" style="color:var(--ceq)"></span></span><button class="mx" onclick="closeM('mPhdCom')">✕</button></div>
+  <div class="mb">
+    <div class="fg-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Equipo</label>
+        <select id="phdComEq" style="width:100%;padding:.45rem;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text)"></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1"><label>Comentario</label>
+        <textarea id="phdComTxt" rows="3" maxlength="600" placeholder="Equipo inoperativo por falla de mando final, en espera de repuesto..."></textarea></div>
+    </div>
+    <div style="display:flex;gap:.4rem;margin-top:.5rem">
+      <button class="btn btn-a" style="--ba:#22c55e" id="phdComBtn" onclick="_phdComGuardar()">＋ Agregar</button>
+      <button class="btn btn-out" id="phdComCancel" style="display:none" onclick="_phdComCancelar()">Cancelar edición</button>
+    </div>
+    <div style="font-size:.66rem;color:var(--muted2);margin:.8rem 0 .4rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;border-bottom:1px solid var(--border);padding-bottom:.25rem">En este reporte</div>
+    <div id="phdComLista"></div>
+    <div style="font-size:.7rem;color:var(--muted2);margin-top:.5rem;line-height:1.45">Se imprimen al pie del PDF, en una tabla «Observaciones» debajo del detalle. Pertenecen solo a este día.</div>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mPhdCom')">Cerrar</button></div>
+</div></div>
+
 <!-- Modal Tipo de Material -->
 <!-- Modal Material -->
 <div class="mo" id="mMaterial"><div class="modal">
@@ -3318,7 +3340,7 @@
 <script src="js/auxmec.js?v=57"></script>
 <script src="js/partesDiarios.js?v=6"></script>
 <script src="js/panelHoras.js?v=11"></script>
-<script src="js/panelHorasDia.js?v=7"></script>
+<script src="js/panelHorasDia.js?v=8"></script>
 <script src="js/reportesEquipos.js?v=6"></script>
 <script src="js/edpProveedores.js?v=51"></script>
 <script src="js/edpCostos.js?v=2"></script>
