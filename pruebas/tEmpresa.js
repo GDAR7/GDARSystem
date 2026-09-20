@@ -47,6 +47,40 @@ es('la supervisión externa sigue limitada',u('CP.BISA_').areas.includes('remune
 es('ningún código repetido',new Set(USERS.map(x=>x.codigo)).size,USERS.length);
 es('todos tienen nombre y cargo',USERS.every(x=>x.nombre&&x.cargo),true);
 
+// ── Permisos: el recorte por módulo solo cuenta dentro de areaModules ──────
+// Escribir  {..., controlProyecto:['avanceMT']}  al nivel del usuario no hace
+// nada: el menú lo ignora y la persona termina viendo TODA el área. Por eso
+// una propiedad que se llame como un área, fuera de areaModules, es un error.
+console.log('\n== Los recortes por módulo son coherentes ==');
+const modsDe=area=>{
+  const out=[];
+  (AREAS[area]?.modules||[]).forEach(m=>{
+    out.push(m.key);
+    (m.children||[]).forEach(c=>out.push(c.key));
+  });
+  return out;
+};
+const sueltasArea=[],areaNoDada=[],modDesconocido=[];
+USERS.forEach(x=>{
+  Object.keys(x).forEach(k=>{
+    if(k!=='areas'&&k!=='areaModules'&&AREAS[k])sueltasArea.push(x.codigo+'.'+k);
+  });
+  Object.entries(x.areaModules||{}).forEach(([a,lista])=>{
+    if(!(x.areas||[]).includes(a))areaNoDada.push(x.codigo+'.'+a);
+    const validos=modsDe(a);
+    (lista||[]).forEach(m=>{if(!validos.includes(m))modDesconocido.push(x.codigo+'.'+a+'.'+m);});
+  });
+});
+es('nadie tiene un área suelta fuera de areaModules',sueltasArea.join(',')||'ninguna','ninguna');
+es('  todo recorte pertenece a un área concedida',areaNoDada.join(',')||'ninguno','ninguno');
+es('  y todos los módulos nombrados existen',modDesconocido.join(',')||'ninguno','ninguno');
+const sx=u('SIX_GQUI');
+es('Sixto entra a Control de Proyecto',(sx.areas||[]).includes('controlProyecto'),true);
+es('  con los cuatro módulos del recuadro',(sx.areaModules.controlProyecto||[]).join(','),
+  'pizarra,avanceMT,dailyReport,recrecimiento');
+es('  y puede editarlos (solo el tareaje es de lectura)',(sx.readOnlyModules||[]).join(','),'tareaje');
+es('  sin perder lo que ya tenía',(sx.areaModules.administracion||[]).join(','),'asistencia,tareaje');
+
 console.log('\n== config.js ya no lleva datos del cliente ==');
 const cfg=fs.readFileSync(R+'js/config.js','utf8');
 es('no declara SUPA_URL',/const SUPA_URL\s*=/.test(cfg),false);
