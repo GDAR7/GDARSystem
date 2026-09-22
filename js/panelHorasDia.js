@@ -91,9 +91,13 @@ let _phdComEdit=null;
 const _phdEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// ambito 'dia' distingue estas observaciones de las del Reporte Mensual, que
+// viven en la misma tabla. Lo escrito antes de que existiera el mensual no
+// tiene ámbito: se cuenta como del día, que es lo que era.
 function _phdComs(fecha){
   const f=fecha||_phdFecha;
-  return (DB.comentariosDia||[]).filter(c=>String(c.fecha||'')===String(f))
+  return (DB.comentariosDia||[]).filter(c=>String(c.fecha||'')===String(f)
+      &&(!c.ambito||String(c.ambito)==='dia'))
     .sort((a,b)=>(+a.id||0)-(+b.id||0));
 }
 // El nombre que se imprime en la columna Equipo
@@ -161,7 +165,7 @@ async function _phdComGuardar(){
   const nuevo=_phdComEdit==null;
   const prev=nuevo?null:DB.comentariosDia.find(c=>+c.id===+_phdComEdit);
   const rec={id:nuevo?nidSeguro('cmd','comentariosDia'):+_phdComEdit,
-    fecha:_phdFecha,eqId,texto:txt,
+    ambito:'dia',fecha:_phdFecha,eqId,texto:txt,
     creadoPor:(typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'')||null};
   // El id se reserva antes de esperar a Supabase, como en el resto del sistema
   if(nuevo)DB.comentariosDia.push({...rec});

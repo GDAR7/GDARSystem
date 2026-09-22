@@ -89,7 +89,7 @@ function rPanelHoras(){
   if(!_phSemIni)_phSemIni=_phSemDefault();
   // El canvas del tab anterior se destruye: cada tab crea el suyo
   if(_phChart){try{_phChart.destroy();}catch(e){}_phChart=null;}
-  let tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal'],[6,'📊 Utilización Diaria']];
+  let tabs=[[1,'📅 Horas por Día'],[2,'🎯 Utilización Semanal'],[3,'🔧 Disponibilidad Mecánica'],[4,'🛵 Disponibilidad Menores'],[5,'📄 Resumen Semanal'],[6,'📊 Utilización Diaria'],[7,'📈 Reporte Mensual']];
   const ok=_phTabsOk();
   if(ok){
     tabs=tabs.filter(t=>ok.indexOf(t[0])>=0);
@@ -103,6 +103,8 @@ function rPanelHoras(){
   if(_phTab===5){_phRenderResumen();return;}
   // Reporte diario de utilización (js/panelHorasDia.js)
   if(_phTab===6&&typeof _phdRender==='function'){_phdRender();return;}
+  // Reporte mensual: la semana contra el corte (js/panelHorasMes.js)
+  if(_phTab===7&&typeof _phmRender==='function'){_phmRender();return;}
   _phRenderHoras();
 }
 function _phRenderHoras(){
