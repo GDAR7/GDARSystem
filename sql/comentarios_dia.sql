@@ -38,5 +38,11 @@ create policy gdar_autenticado on public.comentarios_dia
   for all to authenticated using (true) with check (true);
 grant select, insert, update, delete on public.comentarios_dia to authenticated;
 
+-- ── Refrescar el esquema que ve la API ─────────────────────────────────────
+-- Supabase guarda en caché las columnas de cada tabla. Sin esto, agregar una
+-- columna da en el sistema: «Could not find the 'ambito' column of
+-- 'comentarios_dia' in the schema cache», aunque en la base ya exista.
+notify pgrst, 'reload schema';
+
 -- ── Comprobación: debe devolver la tabla vacía, sin error ──────────────────
 select id, ambito, fecha, eq_id, texto, creado_por from public.comentarios_dia order by fecha desc, id;

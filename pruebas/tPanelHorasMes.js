@@ -257,6 +257,8 @@ nodo('phmComEq').value='1';
   const sql=fs.readFileSync(R+'sql/comentarios_dia.sql','utf8');
   es('el SQL agrega el ámbito',/add column if not exists ambito/.test(sql),true);
   es('  y lo ya escrito queda como del día',/default 'dia'/.test(sql),true);
+  es('  y refresca el caché de la API, si no la columna no se ve',
+    /notify pgrst, 'reload schema'/.test(sql),true);
 
   console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
   process.exit(mal?1:0);
