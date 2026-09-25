@@ -149,11 +149,18 @@ function _ceDatos(eq,per){
   const totalHoras=filas.reduce((s,f)=>s+f.horas,0);
   const totalEfec=areas.reduce((s,a)=>s+(efec[a]||0),0);
   const horasInop=filas.reduce((s,f)=>s+f.inop,0);
-  const horasCalendario=per.dias*24;
-  const dispMec=horasCalendario>0?Math.max(0,Math.min(100,(horasCalendario-horasInop)/horasCalendario*100)):100;
+  // Disponibilidad mecánica: se mide contra las HORAS MÍNIMAS DEL CLIENTE
+  // (Hrs Mín. Venta del Máster), que es lo que el equipo se comprometió a dar
+  // en el mes. Antes se medía contra las horas de calendario (días × 24): con
+  // esa base un equipo no bajaba del 85% por más parado que estuviera —
+  // 96 h de falla sobre 744 h daban 87%, y sobre 200 h dan 52%.
+  // Sin Hrs Mín. Venta cargada no hay contra qué medir: no se inventa un 100%.
+  const baseDisp=hminMes;
+  const sinBaseDisp=!(baseDisp>0);
+  const dispMec=sinBaseDisp?0:Math.max(0,Math.min(100,(baseDisp-horasInop)/baseDisp*100));
 
-  const cumpleDisp=dispMec>=_CE_DISP_MIN;
-  const conclusion=hminMes<=0?'Sin horas mínimas pactadas'
+  const cumpleDisp=!sinBaseDisp&&dispMec>=_CE_DISP_MIN;
+  const conclusion=hminMes<=0?'Sin horas mínimas pactadas — falta Hrs Mín. Venta en el Máster'
     :cumpleDisp?'Corresponde reconocer horas minimas'
     :`No corresponde reconocer horas mínimas — disponibilidad ${dispMec.toFixed(2)}% < ${_CE_DISP_MIN}%`;
 
@@ -181,7 +188,7 @@ function _ceDatos(eq,per){
   const fechas=[...new Set(filas.map(f=>f.fecha))];
   const diasOperativos=fechas.filter(f=>filas.some(x=>x.fecha===f&&!x.inoperativo)).length;
 
-  return{filas,areas,efec,standby,totalHoras,totalEfec,totalStandby,horasInop,dispMec,
+  return{filas,areas,efec,standby,totalHoras,totalEfec,totalStandby,horasInop,dispMec,sinBaseDisp,baseDisp,
     hminMes,hminDia,cumpleDisp,conclusion,aplicaMinimo,areaPrinc,resumenCond,diasReportados:fechas.length,diasOperativos};
 }
 
@@ -320,13 +327,15 @@ function _ceHojaHtml(eq,per,num){
     <table style="border-collapse:collapse;margin-top:10px">
       <thead><tr>
         <th style="${TH}">Dias</th><th style="${TH}">Hmin.</th><th style="${TH}">Hmin Mes</th>
+        <th style="${TH}">H. Inoper.</th>
         <th style="${TH}">Disp. Meca</th><th style="${TH}">Conclusión</th>
       </tr></thead>
       <tbody><tr>
         <td style="${TD};text-align:center">${per.dias}</td>
         <td style="${TD};text-align:center">${_ceN2(D.hminDia)}</td>
         <td style="${TD};text-align:center">${_ceN2(D.hminMes)}</td>
-        <td style="${TD};text-align:center;font-weight:700;color:${D.cumpleDisp?'#166534':_CE_ROJO}">${D.dispMec.toFixed(2)}%</td>
+        <td style="${TD};text-align:center;font-weight:700;color:${D.horasInop?_CE_ROJO:'#111'}">${_ceN2(D.horasInop)}</td>
+        <td style="${TD};text-align:center;font-weight:700;color:${D.cumpleDisp?'#166534':_CE_ROJO}">${D.sinBaseDisp?'—':D.dispMec.toFixed(2)+'%'}</td>
         <td style="${TD};font-weight:700;color:${D.cumpleDisp?_CE_ROJO:'#92400e'};padding-left:10px">${_ceEsc(D.conclusion)}</td>
       </tr></tbody>
     </table>
@@ -409,13 +418,13 @@ function _ceExportXls(){
 
   // — Hoja Resumen —
   const resHdr=['Código','Equipo','Tipo','Subtipo','Modelo','Partes','Días Rep.','Días Oper.',
-    'Horas Efect.','Horas Standby','Total Horas','Hmin Mes','Disp. Meca %','Conclusión'];
+    'Horas Efect.','Horas Standby','Total Horas','Hmin Mes','H. Inoper.','Disp. Meca %','Conclusión'];
   const resRows=eqs.map(eq=>{
     const D=_ceDatos(eq,per);
     return[eq.codigo||'',eq.nombre||'',eq.tipo||'',eq.sub||'',_ceEsHora(eq)?'HORAS':'DÍAS',
       D.filas.length,D.diasReportados,D.diasOperativos,
       +D.totalEfec.toFixed(2),+D.totalStandby.toFixed(2),+D.totalHoras.toFixed(2),
-      +D.hminMes.toFixed(2),+D.dispMec.toFixed(2),D.conclusion];
+      +D.hminMes.toFixed(2),+D.horasInop.toFixed(2),D.sinBaseDisp?'':+D.dispMec.toFixed(2),D.conclusion];
   });
   const wsR=XLSX.utils.aoa_to_sheet([
     [`CORTE DE EQUIPOS · Período ${_ceDmy(per.desde)} al ${_ceDmy(per.hasta)} (${per.dias} días)`],
@@ -472,9 +481,10 @@ function _ceExportXls(){
     aoa.push([]);
     let rCuadro=-1,rEfec=-1,rStandby=-1,rTot=-1;
     if(esHora){
-      aoa.push(['Dias','Hmin.','Hmin Mes','Disp. Meca','Conclusión']);
+      aoa.push(['Dias','Hmin.','Hmin Mes','H. Inoper.','Disp. Meca','Conclusión']);
       rCuadro=aoa.length;
-      aoa.push([per.dias,+D.hminDia.toFixed(4),+D.hminMes.toFixed(2),+(D.dispMec/100).toFixed(4),D.conclusion]);
+      aoa.push([per.dias,+D.hminDia.toFixed(4),+D.hminMes.toFixed(2),+D.horasInop.toFixed(2),
+        D.sinBaseDisp?'':+(D.dispMec/100).toFixed(4),D.conclusion]);
       aoa.push([]);
       aoa.push(['Descripción',...D.areas,'Total']);
       rEfec=aoa.length;
@@ -515,7 +525,9 @@ function _ceExportXls(){
         // Standby a pagar = lo que falta para el mínimo del mes, y solo si la
         // conclusión dice que corresponde reconocerlo (disponibilidad ≥ mínima)
         const cs=ws[addr(rStandby,col)];
-        if(cs&&a===D.areaPrinc)cs.f=`IF($D$${xrC}>=${_CE_DISP_MIN/100},MAX(0,$C$${xrC}-${cT}${xrE}),0)`;
+        // La disponibilidad ahora va en la columna E del cuadro: entre Hmin Mes
+        // y Disp. Meca se agregó H. Inoper., que es el sustento del porcentaje.
+        if(cs&&a===D.areaPrinc)cs.f=`IF($E$${xrC}>=${_CE_DISP_MIN/100},MAX(0,$C$${xrC}-${cT}${xrE}),0)`;
       });
       const ceT=ws[addr(rEfec,nA+1)];
       if(ceT)ceT.f=`SUM(B${rEfec+1}:${CL(nA)}${rEfec+1})`;
@@ -564,11 +576,13 @@ function rCorteEquipos(){
   const tot=eqs.reduce((a,eq)=>{
     const D=_ceDatos(eq,per);
     a.horas+=D.totalEfec;a.standby+=D.totalStandby;a.inop+=D.horasInop;
-    a.dias+=D.diasOperativos;a.disp.push(D.dispMec);
+    // El equipo sin Hrs Mín. Venta no tiene disponibilidad medible: si entrara
+    // como 0 % hundiría el promedio, y como 100 % lo maquillaría. Queda fuera.
+    a.dias+=D.diasOperativos;if(!D.sinBaseDisp)a.disp.push(D.dispMec);else a.sinBase++;
     a.dt+=D.filas.filter(f=>f.dt).length;
     if(D.filas.some(f=>f.dt))a.eqDt++;
     return a;
-  },{horas:0,standby:0,inop:0,dias:0,disp:[],dt:0,eqDt:0});
+  },{horas:0,standby:0,inop:0,dias:0,disp:[],dt:0,eqDt:0,sinBase:0});
   const dispProm=tot.disp.length?tot.disp.reduce((s,v)=>s+v,0)/tot.disp.length:100;
 
   const kpis=[
@@ -576,7 +590,10 @@ function rCorteEquipos(){
     {l:'Días Operativos',v:tot.dias,c:'#10b981'},
     {l:'Días en Doble Turno',v:tot.dt>0?tot.dt+' ('+tot.eqDt+' eq.)':'0',c:'#8b5cf6'},
     {l:'Equipos en el Corte',v:eqs.length,c:'#06b6d4'},
-    {l:'Disp. Mecánica Prom.',v:dispProm.toFixed(2)+'%',c:dispProm>=_CE_DISP_MIN?'#10b981':'#ef4444'},
+    {l:'Disp. Mecánica Prom.',v:dispProm.toFixed(2)+'%'+(tot.sinBase?' ⚠':''),
+      c:dispProm>=_CE_DISP_MIN?'#10b981':'#ef4444',
+      t:tot.sinBase?tot.sinBase+' equipo(s) sin Hrs Mín. Venta en el Máster quedan fuera del promedio: sin esa base no hay disponibilidad que medir'
+        :'Base: Hrs Mín. Venta del Máster · (Hmín − horas inoperativas) ÷ Hmín'},
   ];
 
   // — Chips tipo → subtipo → equipo (mismo modelo que el dashboard de Combustible) —
@@ -636,7 +653,7 @@ function rCorteEquipos(){
         <button onclick="_ceNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
       </div>
     </div>
-    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
+    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"${k.t?` title="${_ceEsc(k.t)}"`:''}><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
     <div style="margin-bottom:1rem">
       <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
         <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>

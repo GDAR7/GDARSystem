@@ -325,14 +325,19 @@ function _edpHoras(eq,desde,hasta){
   const horasInop=dias.reduce((s,d)=>s+d.im,0);
   const diasConParte=dias.filter(d=>d.motor>0).length;
   const diasPeriodo=Math.max(1,Math.round((new Date(hasta+'T12:00')-new Date(desde+'T12:00'))/864e5)+1);
-  // Disponibilidad mecánica: se mide contra las HORAS PROGRAMADAS, igual que
-  // el Panel de Horas Máquina (mismo ajuste ⚙ de horas por turno), no contra
-  // las horas de calendario. Un equipo que trabajó 35 turnos de 8.5 h tiene
-  // 297.5 h programadas: sobre esa base se descuenta lo inoperativo.
+  // Disponibilidad mecánica: se mide contra las HORAS MÍNIMAS DEL CLIENTE
+  // (Hrs Mín. Venta del Máster), la misma base que usa Corte de Equipos, para
+  // que los dos módulos den el mismo porcentaje del mismo equipo.
+  // Ojo: NO es eq.horasMinimas, que es el mínimo pactado con el PROVEEDOR y se
+  // usa más abajo para decidir cuánto se le paga.
+  // Sin Hrs Mín. Venta cargada no hay contra qué medir: antes de inventar un
+  // 100 % se marca como no evaluable y el mínimo no se paga.
   const hsTurno=(typeof _phHsProgTurno==='function')?_phHsProgTurno()
     :+((typeof localStorage!=='undefined'&&localStorage.getItem('gdar_ph_hsprog'))||10);
   const horasProg=+(dias.length*hsTurno).toFixed(2);
-  const dispMec=horasProg>0?Math.max(0,Math.min(100,(horasProg-horasInop)/horasProg*100)):100;
+  const baseDisp=+eq.hrsMinVenta||0;
+  const sinBaseDisp=!(baseDisp>0);
+  const dispMec=sinBaseDisp?0:Math.max(0,Math.min(100,(baseDisp-horasInop)/baseDisp*100));
   // Horas mínimas del CONTRATO CON EL PROVEEDOR (campo "Horas Mínimas" del Máster), no las de venta al cliente
   const horasMinimas=_edpHminOv!=null?_edpHminOv:(+eq.horasMinimas||0);
 
@@ -359,12 +364,13 @@ function _edpHoras(eq,desde,hasta){
   // El mínimo del contrato solo se paga si el equipo alcanzó la disponibilidad
   // mecánica exigida. Si estuvo mucho tiempo inoperativo el incumplimiento es
   // suyo, así que se le pagan únicamente las horas trabajadas.
-  const cumpleDisp=dispMec>=_EDP_DISP_MIN;
+  const cumpleDisp=!sinBaseDisp&&dispMec>=_EDP_DISP_MIN;
   const aplicaMinimo=cumpleDisp&&!_edpSoloEfectivas;
   const horasMinimasAPagar=aplicaMinimo?Math.max(0,+(horasMinimasProp-horasEfectivas).toFixed(2)):0;
   const horasAPagar=aplicaMinimo?Math.max(horasMinimasProp,horasEfectivas):horasEfectivas;
   const motivoSinMinimo=aplicaMinimo?''
     :_edpSoloEfectivas?'Se acordó pagar solo las horas efectivas'
+    :sinBaseDisp?'Falta Hrs Mín. Venta en el Máster: no se puede medir la disponibilidad'
     :`Disponibilidad mecánica ${dispMec.toFixed(1)}% < ${_EDP_DISP_MIN}% exigido`;
   const diasTrabajados=dias.reduce((s,d)=>s+d.trabajo,0);
 
@@ -406,7 +412,7 @@ function _edpHoras(eq,desde,hasta){
   const diasAPagar=Math.max(0,diasReportados-diasInoperativos);
   const incidencia=diasPeriodo>0?Math.min(1,+(diasAPagar/diasPeriodo).toFixed(4)):0;
 
-  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,hsTurno,horasProg,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
+  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,sinBaseDisp,baseDisp,hsTurno,horasProg,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
     turnosEnteros,turnosDobles,turnosAPagar,factorDoble:_edpFactDoble,
     diasReportados,diasInoperativos,diasAPagar,incidencia,
     horasMinimasProp,diasEnObra,factorMin,prorrateado,iniObra,finObra};
@@ -676,8 +682,10 @@ function rEdpProveedores(){
         // entienda por qué salió ese número antes de mandarlo a imprimir
         const bloqueado=!H.cumpleDisp;
         const col=bloqueado?'#ef4444':_edpSoloEfectivas?'#f59e0b':'#10b981';
-        const msg=bloqueado
-          ?`Disponibilidad ${H.dispMec.toFixed(1)}% &lt; ${_EDP_DISP_MIN}% · el mínimo no se paga (${_edpN2(H.horasInop)} h inoperativas de ${_edpN2(H.horasProg)} h programadas)`
+        const msg=H.sinBaseDisp
+          ?'Falta «Hrs Mín. Venta» de este equipo en el Máster · sin esa base no se puede medir la disponibilidad y el mínimo no se paga'
+          :bloqueado
+          ?`Disponibilidad ${H.dispMec.toFixed(1)}% &lt; ${_EDP_DISP_MIN}% · el mínimo no se paga (${_edpN2(H.horasInop)} h inoperativas de ${_edpN2(H.baseDisp)} h mínimas del cliente)`
           :_edpSoloEfectivas?'Se paga solo lo trabajado'
           :`Disponibilidad ${H.dispMec.toFixed(1)}% ≥ ${_EDP_DISP_MIN}% · se paga el mínimo${H.prorrateado?' proporcional ('+_edpN2(H.horasMinimasProp)+' h)':''}`;
         return`<div class="fg" style="grid-column:span 2">
@@ -1202,8 +1210,8 @@ function _edpDocHtml(eq,H,D,F){
     const _dCol=H.cumpleDisp?'#111':'#C00000';
     resumenPagina2=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:520px">
       <table style="border:1px solid #cbd5e1"><tbody>
-        <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700;color:${_dCol}">${H.dispMec.toFixed(1)}%</td></tr>
-        <tr><td style="${TD}">HORAS PROGRAMADAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasProg)} hrs</td></tr>
+        <tr><td style="${TD}">DISPONIBILIDAD MECÁNICA</td><td style="${TD};text-align:right;font-weight:700;color:${_dCol}">${H.sinBaseDisp?'—':H.dispMec.toFixed(1)+'%'}</td></tr>
+        <tr><td style="${TD}">HORAS MÍNIMAS CLIENTE</td><td style="${TD};text-align:right;font-weight:700">${H.sinBaseDisp?'—':_edpN2(H.baseDisp)+' hrs'}</td></tr>
         <tr><td style="${TD}">HORAS INOPERATIVAS</td><td style="${TD};text-align:right;font-weight:700;color:${H.horasInop?'#C00000':'#111'}">${_edpN2(H.horasInop)} hrs</td></tr>
         <tr><td style="${TD}">DISPONIBILIDAD MÍNIMA</td><td style="${TD};text-align:right;font-weight:700">${_EDP_DISP_MIN}.0%</td></tr>
         <tr><td style="${TD}">HORAS MÍNIMAS (MES)</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimas)} hrs</td></tr>
