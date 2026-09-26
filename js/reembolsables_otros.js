@@ -11,6 +11,16 @@ let _viaFDesde='',_viaFHasta='';
 function _viaSetTab(t){_viaTab=t;rViaticos();}
 function _viaSetFecha(tipo,val){if(tipo==='desde')_viaFDesde=val;else _viaFHasta=val;rViaticos();}
 function _viaLimpiarFecha(){_viaFDesde='';_viaFHasta='';rViaticos();}
+// El EDP filtra los dos tabs, igual que el período: Registro y Detalle por
+// Código (y sus PDF) muestran lo mismo. El EDP llega a veces como número y a
+// veces como texto, así que se compara en texto.
+const _viaEdpDe=r=>String(r&&r.edp!=null?r.edp:'').trim();
+function _viaEnEdp(r){return !_viaFiltEdp||_viaEdpDe(r)===_viaFiltEdp;}
+// Los EDP que existen, ordenados como número (4 antes que 10)
+function _viaEdps(){
+  return [...new Set((DB.viaticos||[]).map(_viaEdpDe).filter(Boolean))]
+    .sort((a,b)=>(+a||0)-(+b||0)||a.localeCompare(b));
+}
 function _viaEnRango(fecha){
   if(!_viaFDesde&&!_viaFHasta)return true;
   if(!fecha)return false;
@@ -35,8 +45,7 @@ function _viaRows(){
   if(_viaFiltProv)rows=rows.filter(r=>r.proveedor===_viaFiltProv);
   if(_viaFiltProy)rows=rows.filter(r=>r.proyecto===_viaFiltProy);
   if(_viaFiltCod)rows=rows.filter(r=>(r.codigo||'')===_viaFiltCod);
-  // El EDP se guarda a veces como número y a veces como texto: se compara en texto
-  if(_viaFiltEdp)rows=rows.filter(r=>String(r.edp==null?'':r.edp)===_viaFiltEdp);
+  rows=rows.filter(_viaEnEdp);
   if(_viaQ){const q=_viaQ.toLowerCase();rows=rows.filter(r=>`${r.proveedor||''} ${r.desc||''} ${r.serie||''} ${r.correlativo||''} ${r.ruc||''} ${r.codigo||''} ${r.nombreCodif||''}`.toLowerCase().includes(q));}
   return rows;
 }
@@ -48,9 +57,7 @@ function rViaticos(){
   const proys=[...new Set(all.map(r=>r.proyecto).filter(Boolean))].sort();
   const codMap={};all.forEach(r=>{if(r.codigo&&!codMap[r.codigo])codMap[r.codigo]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
-  // EDP: se ordena como número (4 antes que 10), no alfabéticamente
-  const edps=[...new Set(all.map(r=>String(r.edp==null?'':r.edp).trim()).filter(Boolean))]
-    .sort((a,b)=>(+a||0)-(+b||0)||a.localeCompare(b));
+  const edps=_viaEdps();   // el selector vive en la barra de período, junto a la fecha
   if(_viaFiltProv&&!provs.includes(_viaFiltProv))_viaFiltProv='';
   if(_viaFiltProy&&!proys.includes(_viaFiltProy))_viaFiltProy='';
   if(_viaFiltCod&&!cods.includes(_viaFiltCod))_viaFiltCod='';
@@ -128,10 +135,6 @@ function rViaticos(){
           <select onchange="_viaFiltProy=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>${proys.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaFiltProy?'selected':''}>${p}</option>`).join('')}
           </select>
-          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">EDP</span>
-          <select onchange="_viaFiltEdp=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltEdp?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;cursor:pointer;outline:none;font-family:monospace">
-            <option value="">— Todos —</option>${edps.map(e=>`<option value="${e.replace(/"/g,'&quot;')}" ${e===_viaFiltEdp?'selected':''}>N° ${e}</option>`).join('')}
-          </select>
           <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Cód. Reemb</span>
           <select onchange="_viaFiltCod=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltCod?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none;font-family:monospace">
             <option value="">— Todos —</option>${cods.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===_viaFiltCod?'selected':''}>${c}${codMap[c]?' — '+codMap[c]:''}</option>`).join('')}
@@ -183,6 +186,11 @@ function _viaFechaBar(){
     <span style="font-size:.7rem;color:var(--muted2)">Hasta</span>
     <input type="date" value="${_viaFHasta}" onchange="_viaSetFecha('hasta',this.value)" style="${inp}">
     <span style="font-size:.72rem;color:var(--bsw);font-weight:700">${et}</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">EDP</span>
+    <select onchange="_viaFiltEdp=this.value;rViaticos()" style="background:var(--panel);border:1px solid ${_viaFiltEdp?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.28rem .5rem;font-size:.76rem;cursor:pointer;outline:none;font-family:monospace">
+      <option value="">— Todos —</option>${_viaEdps().map(e=>`<option value="${e.replace(/"/g,'&quot;')}" ${e===_viaFiltEdp?'selected':''}>N° ${e}</option>`).join('')}
+    </select>
     ${act?`<button onclick="_viaLimpiarFecha()" style="font-size:.7rem;padding:.22rem .55rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">✕ Limpiar período</button>`:''}
   </div>`;
 }
@@ -426,7 +434,7 @@ function _viaPrintDetalle(){
 let _viaDetCod='';
 function _viaDetSetCod(c){_viaDetCod=c;rViaticos();}
 function _viaDetGrupos(){
-  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha));
+  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r));
   const rows=_viaDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_viaDetCod):all;
   const byCod={};
   rows.forEach(r=>{
@@ -492,12 +500,12 @@ function _viaDetDocHtml(){
       <img src="${_logoUrl}" style="height:44px;object-fit:contain">
       <div style="text-align:center;flex:1">
         <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES B.S.</div>
-        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
+        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}${_viaFiltEdp?' · EDP N° '+_viaFiltEdp:''}</div>
       </div>
       <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
     </div>
     ${_viaDetTablaHtml()}
-    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}${_viaFiltEdp?`EDP N° ${_viaFiltEdp} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
   </div>`;
 }
 function _viaDetPrint(){
@@ -513,7 +521,7 @@ function _viaDetPrint(){
   setTimeout(()=>win.print(),400);
 }
 function _viaDetHtml(){
-  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha));
+  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r));
   const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
   if(_viaDetCod&&!cods.includes(_viaDetCod))_viaDetCod='';   // el período pudo dejar fuera ese código
