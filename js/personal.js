@@ -948,6 +948,8 @@ function gResidencia(){const h=document.getElementById('rH').value.trim();if(!h)
 function libHab(id){const r=DB.residencia.find(x=>x.id===id);if(r){Object.assign(r,{est:'Disponible',trab:'',area:'',ing:'',sal:''});syncSheet('saveResidencia',r);}rResidencia();toast('Habitación liberada');}
 
 function rAli(){
+  // Pestañas Registro / Proyección Mensual (js/alimentacionProy.js)
+  if(typeof _apyPintarTabs==='function')_apyPintarTabs();
   const t=DB.alimentacion.length;
   document.getElementById('aliKpis').innerHTML=[{l:'Registros del Mes',v:t,c:'#ec4899'},{l:'Desayunos',v:DB.alimentacion.filter(a=>a.des==='✔ Sí').length,c:'#f59e0b'},{l:'Almuerzos',v:DB.alimentacion.filter(a=>a.alm==='✔ Sí').length,c:'#10b981'}].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join('');
   document.getElementById('tbAli').innerHTML=DB.alimentacion.map(r=>`<tr><td class="mono">${r.fecha}</td><td><span class="badge b-blue">${r.turno}</span></td><td>${r.trab}</td><td>${r.area}</td><td>${r.des==='✔ Sí'?'<span class="badge b-green">✔ Sí</span>':'<span class="badge b-red">✘ No</span>'}</td><td>${r.alm==='✔ Sí'?'<span class="badge b-green">✔ Sí</span>':'<span class="badge b-red">✘ No</span>'}</td><td>${r.cen==='✔ Sí'?'<span class="badge b-green">✔ Sí</span>':'<span class="badge b-red">✘ No</span>'}</td><td>${r.obs||'—'}</td><td><button class="btn btn-del btn-sm" onclick="del('alimentacion',${r.id})">🗑</button></td></tr>`).join('');

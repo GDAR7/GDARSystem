@@ -329,6 +329,8 @@
 <!-- BIENESTAR – ALIMENTACIÓN -->
 <div class="page" id="page-alimentacion">
   <div class="ph"><div class="ph-title" style="color:var(--bsw)">Alimentación</div><div class="ph-sub">Control de raciones y servicios de comedor</div></div>
+  <div id="aliTabBar"></div>
+  <div id="aliReg">
   <div class="kpi-row" id="aliKpis"></div>
   <div class="card">
     <div class="card-head"><span class="card-title">Registro de Alimentación</span>
@@ -342,6 +344,9 @@
       <tbody id="tbAli"></tbody>
     </table></div></div>
   </div>
+  </div>
+  <!-- Proyección mensual desde el tareo (js/alimentacionProy.js) -->
+  <div id="aliProy" style="display:none"></div>
 </div>
 
 <!-- BIENESTAR – HOSPEDAJE -->
@@ -3334,7 +3339,7 @@
 <script src="js/empresa.js?v=7"></script>
 <script src="js/config.js?v=53"></script>
 <script src="js/utils.js?v=34"></script>
-<script src="js/personal.js?v=23"></script>
+<script src="js/personal.js?v=24"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
 <script src="js/atencionRecursos.js?v=11"></script>
@@ -3393,6 +3398,7 @@
 <script src="js/costoIndirectoSim.js?v=1"></script>
 <script src="js/costoDirecto.js?v=1"></script>
 <script src="js/areasTrabajo.js?v=1"></script>
+<script src="js/alimentacionProy.js?v=1"></script>
 
 <!-- Modal: Tarifas de Equipos -->
 <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
