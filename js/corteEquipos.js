@@ -666,7 +666,7 @@ function rCorteEquipos(){
       <span style="font-size:.78rem;color:var(--muted2)">${_ceTab==='resumen'
         ?'Línea amarilla y línea blanca · <b style="color:#059669">'+_ceResumenDatos(per).filas.length+' equipos</b>'
         :(_ceEqId?'Corte de <b style="color:#059669">'+_ceEsc(titulo)+'</b>':'Elija un equipo en los filtros de arriba')}</span>
-      <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input class="search-input" placeholder="Buscar equipo..." value="${_ceEsc(_ceQ)}" oninput="_ceQ=this.value;rCorteEquipos()"></div>
+      <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input id="ceBuscar" class="search-input" placeholder="Buscar equipo..." value="${_ceEsc(_ceQ)}" oninput="_ceQ=this.value;buscarFoco('ceBuscar',rCorteEquipos)"></div>
       <button onclick="${_ceTab==='resumen'?'_ceResumenPrint()':'_cePrint()'}" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
       <button onclick="${_ceTab==='resumen'?'_ceResumenXls()':'_ceExportXls()'}" style="font-size:.72rem;padding:.32rem .9rem;border-radius:6px;border:none;background:#166534;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">📊 Excel</button>
     </div>

@@ -19,6 +19,30 @@ function nidSeguro(nxKey,dbKey){
 function toast(m,e=false){const t=document.getElementById('toast');t.textContent=(e?'✗ ':'✔ ')+m;t.className='show'+(e?' err':'');setTimeout(()=>t.className='',2500);}
 function openM(id){document.getElementById(id).classList.add('open');refreshSelects();}
 function closeM(id){document.getElementById(id).classList.remove('open');}
+// ── Buscadores que no pierden el foco ───────────────────────────────────────
+// Las páginas se dibujan reemplazando todo el innerHTML: al escribir en un
+// buscador, el input se destruye y vuelve a crearse con cada tecla, así que el
+// foco se pierde y hay que hacer clic de nuevo por cada letra.
+// Este ayudante espera a que la persona deje de escribir (250 ms), recién
+// entonces vuelve a dibujar, y devuelve el cursor a donde estaba.
+//
+//   <input id="miBuscador" oninput="_miQ=this.value;buscarFoco('miBuscador',rMiPagina)">
+//
+// El input DEBE tener id: es lo único que permite reencontrarlo después.
+const _busTimers={};
+function buscarFoco(id,render,ms){
+  clearTimeout(_busTimers[id]);
+  _busTimers[id]=setTimeout(()=>{
+    const a=document.getElementById(id);
+    const ss=a?a.selectionStart:null,se=a?a.selectionEnd:null;
+    render();
+    const n=document.getElementById(id);
+    if(n&&document.activeElement!==n){
+      n.focus();
+      if(ss!=null&&n.setSelectionRange)try{n.setSelectionRange(ss,se);}catch(e){}
+    }
+  },ms==null?250:ms);
+}
 function toggleCardBody(id,btn){
   const el=document.getElementById(id);if(!el)return;
   const collapsed=el.style.display==='none';
