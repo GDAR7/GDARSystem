@@ -4,7 +4,7 @@
 // funciones y los ids del modal conservan el prefijo _via / via*. Es solo un
 // prefijo interno: la clave del módulo, el id de la página y la clave de DB
 // siguen siendo 'viaticos' y están registradas así en config.js y utils.js.
-let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaQ='',_viaEditId=null;
+let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaFiltEdp='',_viaQ='',_viaEditId=null;
 // Tab activo y filtro de período — mismo modelo que Facturas/Boletas de Almacén
 let _viaTab='reg';                 // 'reg' | 'detalle'
 let _viaFDesde='',_viaFHasta='';
@@ -35,6 +35,8 @@ function _viaRows(){
   if(_viaFiltProv)rows=rows.filter(r=>r.proveedor===_viaFiltProv);
   if(_viaFiltProy)rows=rows.filter(r=>r.proyecto===_viaFiltProy);
   if(_viaFiltCod)rows=rows.filter(r=>(r.codigo||'')===_viaFiltCod);
+  // El EDP se guarda a veces como número y a veces como texto: se compara en texto
+  if(_viaFiltEdp)rows=rows.filter(r=>String(r.edp==null?'':r.edp)===_viaFiltEdp);
   if(_viaQ){const q=_viaQ.toLowerCase();rows=rows.filter(r=>`${r.proveedor||''} ${r.desc||''} ${r.serie||''} ${r.correlativo||''} ${r.ruc||''} ${r.codigo||''} ${r.nombreCodif||''}`.toLowerCase().includes(q));}
   return rows;
 }
@@ -46,9 +48,13 @@ function rViaticos(){
   const proys=[...new Set(all.map(r=>r.proyecto).filter(Boolean))].sort();
   const codMap={};all.forEach(r=>{if(r.codigo&&!codMap[r.codigo])codMap[r.codigo]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
+  // EDP: se ordena como número (4 antes que 10), no alfabéticamente
+  const edps=[...new Set(all.map(r=>String(r.edp==null?'':r.edp).trim()).filter(Boolean))]
+    .sort((a,b)=>(+a||0)-(+b||0)||a.localeCompare(b));
   if(_viaFiltProv&&!provs.includes(_viaFiltProv))_viaFiltProv='';
   if(_viaFiltProy&&!proys.includes(_viaFiltProy))_viaFiltProy='';
   if(_viaFiltCod&&!cods.includes(_viaFiltCod))_viaFiltCod='';
+  if(_viaFiltEdp&&!edps.includes(_viaFiltEdp))_viaFiltEdp='';
   const rows=_viaRows();
 
   const totSin=rows.reduce((a,r)=>a+(+r.importe||0),0);
@@ -122,6 +128,10 @@ function rViaticos(){
           <select onchange="_viaFiltProy=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>${proys.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaFiltProy?'selected':''}>${p}</option>`).join('')}
           </select>
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">EDP</span>
+          <select onchange="_viaFiltEdp=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltEdp?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;cursor:pointer;outline:none;font-family:monospace">
+            <option value="">— Todos —</option>${edps.map(e=>`<option value="${e.replace(/"/g,'&quot;')}" ${e===_viaFiltEdp?'selected':''}>N° ${e}</option>`).join('')}
+          </select>
           <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Cód. Reemb</span>
           <select onchange="_viaFiltCod=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltCod?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none;font-family:monospace">
             <option value="">— Todos —</option>${cods.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===_viaFiltCod?'selected':''}>${c}${codMap[c]?' — '+codMap[c]:''}</option>`).join('')}
@@ -130,13 +140,13 @@ function rViaticos(){
           <select onchange="_viaFiltProv=this.value;rViaticos()" style="background:var(--panel2);border:1px solid ${_viaFiltProv?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:200px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>${provs.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaFiltProv?'selected':''}>${p}</option>`).join('')}
           </select>
-          ${(_viaFiltProv||_viaFiltProy||_viaFiltCod)?`<button onclick="_viaFiltProv='';_viaFiltProy='';_viaFiltCod='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
-          <div class="search-wrap"><span>🔍</span><input id="viaBuscar" class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;buscarFoco('viaBuscar',rViaticos)"></div>
+          ${(_viaFiltProv||_viaFiltProy||_viaFiltCod||_viaFiltEdp)?`<button onclick="_viaFiltProv='';_viaFiltProy='';_viaFiltCod='';_viaFiltEdp='';rViaticos()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <button onclick="_viaPrintDetalle()" style="background:transparent;border:1px solid #ef444460;border-radius:6px;color:#ef4444;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Imprime el detalle agrupado Código → Proveedor → Factura, respetando los filtros activos">🖨 PDF</button>
           <input type="file" id="riFile" accept=".csv,.txt" style="display:none" onchange="_riArchivo(this)">
           <button onclick="_riAbrir()" style="background:transparent;border:1px solid #06b6d460;border-radius:6px;color:#06b6d4;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Cargar registros desde un archivo CSV">📥 Importar CSV</button>
           <button onclick="_viaExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
           <button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaNuevo()">＋ Nuevo Registro</button>
+          <div class="search-wrap"><span>🔍</span><input id="viaBuscar" class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;buscarFoco('viaBuscar',rViaticos)"></div>
         </div>
       </div>
       <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:70vh;overflow:auto">
