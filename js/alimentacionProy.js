@@ -24,6 +24,15 @@
 let _apyTab='reg';                 // 'reg' = el registro de siempre · 'proy'
 let _apyPer='';                    // 'YYYY-MM'
 let _apyBuscar='';
+// Cómo se delimita el período: el mes de calendario, o el corte 21→20 que
+// cierra en ese mes (setiembre 2026 = 21/08 al 20/09), que es la convención
+// del resto del sistema. Se recuerda en el navegador.
+let _apyModo=(()=>{try{return localStorage.getItem('gdar_apy_modo')==='corte'?'corte':'mes';}catch(e){return'mes';}})();
+function _apySetModo(m){
+  _apyModo=m==='corte'?'corte':'mes';
+  try{localStorage.setItem('gdar_apy_modo',_apyModo);}catch(e){}
+  rAli();
+}
 
 const _APY_COMEN=['TD','TN','DLT'];          // las únicas marcas con derecho
 const _APY_RACIONES=[
@@ -44,19 +53,37 @@ function _apySetTab(t){_apyTab=t==='proy'?'proy':'reg';rAli();}
 function _apyPerDef(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function _apySetPer(v){if(!v)return;_apyPer=v;rAli();}
 function _apyPerActual(){return _apyPer||(_apyPer=_apyPerDef());}
-// Los días del mes elegido
-function _apyFechas(){
+const _apyISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// Primer y último día del período, según el modo elegido
+function _apyRango(){
   const[a,m]=_apyPerActual().split('-').map(Number);
-  const n=new Date(a,m,0).getDate();
+  if(_apyModo==='corte'){
+    // El corte cierra el 20 del mes elegido y arranca el 21 del anterior
+    return{desde:_apyISO(new Date(a,m-2,21)),hasta:_apyISO(new Date(a,m-1,20))};
+  }
+  return{desde:_apyISO(new Date(a,m-1,1)),hasta:_apyISO(new Date(a,m,0))};
+}
+// Los días del período elegido
+function _apyFechas(){
+  const{desde,hasta}=_apyRango();
   const out=[];
-  for(let d=1;d<=n;d++)out.push(`${a}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  const d=new Date(desde+'T12:00:00'), fin=new Date(hasta+'T12:00:00');
+  while(d<=fin){out.push(_apyISO(d));d.setDate(d.getDate()+1);}
   return out;
 }
+const _apyDMY=s=>String(s).slice(8,10)+'/'+String(s).slice(5,7)+'/'+String(s).slice(0,4);
 const _APY_MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
 function _apyPerNombre(){
   const[a,m]=_apyPerActual().split('-').map(Number);
-  return (_APY_MESES[m-1]||'')+' '+a;
+  const mes=(_APY_MESES[m-1]||'')+' '+a;
+  if(_apyModo!=='corte')return mes;
+  const{desde,hasta}=_apyRango();
+  return 'corte '+_apyDMY(desde)+' al '+_apyDMY(hasta);
 }
+// Clave con la que se guarda el rancho frío: los ranchos contados en el mes de
+// calendario no son los mismos que los del corte, así que no se mezclan. Los
+// PRECIOS sí se comparten: son los del mes, se mire como se mire.
+function _apyRanchoClave(){return _apyPerActual()+(_apyModo==='corte'?'C':'');}
 
 // ── Procedencias locales ────────────────────────────────────────────────────
 function _apyLocales(){
@@ -120,13 +147,13 @@ async function _apySetPrecio(campo){
 
 // ── Rancho frío, cargado a mano ─────────────────────────────────────────────
 function _apyRanchoDe(personalId){
-  const per=_apyPerActual();
+  const per=_apyRanchoClave();
   const r=(DB.alimRancho||[]).find(x=>String(x.periodo)===per&&+x.personalId===+personalId);
   return r?Math.max(0,+r.cant||0):0;
 }
 async function _apySetRancho(personalId,valor){
   const n=Math.max(0,Math.round(+String(valor).replace(',','.')||0));
-  const per=_apyPerActual();
+  const per=_apyRanchoClave();
   DB.alimRancho=DB.alimRancho||[];
   const prev=DB.alimRancho.find(x=>String(x.periodo)===per&&+x.personalId===+personalId);
   if(!n&&prev){                       // volver a 0 es borrar la fila
@@ -205,7 +232,8 @@ function _apyDatos(){
     return T;
   };
   const locales=filas.filter(r=>r.local), fuera=filas.filter(r=>!r.local);
-  return{F,per:_apyPerActual(),precios:P,filas,locales,fuera,
+  const rango=_apyRango();
+  return{F,per:_apyPerActual(),modo:_apyModo,desde:rango.desde,hasta:rango.hasta,precios:P,filas,locales,fuera,
     total:tot(filas),totLocal:tot(locales),totFuera:tot(fuera),totalDe:tot,
     sinPrecio:!(P.des||P.alm||P.cen||P.ran)};
 }
@@ -217,6 +245,7 @@ function _apyExportXls(){
   const P=D.precios;
   const aoa=[
     ['PROYECCIÓN DE ALIMENTACIÓN — '+_apyPerNombre().toUpperCase()],
+    ['Período',_apyDMY(D.desde)+' al '+_apyDMY(D.hasta),'Días',D.F.length],
     ['Precios','Desayuno',P.des,'Almuerzo',P.alm,'Cena',P.cen,'Rancho frío',P.ran],
     [],
     ['Trabajador','DNI','Cargo','Procedencia','Local','TD','TN','DLT','Días',
@@ -230,7 +259,7 @@ function _apyExportXls(){
   ws['!cols']=[{wch:32},{wch:11},{wch:22},{wch:18},{wch:7}].concat(Array(10).fill({wch:11}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Proyección');
-  XLSX.writeFile(wb,'Proyeccion Alimentacion '+D.per+'.xlsx');
+  XLSX.writeFile(wb,'Proyeccion Alimentacion '+(D.modo==='corte'?'corte ':'')+D.per+'.xlsx');
 }
 
 // ── Documento para imprimir ─────────────────────────────────────────────────
@@ -276,6 +305,7 @@ function _apyDoc(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:3px solid ${AZ};padding-bottom:6px">
       <div style="flex:1;font-size:10px;color:#333">
         <div style="font-weight:800;color:${AZ};text-transform:capitalize">${_apyPerNombre()}</div>
+        <div>${_apyDMY(D.desde)} al ${_apyDMY(D.hasta)} · ${D.F.length} días</div>
         <div>Precios: Des. ${_apyS2(P.des)} · Alm. ${_apyS2(P.alm)} · Cena ${_apyS2(P.cen)} · Rancho ${_apyS2(P.ran)}</div>
       </div>
       <div style="flex:2;text-align:center">
@@ -361,6 +391,9 @@ function _apyRender(){
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Mes</span>
     <input type="month" value="${D.per}" onchange="_apySetPer(this.value)" style="${inpS};width:145px">
+    ${[['mes','Mes calendario','Del 1 al último día del mes'],['corte','Corte 21→20','Del 21 del mes anterior al 20 del mes elegido']]
+      .map(([k,l,t])=>{const on=_apyModo===k;return`<button onclick="_apySetModo('${k}')" title="${t}" style="font-size:.66rem;padding:.24rem .6rem;border-radius:6px;border:1px solid ${on?'var(--bsw)':'var(--border)'};background:${on?'var(--bsw)':'transparent'};color:${on?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${on?'800':'500'};white-space:nowrap">${l}</button>`;}).join('')}
+    <span style="font-size:.66rem;color:var(--bsw);font-weight:700;font-family:monospace;white-space:nowrap">${_apyDMY(D.desde)} → ${_apyDMY(D.hasta)}</span>
     <div style="width:1px;height:18px;background:var(--border)"></div>
     ${_APY_RACIONES.map(r=>btPrecio(r.k,r.l,r.c)).join('')}
     <div class="search-wrap" style="margin-left:auto"><span>🔍</span><input id="apyBuscar" class="search-input" placeholder="Buscar..." value="${_apyEsc(_apyBuscar)}" oninput="_apyBuscar=this.value;buscarFoco('apyBuscar',rAli)"></div>

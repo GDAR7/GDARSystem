@@ -121,6 +121,24 @@ es('  personas con derecho',D.total.n,3);
 es('los subtotales separan local de foráneo',
   D.totLocal.n+' local(es) · '+D.totFuera.n+' de fuera','2 local(es) · 1 de fuera');
 
+console.log('\n== Período 21 → 20 ==');
+es('por defecto trabaja con el mes de calendario',ev('_apyModo'),'mes');
+es('  del 1 al 30 de setiembre',D.desde+' → '+D.hasta,'2026-09-01 → 2026-09-30');
+ev('_apySetModo("corte")');
+D=ev('_apyDatos()');
+es('en corte, del 21/08 al 20/09',D.desde+' → '+D.hasta,'2026-08-21 → 2026-09-20');
+es('  31 días',D.F.length,31);
+es('  y lo dice con todas sus letras',ev('_apyPerNombre()'),'corte 21/08/2026 al 20/09/2026');
+es('ahora sí entra el TD del 31/08',f(1).dias,6);
+es('  que suma un desayuno y un almuerzo',f(1).des+'/'+f(1).alm+'/'+f(1).cen,'6/4/2');
+es('el rancho del mes no se arrastra al corte',f(1).ran,0);
+es('  porque se guarda con otra clave',ev('_apyRanchoClave()'),'2026-09C');
+es('los precios sí son los mismos del mes',D.precios.des,8);
+ev('_apySetModo("mes")');
+D=ev('_apyDatos()');
+es('al volver al mes, el 31/08 sale de nuevo',f(1).dias,5);
+es('  y el rancho vuelve a verse',f(1).ran,2);
+
 console.log('\n== Sin precios cargados ==');
 ev('_apyPer="2026-10"');
 es('otro mes sin precios se avisa',ev('_apyDatos().sinPrecio'),true);
@@ -186,8 +204,9 @@ console.log('\n== Guardar precios y rancho ==');
   xls=null;ev('_apyExportXls()');
   es('la hoja se genera',!!xls,true);
   es('  con el mes en el nombre',xls.archivo,'Proyeccion Alimentacion 2026-09.xlsx');
-  es('  15 columnas',xls.aoa[3].length,15);
-  es('  una fila por persona con derecho',xls.aoa.length,4+3+1);
+  es('  15 columnas',xls.aoa[4].length,15);
+  es('  una fila por persona con derecho',xls.aoa.length,5+3+1);
+  es('  y dice el período en la cabecera',xls.aoa[1][1],'01/09/2026 al 30/09/2026');
   es('  y cierra con el total',xls.aoa[xls.aoa.length-1][0],'TOTAL');
   ventana=null;ev('_apyPrint()');
   es('el PDF se arma',/PROYECCIÓN DE ALIMENTACIÓN/.test(ventana.html),true);
