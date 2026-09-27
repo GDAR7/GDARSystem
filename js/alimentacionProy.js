@@ -14,8 +14,10 @@
 //    · El tareo NO guarda el turno del DLT: se hereda del día anterior de esa
 //      misma persona con marca TD/TN; si no hay, del siguiente; si tampoco,
 //      turno día. Las filas con turno heredado se marcan con ~ en el reporte.
-//    · El rancho frío NO se proyecta: se carga a mano por persona (columna
-//      propia) y se valoriza con su propio precio.
+//    · RANCHO FRÍO: uno por cada NOCHE trabajada (TN, y DLT heredado a noche),
+//      aparte de la cena y para todos, locales o no. La casilla de la tabla es
+//      un ajuste: vacía manda lo proyectado; con un número manda ese número
+//      (0 incluido, para dejar a alguien sin rancho).
 //
 //  Los precios y las procedencias locales viven en Supabase
 //  (sql/alimentacion_proyeccion.sql). Prefijo _apy.
@@ -146,22 +148,30 @@ async function _apySetPrecio(campo){
 }
 
 // ── Rancho frío, cargado a mano ─────────────────────────────────────────────
-function _apyRanchoDe(personalId){
+// La fila de ajuste, si existe. Sin fila = manda lo proyectado por el tareo.
+function _apyRanchoFila(personalId){
   const per=_apyRanchoClave();
-  const r=(DB.alimRancho||[]).find(x=>String(x.periodo)===per&&+x.personalId===+personalId);
+  return (DB.alimRancho||[]).find(x=>String(x.periodo)===per&&+x.personalId===+personalId)||null;
+}
+function _apyRanchoDe(personalId){
+  const r=_apyRanchoFila(personalId);
   return r?Math.max(0,+r.cant||0):0;
 }
 async function _apySetRancho(personalId,valor){
-  const n=Math.max(0,Math.round(+String(valor).replace(',','.')||0));
+  const txt=String(valor==null?'':valor).trim();
   const per=_apyRanchoClave();
   DB.alimRancho=DB.alimRancho||[];
   const prev=DB.alimRancho.find(x=>String(x.periodo)===per&&+x.personalId===+personalId);
-  if(!n&&prev){                       // volver a 0 es borrar la fila
-    await supaDelete('alimRancho',prev.id);
-    DB.alimRancho=DB.alimRancho.filter(x=>+x.id!==+prev.id);
-    rAli();return;
+  // Vaciar la casilla borra el ajuste: vuelve a mandar lo que proyecta el tareo
+  if(txt===''){
+    if(prev){
+      await supaDelete('alimRancho',prev.id);
+      DB.alimRancho=DB.alimRancho.filter(x=>+x.id!==+prev.id);
+      rAli();
+    }
+    return;
   }
-  if(!n)return;
+  const n=Math.max(0,Math.round(+txt.replace(',','.')||0));
   const nuevo=!prev;
   const rec={id:nuevo?nidSeguro('almr','alimRancho'):+prev.id,periodo:per,personalId:+personalId,cant:n};
   if(nuevo)DB.alimRancho.push({...rec});
@@ -203,31 +213,37 @@ function _apyDatos(){
     const nombre=`${p.ape||''} ${p.nom||''}`.trim();
     if(q&&!_apyNorm(`${nombre} ${p.dni||''} ${p.cargo||''} ${proc}`).includes(q))return;
     const local=_apyEsLocal(proc);
-    let nTD=0,nTN=0,nDLT=0,des=0,alm=0,cen=0,inferidos=0;
+    let nTD=0,nTN=0,nDLT=0,des=0,alm=0,cen=0,inferidos=0,noches=0;
     marcas.forEach((m,i)=>{
       if(_APY_COMEN.indexOf(m.tipo)<0)return;          // ese día no come
       let turno;
       if(m.tipo==='TD'){nTD++;turno='dia';}
       else if(m.tipo==='TN'){nTN++;turno='noche';}
       else{nDLT++;turno=_apyTurnoDlt(marcas,i);inferidos++;}
+      if(turno==='noche')noches++;                     // una noche, un rancho frío
       if(!local){des++;alm++;cen++;}                   // de fuera: las tres
       else if(turno==='noche'){des++;cen++;}           // local de noche
       else{des++;alm++;}                               // local de día
     });
     const dias=nTD+nTN+nDLT;
     if(!dias)return;                                   // el mes entero sin derecho
-    const ran=_apyRanchoDe(p.id);
+    // Rancho frío: uno por noche trabajada. La casilla de la tabla lo pisa.
+    const ranProy=noches;
+    const ranFila=_apyRanchoFila(p.id);
+    const ranManual=!!ranFila;
+    const ran=ranManual?Math.max(0,+ranFila.cant||0):ranProy;
     const costo=+(des*P.des+alm*P.alm+cen*P.cen+ran*P.ran).toFixed(2);
     filas.push({p,nombre,proc,local,nTD,nTN,nDLT,dias,des,alm,cen,ran,costo,
-      inferidos,raciones:des+alm+cen});
+      noches,ranProy,ranManual,inferidos,raciones:des+alm+cen+ran});
   });
   filas.sort((a,b)=>(a.local===b.local?0:a.local?1:-1)
     ||a.nombre.localeCompare(b.nombre,'es'));
 
   const tot=f=>{
-    const T={n:f.length,dias:0,des:0,alm:0,cen:0,ran:0,costo:0,raciones:0,inferidos:0};
+    const T={n:f.length,dias:0,des:0,alm:0,cen:0,ran:0,costo:0,raciones:0,inferidos:0,noches:0,ajustados:0};
     f.forEach(r=>{T.dias+=r.dias;T.des+=r.des;T.alm+=r.alm;T.cen+=r.cen;T.ran+=r.ran;
-      T.costo+=r.costo;T.raciones+=r.raciones;T.inferidos+=r.inferidos;});
+      T.costo+=r.costo;T.raciones+=r.raciones;T.inferidos+=r.inferidos;
+      T.noches+=r.noches;if(r.ranManual)T.ajustados++;});
     T.costo=+T.costo.toFixed(2);
     return T;
   };
@@ -347,7 +363,7 @@ function _apyDoc(){
       Solo come quien tiene TD, TN o DLT · los de fuera: desayuno, almuerzo y cena ·
       los locales (${_apyLocales().map(l=>_apyEsc(l.nombre)).join(', ')||'ninguna procedencia cargada'}):
       de día desayuno y almuerzo, de noche desayuno y cena ·
-      el rancho frío no se proyecta, se carga a mano ·
+      rancho frío: uno por cada noche trabajada, aparte de la cena ·
       ~ el turno del DLT se heredó del día anterior de la misma persona
     </div>
   </div>`;
@@ -429,7 +445,7 @@ function _apyRender(){
     <td style="${TDs};text-align:center;font-family:monospace;color:#f59e0b">${r.des||'—'}</td>
     <td style="${TDs};text-align:center;font-family:monospace;color:#10b981">${r.alm||'—'}</td>
     <td style="${TDs};text-align:center;font-family:monospace;color:#818cf8">${r.cen||'—'}</td>
-    <td style="${TDs};text-align:center"><input type="number" min="0" step="1" value="${r.ran||''}" placeholder="0" onchange="_apySetRancho(${+r.p.id},this.value)" style="width:56px;text-align:center;font-size:.72rem;padding:.15rem .25rem;border-radius:5px;border:1px solid ${r.ran?'#06b6d4':'var(--border)'};background:var(--panel);color:${r.ran?'#06b6d4':'var(--text)'}"></td>
+    <td style="${TDs};text-align:center"><input type="number" min="0" step="1" value="${r.ranManual?r.ran:''}" placeholder="${r.ranProy}" onchange="_apySetRancho(${+r.p.id},this.value)" title="${r.ranManual?'Ajustado a mano. Vacíe la casilla para volver a las '+r.ranProy+' noche(s) del tareo':'Proyectado: '+r.ranProy+' noche(s) trabajada(s). Escriba un número para ajustarlo'}" style="width:56px;text-align:center;font-size:.72rem;padding:.15rem .25rem;border-radius:5px;border:1px solid ${r.ranManual?'#f59e0b':r.ran?'#06b6d4':'var(--border)'};background:var(--panel);color:${r.ranManual?'#f59e0b':'#06b6d4'};font-weight:${r.ranManual?'800':'400'}"></td>
     <td style="${TDs};text-align:right;font-family:monospace;font-weight:800;color:#f472b6">${_apyS2(r.costo)}</td>
   </tr>`;
   const grupo=(titulo,items,S,col)=>items.length?`
@@ -449,7 +465,7 @@ function _apyRender(){
     +`<div class="kpi-row">${kpis}</div>`
     +(D.sinPrecio?`<div style="margin-bottom:.7rem;padding:.5rem .7rem;border:1px solid #f59e0b55;background:#f59e0b18;border-radius:8px;font-size:.72rem;color:#f59e0b">Sin precios cargados para ${_apyPerNombre()}: las raciones se cuentan igual, pero el costo sale en S/ 0.00. Use los botones 💰 de arriba.</div>`:'')
     +`<div class="card"><div class="card-head"><span class="card-title">📊 Proyección de ${_apyPerNombre()}</span>
-        <span style="font-size:.68rem;color:var(--muted2)">${T.raciones} ración(es) proyectadas desde el tareo${T.ran?' · '+T.ran+' rancho(s) frío(s) cargado(s) a mano':''}</span></div>
+        <span style="font-size:.68rem;color:var(--muted2)">${T.raciones} ración(es) proyectadas desde el tareo · ${T.noches} noche(s) con rancho frío${T.ajustados?' · '+T.ajustados+' ajustada(s) a mano':''}</span></div>
       <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:65vh;overflow:auto">
       <table style="min-width:100%;border-collapse:collapse"><thead><tr>
         <th style="${THs};text-align:left">Trabajador</th><th style="${THs};text-align:left">Cargo</th>

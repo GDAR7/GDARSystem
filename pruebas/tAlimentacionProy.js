@@ -93,7 +93,7 @@ es('  5 días con derecho, los DL y la F no cuentan',f(1).dias,5);
 es('  desayunos: uno por día con derecho',f(1).des,5);
 es('  almuerzos: solo los 3 de turno día',f(1).alm,3);
 es('  cenas: solo las 2 de turno noche',f(1).cen,2);
-es('  nunca 3 raciones el mismo día',f(1).raciones,10);
+es('  nunca desayuno+almuerzo+cena el mismo día',f(1).des+f(1).alm+f(1).cen,10);
 
 console.log('\n== De fuera: las tres ==');
 es('P2 con 4 TD',f(2).dias,4);
@@ -108,12 +108,22 @@ es('  así que solo el TD deja almuerzo',f(3).alm,1);
 es('  3 desayunos',f(3).des,3);
 es('  y queda marcado como heredado',f(3).inferidos,1);
 
+console.log('\n== Rancho frío: uno por noche trabajada ==');
+es('P1 hizo 2 noches',f(1).noches,2);
+es('  le corresponden 2 ranchos',f(1).ranProy,2);
+es('  aparte de sus 2 cenas',f(1).cen,2);
+es('P2 nunca trabajó de noche: sin rancho',f(2).ranProy,0);
+es('  y tampoco cenas de turno noche',f(2).noches,0);
+es('P3: la noche del TN y la del DLT heredado',f(3).noches,2);
+es('  también le tocan 2 ranchos',f(3).ranProy,2);
+es('  sin que nadie los cargue a mano',f(3).ranManual,false);
+es('los ranchos del mes salen del tareo',D.total.ran,4);
+
 console.log('\n== El costo ==');
-es('P1: 5×8 + 3×15 + 2×12 + 2 ranchos ×10',f(1).costo,5*8+3*15+2*12+2*10);
-es('  el rancho frío se carga a mano',f(1).ran,2);
-es('P2: 4×8 + 4×15 + 4×12',f(2).costo,4*8+4*15+4*12);
-es('P3 no tiene rancho cargado',f(3).ran,0);
-es('total del mes',D.total.costo,129+140+63);
+es('P1: 5×8 + 3×15 + 2×12 + 2×10',f(1).costo,5*8+3*15+2*12+2*10);
+es('P2: 4×8 + 4×15 + 4×12, sin rancho',f(2).costo,4*8+4*15+4*12);
+es('P3: 3×8 + 1×15 + 2×12 + 2×10',f(3).costo,3*8+1*15+2*12+2*10);
+es('total del mes',D.total.costo,129+140+83);
 es('  desayunos del mes',D.total.des,12);
 es('  almuerzos',D.total.alm,8);
 es('  cenas',D.total.cen,8);
@@ -131,13 +141,14 @@ es('  31 días',D.F.length,31);
 es('  y lo dice con todas sus letras',ev('_apyPerNombre()'),'corte 21/08/2026 al 20/09/2026');
 es('ahora sí entra el TD del 31/08',f(1).dias,6);
 es('  que suma un desayuno y un almuerzo',f(1).des+'/'+f(1).alm+'/'+f(1).cen,'6/4/2');
-es('el rancho del mes no se arrastra al corte',f(1).ran,0);
+es('el ajuste manual del mes no se arrastra al corte',f(1).ranManual,false);
 es('  porque se guarda con otra clave',ev('_apyRanchoClave()'),'2026-09C');
+es('  pero el rancho se sigue proyectando por sus noches',f(1).ran,2);
 es('los precios sí son los mismos del mes',D.precios.des,8);
 ev('_apySetModo("mes")');
 D=ev('_apyDatos()');
 es('al volver al mes, el 31/08 sale de nuevo',f(1).dias,5);
-es('  y el rancho vuelve a verse',f(1).ran,2);
+es('  y el ajuste manual vuelve a verse',f(1).ranManual,true);
 
 console.log('\n== Sin precios cargados ==');
 ev('_apyPer="2026-10"');
@@ -169,11 +180,16 @@ console.log('\n== Guardar precios y rancho ==');
   es('  y se avisa',avisos.some(a=>a.e&&/inválido/i.test(a.m)),true);
 
   await ev('_apySetRancho(3,4)');
-  es('el rancho de P3 quedó en 4',ev('_apyRanchoDe(3)'),4);
+  es('el ajuste de P3 quedó en 4',ev('_apyDatos().filas.find(r=>r.p.id===3).ran'),4);
+  es('  y pisa las 2 noches proyectadas',ev('_apyDatos().filas.find(r=>r.p.id===3).ranProy'),2);
   es('  se guardó en Supabase',guardados.filter(g=>g.k==='alimRancho').length,1);
   await ev('_apySetRancho(3,0)');
-  es('ponerlo en 0 borra la fila',ev('_apyRanchoDe(3)'),0);
-  es('  y se borró en Supabase',borrados.filter(b=>b.k==='alimRancho').length,1);
+  es('se puede dejar a alguien en 0 a propósito',ev('_apyDatos().filas.find(r=>r.p.id===3).ran'),0);
+  es('  y queda marcado como ajuste, no como proyección',
+    ev('_apyDatos().filas.find(r=>r.p.id===3).ranManual'),true);
+  await ev('_apySetRancho(3,"")');
+  es('vaciar la casilla borra el ajuste',borrados.filter(b=>b.k==='alimRancho').length,1);
+  es('  y vuelve a mandar el tareo',ev('_apyDatos().filas.find(r=>r.p.id===3).ran'),2);
 
   respuesta='Pachangara';
   await ev('_apyLocalAgregar()');
