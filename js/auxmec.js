@@ -69,13 +69,47 @@ function _amPopulateMatDatalist(){
     vistos.add(d.toLowerCase());return true;
   }).map(c=>`<option value="${c.desc.replace(/"/g,'&quot;')}">`).join('');
 }
-// Al elegir/escribir una descripción que coincide con un material del catálogo, autocompleta su Código de Almacén
+// El material del catálogo que calza exactamente con una descripción
+function _amMatDe(desc){
+  const v=String(desc||'').trim().toLowerCase();
+  return v?((DB.catalogoItems||[]).find(c=>(c.desc||'').trim().toLowerCase()===v)||null):null;
+}
+// Cuando el ítem sale del catálogo de materiales, su Código de Almacén y su
+// Unidad son los que están registrados ahí: se traen y se bloquean, para que
+// el auxilio no invente un código ni una unidad distinta de la del almacén.
+// Un ítem que no está en el catálogo se escribe libremente.
+function _amInsumoSyncCatalogo(tr){
+  if(!tr)return null;
+  const inp=tr.querySelectorAll('input,select');
+  const cod=inp[1], und=inp[3];
+  if(!cod||!und)return null;
+  const mat=_amMatDe(inp[0]?inp[0].value:'');
+  const BLOQ='background:var(--panel);border:1px dashed var(--border);border-radius:4px;padding:.25rem .4rem;'
+    +'color:var(--muted2);font-size:.73rem;cursor:not-allowed';
+  const LIBRE='background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:.25rem .4rem;'
+    +'color:var(--text);font-size:.73rem;width:100%';
+  if(mat){
+    cod.value=mat.cod||'';
+    und.value=mat.und||'';
+    [[cod,'85px'],[und,'60px']].forEach(([x,w])=>{
+      x.readOnly=true;x.dataset.bloq='1';
+      x.style.cssText=BLOQ+';width:'+w;
+      x.title='«'+mat.desc+'» está en el catálogo de materiales: su código y su unidad salen de ahí.'
+        +' Para cambiarlos, edite el material en Data de Ingresos → Materiales.';
+    });
+  }else{
+    [[cod,'85px'],[und,'60px']].forEach(([x,w])=>{
+      if(!x.dataset.bloq)return;                 // nunca estuvo bloqueado
+      x.readOnly=false;delete x.dataset.bloq;
+      x.style.cssText=LIBRE+';width:'+w;
+      x.title='';
+    });
+  }
+  return mat;
+}
+// Al elegir/escribir una descripción, se resuelve contra el catálogo
 function _amInsumoDescInput(el){
-  const tr=el.closest('tr');if(!tr)return;
-  const codInput=tr.querySelectorAll('input,select')[1];if(!codInput)return;
-  const v=(el.value||'').trim().toLowerCase();
-  const mat=v?(DB.catalogoItems||[]).find(c=>(c.desc||'').trim().toLowerCase()===v):null;
-  if(mat)codInput.value=mat.cod||'';
+  _amInsumoSyncCatalogo(el.closest('tr'));
 }
 function amAddInsumo(){
   const tbody=document.getElementById('amInsumosBody');
@@ -92,7 +126,15 @@ function amAddInsumo(){
 function amGetInsumos(){
   return[...document.getElementById('amInsumosBody').children].map(tr=>{
     const inp=tr.querySelectorAll('input,select');
-    return{desc:inp[0].value.trim(),cod:inp[1].value.trim(),cant:+inp[2].value||0,und:inp[3].value.trim(),origen:inp[4].value};
+    const desc=inp[0].value.trim();
+    // Si está en el catálogo, mandan su código y su unidad: lo que se guarda
+    // no depende de que la casilla haya quedado bloqueada en pantalla.
+    const mat=_amMatDe(desc);
+    return{desc,
+      cod:mat?(mat.cod||''):inp[1].value.trim(),
+      cant:+inp[2].value||0,
+      und:mat?(mat.und||''):inp[3].value.trim(),
+      origen:inp[4].value};
   }).filter(r=>r.desc);
 }
 
@@ -471,6 +513,8 @@ function editAuxMec(id){
         <td><input style="${ISS};width:60px" value="${ins.und||''}"></td>
         <td><select style="${ISS};width:150px">${_provOptsHtml(ins.origen)}</select></td>
         <td><button class="btn btn-del btn-sm" onclick="this.closest('tr').remove()" style="padding:.2rem .4rem">✕</button></td>`;
+      // Si el ítem es del catálogo, el código y la unidad quedan bloqueados
+      _amInsumoSyncCatalogo(tr);
       return tr;
     })());
   });
