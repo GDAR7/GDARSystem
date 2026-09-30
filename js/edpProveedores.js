@@ -253,8 +253,20 @@ async function _edpDelFirma(){
   rEdpProveedores();
 }
 function _edpAddDescManual(){
-  _edpDescManual.push({desc:'',und:'und',cant:0,precio:0});
+  _edpDescManual.push({desc:'',und:'und',cant:0,precio:0,tipo:'desc'});
   rEdpProveedores();
+}
+// ── Línea manual: descuento o reconocimiento ────────────────────────────────
+// El DESCUENTO resta de lo que se le paga al proveedor (acápite 2.00 del EDP).
+// El RECONOCIMIENTO suma, y sale en el acápite 1.00, debajo del equipo: es
+// plata que se le reconoce aparte de sus horas o días, como el daño de una
+// camioneta. Antes se lograba poniendo un descuento con cantidad −1; los EDP
+// guardados así no llevan `tipo`, y se siguen leyendo como descuento.
+function _edpManualEs(r){return String((r&&r.tipo)||'desc')==='rec'?'rec':'desc';}
+function _edpManualRows(tipo){
+  return _edpDescManual
+    .filter(r=>_edpManualEs(r)===tipo)
+    .map(r=>({...r,total:+((+r.cant||0)*(+r.precio||0)).toFixed(2)}));
 }
 function _edpRerender(inmediato){
   clearTimeout(_edpTimer);
@@ -570,13 +582,18 @@ function rEdpProveedores(){
       return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
         precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
     })()]:[]),
-    ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
+    ..._edpManualRows('desc')
   ];
+  const recRows=_edpManualRows('rec');
   // Los descuentos vienen en soles; el equipo puede valorizarse en otra moneda.
   const _fTC=_edpFactorTC(eq);
-  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  if(_fTC!==1){
+    descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+    recRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  }
   const totDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
-  const presupuestoTotal=+(totEquipo-totDesc).toFixed(2);
+  const totRecMan=+recRows.reduce((s,r)=>s+r.total,0).toFixed(2);
+  const presupuestoTotal=+(totEquipo+totRecMan-totDesc).toFixed(2);
   const subTotal=presupuestoTotal;
   const igv=+(subTotal*0.18).toFixed(2);
   const total=+(subTotal+igv).toFixed(2);
@@ -720,14 +737,19 @@ function rEdpProveedores(){
       <div id="arPanel" style="margin-top:.5rem"></div>
     </details>
     <div style="margin-top:.6rem">
-      <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Descuento manual</button>
-      ${_edpDescManual.map((r,i)=>`<div style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem">
+      <button onclick="_edpAddDescManual()" style="font-size:.72rem;padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer">＋ Línea manual</button>
+      <span style="font-size:.62rem;color:var(--muted2);margin-left:.4rem">el descuento resta · el reconocimiento suma y sale en el acápite 1.00</span>
+      ${_edpDescManual.map((r,i)=>{const esRec=_edpManualEs(r)==='rec';return`<div style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem">
+        <select id="edp_dmtipo_${i}" onchange="_edpSetDescManual(${i},'tipo',this.value)" style="${inpS};width:145px;border-color:${esRec?'#10b981':'#ef4444'};color:${esRec?'#10b981':'#ef4444'};font-weight:700">
+          <option value="desc"${esRec?'':' selected'}>− Descuento</option>
+          <option value="rec"${esRec?' selected':''}>+ Reconocimiento</option>
+        </select>
         <input id="edp_dmdesc_${i}" placeholder="Descripción" value="${r.desc}" oninput="_edpSetDescManual(${i},'desc',this.value)" style="${inpS};flex:1">
         <input id="edp_dmund_${i}" placeholder="und" value="${r.und}" oninput="_edpSetDescManual(${i},'und',this.value)" style="${inpS};width:70px">
         <input id="edp_dmcant_${i}" type="number" placeholder="Cant." value="${r.cant}" oninput="_edpSetDescManual(${i},'cant',this.value)" style="${inpS};width:80px">
         <input id="edp_dmprecio_${i}" type="number" placeholder="Precio" value="${r.precio}" oninput="_edpSetDescManual(${i},'precio',this.value)" style="${inpS};width:90px">
         <button onclick="_edpDelDescManual(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.8rem">✕</button>
-      </div>`).join('')}
+      </div>`;}).join('')}
     </div>
     <div style="margin-top:.7rem;display:flex;gap:.5rem;flex-wrap:wrap">
       <button onclick="_edpPrint()" style="font-size:.78rem;padding:.4rem .9rem;border-radius:6px;border:none;background:#8b5cf6;color:#fff;cursor:pointer;font-weight:700">🖨 Imprimir / PDF</button>
@@ -829,14 +851,19 @@ async function _edpGuardar(){
       return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
         precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
     })()]:[]),
-    ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
+    ..._edpManualRows('desc')
   ];
+  const recRows=_edpManualRows('rec');
   // Igual que en pantalla: los descuentos vienen en soles y hay que pasarlos
   // a la moneda del equipo antes de guardarlos.
   const _fTC=_edpFactorTC(eq);
-  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  if(_fTC!==1){
+    descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+    recRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  }
   const montoDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
-  const subtotal=+(montoEquipo-montoDesc).toFixed(2);
+  const montoRecMan=+recRows.reduce((s,r)=>s+r.total,0).toFixed(2);
+  const subtotal=+(montoEquipo+montoRecMan-montoDesc).toFixed(2);
   const igv=+(subtotal*0.18).toFixed(2);
   const total=+(subtotal+igv).toFixed(2);
   const detraccion=+(total*0.10).toFixed(2);
@@ -1012,33 +1039,58 @@ function _edpDocHtml(eq,H,D,F){
     <td style="${TD_AC};text-align:right;font-weight:600">${SIM} ${_edpN2(acumTotEq)}</td>
     <td style="${TD_AC};text-align:right">${pctFmt(pctAcumEq)}</td>
   </tr>
-  ${_rec?(()=>{
-    const totRec=+(_rec*F.tarifa).toFixed(2);
-    const col=_rec>0?'#166534':'#b91c1c';
-    const sg=_rec>0?'+':'−';
-    const val=Math.abs(_rec),valS=Math.abs(totRec);
-    return`<tr>
-      <td style="${TD};text-align:center">1.02</td>
-      <td style="${TD}">Reconocimiento contractual${_edpReconMotivo?` — ${_edpReconMotivo}`:''}</td>
-      <td style="${TD};text-align:center">${F.tarifaUn}</td>
+  ${(()=>{
+    // El acápite 1.00 se arma en orden: el equipo (1.01), el reconocimiento
+    // contractual en cantidad (1.02, si lo hay), los reconocimientos en monto
+    // (1.03, 1.04…) y, si hubo alguno, el total que cierra el acápite.
+    let n=1,filas='';
+    if(_rec){
+      n++;
+      const totRec=+(_rec*F.tarifa).toFixed(2);
+      const col=_rec>0?'#166534':'#b91c1c';
+      const sg=_rec>0?'+':'−';
+      const val=Math.abs(_rec),valS=Math.abs(totRec);
+      filas+=`<tr>
+        <td style="${TD};text-align:center">1.${String(n).padStart(2,'0')}</td>
+        <td style="${TD}">Reconocimiento contractual${_edpReconMotivo?` — ${_edpReconMotivo}`:''}</td>
+        <td style="${TD};text-align:center">${F.tarifaUn}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;color:${col};${AM}">${sg} ${_edpN2(val)}</td>
+        <td style="${TD};text-align:right;font-weight:700;color:${col};${AM}">${sg} ${SIM} ${_edpN2(valS)}</td>
+        <td style="${TD};${AM}"></td>
+        <td style="${TD_AC}"></td><td style="${TD_AC}"></td><td style="${TD_AC}"></td>
+      </tr>`;
+    }
+    // Reconocimientos en MONTO: suman a lo que se le paga al proveedor
+    (F.recRows||[]).forEach(r=>{
+      n++;
+      filas+=`<tr>
+        <td style="${TD};text-align:center">1.${String(n).padStart(2,'0')}</td>
+        <td style="${TD}">${r.desc||'Reconocimiento'}</td>
+        <td style="${TD};text-align:center">${r.und||''}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right">${_edpN2(r.precio)}</td>
+        <td style="${TD}"></td>
+        <td style="${TD};text-align:right;color:#166534;${AM}">${_edpN2(r.cant)}</td>
+        <td style="${TD};text-align:right;font-weight:700;color:#166534;${AM}">+ ${SIM} ${_edpN2(r.total)}</td>
+        <td style="${TD};${AM}"></td>
+        <td style="${TD_AC}"></td><td style="${TD_AC};text-align:right">${SIM} ${_edpN2(r.total)}</td><td style="${TD_AC}"></td>
+      </tr>`;
+    });
+    if(!filas)return'';
+    const totAcapite=+(F.totEquipo+(F.totRecMan||0)).toFixed(2);
+    return filas+`<tr>
       <td style="${TD}"></td>
-      <td style="${TD};text-align:right">${_edpN2(F.tarifa)}</td>
-      <td style="${TD}"></td>
-      <td style="${TD};text-align:right;color:${col};${AM}">${sg} ${_edpN2(val)}</td>
-      <td style="${TD};text-align:right;font-weight:700;color:${col};${AM}">${sg} ${SIM} ${_edpN2(valS)}</td>
-      <td style="${TD};${AM}"></td>
-      <td style="${TD_AC}"></td><td style="${TD_AC}"></td><td style="${TD_AC}"></td>
-    </tr>
-    <tr>
-      <td style="${TD}"></td>
-      <td style="${TD};font-weight:700;text-align:right">TOTAL EQUIPO (${F.tarifaUn})</td>
+      <td style="${TD};font-weight:700;text-align:right">TOTAL EQUIPO${F.totRecMan?' + RECONOCIMIENTOS':` (${F.tarifaUn})`}</td>
       <td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td>
-      <td style="${TD};text-align:right;font-weight:800;${AM}">${_edpN2(F.cantEquipo)}</td>
-      <td style="${TD};text-align:right;font-weight:800;${AM}">${SIM} ${_edpN2(F.totEquipo)}</td>
+      <td style="${TD};text-align:right;font-weight:800;${AM}">${F.totRecMan?'':_edpN2(F.cantEquipo)}</td>
+      <td style="${TD};text-align:right;font-weight:800;${AM}">${SIM} ${_edpN2(totAcapite)}</td>
       <td style="${TD};${AM}"></td>
       <td style="${TD_AC}"></td><td style="${TD_AC}"></td><td style="${TD_AC}"></td>
     </tr>`;
-  })():''}`;
+  })()}`;
 
   const filasDesc=F.descRows.length
     ?F.descRows.map((r,i)=>`<tr>
@@ -1242,7 +1294,7 @@ function _edpDocHtml(eq,H,D,F){
 
   // ── Página 3: detalle de descuentos (solo si existen) ──
   let pagina3='';
-  const hayDesc=(D.insumos&&D.insumos.length)||(D.atenciones&&D.atenciones.length)||_edpDescManual.length;
+  const hayDesc=(D.insumos&&D.insumos.length)||(D.atenciones&&D.atenciones.length)||_edpManualRows('desc').length;
   if(hayDesc){
     // Los precios del catálogo están en soles: se pasan a la moneda del equipo
     const _fTCi=_edpFactorTC(eq);
@@ -1257,7 +1309,10 @@ function _edpDocHtml(eq,H,D,F){
     const totAten=+(((typeof arCalcular==='function')
       ? arCalcular(D.atenciones,_arPerT).total
       : D.atenciones.reduce((s,a)=>s+a.total,0))*_fTCr).toFixed(2);
-    const totManual=+(_edpDescManual.reduce((s,r)=>s+(+r.cant||0)*(+r.precio||0),0)*_fTCr).toFixed(2);
+    // Esta hoja es el detalle de DESCUENTOS: los reconocimientos no van aquí,
+    // se muestran en el acápite 1.00 de la página 1.
+    const _manDesc=_edpManualRows('desc');
+    const totManual=+(_manDesc.reduce((s,r)=>s+r.total,0)*_fTCr).toFixed(2);
 
     const secIns=D.insumos.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">A. CONSUMO DE INSUMOS — ALMACÉN ECOSERMO</div>
@@ -1332,11 +1387,11 @@ function _edpDocHtml(eq,H,D,F){
         </tr></tfoot>
       </table>`:'';
 
-    const secMan=_edpDescManual.length?`
+    const secMan=_manDesc.length?`
       <div style="font-size:11px;font-weight:800;color:${AZ};margin:10px 0 4px;border-bottom:1px solid ${AZ};padding-bottom:2px">C. OTROS DESCUENTOS</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
         <thead><tr><th style="${TH}">#</th><th style="${TH};text-align:left">Descripción</th><th style="${TH}">Unid.</th><th style="${TH}">Cant.</th><th style="${TH}">P. Unit ${SIM}</th><th style="${TH}">Total ${SIM}</th></tr></thead>
-        <tbody>${_edpDescManual.map((r,n)=>`<tr>
+        <tbody>${_manDesc.map((r,n)=>`<tr>
           <td style="${TD};text-align:center">${n+1}</td><td style="${TD}">${r.desc||'—'}</td><td style="${TD};text-align:center">${r.und||''}</td>
           <td style="${TD};text-align:right">${_edpN2(r.cant)}</td><td style="${TD};text-align:right">${_edpN2(r.precio)}</td>
           <td style="${TD};text-align:right;font-weight:700;color:#b91c1c">${_edpN2((+r.cant||0)*(+r.precio||0))}</td>
@@ -1351,7 +1406,7 @@ function _edpDocHtml(eq,H,D,F){
         <tbody>
           ${D.insumos.length?`<tr><td style="${TD}">Consumo de insumos (Almacén)</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totIns)}</td></tr>`:''}
           ${D.atenciones.length?`<tr><td style="${TD}">Atención mecánica</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totAten)}</td></tr>`:''}
-          ${_edpDescManual.length?`<tr><td style="${TD}">Otros descuentos</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totManual)}</td></tr>`:''}
+          ${_manDesc.length?`<tr><td style="${TD}">Otros descuentos</td><td style="${TD};text-align:right;font-weight:700">${SIM} ${_edpN2(totManual)}</td></tr>`:''}
           <tr><td style="${TD};font-weight:900;background:#fde047">TOTAL DESCUENTOS (${SIM})</td><td style="${TD};text-align:right;font-weight:900;background:#fde047;color:#b91c1c">${SIM} ${_edpN2(F.totDesc)}</td></tr>
         </tbody>
       </table>
@@ -1392,18 +1447,23 @@ function _edpPrint(){
       return{desc:'Atención mecánica por parte de Ecosermo',und:'hh',cant:_h,
         precio:_h>0?+(_t/_h).toFixed(4):0,total:+_t.toFixed(2)};
     })()]:[]),
-    ..._edpDescManual.map(r=>({...r,total:+(r.cant*r.precio).toFixed(2)}))
+    ..._edpManualRows('desc')
   ];
+  const recRows=_edpManualRows('rec');
   const _fTC=_edpFactorTC(eq);
-  if(_fTC!==1)descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  if(_fTC!==1){
+    descRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+    recRows.forEach(r=>{r.precio=+(r.precio*_fTC).toFixed(4);r.total=+(r.total*_fTC).toFixed(2);});
+  }
   const totDesc=+descRows.reduce((s,r)=>s+r.total,0).toFixed(2);
-  const presupuestoTotal=+(totEquipo-totDesc).toFixed(2);
+  const totRecMan=+recRows.reduce((s,r)=>s+r.total,0).toFixed(2);
+  const presupuestoTotal=+(totEquipo+totRecMan-totDesc).toFixed(2);
   const subTotal=presupuestoTotal;
   const igv=+(subTotal*0.18).toFixed(2);
   const total=+(subTotal+igv).toFixed(2);
   const detraccion=+(total*0.10).toFixed(2);
   const aAbonar=+(total-detraccion).toFixed(2);
-  const F={tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar};
+  const F={tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,recRows,totRecMan,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar};
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>EDP ${_edpNum||''} - ${eq.codigo}</title>
   <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}

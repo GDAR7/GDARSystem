@@ -15,7 +15,8 @@ es('los insumos del almacén',/precio:\+\(i\.precio\*_fTCi\)/.test(ep),true);
 es('  con su subtotal',/totIns=\+_ins\.reduce/.test(ep),true);
 es('  y la tabla usa los convertidos',/<tbody>\$\{_ins\.map/.test(ep),true);
 es('el resumen de atención mecánica',/totAten=\+\(\(\(typeof arCalcular/.test(ep),true);
-es('los descuentos manuales',/totManual=\+\(_edpDescManual\.reduce[\s\S]{0,80}_fTCr\)/.test(ep),true);
+es('los descuentos manuales',/totManual=\+\(_manDesc\.reduce[\s\S]{0,80}_fTCr\)/.test(ep),true);
+es('  y los reconocimientos, que van aparte',/recRows\.forEach\(r=>\{r\.precio=\+\(r\.precio\*_fTC\)/.test(ep),true);
 es('y las filas del EDP',(ep.match(/const _fTC=_edpFactorTC\(eq\)/g)||[]).length,3);
 
 console.log('\n== Con la tarifa en soles nada cambia ==');
