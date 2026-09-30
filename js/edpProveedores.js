@@ -771,7 +771,7 @@ function rEdpProveedores(){
     ⚠ El equipo se valoriza en <b>${_edpMonedaEq(eq)}</b> y los descuentos se calculan en soles.
     Cargue el <b>tipo de cambio</b> en los ajustes o el total restará soles contra ${_sim}.</div>`:'';
   const avisoFuera=_fuera.n?`<div style="margin:.4rem 0;padding:.55rem .8rem;background:rgba(245,158,11,.1);border:1px solid #f59e0b60;border-radius:8px;font-size:.76rem;color:#f59e0b">⚠ <b>${_fuera.n} parte(s)</b> del período quedan fuera: están marcados solo para el cliente.</div>`:'';
-  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+avisoTC+avisoFuera+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
+  pg.innerHTML=filtroBar+editBar+_edpListaHtml(eq)+avisoTC+avisoFuera+`<div style="background:#fff;border-radius:8px;padding:1.2rem;overflow-x:auto">${_edpDocHtml(eq,H,D,{tarifa,tarifaUn,cantEquipo,cantBase:CQ.base,cantRecon:CQ.recon,totEquipo,descRows,totDesc,recRows,totRecMan,presupuestoTotal,subTotal,igv,total,detraccion,aAbonar})}</div>`;
   // El panel de recursos se dibuja aparte: su contenedor recién existe ahora
   if(typeof _arRender==='function')_arRender();
 }

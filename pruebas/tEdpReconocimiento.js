@@ -90,6 +90,50 @@ es('  su subtotal sale de ahí',/totManual=\+\(_manDesc\.reduce/.test(src),true)
 es('  y no se imprime esa hoja si solo hay reconocimientos',
   /hayDesc=.*_edpManualRows\('desc'\)\.length/.test(src),true);
 
+console.log('\n== El documento se dibuja de verdad ==');
+// Se arma el documento con un reconocimiento y se comprueba que la fila sale.
+// Es lo que faltaba: la vista previa construía su F sin recRows y el bloque
+// no se dibujaba, aunque el importe sí estuviera bien calculado.
+DB.equipos.push({id:1,codigo:'CAM ECOP-001',nombre:'Camioneta TOYOTA HILUX',
+  placa:'CBL-881',proveedor:'VIA NORTE',tarifa:200,tarifaUn:'DIA',moneda:'SOLES'});
+const eqP=DB.equipos[0];
+const Hp={dias:[],horasMotor:0,horasCal:0,horasDcto:0,horasEfectivas:0,horasInop:0,
+  diasConParte:31,diasPeriodo:31,dispMec:100,sinBaseDisp:true,baseDisp:0,hsTurno:8.5,
+  horasProg:0,horasMinimas:0,horasMinimasAPagar:0,horasAPagar:0,diasTrabajados:31,
+  cumpleDisp:true,aplicaMinimo:true,motivoSinMinimo:'',horasMinimasProp:0,
+  diasEnObra:31,prorrateado:false,iniObra:'2026-08-21',factorDoble:1,turnosEnteros:31,
+  turnosDobles:0,turnosAPagar:31,incidencia:1,diasReportados:31,diasInoperativos:0,
+  diasAPagar:31};
+const Dp={insumos:[],atenciones:[],horasAtencion:0};
+const recRows=[{desc:'Reconocimiento de daños de camioneta',und:'gbl',cant:1,precio:1138,total:1138}];
+const Fp={tarifa:200,tarifaUn:'DIA',cantEquipo:31,cantBase:31,cantRecon:0,totEquipo:6200,
+  descRows:[],totDesc:0,recRows,totRecMan:1138,presupuestoTotal:7338,subTotal:7338,
+  igv:1320.84,total:8658.84,detraccion:865.88,aAbonar:7792.96};
+ev('_edpNum="03";_edpDesde="2026-08-21";_edpHasta="2026-09-20";_edpDiaModo="fecha"');
+ctx.__eq=eqP;ctx.__H=Hp;ctx.__D=Dp;ctx.__F=Fp;
+const docHtml=ev('_edpDocHtml(__eq,__H,__D,__F)');
+es('el acápite 1.00 está',/1\.00 EQUIPO/.test(docHtml),true);
+es('la línea del equipo sigue en 1.01',/>1\.01</.test(docHtml),true);
+es('el reconocimiento aparece como 1.02',/>1\.02</.test(docHtml),true);
+es('  con su descripción',/Reconocimiento de daños de camioneta/.test(docHtml),true);
+es('  y su importe sumando',/\+ S\/ 1,138\.00/.test(docHtml),true);
+es('cierra con el total del acápite',/TOTAL EQUIPO \+ RECONOCIMIENTOS/.test(docHtml),true);
+es('  que es 6,200 + 1,138',/7,338\.00/.test(docHtml),true);
+es('no se cuela en el acápite de descuentos',
+  docHtml.indexOf('Reconocimiento de daños')<docHtml.indexOf('2.00 DESCUENTO'),true);
+// Sin reconocimientos el documento queda como antes
+const docSin=ev('_edpDocHtml(__eq,__H,__D,Object.assign({},__F,{recRows:[],totRecMan:0}))');
+es('sin reconocimientos no se agrega ninguna fila',/1\.02/.test(docSin),false);
+es('  ni el total del acápite',/TOTAL EQUIPO/.test(docSin),false);
+
+console.log('\n== Los dos documentos reciben lo mismo ==');
+es('la vista previa pasa recRows',
+  /_edpDocHtml\(eq,H,D,\{[^}]*recRows,totRecMan/.test(src),true);
+es('  y la impresión también',/const F=\{[^}]*recRows,totRecMan/.test(src),true);
+es('ningún _edpDocHtml se queda sin recRows',
+  (src.match(/_edpDocHtml\(eq,H,D,/g)||[]).length,
+  (src.match(/_edpDocHtml\(eq,H,D,(?:F\)|\{[^}]*recRows)/g)||[]).length);
+
 console.log('\n== La pantalla ==');
 es('el botón ya no dice solo descuento',/＋ Línea manual/.test(src),true);
 es('  hay un selector por línea',/_edpSetDescManual\(\$\{i\},'tipo',this\.value\)/.test(src),true);
