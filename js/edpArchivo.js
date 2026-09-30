@@ -65,15 +65,39 @@ function _edaFilas(){
     ||String(b.numEdp||'').localeCompare(String(a.numEdp||''),'es',{numeric:true}));
 }
 
-function _edaAbrirDoc(id){
+// Supabase Storage entrega los .html como texto plano (es una defensa suya:
+// así nadie publica páginas ejecutables en el dominio del proyecto). Abrir la
+// URL directa mostraría el código fuente, así que el documento se trae y se
+// pinta en la ventana nueva, que sí lo dibuja.
+async function _edaAbrirDoc(id,imprimir){
   const r=(DB.edpProveedores||[]).find(x=>+x.id===+id);
   const url=_edaDoc(r);
   if(!url){
     toast('Ese EDP no tiene documento archivado: ábralo en Generar EDP y vuelva a guardarlo',true);
     return;
   }
-  const w=window.open(url,'_blank');
-  if(!w)toast('Active las ventanas emergentes para ver el documento',true);
+  // La ventana se abre ANTES de esperar la descarga: si no, el navegador la
+  // bloquea por no venir de un clic.
+  const w=window.open('','_blank');
+  if(!w){toast('Active las ventanas emergentes para ver el documento',true);return;}
+  w.document.write('<!DOCTYPE html><meta charset="utf-8"><title>Abriendo el EDP…</title>'
+    +'<body style="font-family:Arial,sans-serif;padding:2rem;color:#334155">Abriendo el documento del EDP…</body>');
+  try{
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('el archivo respondió '+res.status);
+    const html=await res.text();
+    w.document.open();w.document.write(html);w.document.close();
+    if(imprimir)setTimeout(()=>{try{w.focus();w.print();}catch(e){}},700);
+  }catch(e){
+    w.document.open();
+    w.document.write('<!DOCTYPE html><meta charset="utf-8"><title>No se pudo abrir</title>'
+      +'<body style="font-family:Arial,sans-serif;padding:2rem;color:#334155">'
+      +'<h3 style="color:#b91c1c">No se pudo abrir el documento archivado</h3>'
+      +'<p>'+String((e&&e.message)||e)+'</p>'
+      +'<p><a href="'+url+'">Descargar el archivo</a></p></body>');
+    w.document.close();
+    toast('No se pudo abrir el documento archivado',true);
+  }
 }
 
 function _edaExportXls(){
@@ -147,7 +171,8 @@ function rEdpArchivo(){
       <td style="${TDs};text-align:right;font-family:monospace;font-weight:800;color:#22c55e">${SIM} ${_edaN2(r.aAbonar)}</td>
       <td style="${TDs};text-align:center"><span class="badge ${r.estado==='Pagado'?'b-green':'b-orange'}" style="font-size:.62rem">${_edaEsc(r.estado||'Emitido')}</span></td>
       <td style="${TDs};text-align:center">
-        ${url?`<button onclick="_edaAbrirDoc(${+r.id})" title="Abrir el documento tal como se emitió${fDoc?' el '+_edaDMY(fDoc):''} · desde ahí, Ctrl+P para guardarlo en PDF" style="background:rgba(139,92,246,.15);border:1px solid #8b5cf6;border-radius:6px;color:#a78bfa;cursor:pointer;font-size:.68rem;font-weight:700;padding:.2rem .5rem">📄 Ver / PDF</button>`
+        ${url?`<button onclick="_edaAbrirDoc(${+r.id})" title="Abrir el documento tal como se emitió${fDoc?' el '+_edaDMY(fDoc):''}" style="background:rgba(139,92,246,.15);border:1px solid #8b5cf6;border-radius:6px;color:#a78bfa;cursor:pointer;font-size:.68rem;font-weight:700;padding:.2rem .5rem">📄 Ver</button>
+        <button onclick="_edaAbrirDoc(${+r.id},1)" title="Abrirlo y mandar a imprimir: en el diálogo, elija «Guardar como PDF»" style="background:rgba(185,28,28,.15);border:1px solid #b91c1c;border-radius:6px;color:#f87171;cursor:pointer;font-size:.68rem;font-weight:700;padding:.2rem .5rem;margin-left:.25rem">🖨 PDF</button>`
         :`<span style="font-size:.64rem;color:var(--muted2)" title="Se archiva al guardar el EDP: ábralo en Generar EDP y guárdelo otra vez">sin archivar</span>`}
       </td>
       <td style="${TDs};font-size:.66rem;color:var(--muted2)">${_edaEsc(r.creadoPor||'—')}<br>${String(r.creadoEn||'').slice(0,10)}</td>

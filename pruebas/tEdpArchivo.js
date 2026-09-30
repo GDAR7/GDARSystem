@@ -32,14 +32,29 @@ const DB={
 
 const nodos={};
 const nodo=id=>nodos[id]||(nodos[id]={id,innerHTML:'',textContent:'',value:'',style:{},focus(){}});
-let abiertas=[],avisos=[],xls=null;
+let abiertas=[],avisos=[],xls=null,pedidos=[],fallarFetch=false,ventana=null,impresiones=0;
 const XLSX={utils:{aoa_to_sheet:aoa=>({aoa}),book_new:()=>({}),
   book_append_sheet:(wb,ws,n)=>{xls={aoa:ws.aoa,hoja:n};}},
   writeFile:(wb,nom)=>{if(xls)xls.archivo=nom;}};
+// El navegador simulado: una ventana en la que se escribe el documento
+const abrirVentana=u=>{
+  abiertas.push(u==null?'':u);
+  ventana={html:'',focus(){},print(){impresiones++;},
+    document:{write(h){ventana.html+=h;},open(){ventana.html='';},close(){}}};
+  return ventana;
+};
+// El archivo guardado en Storage, que se descarga con fetch
+const _CUERPO='<!DOCTYPE html><html><body><h1>EDP N° 01 de prueba</h1></body></html>';
 const ctx=vm.createContext({
   DB,console,Date,Math,Number,String,Object,Array,JSON,Set,XLSX,
+  setTimeout:f=>{try{f();}catch(e){}return 0;},
+  fetch:async u=>{
+    pedidos.push(u);
+    if(fallarFetch)throw new Error('Failed to fetch');
+    return{ok:true,status:200,text:async()=>_CUERPO};
+  },
   document:{getElementById:nodo,querySelector:()=>null,querySelectorAll:()=>[]},
-  window:{open:u=>{abiertas.push(u);return{focus(){}};}},
+  window:{open:abrirVentana},
   toast:(m,e)=>avisos.push({m,e:!!e}),buscarFoco(){},CU:{nombre:'Prueba'}
 });
 vm.runInContext(fs.readFileSync(R+'js/edpArchivo.js','utf8'),ctx,{filename:'edpArchivo.js'});
@@ -95,18 +110,34 @@ es('Limpiar los suelta todos',ev('_edaFilas().length'),4);
 es('  y deja los filtros vacíos',ev('[_edaProv,_edaEq,_edaDesde,_edaHasta,_edaQ,_edaSoloDoc].join("|")'),'|||||false');
 
 console.log('\n== Abrir el documento ==');
+// Storage entrega los .html como texto plano: si se abriera la URL directa se
+// vería el código fuente. Por eso se descarga y se pinta en la ventana.
+(async()=>{
 abiertas=[];avisos=[];
-ev('_edaAbrirDoc(1)');
-es('abre el documento archivado',abiertas.length,1);
-es('  con su URL',/edp\/VOL_EDP01_1\.html$/.test(abiertas[0]),true);
-ev('_edaAbrirDoc(3)');
-es('el que no tiene archivo no abre nada',abiertas.length,1);
+await ev('_edaAbrirDoc(1)');
+es('abre una ventana propia, no la URL directa',abiertas.length,1);
+es('  sin mandar el navegador al archivo',abiertas[0],'');
+es('  y descarga el documento',pedidos.length,1);
+es('  de la URL archivada',/edp\/VOL_EDP01_1\.html$/.test(pedidos[0]),true);
+es('  pintando su contenido',/EDP N° 01 de prueba/.test(ventana.html),true);
+es('  no el código fuente',/&lt;html/.test(ventana.html),false);
+
+await ev('_edaAbrirDoc(3)');
+es('el que no tiene archivo no abre ventana',abiertas.length,1);
 es('  y explica qué hacer',/vuelva a guardarlo/.test(avisos[avisos.length-1].m),true);
+
+// Si la descarga falla, la ventana lo dice en vez de quedarse en blanco
+fallarFetch=true;
+await ev('_edaAbrirDoc(2)');
+es('si no se puede descargar, se avisa en la ventana',/No se pudo abrir el documento/.test(ventana.html),true);
+es('  y se ofrece el archivo',/Descargar el archivo/.test(ventana.html),true);
+fallarFetch=false;
 
 console.log('\n== La pantalla ==');
 ev('rEdpArchivo()');
 const H=nodo('edpArchivoBody').innerHTML;
-es('se listan los cuatro',(H.match(/📄 Ver \/ PDF/g)||[]).length,3);
+es('los archivados tienen botón de ver',(H.match(/📄 Ver</g)||[]).length,3);
+es('  y uno para imprimir directo',(H.match(/_edaAbrirDoc\(\d+,1\)/g)||[]).length,3);
 es('  y el que falta se marca',/sin archivar/.test(H),true);
 es('KPI de cuántos tienen documento',/3 \/ 4/.test(H),true);
 es('el filtro de proveedor trae los dos',/>GRUPO DELOPE</.test(H)&&/>VIA NORTE</.test(H),true);
@@ -151,3 +182,4 @@ es('todo lo nuevo lleva prefijo _eda',
 
 console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);
+})();
