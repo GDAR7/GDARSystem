@@ -140,6 +140,11 @@ es('si el archivado falla, el EDP igual se guarda',/EDP guardado, pero el docume
 es('la pestaña existe en index',/id="edpTabBtn-archivo"/.test(html)&&/id="edpArchivoBody"/.test(html),true);
 es('  y el router la contempla',/k==='archivo'/.test(ec),true);
 es('index carga el módulo',/js\/edpArchivo\.js\?v=/.test(html),true);
+es('existe el SQL del permiso de Storage',fs.existsSync(R+'sql/storage_edp_documentos.sql'),true);
+const sqlSt=fs.readFileSync(R+'sql/storage_edp_documentos.sql','utf8');
+es('  da permiso sobre el bucket que usa el archivado',/bucket_id = 'Equip_eco26'/.test(sqlSt),true);
+es('  y el módulo sube a ese mismo bucket',/_EDP_FIRMA_BUCKET='Equip_eco26'/.test(ep),true);
+es('  a la carpeta edp/',/`edp\/\$\{safe\(codigo\)\}/.test(ep),true);
 es('todo lo nuevo lleva prefijo _eda',
   [...ea.matchAll(/^(?:const|let|function|async function)\s+([A-Za-z_$][\w$]*)/gm)].map(m=>m[1])
     .every(n=>/^_(eda|EDA)/.test(n)||n==='rEdpArchivo'),true);
