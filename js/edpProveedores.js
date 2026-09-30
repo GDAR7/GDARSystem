@@ -321,7 +321,11 @@ function _edpHoras(eq,desde,hasta){
   const dias=partes.map(p=>{
     const motor=+p.ef||0;
     const cal=motor>0?calent:0;
-    const efectiva=Math.max(0,+(motor-cal).toFixed(2));
+    // Horas de descuento del parte diario (campo «Descuentos (hrs)»): se
+    // aplican el mismo día en que se registraron, igual que el calentamiento.
+    // No son inoperatividad: no entran en la disponibilidad mecánica.
+    const dcto=Math.max(0,+p.descuentos||0);
+    const efectiva=Math.max(0,+(motor-cal-dcto).toFixed(2));
     const condicion=p.condicion||'OPERATIVO';
     const inop=/^INOPERATIVO/i.test(condicion);
     // Valorización por días: cada parte OPERATIVO cuenta 1.00 · INOPERATIVO cuenta 0
@@ -329,10 +333,11 @@ function _edpHoras(eq,desde,hasta){
     // La incidencia se resuelve más abajo, cuando ya se sabe si la fecha tuvo
     // uno o dos turnos: aquí todavía no se puede saber.
     const esNoche=_edpEsNoche(p.turno);
-    return{fecha:p.fecha,turno:p.turno||'—',desc:_edpDesc1(p.act),hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,efectiva,condicion,trabajo,esNoche,doble:false,incid:1,valor:trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
+    return{fecha:p.fecha,turno:p.turno||'—',desc:_edpDesc1(p.act),hrIni:+p.hrIni||0,hrFin:+p.hrFin||0,motor,cal,dcto,efectiva,condicion,trabajo,esNoche,doble:false,incid:1,valor:trabajo,obs:inop?condicion:(p.observaciones||'Operativo'),im:Math.max(0,+p.im||0)};
   });
   const horasMotor=dias.reduce((s,d)=>s+d.motor,0);
   const horasCal=dias.reduce((s,d)=>s+d.cal,0);
+  const horasDcto=+dias.reduce((s,d)=>s+d.dcto,0).toFixed(2);
   const horasEfectivas=dias.reduce((s,d)=>s+d.efectiva,0);
   const horasInop=dias.reduce((s,d)=>s+d.im,0);
   const diasConParte=dias.filter(d=>d.motor>0).length;
@@ -424,7 +429,7 @@ function _edpHoras(eq,desde,hasta){
   const diasAPagar=Math.max(0,diasReportados-diasInoperativos);
   const incidencia=diasPeriodo>0?Math.min(1,+(diasAPagar/diasPeriodo).toFixed(4)):0;
 
-  return{dias,horasMotor,horasCal,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,sinBaseDisp,baseDisp,hsTurno,horasProg,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
+  return{dias,horasMotor,horasCal,horasDcto,horasEfectivas,horasInop,diasConParte,diasPeriodo,dispMec,sinBaseDisp,baseDisp,hsTurno,horasProg,horasMinimas,horasMinimasAPagar,horasAPagar,diasTrabajados,cumpleDisp,aplicaMinimo,motivoSinMinimo,
     turnosEnteros,turnosDobles,turnosAPagar,factorDoble:_edpFactDoble,
     diasReportados,diasInoperativos,diasAPagar,incidencia,
     horasMinimasProp,diasEnObra,factorMin,prorrateado,iniObra,finObra};
@@ -873,6 +878,14 @@ async function _edpGuardar(){
   const prev=(DB.edpProveedores||[]).find(r=>+r.eqId===eq.id&&String(r.numEdp).trim()===_edpNum.trim());
   if(prev&&!confirm(`Ya existe el EDP N° ${_edpNum} de ${eq.codigo}.\n\n¿Reemplazarlo con los datos actuales?`))return;
 
+  // El documento se archiva tal como quedó: si mañana cambia la tarifa del
+  // Máster o se corrige un parte, el EDP ya emitido se sigue viendo igual.
+  const archivo=await _edpArchivarDoc(_edpNum.trim(),eq.codigo);
+  if(archivo&&prev&&prev.detalle&&prev.detalle.docPath){
+    // Se reemplazó el EDP: el documento anterior ya no sirve
+    try{await supa.storage.from(_EDP_FIRMA_BUCKET).remove([prev.detalle.docPath]);}catch(e){}
+  }
+  const docAnt=prev&&prev.detalle?prev.detalle:{};
   const rec={
     id:prev?prev.id:_edpNuevoId(),
     eqId:eq.id,proveedor:eq.proveedor||'',numEdp:_edpNum.trim(),
@@ -900,7 +913,11 @@ async function _edpGuardar(){
       incidencia:H.incidencia,diasReportados:H.diasReportados,diasInoperativos:H.diasInoperativos,diasPeriodo:H.diasPeriodo,
       cantPres:_edpCantPres,acumAnt:_edpAcumAnt,
       firmaProv:_edpFirmaProv,firmaEco:_edpFirmaEco,firmaEcoId:_edpFirmaEcoId,
-      cliente:_edpCliente,rucCliente:_edpRuc},
+      cliente:_edpCliente,rucCliente:_edpRuc,
+      // Documento archivado: se abre igual aunque los datos de origen cambien
+      docUrl:archivo?archivo.docUrl:(docAnt.docUrl||null),
+      docPath:archivo?archivo.docPath:(docAnt.docPath||null),
+      docFecha:archivo?archivo.docFecha:(docAnt.docFecha||null)},
     creadoPor:CU?CU.nombre:'',creadoEn:new Date().toISOString()
   };
   const e=await supaUpsert('edpProveedores',rec); // ya muestra su propio toast si falla
@@ -1247,16 +1264,18 @@ function _edpDocHtml(eq,H,D,F){
     const filasHoras=H.dias.map((d,i)=>`<tr>
       <td style="${TD};text-align:center">${i+1}</td><td style="${TD}">${_edpFmtDMY(d.fecha)}</td><td style="${TD};text-align:center">${d.turno}</td>
       <td style="${TD}">${d.desc}</td><td style="${TD};text-align:right">${_edpN2(d.hrIni)}</td><td style="${TD};text-align:right">${_edpN2(d.hrFin)}</td>
-      <td style="${TD};text-align:right">${_edpN2(d.motor)}</td><td style="${TD};text-align:right">${_edpN2(d.cal)}</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(d.efectiva)}</td>
+      <td style="${TD};text-align:right">${_edpN2(d.motor)}</td><td style="${TD};text-align:right">${_edpN2(d.cal)}</td>
+      <td style="${TD};text-align:right;${d.dcto?'color:#C00000;font-weight:700':'color:#94a3b8'}">${d.dcto?_edpN2(d.dcto):'—'}</td>
+      <td style="${TD};text-align:right;font-weight:700">${_edpN2(d.efectiva)}</td>
       <td style="${TD}">${d.obs}</td>
     </tr>`).join('');
     tablaPagina2=`<table style="width:100%;border-collapse:collapse;margin-bottom:8px">
       <thead><tr>
         <th style="${TH}">#</th><th style="${TH}">Fecha</th><th style="${TH}">Turno</th><th style="${TH};text-align:left">Descripción</th>
-        <th style="${TH}">H. Inicial</th><th style="${TH}">H. Final</th><th style="${TH}">H. Motor</th><th style="${TH}">Calent.</th><th style="${TH}">H. Efectiva</th><th style="${TH};text-align:left">Observaciones</th>
+        <th style="${TH}">H. Inicial</th><th style="${TH}">H. Final</th><th style="${TH}">H. Motor</th><th style="${TH}">Calent.</th><th style="${TH}">Dscto.</th><th style="${TH}">H. Efectiva</th><th style="${TH};text-align:left">Observaciones</th>
       </tr></thead>
-      <tbody>${filasHoras||`<tr><td colspan="10" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
-      <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.horasMotor)}</td><td style="${TD};text-align:right">${_edpN2(H.horasCal)}</td><td style="${TD};text-align:right">${_edpN2(H.horasEfectivas)}</td><td style="${TD}"></td></tr></tfoot>
+      <tbody>${filasHoras||`<tr><td colspan="11" style="${TD};text-align:center;color:#94a3b8">Sin partes diarios en este período</td></tr>`}</tbody>
+      <tfoot><tr style="background:#e2e8f0;font-weight:800"><td colspan="6" style="${TD};text-align:right">TOTALES</td><td style="${TD};text-align:right">${_edpN2(H.horasMotor)}</td><td style="${TD};text-align:right">${_edpN2(H.horasCal)}</td><td style="${TD};text-align:right;${H.horasDcto?'color:#C00000':''}">${H.horasDcto?_edpN2(H.horasDcto):'—'}</td><td style="${TD};text-align:right">${_edpN2(H.horasEfectivas)}</td><td style="${TD}"></td></tr></tfoot>
     </table>`;
     // El % se marca en rojo cuando no llega al umbral: es lo que sustenta el no pago del mínimo
     const _dCol=H.cumpleDisp?'#111':'#C00000';
@@ -1271,6 +1290,7 @@ function _edpDocHtml(eq,H,D,F){
         <tr><td style="${TD};font-weight:800">HORAS MÍNIMAS PROPORC.</td><td style="${TD};text-align:right;font-weight:900">${_edpN2(H.horasMinimasProp)} hrs</td></tr>`:''}
       </tbody></table>
       <table style="border:1px solid #cbd5e1"><tbody>
+        ${H.horasDcto?`<tr><td style="${TD}">HORAS DE DESCUENTO</td><td style="${TD};text-align:right;font-weight:700;color:#C00000">− ${_edpN2(H.horasDcto)} hrs</td></tr>`:''}
         <tr><td style="${TD}">HORAS TRABAJADAS</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasEfectivas)} hrs</td></tr>
         <tr><td style="${TD}">HORAS MÍNIMAS A PAGAR</td><td style="${TD};text-align:right;font-weight:700">${_edpN2(H.horasMinimasAPagar)} hrs</td></tr>
         <tr><td style="${TD};font-weight:800;background:#fde047">HORAS A PAGAR</td><td style="${TD};text-align:right;font-weight:900;background:#fde047">${_edpN2(H.horasAPagar)} hrs</td></tr>
@@ -1419,9 +1439,12 @@ function _edpDocHtml(eq,H,D,F){
   return`${sepStyle}<div>${pagina1}</div><div class="edp-sep">${pagina2}</div>${pagina3?`<div class="edp-sep">${pagina3}</div>`:''}`;
 }
 
-function _edpPrint(){
+// El documento completo del EDP, listo para imprimir o para archivarlo tal
+// como quedó. Con autoPrint manda a imprimir al abrirse; sin él queda como
+// documento suelto, que es como se guarda el archivado.
+function _edpDocumentoHtml(autoPrint){
   const eq=(DB.equipos||[]).find(e=>e.id===+_edpEqId);
-  if(!eq||!_edpDesde||!_edpHasta){toast('Completa equipo y período primero',true);return;}
+  if(!eq||!_edpDesde||!_edpHasta)return null;
   const H=_edpHoras(eq,_edpDesde,_edpHasta);
   const D=_edpDescAuto(eq,_edpDesde,_edpHasta);
   const tarifa=_edpTarifaOv!=null?_edpTarifaOv:(+eq.tarifa||0);
@@ -1470,8 +1493,32 @@ function _edpPrint(){
   body{font-family:Arial,sans-serif;margin:0}
   table{border-collapse:collapse}
   tr{page-break-inside:avoid}</style></head><body>${_edpDocHtml(eq,H,D,F)}
-  <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  ${autoPrint?`<script>window.onload=()=>{window.print();}<\/script>`:''}</body></html>`;
+  return{eq,html,F};
+}
+// Archiva el documento del EDP en Storage y devuelve dónde quedó. Si falla,
+// el EDP se guarda igual: el archivado no puede impedir guardar la valorización.
+async function _edpArchivarDoc(numEdp,codigo){
+  try{
+    const doc=_edpDocumentoHtml(false);
+    if(!doc)return null;
+    const safe=s=>String(s||'').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40);
+    const path=`edp/${safe(codigo)}_EDP${safe(numEdp)}_${Date.now()}.html`;
+    const blob=new Blob([doc.html],{type:'text/html;charset=utf-8'});
+    const{error}=await supa.storage.from(_EDP_FIRMA_BUCKET)
+      .upload(path,blob,{upsert:false,contentType:'text/html;charset=utf-8'});
+    if(error){toast('EDP guardado, pero el documento no se archivó: '+error.message,true);return null;}
+    const{data:{publicUrl}}=supa.storage.from(_EDP_FIRMA_BUCKET).getPublicUrl(path);
+    return{docUrl:publicUrl,docPath:path,docFecha:new Date().toISOString()};
+  }catch(e){
+    toast('EDP guardado, pero el documento no se archivó',true);
+    return null;
+  }
+}
+function _edpPrint(){
+  const doc=_edpDocumentoHtml(true);
+  if(!doc){toast('Completa equipo y período primero',true);return;}
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes para imprimir',true);return;}
-  win.document.write(html);win.document.close();
+  win.document.write(doc.html);win.document.close();
 }

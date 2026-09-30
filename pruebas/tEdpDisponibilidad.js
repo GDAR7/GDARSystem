@@ -112,10 +112,45 @@ const H5=ev(`_edpHoras(DB.equipos[0],'2026-07-21','2026-08-20')`);
 es('no hay horas inoperativas',f1(H5.horasInop),'0.0');
 es('  la disponibilidad no se castiga sin datos',f1(H5.dispMec),'100.0');
 
+console.log('\n== Horas de descuento del parte diario ==');
+// El parte tiene un campo «Descuentos (hrs)» que hasta ahora no llegaba al EDP
+DB.partes.forEach(p=>{p.im=0;p.condicion='OPERATIVO (TRABAJADO)';p.ef=3.2;p.descuentos=0;});
+const Hsd=ev(`_edpHoras(DB.equipos[0],'2026-08-21','2026-09-20')`);
+es('sin descuentos, no cambia nada',f1(Hsd.horasDcto),'0.0');
+es('  35 partes × (3.2 − 0.20)',f1(Hsd.horasEfectivas),f1(35*3));
+// Dos partes con descuento: 1.5 h y 0.5 h
+DB.partes[0].descuentos=1.5;
+DB.partes[1].descuentos=0.5;
+const Hcd=ev(`_edpHoras(DB.equipos[0],'2026-08-21','2026-09-20')`);
+es('se suman las horas de descuento',f1(Hcd.horasDcto),'2.0');
+es('  y se restan de las efectivas',f1(Hcd.horasEfectivas),f1(35*3-2));
+es('el descuento se aplica en SU día',f1(Hcd.dias[0].efectiva),f1(3.2-0.20-1.5));
+es('  el turno sin descuento no se toca',f1(Hcd.dias.find(d=>!d.dcto).efectiva),f1(3.2-0.20));
+es('  solo dos turnos quedaron con descuento',Hcd.dias.filter(d=>d.dcto).length,2);
+es('  y queda anotado en la fila',f1(Hcd.dias[0].dcto),'1.5');
+es('no toca las horas motor',f1(Hcd.horasMotor),f1(35*3.2));
+es('NO es inoperatividad: la disponibilidad no se castiga',f1(Hcd.dispMec),'100.0');
+es('  el equipo sigue cumpliendo',Hcd.cumpleDisp,true);
+// Cumple la disponibilidad, así que igual se le paga el mínimo del contrato:
+// el descuento se nota en las efectivas y en cuánto falta para llegar al mínimo
+es('como cumple, se le sigue pagando el mínimo',f1(Hcd.horasAPagar),'150.0');
+es('  pero el mínimo a completar sube por el descuento',
+  f1(Hcd.horasMinimasAPagar),f1(150-(35*3-2)));
+es('  son 2 h más que sin descuento',
+  +(Hcd.horasMinimasAPagar-Hsd.horasMinimasAPagar).toFixed(2),2);
+// Un descuento mayor que las horas del día no puede dejar negativo
+DB.partes[0].descuentos=99;
+const Hneg=ev(`_edpHoras(DB.equipos[0],'2026-08-21','2026-09-20')`);
+es('un descuento enorme deja el día en 0, no en negativo',f1(Hneg.dias[0].efectiva),'0.0');
+DB.partes.forEach(p=>{p.descuentos=0;});
+
 console.log('\n== El documento lo sustenta ==');
 const src=fs.readFileSync(R+'js/edpProveedores.js','utf8');
 es('el PDF muestra la base del cálculo',/HORAS MÍNIMAS CLIENTE<\/td>/.test(src),true);
 es('  y las horas inoperativas',/HORAS INOPERATIVAS<\/td>/.test(src),true);
+es('la tabla de partes trae la columna de descuento',/<th style="\$\{TH\}">Dscto\.<\/th>/.test(src),true);
+es('  y el resumen lo muestra cuando lo hay',/HORAS DE DESCUENTO<\/td>/.test(src),true);
+es('el descuento sale del parte diario',/const dcto=Math\.max\(0,\+p\.descuentos\|\|0\)/.test(src),true);
 es('en pantalla se explica el no pago',/h inoperativas de \$\{_edpN2\(H\.baseDisp\)\} h mínimas del cliente/.test(src),true);
 es('ya no queda la base de 24 h',/diasPeriodo\*24/.test(src),false);
 es('  ni la de horas programadas',/\(horasProg-horasInop\)\/horasProg/.test(src),false);

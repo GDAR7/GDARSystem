@@ -390,13 +390,15 @@ function _ecExcel(){
 let _edpTabAct='edp';
 function _edpTab(k){
   _edpTabAct=k;
-  const esEdp=k==='edp';
-  const a=document.getElementById('edpBody'),b=document.getElementById('edpCostosBody');
-  if(a)a.style.display=esEdp?'':'none';
-  if(b)b.style.display=esEdp?'none':'';
-  [['edp',esEdp],['costos',!esEdp]].forEach(([n,act])=>{
+  // Tres pestañas: generar, costos y el archivo de EDP ya emitidos
+  const paneles={edp:'edpBody',costos:'edpCostosBody',archivo:'edpArchivoBody'};
+  Object.keys(paneles).forEach(n=>{
+    const el=document.getElementById(paneles[n]);
+    if(el)el.style.display=(n===k)?'':'none';
     const btn=document.getElementById('edpTabBtn-'+n);
-    if(btn){btn.style.background=act?'var(--ceq)':'transparent';btn.style.color=act?'#fff':'var(--muted2)';}
+    if(btn){btn.style.background=n===k?'var(--ceq)':'transparent';btn.style.color=n===k?'#fff':'var(--muted2)';}
   });
-  if(esEdp)rEdpProveedores();else rEdpCostos();
+  if(k==='costos')rEdpCostos();
+  else if(k==='archivo'){if(typeof rEdpArchivo==='function')rEdpArchivo();}
+  else rEdpProveedores();
 }
