@@ -987,6 +987,7 @@
   <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
     <button id="tarPgTabBtn-resumen" onclick="_tarPgTab('resumen')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:var(--adm);color:#fff">📊 Resumen</button>
     <button id="tarPgTabBtn-guardias" onclick="_tarPgTab('guardias')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">🛡️ Guardias FBNV</button>
+    <button id="tarPgTabBtn-hist" onclick="_tarPgTab('hist')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:transparent;color:var(--muted2)">📶 Histograma</button>
   </div>
   <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
     <div><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Fecha</label>
@@ -1013,6 +1014,7 @@
     </div>
   </div>
   <div id="tarPgPanelGuardias" style="display:none"><div id="gdBody"></div></div>
+  <div id="tarPgPanelHist" style="display:none"><div id="thBody"></div></div>
 </div>
 
 <!-- LPS – LAST PLANNER SYSTEM -->
@@ -3355,7 +3357,7 @@
 <script src="js/insumosAux.js?v=1"></script>
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
-<script src="js/guardiasFbnv.js?v=16"></script>
+<script src="js/guardiasFbnv.js?v=17"></script>
 <script src="js/combustible.js?v=10"></script>
 <script src="js/requerimientos.js?v=18"></script>
 <script src="js/reembolsables_otros.js?v=13"></script>
@@ -3363,7 +3365,8 @@
 <script src="js/importPlanilla.js?v=6"></script>
 <script src="js/mantenimiento.js?v=12"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
-<script src="js/tareaje.js?v=27"></script>
+<script src="js/tareaje.js?v=28"></script>
+<script src="js/tareajeHist.js?v=1"></script>
 <script src="js/tareajeMenus.js?v=2"></script>
 <script src="js/tareajeDup.js?v=1"></script>
 <script src="js/engrase.js?v=4"></script>

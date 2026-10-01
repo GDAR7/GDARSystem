@@ -1381,6 +1381,7 @@ function rTareResumenPg(){
   _tarPgInitFiltros();
   // La página comparte fecha y proyecto con el tab de Guardias FBNV
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='guardias'){rGuardiasFbnv();return;}
+  if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='hist'){rTarHist();return;}
   _tarPgColVis=null;
   const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
   _buildTarColMenu(_st.tiposAll||[]);
