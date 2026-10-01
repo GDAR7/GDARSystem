@@ -107,6 +107,7 @@ function _gdDatos(){
 
   const porG={};_GD_GUARDIAS.forEach(g=>porG[g]={});
   const conteo={};_GD_GUARDIAS.forEach(g=>conteo[g]={obra:0,libre:0,aus:0,td:0,tn:0,total:0});
+  const porTipo={};_GD_GUARDIAS.forEach(g=>porTipo[g]={});   // TD, TN, DL, F… por guardia (histograma)
   (DB.personal||[]).forEach(p=>{
     if((p.est||'Activo')!=='Activo')return;
     const g=String(p.guardia||'').trim().toUpperCase();
@@ -119,6 +120,7 @@ function _gdDatos(){
     if(grupo==='libre'&&!_gdLibres)return;
     conteo[g][grupo]++;
     conteo[g].total++;
+    porTipo[g][t]=(porTipo[g][t]||0)+1;
     if(t==='TN')conteo[g].tn++;else if(grupo==='obra')conteo[g].td++;
     const cargo=(p.cargo||'SIN CARGO').toUpperCase().trim();
     (porG[g][cargo]=porG[g][cargo]||[]).push({p,tipo:t,grupo});
@@ -133,7 +135,60 @@ function _gdDatos(){
     .sort((a,b)=>_gdOrdenIdx(a)-_gdOrdenIdx(b)||a.localeCompare(b,'es'));
   const bloques=cargos.map(c=>({cargo:c,n:Math.max(..._GD_GUARDIAS.map(g=>(porG[g][c]||[]).length))}));
   const totalFilas=bloques.reduce((s,b)=>s+b.n,0);
-  return{fecha,proy,porG,cargos,bloques,totalFilas,conteo};
+  return{fecha,proy,porG,cargos,bloques,totalFilas,conteo,porTipo};
+}
+
+// ── Histograma: cantidad de personal por tipo de jornada y guardia ──
+const _GD_TIPO_ORD=[..._GD_EN_OBRA,..._GD_LIBRE,..._GD_AUSENTES];
+let _gdChart=null;
+// Etiqueta numérica sobre cada barra (y el total del tipo encima del grupo)
+const _gdVL={id:'gdVL',afterDatasetsDraw(chart){
+  const ctx=chart.ctx;
+  ctx.save();ctx.textAlign='center';ctx.textBaseline='bottom';
+  const tope=[];
+  chart.data.datasets.forEach((ds,di)=>{
+    const m=chart.getDatasetMeta(di);if(!m||m.hidden)return;
+    ctx.font='bold 10px Arial';ctx.fillStyle=ds.borderColor;
+    m.data.forEach((bar,i)=>{
+      const v=+ds.data[i]||0;
+      if(tope[i]==null||bar.y<tope[i])tope[i]=bar.y;
+      if(v)ctx.fillText(v,bar.x,bar.y-2);
+    });
+  });
+  // Total del tipo, centrado sobre el grupo de barras
+  const tot=chart.$gdTot||[];
+  ctx.font='bold 11px Arial';ctx.fillStyle='#e2e8f0';
+  chart.scales.x.ticks.forEach((_,i)=>{
+    if(!tot[i])return;
+    ctx.fillText('Σ '+tot[i],chart.scales.x.getPixelForTick(i),(tope[i]??chart.chartArea.bottom)-15);
+  });
+  ctx.restore();
+}};
+function _gdHistograma(canvasId,d){
+  const cv=document.getElementById(canvasId);
+  if(_gdChart){_gdChart.destroy();_gdChart=null;}
+  if(!cv||typeof Chart==='undefined')return;
+  const presentes=new Set(_GD_GUARDIAS.flatMap(g=>Object.keys(d.porTipo[g])));
+  const tipos=[..._GD_TIPO_ORD.filter(t=>presentes.has(t)),...[...presentes].filter(t=>!_GD_TIPO_ORD.includes(t))];
+  const tot=tipos.map(t=>_GD_GUARDIAS.reduce((s,g)=>s+(d.porTipo[g][t]||0),0));
+  const GC={A:'#f59e0b',B:'#a855f7',C:'#10b981'};
+  _gdChart=new Chart(cv,{
+    type:'bar',
+    data:{labels:tipos,datasets:_GD_GUARDIAS.map(g=>({
+      label:'Guardia '+g,data:tipos.map(t=>d.porTipo[g][t]||0),
+      backgroundColor:GC[g]+'99',borderColor:GC[g],borderWidth:1,borderRadius:3,maxBarThickness:34}))},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      layout:{padding:{top:30}},
+      plugins:{legend:{labels:{color:'#cbd5e1',font:{size:11,weight:'bold'},boxWidth:12}},
+        tooltip:{callbacks:{footer:items=>'Total '+items[0].label+': '+tot[items[0].dataIndex]}}},
+      scales:{
+        x:{ticks:{color:'#cbd5e1',font:{weight:'bold'}},grid:{display:false}},
+        y:{beginAtZero:true,ticks:{color:'#94a3b8',precision:0},grid:{color:'rgba(148,163,184,.12)'},
+           title:{display:true,text:'N° de personas',color:'#94a3b8',font:{size:10}}}}},
+    plugins:[_gdVL]
+  });
+  _gdChart.$gdTot=tot;
+  _gdChart.update();
 }
 
 // Desglose del pie de cada guardia: día // noche // libres // ausentes
@@ -220,6 +275,12 @@ function _gdRender(contId){
       ${_GD_GUARDIAS.map(g=>tarjeta('Guardia '+g,d.conteo[g],GC[g],'🛡️')).join('')}
       ${tarjeta('Total General',tot,'#06b6d4','📋')}
     </div>
+    <div style="background:var(--panel2);border:1px solid #06b6d4;border-radius:10px;padding:.6rem .8rem .5rem;margin-bottom:.8rem">
+      <div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--muted2);text-transform:uppercase;margin-bottom:.3rem">📊 Personal por tipo de jornada</div>
+      ${d.totalFilas
+        ?`<div style="position:relative;height:250px"><canvas id="${contId}Hist"></canvas></div>`
+        :'<div style="font-size:.75rem;color:var(--muted);padding:1rem;text-align:center">Sin personal registrado para esta fecha</div>'}
+    </div>
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.45rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
       ${esRos
         ? `<span style="font-size:.72rem;color:var(--muted2)">Fecha:</span>
@@ -265,6 +326,7 @@ function _gdRender(contId){
         <span style="color:#C00000">F / DM / P / V — Falta, descanso médico, permiso o licencia</span>
       </div>
     </div>`;
+  _gdHistograma(contId+'Hist',d);
 }
 
 const _GD_CSS=`
