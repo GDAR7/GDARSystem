@@ -127,22 +127,27 @@ function rTarHist(){
       <span style="font-size:.66rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em">Personal</span>
       <div style="display:flex;gap:.25rem">${btnSeg('','Todos','#06b6d4')}${btnSeg('STAFF','Staff','#3b82f6')}${btnSeg('OBRERO','Obrero','#10b981')}</div>
       <span style="font-size:.66rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;margin-left:.4rem">Situación</span>
-      <select onchange="_thSetJorn(this.value)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.25rem .5rem;font-size:.75rem">
+      <select onchange="_thSetJorn(this.value)" style="width:auto;margin:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.25rem .5rem;font-size:.75rem">
         ${Object.entries(_TH_JORN).map(([k,o])=>`<option value="${k}"${k===_thJorn?' selected':''}>${o.lbl}</option>`).join('')}
       </select>
       <span style="font-size:.66rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;margin-left:.4rem">Cargo</span>
       <div style="position:relative" id="thCargoWrap">
         <button onclick="_thToggleMenu(event)" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.25rem .7rem;font-size:.75rem;cursor:pointer;white-space:nowrap">${selTxt} <span style="opacity:.5">▾</span></button>
-        <div id="thCargoMenu" style="display:none;position:absolute;top:calc(100% + 3px);left:0;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:270px;max-height:340px;overflow-y:auto">
-          <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
-            <button onclick="_thCargosTodos(true)" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.7rem;padding:.2rem;cursor:pointer">Todos</button>
-            <button onclick="_thCargosTodos(false)" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.7rem;padding:.2rem;cursor:pointer">Ninguno</button>
+        <div id="thCargoMenu" style="display:${_thMenuAbierto?'flex':'none'};flex-direction:column;position:absolute;top:calc(100% + 3px);left:0;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);width:300px">
+          <input id="thCargoBusq" type="text" placeholder="🔍 Buscar cargo…" value="${_thEsc(_thBusq)}" oninput="_thFiltrarCargos(this.value)" autocomplete="off"
+            style="width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.75rem;margin:0 0 .4rem">
+          <div style="display:flex;gap:.4rem;margin-bottom:.4rem;flex-shrink:0">
+            <button onclick="_thCargosTodos(true)" title="Marca los cargos visibles" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.7rem;padding:.2rem;cursor:pointer;margin:0">Todos</button>
+            <button onclick="_thCargosTodos(false)" title="Desmarca los cargos visibles" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.7rem;padding:.2rem;cursor:pointer;margin:0">Ninguno</button>
           </div>
+          <div id="thCargoLista" style="max-height:280px;overflow-y:auto;border-top:1px solid var(--border);padding-top:.3rem">
           ${cargosAll.map(c=>{const n=d.filas.filter(f=>f.cargo===c).length;
-            return`<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text);padding:.15rem 0;cursor:pointer">
-              <input type="checkbox" data-cargo="${_thEsc(c)}" ${_thOcultos.has(c)?'':'checked'} onchange="_thCargoChk(this)" style="width:auto;margin:0;cursor:pointer">
+            return`<label data-busq="${_thEsc(_thNormBusq(c))}" style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text);padding:.15rem 0;margin:0;cursor:pointer;text-transform:none;letter-spacing:normal">
+              <input type="checkbox" data-cargo="${_thEsc(c)}" ${_thOcultos.has(c)?'':'checked'} onchange="_thCargoChk(this)" style="width:auto;margin:0;cursor:pointer;flex-shrink:0">
               <span style="flex:1">${_thEsc(c)}</span><span style="color:var(--muted2);font-weight:700">${n}</span></label>`;}).join('')
             ||'<div style="font-size:.72rem;color:var(--muted)">Sin personal ese día</div>'}
+            <div id="thCargoNada" style="display:none;font-size:.72rem;color:var(--muted);padding:.4rem 0;text-align:center">Ningún cargo coincide</div>
+          </div>
         </div>
       </div>
       <div style="margin-left:auto;display:flex;gap:.3rem;flex-wrap:wrap">
@@ -169,30 +174,59 @@ function rTarHist(){
   if(cvC)_thChartCargo=_thChart(cvC,cargos,porCargo,true);
   const cvT=document.getElementById('thCvTipo');
   if(cvT)_thChartTipo=_thChart(cvT,tipos,porTipo,false);
+  if(_thMenuAbierto){_thFiltrarCargos(_thBusq);_thFocoBusq();}
 }
 
 function _thSetCat(v){_thCat=v;rTarHist();}
 function _thSetJorn(v){_thJorn=v;rTarHist();}
+
+// ── Menú de cargos con buscador ──
+let _thBusq='';
+let _thMenuAbierto=false;     // el menú sigue abierto mientras se marcan cargos (cada cambio repinta)
+function _thNormBusq(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+// Filtra la lista en el lugar, sin repintar, para no perder el foco del buscador
+function _thFiltrarCargos(q){
+  _thBusq=q;
+  const pal=_thNormBusq(q).split(' ').filter(Boolean);
+  let vis=0;
+  document.querySelectorAll('#thCargoLista label[data-busq]').forEach(l=>{
+    const ok=pal.every(p=>l.dataset.busq.includes(p));
+    l.style.display=ok?'flex':'none';
+    if(ok)vis++;
+  });
+  const nada=document.getElementById('thCargoNada');
+  if(nada)nada.style.display=vis||!pal.length?'none':'block';
+}
+function _thFocoBusq(){
+  const b=document.getElementById('thCargoBusq');
+  if(b){b.focus();b.setSelectionRange(b.value.length,b.value.length);}
+}
 function _thCargoChk(el){
   const c=el.dataset.cargo;
   if(el.checked)_thOcultos.delete(c);else _thOcultos.add(c);
+  const lista=document.getElementById('thCargoLista'),sc=lista?lista.scrollTop:0;
   rTarHist();
-  document.getElementById('thCargoMenu').style.display='block';   // seguir eligiendo sin reabrir
+  const l2=document.getElementById('thCargoLista');if(l2)l2.scrollTop=sc;   // conservar la posición del scroll
 }
+// Todos / Ninguno actúan solo sobre los cargos que deja ver la búsqueda
 function _thCargosTodos(todos){
-  if(todos)_thOcultos.clear();
-  else document.querySelectorAll('#thCargoMenu input[data-cargo]').forEach(i=>_thOcultos.add(i.dataset.cargo));
+  document.querySelectorAll('#thCargoLista label[data-busq]').forEach(l=>{
+    if(l.style.display==='none')return;
+    const c=l.querySelector('input[data-cargo]').dataset.cargo;
+    if(todos)_thOcultos.delete(c);else _thOcultos.add(c);
+  });
   rTarHist();
-  document.getElementById('thCargoMenu').style.display='block';
 }
 function _thToggleMenu(e){
   e.stopPropagation();
+  _thMenuAbierto=!_thMenuAbierto;
   const m=document.getElementById('thCargoMenu');
-  if(m)m.style.display=m.style.display==='none'?'block':'none';
+  if(m)m.style.display=_thMenuAbierto?'flex':'none';
+  if(_thMenuAbierto){_thFiltrarCargos(_thBusq);_thFocoBusq();}
 }
 document.addEventListener('click',e=>{
   const w=document.getElementById('thCargoWrap'),m=document.getElementById('thCargoMenu');
   // Al marcar un cargo el menú se vuelve a pintar y el clic queda en un nodo ya retirado
   if(!e.target.isConnected)return;
-  if(m&&w&&!w.contains(e.target))m.style.display='none';
+  if(m&&w&&!w.contains(e.target)){m.style.display='none';_thMenuAbierto=false;}
 });
