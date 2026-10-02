@@ -461,6 +461,12 @@ function gMaterial(){
 
 function del(t,id){
   const _prevRec=DB[t]?DB[t].find(r=>r.id===id):null;
+  // El kardex de combustible se congela a las 48 h de registrado: la guarda va
+  // aquí y no solo en el botón, para que no dependa de lo que muestre la tabla.
+  if(t==='combustible'&&typeof _cbBloqueado==='function'&&_cbBloqueado(_prevRec)){
+    toast(_cbMotivoBloqueo(_prevRec),true);
+    return;
+  }
   if(t==='equipos'){
     const mants=DB.mantenimientos.filter(m=>m.eqId===id).length;
     const auxs=DB.auxiliosMecanicos.filter(a=>a.eqId===id).length;

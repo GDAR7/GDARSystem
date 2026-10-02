@@ -1,6 +1,38 @@
 ﻿// ══ COMBUSTIBLE ══
 function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+// ── Ventana para corregir un movimiento ─────────────────────────────────────
+// Un movimiento se puede editar y eliminar durante sus primeras 48 horas.
+// Pasadas, queda congelado: el kardex sustenta consumos y costos, así que un
+// registro viejo no debería cambiar sin dejar rastro.
+//
+// El reloj corre desde que se REGISTRÓ (creadoEn), no desde la fecha del
+// movimiento: si no, un despacho cargado con fecha atrasada nacería bloqueado
+// y no habría forma de corregirlo. Los registros anteriores a este cambio no
+// tienen creadoEn; para ellos se usa su fecha, que es lo único que hay.
+const _CB_HORAS_LIBRE=48;
+function _cbBloqueado(r){
+  if(!r)return false;
+  const t=_cbNacimiento(r);
+  return t!=null&&(Date.now()-t)>_CB_HORAS_LIBRE*3600000;
+}
+function _cbNacimiento(r){
+  if(r.creadoEn){
+    const t=new Date(r.creadoEn).getTime();
+    if(isFinite(t))return t;
+  }
+  if(r.fecha){
+    const t=new Date(r.fecha+'T00:00:00').getTime();
+    if(isFinite(t))return t;
+  }
+  return null;                      // sin fecha no hay nada que bloquear
+}
+function _cbMotivoBloqueo(r){
+  const t=_cbNacimiento(r);
+  const hs=t==null?0:Math.floor((Date.now()-t)/3600000);
+  return'Bloqueado: pasaron '+hs+' horas desde que se registró (el límite para corregir es '+_CB_HORAS_LIBRE+')';
+}
+
 // ── Período contable: del 21 de un mes al 20 del siguiente ──────────────────
 // Es el corte con el que se valorizan equipos y proveedores, así que el kardex
 // arranca mostrando el período en curso según la fecha de hoy.
@@ -120,13 +152,12 @@ function rComb(){
     const saldoColor=(saldoMap[r.id]||0)<0?'#ef4444':'#10b981';
     const costoCell=esIngreso?`<span style="color:var(--muted);font-size:.72rem">—</span>`:fmt((r.gal||0)*(r.precio||0));
     const estBadge=cerrado?`<span class="badge b-green">Cerrado</span>`:`<span class="badge b-orange">Ingresado</span>`;
-    const _bloq48=(Date.now()-new Date(r.fecha+'T00:00:00').getTime())>172800000;
-    const btns=cerrado
-      ?`<button class="btn btn-out btn-sm" onclick="verComb(${r.id})" style="color:#3b82f6;border-color:#3b82f640">👁 Ver</button>`
+    const _bloq48=_cbBloqueado(r);
+    const btns=(cerrado||_bloq48)
+      ?`<button class="btn btn-out btn-sm" onclick="verComb(${r.id})" style="color:#3b82f6;border-color:#3b82f640">👁 Ver</button>
+         ${cerrado?'':`<button class="btn btn-del btn-sm" disabled title="${_cbMotivoBloqueo(r)}" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`}`
       :`<button class="btn btn-out btn-sm" onclick="editComb(${r.id})" style="color:#f59e0b;border-color:#f59e0b40">✏️</button>
-        ${_bloq48
-          ?`<button class="btn btn-del btn-sm" disabled title="Registro bloqueado después de 48 horas" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`
-          :`<button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`}`;
+        <button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`;
     // Notas: en registros viejos el texto quedó guardado en placaSerie, igual que
     // en el modal de ver. Se recorta en la celda y el texto completo va en el title.
     const _nota=(r.notas||r.placaSerie||'').trim();
@@ -371,17 +402,25 @@ function gComb(){
   };
   if(_combEditId!==null){
     const idx=DB.combustible.findIndex(x=>x.id===_combEditId);
+    // El registro pudo cumplir sus 48 h con el formulario abierto
+    if(idx>-1&&_cbBloqueado(DB.combustible[idx])){
+      toast(_cbMotivoBloqueo(DB.combustible[idx]),true);
+      _combEditId=null;closeM('mComb');rComb();return;
+    }
     if(idx>-1){DB.combustible[idx]={...DB.combustible[idx],...fields};syncSheet('saveCombustible',DB.combustible[idx]);}
     _combEditId=null;
     closeM('mComb');rComb();toast(ing?'Ingreso actualizado':'Atención actualizada');
   }else{
-    const rec={id:nid('comb'),...fields};
+    // Queda sellado con la hora de registro: es desde aquí que corren las 48 h
+    const rec={id:nid('comb'),...fields,creadoEn:new Date().toISOString()};
     DB.combustible.push(rec);syncSheet('saveCombustible',rec);
     closeM('mComb');rComb();toast(ing?'Ingreso registrado':'Atención registrada');
   }
 }
 function editComb(id){
   const r=DB.combustible.find(x=>x.id===id);if(!r)return;
+  // Pasadas las 48 h solo se puede mirar
+  if(_cbBloqueado(r)){toast(_cbMotivoBloqueo(r),true);verComb(id);return;}
   _combEditId=id;
   _combMode=r.tipoMov==='Ingreso'?'ingreso':'despacho';
   _combSetFormMode(_combMode);
