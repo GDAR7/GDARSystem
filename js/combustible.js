@@ -11,8 +11,34 @@ function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 // y no habría forma de corregirlo. Los registros anteriores a este cambio no
 // tienen creadoEn; para ellos se usa su fecha, que es lo único que hay.
 const _CB_HORAS_LIBRE=48;
+
+// ── Ventana de corrección excepcional ───────────────────────────────────────
+// Abierta a pedido para poner al día el kardex. Mientras dure, los movimientos
+// del 21/09/2026 en adelante vuelven a tener ✏️ y 🗑, y se corrige o elimina
+// uno por uno los que haga falta. Lo anterior a esa fecha sigue con candado.
+//
+// VENCE SOLA: pasada la fecha de abajo el kardex vuelve al límite de 48 horas,
+// sin que nadie tenga que acordarse de cerrarla. Para extenderla o cerrarla
+// antes se cambia esta fecha (hora de Perú); en '' queda cerrada.
+const _CB_VENTANA_LIBRE='2026-10-03T23:59:59-05:00';
+const _CB_VENTANA_DESDE='2026-09-21';
+function _cbVentanaAbierta(){
+  if(!_CB_VENTANA_LIBRE)return false;
+  const t=new Date(_CB_VENTANA_LIBRE).getTime();
+  return isFinite(t)&&Date.now()<t;
+}
+function _cbVentanaRestante(){
+  const t=new Date(_CB_VENTANA_LIBRE).getTime();
+  return Math.max(0,Math.ceil((t-Date.now())/3600000));
+}
+// ¿Este movimiento entra en la ventana? Solo los del 21/09 en adelante
+function _cbEnVentana(r){
+  return _cbVentanaAbierta()&&String((r&&r.fecha)||'')>=_CB_VENTANA_DESDE;
+}
+
 function _cbBloqueado(r){
   if(!r)return false;
+  if(_cbEnVentana(r))return false;          // corrección excepcional abierta
   const t=_cbNacimiento(r);
   return t!=null&&(Date.now()-t)>_CB_HORAS_LIBRE*3600000;
 }
@@ -123,7 +149,8 @@ function rComb(){
       <button onclick="_cbPerNav(1)" title="Período siguiente" style="${btn}">▶</button>
       <button onclick="_cbPerHoy()" title="Ir al período en curso (21 al 20)" style="${btn};background:rgba(249,115,22,.14);border-color:rgba(249,115,22,.4);color:#f97316;font-weight:700">Actual</button>
       <button onclick="_cbPerTodo()" title="Quitar el filtro de fechas" style="${btn};${!_hayPer?'border-color:#f97316;color:#f97316;font-weight:700':''}">Todo</button>
-      <span style="font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${_hayPer?`${listaFilt.length} mov.`:`Sin filtro · ${listaFilt.length} mov.`}</span>`;
+      <span style="font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${_hayPer?`${listaFilt.length} mov.`:`Sin filtro · ${listaFilt.length} mov.`}</span>
+      ${_cbVentanaAbierta()?`<span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;margin-left:auto;padding:.14rem .5rem;border-radius:5px;border:1px solid #f59e0b;background:rgba(245,158,11,.14);color:#f59e0b;font-size:.62rem;font-weight:700;white-space:nowrap" title="Los movimientos del ${_CB_VENTANA_DESDE} en adelante se pueden corregir y eliminar sin el límite de 48 horas. Vence sola y el kardex vuelve a su regla.">🔓 Corrección abierta desde el ${_CB_VENTANA_DESDE} · quedan ${_cbVentanaRestante()} h</span>`:''}`;
   }
 
   // Saldo acumulado GLOBAL (todos los registros en orden cronológico)
