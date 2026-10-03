@@ -75,6 +75,108 @@ es('las unidades incluyen viajes y m³',/>viajes</.test(fila)&&/>m³</.test(fila
 es('se numeran',/Actividad 2/.test(ev('_ptFilaActividad()')),true);
 es('cada una se puede quitar',/_ptQuitarActividad\(this\)/.test(fila),true);
 
+console.log('\n== Contraer las actividades anteriores ==');
+// Una actividad simulada: los campos que lee el resumen y una lista de clases
+function actFalsa(vals,nEq){
+  const cls=new Set();
+  const campos={
+    '.pt-frente':{value:vals.frente},'.pt-desc':{value:vals.desc},
+    '.pt-cant':{value:vals.cant},'.pt-unid':{value:vals.unid},
+    '.pt-act-fr':{textContent:''},'.pt-act-res':{textContent:''},'.pt-act-chev':{textContent:'▾'}
+  };
+  return{
+    classList:{toggle(c,on){on?cls.add(c):cls.delete(c);},contains:c=>cls.has(c)},
+    querySelector:s=>campos[s]||null,
+    querySelectorAll:()=>Array(nEq||0).fill({}),
+    campos
+  };
+}
+const a1=actFalsa({frente:'Acceso Nor Oeste',desc:'Corte y carguío\nde material',cant:'12',unid:'viajes'},2);
+ctx.__a=a1;
+ev('_ptColapsar(__a,true)');
+es('al contraerla, la cabecera dice el frente',a1.campos['.pt-act-fr'].textContent,'Acceso Nor Oeste');
+es('  y un resumen en una sola línea',a1.campos['.pt-act-res'].textContent,
+  'Corte y carguío de material · 12 viajes · 2 equipos');
+es('  con la flecha de cerrada',a1.campos['.pt-act-chev'].textContent,'▸');
+ev('_ptColapsar(__a,false)');
+es('al abrirla, el resumen desaparece',a1.campos['.pt-act-res'].textContent,'');
+es('  pero el frente se queda en el título',a1.campos['.pt-act-fr'].textContent,'Acceso Nor Oeste');
+const a2=actFalsa({frente:'Huantajaya',desc:'',cant:'',unid:'viajes'},0);
+ctx.__a=a2;
+ev('_ptColapsar(__a,true)');
+es('si quedó sin descripción, la cabecera lo advierte',a2.campos['.pt-act-res'].textContent,'⚠ sin descripción');
+const larga='x'.repeat(90);
+ctx.__a=actFalsa({frente:'F',desc:larga,cant:'',unid:''},0);
+es('una descripción larga se recorta',ev('_ptResumenAct(__a)').length,61);
+const srcC=fs.readFileSync(R+'js/parteTurno.js','utf8');
+es('agregar una nueva contrae las anteriores',/forEach\(a=>_ptColapsar\(a,true\)\)/.test(srcC),true);
+es('la cabecera se abre y cierra al tocarla',/onclick="_ptToggleActividad\(this\)"/.test(srcC),true);
+es('  Quitar no la abre por accidente',/event\.stopPropagation\(\);_ptQuitarActividad/.test(srcC),true);
+es('cambiar el frente actualiza el título',/onchange="_ptPintarCabecera\(this\.closest\('\.pt-act'\)\)"/.test(srcC),true);
+
+console.log('\n== Ubicar el trabajo en la imagen aérea ==');
+// Como en el proyecto real: C. Huantajalla contiene a C. Huantajalla 1A
+const _frPrev=DB.frentesTrabajo;
+DB.frentesTrabajo=[
+  {nombre:'C. Huantajalla',   puntos:[{x:10,y:10},{x:50,y:10},{x:50,y:50},{x:10,y:50}]},
+  {nombre:'C. Huantajalla 1A',puntos:[{x:20,y:20},{x:30,y:20},{x:30,y:30},{x:20,y:30}]},
+  // En forma de L: el hueco no es parte del frente
+  {nombre:'R3 - Lado este',   puntos:[{x:60,y:10},{x:90,y:10},{x:90,y:20},{x:70,y:20},{x:70,y:50},{x:60,y:50}]},
+  {nombre:'Acceso Nor Oeste'},                                  // sin área dibujada
+  {nombre:'Cantera',puntos:[{x:1,y:1},{x:2,y:2}]}                // dos puntos: no es área
+];
+es('solo cuentan los frentes con área dibujada',ev('_ptFrentesMapa().map(f=>f.nombre).join(" · ")'),
+  'C. Huantajalla · C. Huantajalla 1A · R3 - Lado este');
+const fr=(x,y)=>ev(`_ptFrenteEnPunto({x:${x},y:${y}})`);
+es('un toque en el grande elige el grande',fr(40,40),'C. Huantajalla');
+es('dentro del chico, gana el chico: es el más preciso',fr(25,25),'C. Huantajalla 1A');
+es('en la L, sobre el brazo, es Lado este',fr(65,40),'R3 - Lado este');
+es('  en el hueco de la L no',fr(80,40),null);
+es('fuera de todo, ninguno',fr(95,95),null);
+es('sin punto, ninguno',ev('_ptFrenteEnPunto(null)'),null);
+es('el área del cuadrado de 10×10',ev('_ptAreaPoligono([{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}])'),100);
+
+// El toque se convierte a % de la imagen, con cualquier zoom o scroll
+nodo('ptMapaBox').getBoundingClientRect=()=>({left:100,top:50,width:800,height:400});
+ev('_ptMapAct={dataset:{n:"1"},querySelector:()=>({value:"C. Huantajalla"})}');
+ev('_ptMapaToque({clientX:300,clientY:150})');
+es('un toque a 1/4 del ancho y 1/4 del alto da 25%, 25%',ev('JSON.stringify(_ptMapPt)'),'{"x":25,"y":25}');
+ev('_ptMapaToque({clientX:5000,clientY:-20})');
+es('fuera de la imagen se pega al borde',ev('JSON.stringify(_ptMapPt)'),'{"x":100,"y":0}');
+es('la ventana muestra el punto y su frente',(()=>{ev('_ptMapPt={x:25,y:25};_ptMapaPintar()');
+  return /C\. Huantajalla 1A<\/b> · se elegirá este frente/.test(nodo('ptMapa').innerHTML);})(),true);
+es('  con los polígonos dibujados',(nodo('ptMapa').innerHTML.match(/<polygon /g)||[]).length,3);
+es('  y la imagen aérea de fondo',/R3_2026_IMAGEN\.png/.test(nodo('ptMapa').innerHTML),true);
+es('  con zoom para afinar en el celular',/_ptMapaZoom\(1\)/.test(nodo('ptMapa').innerHTML),true);
+
+// Usar el punto: guarda x,y en la actividad y elige el frente
+const campos={'.pt-x':{value:''},'.pt-y':{value:''},
+  '.pt-frente':{value:'C. Huantajalla',options:[{value:'C. Huantajalla'},{value:'C. Huantajalla 1A'},{value:'R3 - Lado este'}]},
+  '.pt-ubic':{textContent:'',style:{}},'.pt-act-fr':{textContent:''},'.pt-act-res':{textContent:''},
+  '.pt-act-chev':{textContent:''},'.pt-desc':{value:''},'.pt-cant':{value:''},'.pt-unid':{value:'viajes'}};
+const actU={dataset:{n:'1'},classList:{toggle(){},contains:()=>false},
+  querySelector:s=>campos[s]||null,querySelectorAll:()=>[]};
+ctx.__act=actU;
+ev('_ptMapAct=__act;_ptMapPt={x:25,y:25};_ptMapaUsar()');
+es('el punto queda en la actividad',campos['.pt-x'].value+','+campos['.pt-y'].value,'25,25');
+es('  y el frente se elige solo',campos['.pt-frente'].value,'C. Huantajalla 1A');
+es('  el título lo refleja',campos['.pt-act-fr'].textContent,'C. Huantajalla 1A');
+es('  y la fila dice dónde quedó',/📍 C\. Huantajalla 1A · 25\.0%, 25\.0%/.test(campos['.pt-ubic'].textContent),true);
+// Fuera de los frentes: se guarda el punto y se respeta lo elegido
+ev('_ptMapAct=__act;_ptMapPt={x:95,y:95};_ptMapaUsar()');
+es('fuera de todo se guarda igual el punto',campos['.pt-x'].value,'95');
+es('  sin cambiar el frente elegido',campos['.pt-frente'].value,'C. Huantajalla 1A');
+es('  y lo dice',/Fuera de los frentes dibujados/.test(campos['.pt-ubic'].textContent),true);
+// Quitarla
+ev('_ptMapAct=__act;_ptMapaQuitar()');
+es('quitar la ubicación la deja vacía',campos['.pt-x'].value+'|'+campos['.pt-y'].value,'|');
+es('  y vuelve a ser opcional',campos['.pt-ubic'].textContent,'Sin ubicar · opcional');
+DB.frentesTrabajo=_frPrev;
+es('la fila trae el botón del mapa',/_ptAbrirMapa\(this\)/.test(ev('_ptFilaActividad()')),true);
+es('  y es opcional',/Sin ubicar · opcional/.test(ev('_ptFilaActividad()')),true);
+es('se guarda dentro de la actividad, sin tocar la tabla',
+  /ubicacion:\(x!==''&&y!==''\)\?\{x:\+x,y:\+y\}:null/.test(fs.readFileSync(R+'js/parteTurno.js','utf8')),true);
+
 console.log('\n== Qué paraliza el frente ==');
 const para=s=>ev('_PT_CLIMA_PARA.test("'+s+'")');
 es('la lluvia fuerte sí',para('Lluvia fuerte'),true);
