@@ -69,7 +69,7 @@ srv.listen(0,'127.0.0.1',async()=>{
   reset();
   let o=await corre(['--sincronizar','--simular']);
   es('dice que esta todo al dia',/Todo al dia/.test(o),true);
-  es('  y cuenta los 16',/los 16 coinciden/.test(o),true);
+  es('  y cuenta los 20',/los 20 coinciden/.test(o),true);
   es('los campos de Supabase no cuentan como cambio',/email_verified/.test(o),false);
 
   console.log('\n== Detecta un permiso agregado ==');

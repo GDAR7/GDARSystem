@@ -35,7 +35,7 @@ es('Supabase se creó con la URL de empresa.js',creado.u,SUPA_URL);
 es('  y con su llave',creado.k.startsWith('sb_publishable_'),true);
 
 console.log('\n== Los usuarios siguen intactos ==');
-es('cantidad',USERS.length,16);
+es('cantidad',USERS.length,20);
 const u=c=>USERS.find(x=>x.codigo===c);
 es('el suyo existe',!!u('EIBEL25'),true);
 es('  y ve todas las áreas',u('EIBEL25').areas.length,Object.keys(AREAS).length);
@@ -80,6 +80,41 @@ es('  con los cuatro módulos del recuadro',(sx.areaModules.controlProyecto||[])
   'pizarra,avanceMT,dailyReport,recrecimiento');
 es('  y puede editarlos (solo el tareaje es de lectura)',(sx.readOnlyModules||[]).join(','),'tareaje');
 es('  sin perder lo que ya tenía',(sx.areaModules.administracion||[]).join(','),'asistencia,tareaje');
+
+console.log('\n== Registro de campo: solo el Parte de Turno ==');
+const campo=['ERV_RO','WIL_VE','EDW_QU','MIS_TE'];
+es('están los cuatro',campo.every(c=>!!u(c)),true);
+es('  con sus nombres',campo.map(c=>u(c).nombre).join(' · '),
+  'Ervin Rojas · Wilner Vega · Edwin Quispe · Misael Tello');
+es('cada uno entra a una sola área',campo.every(c=>u(c).areas.length===1&&u(c).areas[0]==='operaciones'),true);
+es('  y dentro de ella, solo al Parte de Turno',
+  campo.every(c=>(u(c).areaModules.operaciones||[]).join(',')==='parteTurno'),true);
+es('  que existe de verdad en Operaciones',
+  (AREAS.operaciones.modules||[]).some(m=>m.key==='parteTurno'),true);
+es('no ven Supervisión ni Liberación',
+  campo.every(c=>!u(c).areaModules.operaciones.includes('supervision')
+    &&!u(c).areaModules.operaciones.includes('liberacion')),true);
+es('el administrador principal sigue viendo todo',u('EIBEL25').areas.length,Object.keys(AREAS).length);
+es('  incluido el Parte de Turno, porque no tiene recorte',!u('EIBEL25').areaModules,true);
+
+console.log('\n== Quién entra directo a un solo módulo ==');
+// Se ejecuta la regla real de js/utils.js sobre los 20 usuarios: solo los de
+// registro de campo deben quedar sin Panel General.
+const _uti=fs.readFileSync(R+'js/utils.js','utf8');
+const _ini=_uti.indexOf('function _cuModuloUnico()');
+const _fin=_uti.indexOf('\n}',_ini)+2;
+const _cuModuloUnico=new Function('CU',_uti.slice(_ini,_fin)+';return _cuModuloUnico();');
+const unicos=USERS.filter(x=>_cuModuloUnico(x)).map(x=>x.codigo).sort();
+es('solo los cuatro de campo entran directo',unicos.join(','),'EDW_QU,ERV_RO,MIS_TE,WIL_VE');
+es('  y entran al Parte de Turno',campo.map(c=>_cuModuloUnico(u(c))).join(','),'parteTurno,parteTurno,parteTurno,parteTurno');
+es('el administrador sigue con su Panel General',_cuModuloUnico(u('EIBEL25')),null);
+es('Almacén (un área sin recorte) no queda encerrado',_cuModuloUnico(u('YONMEL')),null);
+es('Contabilidad (un área sin recorte) tampoco',_cuModuloUnico(u('JON_GO')),null);
+es('BISA (dos áreas) tampoco',_cuModuloUnico(u('CP.BISA_')),null);
+es('sin sesión no rompe',_cuModuloUnico(null),null);
+es('al entrar se va a su módulo',/setPage\(_cuModuloUnico\(\)\|\|'dashboard'\)/.test(_uti),true);
+es('el menú no le muestra Panel General',/let h = _unico\?'':/.test(_uti),true);
+es('y si algo lo manda al tablero, vuelve a su formulario',/if\(k==='dashboard'&&typeof _cuModuloUnico==='function'\)/.test(_uti),true);
 
 console.log('\n== config.js ya no lleva datos del cliente ==');
 const cfg=fs.readFileSync(R+'js/config.js','utf8');

@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GDAR - ECOSERMO · Sistema Operativo</title>
 <link rel="icon" type="image/png" href="09.-ERP/Imagenes/GDAR-LOGO_2.png">
+<!-- App instalable: el sistema se puede agregar a la pantalla de inicio del celular -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GDAR">
+<link rel="apple-touch-icon" href="09.-ERP/Imagenes/GDAR-LOGO_2.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -13,7 +21,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="css/styles.css?v=7">
+<link rel="stylesheet" href="css/styles.css?v=8">
 </head>
 <body>
 
@@ -660,6 +668,9 @@
 </div>
 
 <!-- OPERACIONES – SUPERVISIÓN -->
+<!-- OPERACIONES – PARTE DE TURNO (js/parteTurno.js) -->
+<div class="page" id="page-parteTurno"></div>
+
 <div class="page" id="page-supervision">
   <div class="ph"><div class="ph-title" style="color:var(--ope)">Supervisión</div><div class="ph-sub">Registro de actividades supervisadas</div></div>
   <div class="card">
@@ -3341,9 +3352,9 @@
 <div id="toast"></div>
 
 
-<script src="js/empresa.js?v=7"></script>
+<script src="js/empresa.js?v=8"></script>
 <script src="js/config.js?v=53"></script>
-<script src="js/utils.js?v=34"></script>
+<script src="js/utils.js?v=36"></script>
 <script src="js/personal.js?v=24"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
@@ -3391,6 +3402,7 @@
 <script src="js/avanceMT.js?v=14"></script>
 <script src="js/seguimiento.js?v=4"></script>
 <script src="js/liberacion.js?v=1"></script>
+<script src="js/parteTurno.js?v=1"></script>
 <script src="js/recrecimiento.js?v=13"></script>
 <script src="js/wbsPlanta.js?v=2"></script>
 <script src="js/histograma.js?v=7"></script>
@@ -3400,7 +3412,7 @@
 <script src="js/costcontrolExport.js?v=1"></script>
 <script src="js/costoM3.js?v=3"></script>
 <script src="js/venta.js?v=3"></script>
-<script src="js/datos.js?v=4"></script>
+<script src="js/datos.js?v=5"></script>
 <script src="js/costoIndirecto.js?v=3"></script>
 <script src="js/costoIndirectoSim.js?v=1"></script>
 <script src="js/costoDirecto.js?v=1"></script>
@@ -3469,5 +3481,14 @@
 <!-- Autocomplete Entrada Múltiple -->
 <div id="emAcDrop" style="display:none;background:var(--panel);border:1px solid var(--border);border-radius:7px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px #00000070;"></div>
 
+<!-- App instalable. El service worker solo acelera la carga: no guarda datos
+     ni sesiones, y nunca intercepta las llamadas a Supabase. -->
+<script>
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('[PWA] no se registró:',e));
+  });
+}
+</script>
 </body>
 </html>

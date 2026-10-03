@@ -313,14 +313,29 @@ function launchApp(){
   document.getElementById('hRole').textContent=CU.cargo;
   buildSidebar();
   startClock();
-  setPage('dashboard');
+  // Quien tiene un solo módulo entra directo a él: el Panel General no es suyo
+  setPage(_cuModuloUnico()||'dashboard');
   loadSheetsData();
+}
+
+// ── Usuario de un solo módulo ───────────────────────────────────────────────
+// Una sola área con un solo módulo permitido (p. ej. el registro de campo:
+// operaciones → parteTurno). Para esa gente el sistema se reduce a su
+// formulario: no ven el Panel General, que muestra datos de todas las áreas,
+// y entran directo a lo suyo. Se deduce de los permisos que ya tienen, así que
+// no requiere ningún dato nuevo en su cuenta.
+function _cuModuloUnico(){
+  if(typeof CU==='undefined'||!CU||!Array.isArray(CU.areas)||CU.areas.length!==1)return null;
+  const ak=CU.areas[0];
+  const lista=CU.areaModules&&CU.areaModules[ak];
+  return Array.isArray(lista)&&lista.length===1?lista[0]:null;
 }
 
 // ══ SIDEBAR ══
 function buildSidebar(){
 const nav = document.getElementById('sideNav');
-  let h = `<div class="nav-dash active" id="nd-dashboard" onclick="setPage('dashboard')">
+  const _unico=_cuModuloUnico();
+  let h = _unico?'':`<div class="nav-dash active" id="nd-dashboard" onclick="setPage('dashboard')">
     <span style="font-size:.9rem">📊</span> Panel General
   </div>`;
 
@@ -408,7 +423,23 @@ function toggleSubgroup(k){
 
 // ══ PAGE NAV ══
 function setPage(k){
+  // Un usuario de un solo módulo no tiene Panel General: cualquier camino que
+  // lo mande ahí lo devuelve a su formulario
+  if(k==='dashboard'&&typeof _cuModuloUnico==='function'){
+    const _u=_cuModuloUnico();
+    if(_u)k=_u;
+  }
   AP=k;
+  // En celular el menú flota sobre la página: al elegir un módulo se cierra
+  // solo, si no taparía el contenido que se acaba de abrir.
+  if(window.innerWidth<=820){
+    const _nv=document.getElementById('sideNav');
+    if(_nv&&!_nv.classList.contains('collapsed')){
+      _nv.classList.add('collapsed');
+      const _bt=document.querySelector('.nav-toggle-btn');
+      if(_bt)_bt.textContent='▶';
+    }
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+k)?.classList.add('active');
   document.querySelectorAll('.nav-dash,.nav-mod').forEach(el=>el.classList.remove('active'));
@@ -416,7 +447,7 @@ function setPage(k){
   renderPage(k);
 }
 function renderPage(k){
-  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,areasTrabajo:()=>rAreasTrabajo(),tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
+  const m={dashboard:rDash,dashEquipos:rDashEquipos,personal:rPersonal,asistencia:rAsistencia,planilla:_plRenderTabs,renta5ta:rRenta5ta,afpTasas:rAfpTasas,asistentaSocial:rSocial,viaticos:rViaticos,residencia:rResidencia,alimentacion:rAli,hospedaje:rHosp,lavanderia:rLav,almacen:rAlm,combustible:rComb,proyectos:rProyectos,requerimientos:rReq,materiales:rMateriales,facturasPago:rFPago,analisisAbc:rAnalisisAbc,kardexEpp:rKardexEpp,insumosAux:rInsumosAux,informePeriodo:rInformePeriodo,parteTurno:rParteTurno,supervision:rSuper,liberacion:rLiberacion,seguridad:rSeg,cursosSeguridad:rCursosSeguridad,medioAmbiente:rAmb,masterEquipos:rMaster,programacionEquipos:rProg,auxiliosMecanicos:rAuxMec,engraseEquipos:rEngrase,salidaEquipos:rSalidaEquipos,tareaje:rTareaje,resumenTareaje:rTareResumenPg,roster:()=>_rosterTab(_rosterTabAct),planner:rPlanner,flotaEquipos:rFlotaEquipos,lineaAmarilla:()=>rLinea('Línea Amarilla'),lineaBlanca:()=>rLinea('Línea Blanca'),vehiculosMenores:()=>rLinea('Vehículo Menor'),equiposMenores:()=>rLinea('Equipos Menores'),panelHoras:rPanelHoras,reporteMensual:rReporteMensual,reporteEquipos:rReporteEquipos,proveedores:()=>_edpTab(_edpTabAct),resultadoOperativo:rResultadoOperativo,hhVenta:rHhVenta,corteEquipos:rCorteEquipos,costoM3:rCostoM3,dailyReport:rDailyReport,frentesTrabajo:rFrentes,areasTrabajo:()=>rAreasTrabajo(),tipoMaterial:rTipoMaterial,tramos:rTramos,facturacion:rFact,costos:rCostos,lps:rLps,pizarra:rPizarra,avanceMT:rAvanceMT,recrecimiento:rRecrecimiento,histograma:rHistograma,seguimiento:rSeguimiento,notificaciones:rNotificaciones,miSeguridad:rMiSeguridad,costControl:rCostControl,venta:rVenta,tarifas:rTarifas,valorizaciones:rValorizaciones,hes:rHes};
   if(!m[k])return;
   // Antes, si una seccion reventaba, quedaba en blanco y no habia forma de
   // saber por que sin abrir la consola del navegador.

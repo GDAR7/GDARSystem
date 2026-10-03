@@ -60,6 +60,11 @@ const EMPRESA_USERS=A=>[
   {codigo:'JOR_JA',nombre:'Jorge Jala',cargo:'Jefe de Recursos Humanos',areas:['administracion','remuneraciones'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
   // Supervisión externa (BISA): solo consulta. Del Panel de Horas ve los tres
   {codigo:'CP.BISA_',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
+  // Registro de campo: solo ven el formulario de Parte de Turno, nada más del sistema
+  {codigo:'ERV_RO',nombre:'Ervin Rojas',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'WIL_VE',nombre:'Wilner Vega',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'EDW_QU',nombre:'Edwin Quispe',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'MIS_TE',nombre:'Misael Tello',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
 ];
 
 // El logo de la pantalla de acceso. El src del HTML queda como respaldo:

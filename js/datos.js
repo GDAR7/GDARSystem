@@ -514,8 +514,19 @@ function toggleNav(){
   nav.classList.toggle('collapsed');
   btn.textContent = nav.classList.contains('collapsed') ? '▶' : '☰';
 }
+// En celular el menú arranca cerrado: ocupa 240px y taparía la pantalla
+function _navAutoCelular(){
+  if(window.innerWidth>820)return;
+  const nav=document.getElementById('sideNav');
+  const btn=document.querySelector('.nav-toggle-btn');
+  if(nav&&!nav.classList.contains('collapsed')){
+    nav.classList.add('collapsed');
+    if(btn)btn.textContent='▶';
+  }
+}
 document.addEventListener('DOMContentLoaded',()=>{
   buildDemos();
+  _navAutoCelular();
   ['wIng','soF','rI','rS','alF','hF','lvF','lvFE','aeF','asF','cbF','suF','inF','ptV','maF','otFp','otFe','acFi','acFf','ftF','coF','rpF','rqF','rqFEnt'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today();});
   const emEl=document.getElementById('engraseMes');if(emEl)emEl.value=new Date().toISOString().slice(0,7);
   const fpPdfEl=document.getElementById('fpPdf');
