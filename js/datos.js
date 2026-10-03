@@ -467,6 +467,11 @@ function del(t,id){
     toast(_cbMotivoBloqueo(_prevRec),true);
     return;
   }
+  // Lo mismo con las valorizaciones: pasadas 48 h no se eliminan
+  if(t==='ventas'&&typeof _vtBloqueada==='function'&&_vtBloqueada(_prevRec)){
+    toast(_vtMotivoBloqueo(_prevRec),true);
+    return;
+  }
   if(t==='equipos'){
     const mants=DB.mantenimientos.filter(m=>m.eqId===id).length;
     const auxs=DB.auxiliosMecanicos.filter(a=>a.eqId===id).length;

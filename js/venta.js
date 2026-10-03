@@ -6,6 +6,38 @@ let _vtUploadField=null;
 let _valorizSort={col:'fecha',dir:-1};
 let _vtHesData={};
 
+// ── Ventana para eliminar una valorización ──────────────────────────────────
+// Una valorización se puede eliminar durante sus primeras 48 horas. Pasadas,
+// el botón queda en candado: ya sustenta cobros al cliente, y con HES o
+// factura cargadas no debería desaparecer sin dejar rastro. Editar sigue
+// permitido, que es lo que hace falta para completar HES y factura después.
+//
+// El plazo corre desde que se REGISTRÓ (creadoEn), no desde la fecha de la
+// valorización: si no, una cargada con fecha atrasada nacería bloqueada. Las
+// registradas antes de este cambio no tienen creadoEn y se miden por su fecha.
+const _VT_HORAS_LIBRE=48;
+function _vtNacimiento(v){
+  if(v&&v.creadoEn){
+    const t=new Date(v.creadoEn).getTime();
+    if(isFinite(t))return t;
+  }
+  if(v&&v.fecha){
+    const t=new Date(v.fecha+'T00:00:00').getTime();
+    if(isFinite(t))return t;
+  }
+  return null;
+}
+function _vtBloqueada(v){
+  if(!v)return false;
+  const t=_vtNacimiento(v);
+  return t!=null&&(Date.now()-t)>_VT_HORAS_LIBRE*3600000;
+}
+function _vtMotivoBloqueo(v){
+  const t=_vtNacimiento(v);
+  const hs=t==null?0:Math.floor((Date.now()-t)/3600000);
+  return'No se puede eliminar: pasaron '+hs+' horas desde que se registró (el límite es '+_VT_HORAS_LIBRE+')';
+}
+
 // ── PDF.js config ──
 if(typeof pdfjsLib!=='undefined'){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -201,7 +233,9 @@ function rValorizaciones(){
       <td style="font-size:.71rem;color:var(--muted2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.observaciones||''}">${v.observaciones||'—'}</td>
       ${canEdit?`<td style="display:flex;gap:.3rem">
         <button class="btn btn-out btn-sm" onclick="openValorizEdit(${v.id})" style="color:#f59e0b;border-color:#f59e0b60" title="Editar">✏️</button>
-        <button class="btn btn-del btn-sm" onclick="del('ventas',${v.id})" title="Eliminar">🗑</button>
+        ${_vtBloqueada(v)
+          ?`<button class="btn btn-del btn-sm" disabled title="${_vtMotivoBloqueo(v)}" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`
+          :`<button class="btn btn-del btn-sm" onclick="del('ventas',${v.id})" title="Eliminar">🗑</button>`}
       </td>`:''}
     </tr>`;
   }).join('');
@@ -289,6 +323,9 @@ async function gVenta(){
     hesMonto:existing.hesMonto||0,hesPeriodo:existing.hesPeriodo||'',
     hesTextoCabecera:existing.hesTextoCabecera||'',hesMoneda:existing.hesMoneda||'',hesCantPedida:existing.hesCantPedida||0,
     facturaUrl:existing.facturaUrl||'',facturaNombre:existing.facturaNombre||'',facturaPath:existing.facturaPath||'',
+    // Hora de registro: desde aquí corren las 48 h para poder eliminarla.
+    // Al editar se conserva la original, para que editar no reabra el plazo.
+    creadoEn:existing.creadoEn||new Date().toISOString(),
   };
 
   if(isEdit){const idx=DB.ventas.findIndex(v=>v.id===_ventaEditId);if(idx>-1)DB.ventas[idx]=rec;}
