@@ -64,7 +64,7 @@ function _ptFilaActividad(){
       <select class="pt-frente">${frentes.map(f=>`<option>${_ptEsc(f)}</option>`).join('')}</select>
     </label>
     <label class="pt-f">Descripción del trabajo
-      <input type="text" class="pt-desc" placeholder="Ej.: limpieza de fundación con excavadora">
+      <textarea class="pt-desc" rows="3" placeholder="Ej.: limpieza de fundación con excavadora"></textarea>
     </label>
     <div class="pt-qty">
       <label class="pt-f">Cantidad
