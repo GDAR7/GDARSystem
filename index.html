@@ -747,7 +747,9 @@
 <div class="page" id="page-masterEquipos">
   <div class="ph"><div class="ph-title" style="color:var(--mec)">Máster de Equipos</div><div class="ph-sub">Registro completo de toda la flota</div></div>
   <div class="card">
-    <div class="card-head"><span class="card-title">Flota Completa</span>
+    <div class="card-head" style="flex-wrap:wrap;gap:.6rem"><span class="card-title">Flota Completa</span>
+      <!-- Filtros por estado (js/mantenimiento.js · _mqBotones) -->
+      <div id="mqFiltros" style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;flex:1"></div>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input id="masterSearch" class="search-input" placeholder="Buscar..." oninput="flt(this,'tbMaster')"></div>
         <button onclick="_masterPrintPDF()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:#f87171;border-radius:7px;padding:.35rem .85rem;font-size:.78rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
@@ -3374,7 +3376,7 @@
 <script src="js/reembolsables_otros.js?v=13"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>
-<script src="js/mantenimiento.js?v=12"></script>
+<script src="js/mantenimiento.js?v=13"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
 <script src="js/tareaje.js?v=28"></script>
 <script src="js/tareajeHist.js?v=2"></script>

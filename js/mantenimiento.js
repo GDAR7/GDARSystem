@@ -45,8 +45,10 @@ function setEqSort(s){
   rMaster();
 }
 function _masterPrintPDF(){
-  const equipos=[...DB.equipos].sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo));
-  if(!equipos.length){toast('Sin equipos para imprimir',true);return;}
+  // Imprime lo que está a la vista: respeta el filtro elegido
+  const equipos=(typeof _mqFiltrados==='function'?_mqFiltrados():[...DB.equipos])
+    .sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo));
+  if(!equipos.length){toast('Sin equipos para imprimir con este filtro',true);return;}
   const base=window.location.href.split('index.html')[0];
   const logo=base+EMPRESA.logo;
   const fecha=new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
@@ -96,7 +98,7 @@ function _masterPrintPDF(){
       <img src="${logo}" class="logo" onerror="this.style.display='none'">
       <div>
         <div class="titulo">Máster de Equipos</div>
-        <div class="subtitulo">GDAR – ECOSERMO · Registro completo de flota · Total: ${equipos.length} equipos</div>
+        <div class="subtitulo">GDAR – ECOSERMO · ${_mqFiltro==='todos'?'Registro completo de flota':'Filtro: '+_mqEtiqueta()} · Total: ${equipos.length} equipos</div>
       </div>
     </div>
     <div class="fecha-box"><div style="font-size:11px;font-weight:700;color:#0f172a">${fecha}</div><div>Emitido por: ${typeof CU!=='undefined'?CU.nombre:'—'}</div></div>
@@ -127,8 +129,76 @@ function _eqPuedeEliminar(id){
     return d[id]&&(Date.now()-d[id])<172800000; // 48h en ms
   }catch(e){return false;}
 }
+// ── Filtros del Máster ──────────────────────────────────────────────────────
+// Por el estado del equipo (campo est, el mismo que muestra la tabla y que
+// usan los demás módulos):
+//   Activos        → están en el proyecto: Operativo, En Mantenimiento,
+//                    Parado, Inoperativo
+//      Operativos   → Operativo
+//      Inoperativos → Inoperativo y En Mantenimiento (no pueden trabajar)
+//      Parados      → Parado (sanos, pero sin trabajar)
+//   Desmovilizados → Desmovilizado
+//   Otros          → todo lo demás: En Tránsito, Alquilado o sin estado claro
+// Todos los botones muestran cuántos equipos hay, para que cuadre a la vista.
+let _mqFiltro='todos', _mqSub='';
+const _MQ_ACTIVOS=['OPERATIVO','EN MANTENIMIENTO','PARADO','INOPERATIVO'];
+function _mqEstado(e){return String((e&&(e.est||e.status))||'Operativo').trim().toUpperCase();}
+function _mqGrupo(e){
+  const s=_mqEstado(e);
+  if(s==='DESMOVILIZADO')return'desmovilizados';
+  if(_MQ_ACTIVOS.includes(s))return'activos';
+  return'otros';
+}
+function _mqSubGrupo(e){
+  const s=_mqEstado(e);
+  if(s==='OPERATIVO')return'oper';
+  if(s==='INOPERATIVO'||s==='EN MANTENIMIENTO')return'inop';
+  if(s==='PARADO')return'parado';
+  return'';
+}
+function _mqPasa(e){
+  if(_mqFiltro==='todos')return true;
+  if(_mqGrupo(e)!==_mqFiltro)return false;
+  if(_mqFiltro==='activos'&&_mqSub)return _mqSubGrupo(e)===_mqSub;
+  return true;
+}
+function _mqFiltrados(){return (DB.equipos||[]).filter(_mqPasa);}
+function _mqSet(f,sub){
+  _mqFiltro=f;
+  // El sub-filtro solo existe dentro de Activos
+  _mqSub=f==='activos'?(sub||''):'';
+  rMaster();
+}
+// Texto del filtro activo, para el título del PDF
+function _mqEtiqueta(){
+  const n={todos:'Todos',activos:'Activos',desmovilizados:'Desmovilizados',otros:'Otros'}[_mqFiltro]||'Todos';
+  const s={oper:'Operativos',inop:'Inoperativos',parado:'Parados'}[_mqSub];
+  return s?n+' · '+s:n;
+}
+function _mqBotones(){
+  const el=document.getElementById('mqFiltros');if(!el)return;
+  const eqs=DB.equipos||[];
+  const cuenta=g=>g==='todos'?eqs.length:eqs.filter(e=>_mqGrupo(e)===g).length;
+  const sub=s=>eqs.filter(e=>_mqGrupo(e)==='activos'&&_mqSubGrupo(e)===s).length;
+  const bt=(on,col,txt,n,click)=>`<button onclick="${click}" style="font-size:.7rem;padding:.3rem .75rem;border-radius:7px;cursor:pointer;white-space:nowrap;font-weight:${on?'800':'600'};border:1px solid ${on?col:'var(--border)'};background:${on?col+'26':'transparent'};color:${on?col:'var(--muted2)'}">${txt} <span style="opacity:.75;font-family:monospace">${n}</span></button>`;
+  let h=bt(_mqFiltro==='todos','#94a3b8','Todos',cuenta('todos'),"_mqSet('todos')")
+    +bt(_mqFiltro==='activos','#10b981','Activos',cuenta('activos'),"_mqSet('activos')")
+    +bt(_mqFiltro==='desmovilizados','#a78bfa','Desmovilizados',cuenta('desmovilizados'),"_mqSet('desmovilizados')")
+    +bt(_mqFiltro==='otros','#f59e0b','Otros',cuenta('otros'),"_mqSet('otros')");
+  // Dentro de Activos aparecen los sub-filtros
+  if(_mqFiltro==='activos'){
+    h+=`<span style="width:1px;height:18px;background:var(--border);margin:0 .15rem"></span>`
+      +bt(!_mqSub,'#10b981','Todos los activos',cuenta('activos'),"_mqSet('activos','')")
+      +bt(_mqSub==='oper','#16a34a','Operativos',sub('oper'),"_mqSet('activos','oper')")
+      +bt(_mqSub==='inop','#ef4444','Inoperativos',sub('inop'),"_mqSet('activos','inop')")
+      +(sub('parado')?bt(_mqSub==='parado','#64748b','Parados',sub('parado'),"_mqSet('activos','parado')"):'');
+  }
+  el.innerHTML=h;
+}
+
 function rMaster(){
-  const sorted=[...DB.equipos].sort((a,b)=>_eqSort==='tipo'
+  _mqBotones();
+  const sorted=_mqFiltrados().sort((a,b)=>_eqSort==='tipo'
     ?(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo)
     :a.codigo.localeCompare(b.codigo));
   document.getElementById('tbMaster').innerHTML=sorted.map(e=>`<tr>
@@ -146,7 +216,7 @@ function rMaster(){
       <button class="btn btn-out btn-sm" title="Editar" onclick="editEquipo(${e.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
       ${_eqPuedeEliminar(e.id)?`<button class="btn btn-del btn-sm" onclick="del('equipos',${e.id})" title="Eliminar (disponible 48h desde la creación)">🗑</button>`:''}
     </td>
-  </tr>`).join('');
+  </tr>`).join('')||`<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted2)">Ningún equipo en «${_mqEtiqueta()}»</td></tr>`;
   const srch=document.getElementById('masterSearch');
   if(srch&&srch.value)flt(srch,'tbMaster');
 }
