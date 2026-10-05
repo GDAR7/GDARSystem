@@ -1,6 +1,54 @@
 ﻿// ══ ENGRASE MENSUAL ══
 let _engShowCod=localStorage.getItem('_engShowCod')!=='0'; // columna Código (visible por defecto)
 function _engToggleCod(){_engShowCod=!_engShowCod;localStorage.setItem('_engShowCod',_engShowCod?'1':'0');rEngrase();}
+// ── Qué equipos entran y en qué orden ───────────────────────────────────────
+// Desmovilizado = así dice su estado o su subtipo. Hay equipos marcados por
+// una sola de las dos vías (EXC ECOP-001 figura Operativo pero con subtipo
+// «Desmovilizado»), y ninguno de ellos debe salir en el engrase.
+function _engDesmovilizado(eq){
+  const est=String((eq&&(eq.est||eq.status))||'').trim().toUpperCase();
+  const sub=String((eq&&eq.sub)||'').trim().toUpperCase();
+  return est==='DESMOVILIZADO'||sub==='DESMOVILIZADO';
+}
+// Por tipo en el orden de la operación, luego por subtipo, luego por código
+const _ENG_TIPOS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+let _engTipoIni=false;                      // el filtro de tipo ya tomó su valor inicial
+function _engOrdenTipo(t){const i=_ENG_TIPOS.indexOf(t);return i<0?_ENG_TIPOS.length:i;}
+function _engOrden(a,b){
+  return _engOrdenTipo(a.tipo)-_engOrdenTipo(b.tipo)
+    ||String(a.tipo||'').localeCompare(String(b.tipo||''),'es')
+    ||String(a.sub||'').localeCompare(String(b.sub||''),'es')
+    ||String(a.codigo||'').localeCompare(String(b.codigo||''),'es');
+}
+
+// ── Cruz al pasar el mouse ──────────────────────────────────────────────────
+// Antes de hacer clic, se ilumina la fila y la columna del día en blanco
+// suave, y la celda donde se cruzan en amarillo: así no hay forma de marcar
+// el equipo o el día equivocados en una grilla de 30 columnas.
+function _engHoverOff(){
+  const tb=document.getElementById('tbEngrase');if(!tb)return;
+  tb.querySelectorAll('.eng-hrow,.eng-hcol,.eng-hcross')
+    .forEach(x=>x.classList.remove('eng-hrow','eng-hcol','eng-hcross'));
+}
+function _engHoverOn(td){
+  const tb=document.getElementById('tbEngrase');if(!tb||!td)return;
+  const c=td.getAttribute('data-c');if(c==null)return;
+  _engHoverOff();
+  td.parentElement.classList.add('eng-hrow');
+  tb.querySelectorAll('[data-c="'+c+'"]').forEach(x=>x.classList.add('eng-hcol'));
+  td.classList.add('eng-hcross');
+}
+function _engHoverEnganchar(){
+  const tb=document.getElementById('tbEngrase');
+  if(!tb||tb._engHover)return;             // la tabla se redibuja, el enganche queda
+  tb._engHover=true;
+  tb.addEventListener('mouseover',e=>{
+    const td=e.target.closest&&e.target.closest('td[data-c]');
+    if(td)_engHoverOn(td);else if(!e.target.closest('td[data-c]'))_engHoverOff();
+  });
+  tb.addEventListener('mouseleave',_engHoverOff);
+}
+
 function rEngrase(){
   const pad=n=>String(n).padStart(2,'0');
   const mv=document.getElementById('engraseMes')?.value||new Date().toISOString().slice(0,7);
@@ -18,9 +66,22 @@ function rEngrase(){
   }
   const proyFiltro=proyEl?proyEl.value:'';
   const tipoEl=document.getElementById('engraseTipoFilt');
-  if(tipoEl){const curTipo=tipoEl.value||'Línea Amarilla';const tipos=[...new Set((DB.equipos||[]).map(eq=>eq.tipo).filter(Boolean))].sort();tipoEl.innerHTML='<option value="">— Todos los tipos —</option>'+tipos.map(t=>`<option value="${t}">${t}</option>`).join('');tipoEl.value=curTipo;}
+  // Línea Amarilla solo como valor inicial. Antes se usaba `value||'Línea
+  // Amarilla'`, y como «Todos los tipos» vale '', elegirlo rebotaba siempre a
+  // Línea Amarilla: nunca se podía ver toda la flota junta.
+  if(tipoEl){
+    const curTipo=_engTipoIni?tipoEl.value:'Línea Amarilla';
+    _engTipoIni=true;
+    const tipos=[...new Set((DB.equipos||[]).map(eq=>eq.tipo).filter(Boolean))]
+      .sort((a,b)=>_engOrdenTipo(a)-_engOrdenTipo(b)||a.localeCompare(b,'es'));
+    tipoEl.innerHTML='<option value="">— Todos los tipos —</option>'+tipos.map(t=>`<option value="${t}">${t}</option>`).join('');
+    tipoEl.value=curTipo;
+  }
   const tipoFiltro=tipoEl?tipoEl.value:'Línea Amarilla';
-  const equiposFilt=(proyFiltro?DB.equipos.filter(eq=>eq.proyecto===proyFiltro):DB.equipos).filter(eq=>!tipoFiltro||eq.tipo===tipoFiltro);
+  // Solo equipos activos, agrupados por tipo y luego por subtipo
+  const equiposFilt=(proyFiltro?DB.equipos.filter(eq=>eq.proyecto===proyFiltro):DB.equipos)
+    .filter(eq=>(!tipoFiltro||eq.tipo===tipoFiltro)&&!_engDesmovilizado(eq))
+    .sort(_engOrden);
   const monthRecs=DB.engrase.filter(r=>r.fecha&&r.fecha.startsWith(monthStr));
   const uniqueEqs=[...new Set(monthRecs.map(r=>r.eqId))].length;
   document.getElementById('engraseKpis').innerHTML=[
@@ -31,8 +92,19 @@ function rEngrase(){
   const dayHdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
     const dow=new Date(fecha+'T12:00:00').getDay(),isSun=dow===0;
-    return`<th style="text-align:center;min-width:26px;width:26px;padding:2px 1px;font-size:.62rem;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.55rem;opacity:.7">${DN[dow]}</div></th>`;
+    return`<th data-c="${i}" style="text-align:center;min-width:26px;width:26px;padding:2px 1px;font-size:.62rem;${isSun?'color:#f59e0b;background:rgba(245,158,11,.12)':''}">${d}<div style="font-size:.55rem;opacity:.7">${DN[dow]}</div></th>`;
   }).join('');
+  // Encabezado de grupo cada vez que cambia el tipo o el subtipo
+  const _nCols=(_engShowCod?5:4)+days+1;
+  const _grupoDe=eq=>(eq.tipo||'Sin tipo')+' · '+String(eq.sub||'Sin subtipo').toUpperCase();
+  const _nGrupo={};equiposFilt.forEach(eq=>{const g=_grupoDe(eq);_nGrupo[g]=(_nGrupo[g]||0)+1;});
+  let _grupoPrev=null;
+  const _cabGrupo=eq=>{
+    const g=_grupoDe(eq);
+    if(g===_grupoPrev)return'';
+    _grupoPrev=g;
+    return`<tr class="eng-grupo"><td colspan="${_nCols}" style="padding:4px 8px;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mec);background:rgba(4,78,100,.18);border-top:1px solid var(--border)">${g} <span style="color:var(--muted2);font-weight:600">(${_nGrupo[g]})</span></td></tr>`;
+  };
   const rows=equiposFilt.map((eq,idx)=>{
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;
@@ -42,11 +114,11 @@ function rEngrase(){
       const cbg=estado==='E'?'#10b981':estado==='P'?'#3b82f6':isSun?'rgba(245,158,11,.06)':'';
       const ccol=(estado==='E'||estado==='P')?'#fff':'';
       const cfn=estado==='E'?`showEngraseDetail(${eq.id},'${fecha}')`:`openEngrasePicker(${eq.id},'${fecha}',event)`;
-      return`<td id="eng-${eq.id}-${fecha}" onclick="${cfn}" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);background:${cbg};color:${ccol};" title="${fecha}">${estado?`<span style="font-size:.7rem;font-weight:700">${estado}</span>`:''}</td>`;
+      return`<td id="eng-${eq.id}-${fecha}" data-c="${i}" onclick="${cfn}" style="text-align:center;cursor:pointer;height:26px;padding:0;border:1px solid var(--border);background:${cbg};color:${ccol};" title="${fecha}">${estado?`<span style="font-size:.7rem;font-weight:700">${estado}</span>`:''}</td>`;
     }).join('');
     const pCnt=DB.engrase.filter(r=>r.eqId===eq.id&&r.fecha.startsWith(monthStr)&&(r.tipo||'P')==='P').length;
     const eCnt=DB.engrase.filter(r=>r.eqId===eq.id&&r.fecha.startsWith(monthStr)&&r.tipo==='E').length;
-    return`<tr style="border-bottom:1px solid var(--border)">
+    return _cabGrupo(eq)+`<tr style="border-bottom:1px solid var(--border)">
       <td style="text-align:center;font-size:.7rem;color:var(--muted2);padding:3px 5px;white-space:nowrap">${idx+1}</td>
       ${_engShowCod?`<td class="mono" style="padding:3px 6px;font-size:.72rem;white-space:nowrap;color:#06b6d4;font-weight:700">${eq.codigo||'—'}</td>`:''}
       <td style="padding:3px 5px;white-space:nowrap"><span class="badge b-purple" style="font-size:.58rem">${eq.tipo||'—'}</span></td>
@@ -71,6 +143,7 @@ function rEngrase(){
       <tr style="background:var(--panel2)">${'<th></th>'.repeat(_engShowCod?5:4)}${dayHdrs}<th></th></tr>
     </thead>
     <tbody>${rows}</tbody>`;
+  _engHoverEnganchar();
   const _bC=document.getElementById('engBtnCod');
   if(_bC){_bC.style.opacity=_engShowCod?'1':'.45';_bC.style.textDecoration=_engShowCod?'none':'line-through';}
 }
@@ -187,7 +260,10 @@ function printEngrase(){
   const elab=document.getElementById('engraseElab')?.value||'';
   const tipoElP=document.getElementById('engraseTipoFilt');
   const tipoFiltroP=tipoElP?tipoElP.value:'Línea Amarilla';
-  const equiposFilt=(proyFiltro?DB.equipos.filter(eq=>eq.proyecto===proyFiltro):DB.equipos).filter(eq=>!tipoFiltroP||eq.tipo===tipoFiltroP);
+  // Igual que en pantalla: sin desmovilizados, por tipo → subtipo → código
+  const equiposFilt=(proyFiltro?DB.equipos.filter(eq=>eq.proyecto===proyFiltro):DB.equipos)
+    .filter(eq=>(!tipoFiltroP||eq.tipo===tipoFiltroP)&&!_engDesmovilizado(eq))
+    .sort(_engOrden);
   const rows=equiposFilt.map((eq,idx)=>{
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,fecha=`${y}-${pad(m)}-${pad(d)}`;

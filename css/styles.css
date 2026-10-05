@@ -157,6 +157,14 @@ nav.collapsed{width:0;min-width:0;overflow:hidden;border-right:none;}
 
 main{flex:1;padding:1.6rem;overflow-y:auto;background:var(--bg);}
 
+/* ── Engrase: cruz al pasar el mouse ───────────────────────────────────────
+   Fila y columna del día en blanco suave; la celda donde se cruzan, en
+   amarillo. Se usa una sombra interior para no tapar el color de la celda
+   (P azul, E verde, domingo). */
+#tbEngrase tr.eng-hrow>td,#tbEngrase .eng-hcol{box-shadow:inset 0 0 0 999px rgba(255,255,255,.09);}
+#tbEngrase th.eng-hcol{color:#fff;}
+#tbEngrase td.eng-hcross{box-shadow:inset 0 0 0 999px rgba(250,204,21,.55)!important;outline:2px solid #facc15;outline-offset:-2px;}
+
 /* ── Celular y tablet angosta ──────────────────────────────────────────────
    El menú mide 220px fijos: en un teléfono de 360px dejaba 140px de contenido.
    Aquí pasa a flotar sobre la página (se abre con ☰ y se cierra solo al elegir
