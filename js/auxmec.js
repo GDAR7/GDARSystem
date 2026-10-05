@@ -395,6 +395,49 @@ function _amEqFiltrar(q){
   if(q&&opciones.length===1)sel.value=opciones[0].value;
   _amEqCuenta(q);
 }
+// ── Supervisor que valida el retorno ────────────────────────────────────────
+// Solo estas personas pueden validar. Se identifican por DNI y el nombre y el
+// cargo se toman de Personal, así quedan al día solos; si Personal no cargó,
+// se usan los de aquí. Para sumar a alguien, se agrega su DNI a la lista.
+//
+// Antes era texto libre y quedaron muchas formas de escribir a los mismos
+// («JAIME AQUINO», «Jaime Aquino Jaramillo.», «CARLOS <ZELADA»…). Al abrir un
+// auxilio viejo se reconoce a la persona por su apellido —tolerando erratas—
+// y queda elegida; si no se reconoce, se conserva el texto tal como estaba.
+const _AM_SUPERVISORES=[
+  {dni:'73760497',nombre:'AQUINO JARAMILLO, JAIME YOEL',cargo:'ASIST. DE EQUIPOS',clave:'AQUIN'},
+  {dni:'18071084',nombre:'ZELADA ZAVALETA, CARLOS SEGUNDO',cargo:'ING. SUPERVISOR DE MANTTO DE EQUIPOS',clave:'ZELAD'}
+];
+function _amSupervisores(){
+  return _AM_SUPERVISORES.map(s=>{
+    const p=(DB.personal||[]).find(x=>String(x.dni||'').trim()===s.dni);
+    if(!p)return s;
+    const nom=(String(p.ape||'').trim()+', '+String(p.nom||'').trim()).toUpperCase();
+    return{...s,nombre:nom,cargo:String(p.cargo||s.cargo).trim()};
+  });
+}
+// La persona de la lista que corresponde a un texto guardado, o null
+function _amSupervisorDe(texto){
+  const t=_amNorm(texto).replace(/[^A-Z ,]/g,'');
+  if(!t.trim())return null;
+  return _amSupervisores().find(s=>t.includes(s.clave)||t===_amNorm(s.nombre))||null;
+}
+// Opciones del combo, y qué valor queda elegido para lo que estaba guardado
+function _amSupervisorOpts(actual){
+  const lista=_amSupervisores();
+  const match=_amSupervisorDe(actual);
+  let html='<option value="">— Seleccionar —</option>'
+    +lista.map(s=>`<option value="${_amEscH(s.nombre)}">${_amEscH(s.nombre)} · ${_amEscH(s.cargo)}</option>`).join('');
+  // Un texto viejo que no se reconoce no se pierde
+  if(actual&&!match)html+=`<option value="${_amEscH(actual)}">${_amEscH(actual)} (registro anterior)</option>`;
+  return{html,valor:match?match.nombre:(actual||'')};
+}
+function _amSupervisorPintar(actual){
+  const sel=document.getElementById('amSupervisor');if(!sel)return;
+  const o=_amSupervisorOpts(actual||'');
+  sel.innerHTML=o.html;
+  sel.value=o.valor;
+}
 function openAuxMec(){
   _amEditId=null;
   document.querySelector('#mAuxMec .mttl').textContent='🚨 Registrar Auxilio Mecánico';
@@ -403,6 +446,7 @@ function openAuxMec(){
   const eqBus=document.getElementById('amEqBuscar');if(eqBus)eqBus.value='';
   if(eqSel)eqSel.innerHTML=_amEqOpcionesHtml('','');
   _amEqCuenta('');
+  _amSupervisorPintar('');
   const mecSel=document.getElementById('amMec');
   if(mecSel)mecSel.innerHTML=_mecOptsHtml('');
   const mec2Sel=document.getElementById('amMec2');
@@ -564,7 +608,7 @@ function editAuxMec(id){
       return tr;
     })());
   });
-  document.getElementById('amSupervisor').value=r.supervisor||'';
+  _amSupervisorPintar(r.supervisor||'');
   document.getElementById('amConforme').checked=!!r.conforme;
   document.getElementById('amObs').value=r.obs||'';
   _renderAmMedia(r.fotosAntes,r.fotosDespues);

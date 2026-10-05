@@ -130,6 +130,37 @@ const srcAm=fs.readFileSync(R+'js/auxmec.js','utf8');
 es('si queda uno solo, queda elegido',/if\(q&&opciones\.length===1\)sel\.value=opciones\[0\]\.value/.test(srcAm),true);
 es('al abrir un auxilio el buscador empieza vacío',/eqBus\.value=''/.test(srcAm),true);
 
+console.log('\n== Supervisor que valida: solo dos personas ==');
+DB.personal=[
+  {id:1,dni:'73760497',ape:'AQUINO JARAMILLO ',nom:'JAIME YOEL',cargo:'ASIST. DE EQUIPOS'},
+  {id:2,dni:'18071084',ape:'ZELADA ZAVALETA ',nom:'CARLOS SEGUNDO',cargo:'ING. SUPERVISOR DE MANTTO DE EQUIPOS'},
+  {id:3,dni:'11111111',ape:'OTRO',nom:'CUALQUIERA',cargo:'OPERADOR'}
+];
+const so=ctx._amSupervisorOpts('');
+es('el combo trae solo a los dos',(so.html.match(/<option value="[^"]+"/g)||[]).length,2);
+es('  Aquino con su cargo',/AQUINO JARAMILLO, JAIME YOEL · ASIST\. DE EQUIPOS/.test(so.html),true);
+es('  Zelada con su cargo',/ZELADA ZAVALETA, CARLOS SEGUNDO · ING\. SUPERVISOR DE MANTTO DE EQUIPOS/.test(so.html),true);
+es('  nadie más de Personal',/OTRO/.test(so.html),false);
+// Las 10 formas en que quedaron escritos en los auxilios ya guardados
+const AQ='AQUINO JARAMILLO, JAIME YOEL', ZE='ZELADA ZAVALETA, CARLOS SEGUNDO';
+[['JAIME AQUINO',AQ],['Jaime Aquino Jaramillo.',AQ],['Jaime Aquino Jaramillo',AQ],
+ ['JAIME AQUINO JARAMILLO',AQ],['JAIME AQUINO JARAMILLO.',AQ],['JAIME AQUINIO',AQ],['Jaime Aquino',AQ],
+ ['CARLOS ZELADA',ZE],['CARLOS ZELADQA',ZE],['CARLOS <ZELADA',ZE]
+].forEach(([viejo,esperado])=>{
+  const s=ctx._amSupervisorDe(viejo);
+  es('«'+viejo+'» se reconoce',s?s.nombre:null,esperado);
+});
+es('un texto que no es de ninguno no se adivina',ctx._amSupervisorDe('Juan Pérez'),null);
+const so2=ctx._amSupervisorOpts('Juan Pérez');
+es('  se conserva como registro anterior',/Juan Pérez \(registro anterior\)/.test(so2.html),true);
+es('  y queda elegido, no se pierde',so2.valor,'Juan Pérez');
+es('un viejo reconocido queda elegido con el nombre oficial',ctx._amSupervisorOpts('JAIME AQUINIO').valor,AQ);
+DB.personal=[];
+es('si Personal no cargó, usa los nombres de respaldo',
+  ctx._amSupervisores().map(s=>s.nombre).join(' | '),AQ+' | '+ZE);
+const html3=fs.readFileSync(R+'index.html','utf8');
+es('el campo ya no es texto libre',/<select id="amSupervisor">/.test(html3)&&!/<input id="amSupervisor"/.test(html3),true);
+
 console.log('\n== Enganche ==');
 const src=fs.readFileSync(R+'js/auxmec.js','utf8');
 const html=fs.readFileSync(R+'index.html','utf8');
