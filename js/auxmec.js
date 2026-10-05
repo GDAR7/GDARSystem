@@ -351,12 +351,58 @@ function rAuxMec(){
   const _filtroTxt=_selEq?' para '+_selEq.codigo:(_amTipo?' para '+_amTipo+(_amSub?' · '+_amSub:''):'');
   document.getElementById('tbAuxMec').innerHTML=_tbAux||`<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin auxilios mecánicos ${_amTodoPer?'registrados':'en este período'}${_filtroTxt}</td></tr>`;
 }
+// ── Combo de equipo con buscador ────────────────────────────────────────────
+// Agrupado por tipo, en el orden de la operación: Línea Amarilla, Línea
+// Blanca, Vehículos Menores, Equipos Menores y al final cualquier otro.
+// Dentro de cada grupo, por código. El buscador filtra por código, nombre,
+// placa o subtipo, sin tildes ni mayúsculas.
+const _AM_TIPOS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+const _amNorm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const _amEscH=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function _amEqCoinciden(q,selId){
+  const Q=_amNorm(q).trim();
+  return (DB.equipos||[]).filter(e=>
+    +e.id===+selId||                       // el ya elegido nunca desaparece
+    !Q||_amNorm(`${e.codigo} ${e.nombre} ${e.placa||''} ${e.sub||''}`).includes(Q));
+}
+function _amEqOpcionesHtml(q,selId){
+  const orden=t=>{const i=_AM_TIPOS.indexOf(t);return i<0?_AM_TIPOS.length:i;};
+  const grupos={};
+  _amEqCoinciden(q,selId).forEach(e=>{
+    const t=_AM_TIPOS.includes(e.tipo)?e.tipo:(e.tipo||'Otros');
+    (grupos[t]=grupos[t]||[]).push(e);
+  });
+  const tipos=Object.keys(grupos).sort((a,b)=>orden(a)-orden(b)||a.localeCompare(b,'es'));
+  return'<option value="">— Seleccionar —</option>'+tipos.map(t=>{
+    const lista=grupos[t].sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),'es'));
+    return`<optgroup label="${_amEscH(t)} (${lista.length})">`
+      +lista.map(e=>`<option value="${e.id}">${_amEscH(e.codigo)} – ${_amEscH(String(e.nombre||'').split(' ').slice(0,3).join(' '))}</option>`).join('')
+      +'</optgroup>';
+  }).join('');
+}
+function _amEqCuenta(q){
+  const el=document.getElementById('amEqCuenta');if(!el)return;
+  const n=_amEqCoinciden(q,null).length, tot=(DB.equipos||[]).length;
+  el.textContent=q?(n?n+' de '+tot+' equipos':'Ningún equipo coincide'):'';
+}
+function _amEqFiltrar(q){
+  const sel=document.getElementById('amEq');if(!sel)return;
+  const actual=sel.value;
+  sel.innerHTML=_amEqOpcionesHtml(q,actual);
+  sel.value=actual;
+  // Si la búsqueda deja un solo equipo, queda elegido sin abrir la lista
+  const opciones=[...sel.options].filter(o=>o.value);
+  if(q&&opciones.length===1)sel.value=opciones[0].value;
+  _amEqCuenta(q);
+}
 function openAuxMec(){
   _amEditId=null;
   document.querySelector('#mAuxMec .mttl').textContent='🚨 Registrar Auxilio Mecánico';
   _amTab=0;amGoTab(0);
   const eqSel=document.getElementById('amEq');
-  if(eqSel)eqSel.innerHTML='<option value="">— Seleccionar —</option>'+DB.equipos.map(e=>`<option value="${e.id}">${e.codigo} – ${e.nombre.split(' ').slice(0,3).join(' ')}</option>`).join('');
+  const eqBus=document.getElementById('amEqBuscar');if(eqBus)eqBus.value='';
+  if(eqSel)eqSel.innerHTML=_amEqOpcionesHtml('','');
+  _amEqCuenta('');
   const mecSel=document.getElementById('amMec');
   if(mecSel)mecSel.innerHTML=_mecOptsHtml('');
   const mec2Sel=document.getElementById('amMec2');

@@ -97,6 +97,39 @@ es('el que no se llenó se completa solo',guardado[1].cod+' · '+guardado[1].und
 es('el ítem libre conserva lo suyo',guardado[2].cod+' · '+guardado[2].und,'LIBRE-9 · JGO');
 es('las cantidades no se tocan',guardado.map(g=>g.cant).join(','),'10,4,2');
 
+console.log('\n== Buscador de equipo, ordenado por tipo ==');
+DB.equipos=[
+  {id:1,codigo:'VOL ECOP-001',nombre:'Volquete Volvo FMX',tipo:'Línea Blanca',placa:'BLS-845',sub:'Volquete'},
+  {id:2,codigo:'EXC ECOP-003',nombre:'Excavadora Hyundai',tipo:'Línea Amarilla',sub:'Excavadora'},
+  {id:3,codigo:'LUM ECOP-001',nombre:'Luminaria',tipo:'Equipos Menores',sub:'Luminaria'},
+  {id:4,codigo:'CAM ECOP-001',nombre:'Camioneta Toyota Hilux',tipo:'Vehículo Menor',placa:'CBL-881',sub:'Camioneta'},
+  {id:5,codigo:'EXC ECOP-001',nombre:'Excavadora CAT',tipo:'Línea Amarilla',sub:'Excavadora'},
+  {id:6,codigo:'GRU-001',nombre:'Grúa',tipo:'Especial'}
+];
+let O=ctx._amEqOpcionesHtml('','');
+const posG=t=>O.indexOf('label="'+t);
+es('los grupos van en el orden de la operación',
+  posG('Línea Amarilla')<posG('Línea Blanca')&&posG('Línea Blanca')<posG('Vehículo Menor')
+  &&posG('Vehículo Menor')<posG('Equipos Menores')&&posG('Equipos Menores')<posG('Especial'),true);
+es('  cada grupo dice cuántos tiene',/label="Línea Amarilla \(2\)"/.test(O),true);
+es('  dentro del grupo, por código',O.indexOf('EXC ECOP-001')<O.indexOf('EXC ECOP-003'),true);
+es('un tipo fuera de la lista va al final',posG('Especial')>posG('Equipos Menores'),true);
+O=ctx._amEqOpcionesHtml('exc','');
+es('buscar «exc» deja solo las excavadoras',(O.match(/<option value="\d/g)||[]).length,2);
+es('  sin grupos vacíos',/Línea Blanca/.test(O),false);
+es('busca por placa',/CAM ECOP-001/.test(ctx._amEqOpcionesHtml('cbl-881','')),true);
+es('busca sin tildes ni mayúsculas',/LUM ECOP-001/.test(ctx._amEqOpcionesHtml('LUMINARÍA','')),true);
+es('busca por subtipo',/VOL ECOP-001/.test(ctx._amEqOpcionesHtml('volquete','')),true);
+es('el equipo ya elegido no desaparece al filtrar',/value="1"/.test(ctx._amEqOpcionesHtml('exc','1')),true);
+es('cuántos coinciden',ctx._amEqCoinciden('exc',null).length,2);
+const html2=fs.readFileSync(R+'index.html','utf8');
+es('el buscador está sobre el combo',
+  html2.indexOf('id="amEqBuscar"')>0&&html2.indexOf('id="amEqBuscar"')<html2.indexOf('id="amEq"'),true);
+es('  y filtra al escribir',/oninput="_amEqFiltrar\(this\.value\)"/.test(html2),true);
+const srcAm=fs.readFileSync(R+'js/auxmec.js','utf8');
+es('si queda uno solo, queda elegido',/if\(q&&opciones\.length===1\)sel\.value=opciones\[0\]\.value/.test(srcAm),true);
+es('al abrir un auxilio el buscador empieza vacío',/eqBus\.value=''/.test(srcAm),true);
+
 console.log('\n== Enganche ==');
 const src=fs.readFileSync(R+'js/auxmec.js','utf8');
 const html=fs.readFileSync(R+'index.html','utf8');

@@ -2784,7 +2784,11 @@
       <div class="fg"><label>Código Auxilio</label><input id="amCod" readonly style="opacity:.65;cursor:not-allowed"></div>
       <div class="fg"><label>Fecha</label><input id="amFecha" type="date"></div>
       <div class="fg"><label>Hora de Llamada</label><input id="amHora" type="time"></div>
-      <div class="fg"><label>Equipo</label><select id="amEq"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Equipo</label>
+        <input id="amEqBuscar" placeholder="🔍 Buscar código, nombre o placa" autocomplete="off" oninput="_amEqFiltrar(this.value)" style="margin-bottom:.3rem">
+        <select id="amEq"><option value="">— Seleccionar —</option></select>
+        <span id="amEqCuenta" style="font-size:.62rem;color:var(--muted2);margin-top:.15rem"></span>
+      </div>
       <div class="fg"><label>Horómetro / Km <span style="color:#ef4444;font-weight:700">*</span></label><input id="amHorometro" type="number" step="0.1" min="0" placeholder="Ej. 2450.5"></div>
       <div class="fg"><label>Operador</label><input id="amOp" placeholder="Nombre del operador"></div>
       <div class="fg" style="grid-column:1/-1"><label>Ubicación / Frente de Trabajo</label><select id="amFrente"><option value="">— Seleccionar frente —</option></select></div>
@@ -3383,7 +3387,7 @@
 <script src="js/tareajeMenus.js?v=2"></script>
 <script src="js/tareajeDup.js?v=1"></script>
 <script src="js/engrase.js?v=4"></script>
-<script src="js/auxmec.js?v=58"></script>
+<script src="js/auxmec.js?v=59"></script>
 <script src="js/partesDiarios.js?v=6"></script>
 <script src="js/panelHoras.js?v=11"></script>
 <script src="js/panelHorasDia.js?v=9"></script>
