@@ -140,7 +140,15 @@ function _eqPuedeEliminar(id){
 //   Desmovilizados → Desmovilizado
 //   Otros          → todo lo demás: En Tránsito, Alquilado o sin estado claro
 // Todos los botones muestran cuántos equipos hay, para que cuadre a la vista.
-let _mqFiltro='todos', _mqSub='';
+let _mqFiltro='todos', _mqSub='', _mqTipo='', _mqSubtipo='';
+// Cuarto nivel: elegido el tipo, se abre por subtipo (Excavadora, Volquete…)
+function _mqSubtipoDe(e){return String((e&&e.sub)||'(sin subtipo)').trim();}
+// Tercer nivel: elegida una condición, se abre por tipo de equipo
+const _MQ_TIPOS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+function _mqTipoDe(e){
+  const t=String((e&&e.tipo)||'').trim();
+  return _MQ_TIPOS.includes(t)?t:'Otros';
+}
 const _MQ_ACTIVOS=['OPERATIVO','EN MANTENIMIENTO','PARADO','INOPERATIVO'];
 function _mqEstado(e){return String((e&&(e.est||e.status))||'Operativo').trim().toUpperCase();}
 function _mqGrupo(e){
@@ -159,21 +167,37 @@ function _mqSubGrupo(e){
 function _mqPasa(e){
   if(_mqFiltro==='todos')return true;
   if(_mqGrupo(e)!==_mqFiltro)return false;
-  if(_mqFiltro==='activos'&&_mqSub)return _mqSubGrupo(e)===_mqSub;
+  if(_mqFiltro==='activos'&&_mqSub&&_mqSubGrupo(e)!==_mqSub)return false;
+  if(_mqFiltro==='activos'&&_mqSub&&_mqTipo&&_mqTipoDe(e)!==_mqTipo)return false;
+  if(_mqFiltro==='activos'&&_mqSub&&_mqTipo&&_mqSubtipo
+     &&_mqSubtipoDe(e).toUpperCase()!==_mqSubtipo.toUpperCase())return false;
   return true;
 }
 function _mqFiltrados(){return (DB.equipos||[]).filter(_mqPasa);}
 function _mqSet(f,sub){
   _mqFiltro=f;
-  // El sub-filtro solo existe dentro de Activos
+  // El sub-filtro solo existe dentro de Activos, y el tipo dentro de una
+  // condición: al cambiar un nivel se sueltan los de abajo
   _mqSub=f==='activos'?(sub||''):'';
+  _mqTipo='';_mqSubtipo='';
+  rMaster();
+}
+function _mqSetTipo(t){
+  // Tocar el elegido lo suelta, y se suelta también el subtipo de abajo
+  _mqTipo=(_mqTipo===t)?'':t;
+  _mqSubtipo='';
+  rMaster();
+}
+function _mqSetSubtipo(s){
+  _mqSubtipo=(_mqSubtipo===s)?'':s;
   rMaster();
 }
 // Texto del filtro activo, para el título del PDF
 function _mqEtiqueta(){
   const n={todos:'Todos',activos:'Activos',desmovilizados:'Desmovilizados',otros:'Otros'}[_mqFiltro]||'Todos';
   const s={oper:'Operativos',inop:'Inoperativos',parado:'Parados'}[_mqSub];
-  return s?n+' · '+s:n;
+  const t=(s&&_mqTipo)?_mqTipo:'';
+  return [n,s,t,(t&&_mqSubtipo)?_mqSubtipo:''].filter(Boolean).join(' · ');
 }
 // Mismo diseño que los filtros del Dashboard de combustible: rótulo adelante,
 // píldoras con su cantidad, la elegida en naranja con ✕ para soltarla, y el
@@ -208,12 +232,54 @@ function _mqBotones(){
     </div>`;
   }
 
+  // Tercer nivel: elegida una condición, se abre por tipo de equipo
+  let tipoChips='';
+  if(_mqFiltro==='activos'&&_mqSub){
+    const enCond=eqs.filter(e=>_mqGrupo(e)==='activos'&&_mqSubGrupo(e)===_mqSub);
+    const tc=t=>{
+      const act=_mqTipo===t;
+      const n=enCond.filter(e=>_mqTipoDe(e)===t).length;
+      return`<button onclick="_mqSetTipo('${t}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .7rem;border-radius:16px;cursor:pointer;font-size:.72rem;font-weight:700;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'#f97316':'var(--panel2)'};color:${act?'#fff':(n?'var(--text)':'var(--muted2)')};transition:all .15s">
+        ${t} <span style="font-family:monospace;font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.8)':'var(--muted2)'}">${n} eq.</span>${act?' ✕':''}
+      </button>`;
+    };
+    const nomCond={oper:'Operativos',inop:'Inoperativos',parado:'Parados'}[_mqSub];
+    tipoChips=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(249,115,22,.05);border:1px dashed rgba(249,115,22,.35);border-radius:9px">
+      ${rotulo('↳ '+nomCond+' por tipo:')}
+      ${[..._MQ_TIPOS,'Otros'].map(tc).join('')}
+    </div>`;
+  }
+
+  // Cuarto nivel: elegido el tipo, sus subtipos (Excavadora, Tractor Oruga…).
+  // Solo los que existen en esa selección, del que más equipos tiene al que menos.
+  let subtipoChips='';
+  if(_mqFiltro==='activos'&&_mqSub&&_mqTipo){
+    const enTipo=eqs.filter(e=>_mqGrupo(e)==='activos'&&_mqSubGrupo(e)===_mqSub&&_mqTipoDe(e)===_mqTipo);
+    const cuentaSub={};
+    enTipo.forEach(e=>{const s=_mqSubtipoDe(e);const k=s.toUpperCase();
+      if(!cuentaSub[k])cuentaSub[k]={s,n:0};cuentaSub[k].n++;});
+    const lista=Object.values(cuentaSub).sort((a,b)=>b.n-a.n||a.s.localeCompare(b.s,'es'));
+    const stc=({s,n})=>{
+      const act=_mqSubtipo.toUpperCase()===s.toUpperCase();
+      const sEsc=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return`<button onclick="_mqSetSubtipo('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;border:1.5px solid ${act?'#06b6d4':'var(--border)'};background:${act?'#06b6d4':'var(--panel2)'};color:${act?'#0b1220':'var(--text)'};transition:all .15s">
+        ${s.toUpperCase()} <span style="font-family:monospace;font-size:.62rem;font-weight:900;color:${act?'rgba(11,18,32,.75)':'var(--muted2)'}">${n}</span>${act?' ✕':''}
+      </button>`;
+    };
+    subtipoChips=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(6,182,212,.05);border:1px dashed rgba(6,182,212,.4);border-radius:9px">
+      ${rotulo('↳ '+_mqTipo+':')}
+      ${lista.length?lista.map(stc).join(''):'<span style="font-size:.72rem;color:var(--muted2);align-self:center">Sin equipos en esta selección</span>'}
+    </div>`;
+  }
+
   el.innerHTML=`
     <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
       ${rotulo('Estado:')}
       ${todos}${chip('activos','Activos')}${chip('desmovilizados','Desmovilizados')}${chip('otros','Otros')}
     </div>
-    ${subChips}`;
+    ${subChips}
+    ${tipoChips}
+    ${subtipoChips}`;
 }
 
 function rMaster(){

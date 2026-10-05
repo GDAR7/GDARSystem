@@ -90,6 +90,49 @@ DB.equipos=DB.equipos.filter(e=>e.est!=='Parado');
 ev('_mqBotones()');
 es('sin parados, ese botón no aparece',/PARADOS/.test(nodo('mqFiltros').innerHTML),false);
 
+console.log('\n== Tercer y cuarto nivel: tipo y subtipo ==');
+const _eqPrev=DB.equipos;
+DB.equipos=[
+  {id:1,codigo:'EXC-1',est:'Operativo',tipo:'Línea Amarilla',sub:'Excavadora'},
+  {id:2,codigo:'EXC-2',est:'Operativo',tipo:'Línea Amarilla',sub:'Excavadora'},
+  {id:3,codigo:'TRA-1',est:'Operativo',tipo:'Línea Amarilla',sub:'Tractor Oruga'},
+  {id:4,codigo:'VOL-1',est:'Operativo',tipo:'Línea Blanca',sub:'Volquete'},
+  {id:5,codigo:'CIS-1',est:'Operativo',tipo:'Línea Blanca',sub:'Cisterna de agua'},
+  {id:6,codigo:'CAM-1',est:'Operativo',tipo:'Vehículo Menor',sub:'Camioneta'},
+  {id:7,codigo:'LUM-1',est:'Operativo',tipo:'Equipos Menores',sub:'Luminaria'},
+  {id:8,codigo:'RAR-1',est:'Operativo',tipo:'Maquinaria rara',sub:'Grúa'},     // tipo fuera de la lista
+  {id:9,codigo:'EXC-9',est:'Inoperativo',tipo:'Línea Amarilla',sub:'Excavadora'},
+  {id:10,codigo:'EXC-D',est:'Desmovilizado',tipo:'Línea Amarilla',sub:'Excavadora'}
+];
+ev('_mqSet("activos")');ev('_mqBotones()');
+es('sin condición elegida no aparece el tipo',/por tipo:/.test(nodo('mqFiltros').innerHTML),false);
+ev('_mqSet("activos","oper");_mqBotones()');
+let T=nodo('mqFiltros').innerHTML;
+es('elegida la condición, aparece «Operativos por tipo»',/↳ Operativos por tipo:/.test(T),true);
+es('  con los cinco tipos',['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores','Otros']
+  .every(t=>T.includes(t+' <span')),true);
+es('  y su cantidad dentro de los operativos',/Línea Amarilla <span[^>]*>3 eq\./.test(T),true);
+es('  el inoperativo no se cuenta aquí',/Línea Amarilla <span[^>]*>4 eq\./.test(T),false);
+es('un tipo que no está en la lista va a Otros',ev('_mqTipoDe({tipo:"Maquinaria rara"})'),'Otros');
+ev('_mqSetTipo("Línea Amarilla")');
+es('Línea Amarilla operativa',cods(),'EXC-1,EXC-2,TRA-1');
+ev('_mqBotones()');T=nodo('mqFiltros').innerHTML;
+es('aparece el cuarto nivel con sus subtipos',/↳ Línea Amarilla:/.test(T),true);
+es('  Excavadora con 2, primero porque tiene más',T.indexOf('EXCAVADORA')<T.indexOf('TRACTOR ORUGA'),true);
+es('  sin subtipos de otras líneas',/VOLQUETE/.test(T),false);
+ev('_mqSetSubtipo("Excavadora")');
+es('solo las excavadoras operativas',cods(),'EXC-1,EXC-2');
+es('  sin la inoperativa ni la desmovilizada',cods().includes('EXC-9')||cods().includes('EXC-D'),false);
+es('la etiqueta del PDF dice los cuatro niveles',ev('_mqEtiqueta()'),'Activos · Operativos · Línea Amarilla · Excavadora');
+ev('_mqSetSubtipo("Excavadora")');
+es('tocarlo de nuevo suelta el subtipo',cods(),'EXC-1,EXC-2,TRA-1');
+ev('_mqSetSubtipo("Excavadora");_mqSetTipo("Línea Blanca")');
+es('cambiar de tipo suelta el subtipo anterior',ev('_mqSubtipo'),'');
+es('  y muestra Línea Blanca',cods(),'VOL-1,CIS-1');
+ev('_mqSet("activos","inop")');
+es('cambiar de condición suelta tipo y subtipo',ev('_mqTipo+"|"+_mqSubtipo'),'|');
+DB.equipos=_eqPrev;
+
 console.log('\n== Etiqueta para el PDF ==');
 ev('_mqSet("activos","inop")');
 es('dice el filtro completo',ev('_mqEtiqueta()'),'Activos · Inoperativos');
