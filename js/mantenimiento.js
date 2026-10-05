@@ -175,25 +175,45 @@ function _mqEtiqueta(){
   const s={oper:'Operativos',inop:'Inoperativos',parado:'Parados'}[_mqSub];
   return s?n+' · '+s:n;
 }
+// Mismo diseño que los filtros del Dashboard de combustible: rótulo adelante,
+// píldoras con su cantidad, la elegida en naranja con ✕ para soltarla, y el
+// segundo nivel dentro de un recuadro punteado con ↳.
 function _mqBotones(){
   const el=document.getElementById('mqFiltros');if(!el)return;
   const eqs=DB.equipos||[];
-  const cuenta=g=>g==='todos'?eqs.length:eqs.filter(e=>_mqGrupo(e)===g).length;
+  const cuenta=g=>eqs.filter(e=>_mqGrupo(e)===g).length;
   const sub=s=>eqs.filter(e=>_mqGrupo(e)==='activos'&&_mqSubGrupo(e)===s).length;
-  const bt=(on,col,txt,n,click)=>`<button onclick="${click}" style="font-size:.7rem;padding:.3rem .75rem;border-radius:7px;cursor:pointer;white-space:nowrap;font-weight:${on?'800':'600'};border:1px solid ${on?col:'var(--border)'};background:${on?col+'26':'transparent'};color:${on?col:'var(--muted2)'}">${txt} <span style="opacity:.75;font-family:monospace">${n}</span></button>`;
-  let h=bt(_mqFiltro==='todos','#94a3b8','Todos',cuenta('todos'),"_mqSet('todos')")
-    +bt(_mqFiltro==='activos','#10b981','Activos',cuenta('activos'),"_mqSet('activos')")
-    +bt(_mqFiltro==='desmovilizados','#a78bfa','Desmovilizados',cuenta('desmovilizados'),"_mqSet('desmovilizados')")
-    +bt(_mqFiltro==='otros','#f59e0b','Otros',cuenta('otros'),"_mqSet('otros')");
-  // Dentro de Activos aparecen los sub-filtros
+  const rotulo=t=>`<span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">${t}</span>`;
+  // Tocar el elegido lo suelta: vuelve a Todos
+  const chip=(g,txt)=>{
+    const act=_mqFiltro===g;
+    return`<button onclick="_mqSet('${act?'todos':g}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'#f97316':'var(--border)'};background:${act?'rgba(249,115,22,.18)':'var(--panel2)'};color:${act?'#f97316':'var(--text)'};transition:all .15s">
+      ${txt} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#f97316':'var(--muted2)'}">${cuenta(g)} eq.</span>${act?' ✕':''}
+    </button>`;
+  };
+  const todos=`<button onclick="_mqSet('todos')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${_mqFiltro==='todos'?'#06b6d4':'var(--border)'};background:${_mqFiltro==='todos'?'rgba(6,182,212,.15)':'var(--panel2)'};color:${_mqFiltro==='todos'?'#06b6d4':'var(--muted2)'}">Todos <span style="font-family:monospace;font-size:.68rem;font-weight:900">${eqs.length}</span></button>`;
+
+  // Dentro de Activos aparece el segundo nivel. Tocar el elegido lo suelta.
+  let subChips='';
   if(_mqFiltro==='activos'){
-    h+=`<span style="width:1px;height:18px;background:var(--border);margin:0 .15rem"></span>`
-      +bt(!_mqSub,'#10b981','Todos los activos',cuenta('activos'),"_mqSet('activos','')")
-      +bt(_mqSub==='oper','#16a34a','Operativos',sub('oper'),"_mqSet('activos','oper')")
-      +bt(_mqSub==='inop','#ef4444','Inoperativos',sub('inop'),"_mqSet('activos','inop')")
-      +(sub('parado')?bt(_mqSub==='parado','#64748b','Parados',sub('parado'),"_mqSet('activos','parado')"):'');
+    const sc=(s,txt)=>{
+      const act=_mqSub===s;
+      return`<button onclick="_mqSet('activos','${act?'':s}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
+        ${txt} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${sub(s)} eq.</span>${act?' ✕':''}
+      </button>`;
+    };
+    subChips=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(139,92,246,.05);border:1px dashed rgba(139,92,246,.4);border-radius:9px">
+      ${rotulo('↳ Condición:')}
+      ${sc('oper','OPERATIVOS')}${sc('inop','INOPERATIVOS')}${sub('parado')?sc('parado','PARADOS'):''}
+    </div>`;
   }
-  el.innerHTML=h;
+
+  el.innerHTML=`
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+      ${rotulo('Estado:')}
+      ${todos}${chip('activos','Activos')}${chip('desmovilizados','Desmovilizados')}${chip('otros','Otros')}
+    </div>
+    ${subChips}`;
 }
 
 function rMaster(){
