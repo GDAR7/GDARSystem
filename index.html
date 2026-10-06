@@ -761,7 +761,7 @@
         <th id="eqSortCodBtn" onclick="setEqSort('cod')" style="cursor:pointer;white-space:nowrap;user-select:none">Código <span style="font-size:.7rem;opacity:.6">↕</span></th>
         <th>Equipo</th>
         <th id="eqSortTipoBtn" onclick="setEqSort('tipo')" style="cursor:pointer;white-space:nowrap;user-select:none">Tipo <span style="font-size:.7rem;opacity:.6">↕</span></th>
-        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th title="Estado de vencimiento de documentos: SOAT, Póliza TREC, Rev. Técnica, RIC, GPS">Docs</th><th></th>
+        <th>Año</th><th>Placa</th><th class="tr">Horómetro</th><th>Estado</th><th>Proyecto</th><th title="Estado de vencimiento de documentos: SOAT, Póliza de Seguros, Rev. Técnica, RIC, GPS">Docs</th><th></th>
       </tr></thead>
       <tbody id="tbMaster"></tbody>
     </table></div></div>
@@ -793,6 +793,9 @@
 </div>
 
 <!-- AUXILIOS MECÁNICOS -->
+<!-- MANTENIMIENTO – DISPONIBILIDAD Y KPIs DE FLOTA (js/flotaKpi.js) -->
+<div class="page" id="page-flotaKpi"></div>
+
 <div class="page" id="page-auxiliosMecanicos">
   <div class="ph"><div class="ph-title" style="color:var(--mec)">Auxilios Mecánicos</div><div class="ph-sub">Registro de atenciones mecánicas de emergencia en campo</div></div>
   <div id="auxMecPeriodo"></div>
@@ -2651,7 +2654,7 @@
       <div class="fg"><label>Fecha de Salida</label><input id="eqFls" type="date"></div>
       <div class="fg"><label>Status</label><select id="eqSts"><option value="">— Seleccionar —</option><option>Operativo</option><option>En Mantenimiento</option><option>Parado</option><option>Inoperativo</option><option>En Tránsito</option><option>Alquilado</option><option>Desmovilizado</option></select></div>
       <div class="fg"><label>Vence SOAT</label><input id="eqSoatVenc" type="date"></div>
-      <div class="fg"><label>Vence Póliza TREC</label><input id="eqPtrVenc" type="date"></div>
+      <div class="fg"><label>Vence Póliza de Seguros</label><input id="eqPtrVenc" type="date"></div>
       <div class="fg"><label>Vence Revisión Técnica</label><input id="eqRtecVenc" type="date"></div>
       <div class="fg"><label>Vence RIC</label><input id="eqRicVenc" type="date"></div>
       <div class="fg"><label>Vence GPS</label><input id="eqGpsVenc" type="date"></div>
@@ -3359,8 +3362,8 @@
 
 
 <script src="js/empresa.js?v=8"></script>
-<script src="js/config.js?v=53"></script>
-<script src="js/utils.js?v=36"></script>
+<script src="js/config.js?v=54"></script>
+<script src="js/utils.js?v=37"></script>
 <script src="js/personal.js?v=24"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
@@ -3380,7 +3383,7 @@
 <script src="js/reembolsables_otros.js?v=13"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>
-<script src="js/mantenimiento.js?v=15"></script>
+<script src="js/mantenimiento.js?v=16"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
 <script src="js/tareaje.js?v=28"></script>
 <script src="js/tareajeHist.js?v=2"></script>
@@ -3401,6 +3404,7 @@
 <script src="js/valorizacion.js?v=1"></script>
 <script src="js/hhVenta.js?v=6"></script>
 <script src="js/corteEquipos.js?v=14"></script>
+<script src="js/flotaKpi.js?v=1"></script>
 <script src="js/reporteD.js?v=1"></script>
 <script src="js/lps.js?v=3"></script>
 <script src="js/pizarra.js?v=2"></script>

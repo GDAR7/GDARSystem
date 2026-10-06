@@ -682,7 +682,7 @@ function _vencBadge(fecha){
 }
 // Punto de color con el peor estado de los 5 documentos del equipo (para la tabla del Máster)
 function _vencDot(e){
-  const docs=[['SOAT',e.soatVenc],['Póliza TREC',e.polizaTrecVenc],['Rev. Técnica',e.revisionTecnicaVenc],['RIC',e.ricVenc],['GPS',e.gpsVenc]];
+  const docs=[['SOAT',e.soatVenc],['Póliza de Seguros',e.polizaTrecVenc],['Rev. Técnica',e.revisionTecnicaVenc],['RIC',e.ricVenc],['GPS',e.gpsVenc]];
   const conFecha=docs.filter(([,f])=>f);
   if(!conFecha.length)return`<span style="color:var(--muted2)" title="Sin fechas de vencimiento registradas">—</span>`;
   let peor=null;
@@ -714,7 +714,7 @@ function verEquipo(id){
     ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
     ${row('Status',e.status)}
     ${sec('Vencimientos de Documentos')}
-    ${row('Vence SOAT',_vencBadge(e.soatVenc))}${row('Vence Póliza TREC',_vencBadge(e.polizaTrecVenc))}
+    ${row('Vence SOAT',_vencBadge(e.soatVenc))}${row('Vence Póliza de Seguros',_vencBadge(e.polizaTrecVenc))}
     ${row('Vence Rev. Técnica',_vencBadge(e.revisionTecnicaVenc))}${row('Vence RIC',_vencBadge(e.ricVenc))}
     ${row('Vence GPS',_vencBadge(e.gpsVenc))}
     ${sec('Contrato / Proveedor')}
@@ -785,7 +785,7 @@ function printEquipoFicha(){
   ${row('F. Llegada',e.fechaLlegada)}${row('F. Salida',e.fechaSalida)}
   ${row('Status',e.status)}
   ${sec('Vencimientos de Documentos')}
-  ${row('Vence SOAT',e.soatVenc)}${row('Vence Póliza TREC',e.polizaTrecVenc)}
+  ${row('Vence SOAT',e.soatVenc)}${row('Vence Póliza de Seguros',e.polizaTrecVenc)}
   ${row('Vence Rev. Técnica',e.revisionTecnicaVenc)}${row('Vence RIC',e.ricVenc)}
   ${row('Vence GPS',e.gpsVenc)}
   ${sec('Contrato / Proveedor')}
