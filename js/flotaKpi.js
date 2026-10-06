@@ -225,8 +225,8 @@ function rFlotaKpi(){
     {l:'Disponibilidad mecánica',v:pct(T.dm),c:colDm(T.dm),s:`${T.conBase} de ${T.n} equipos con Hrs Mín. Venta · meta ${M.dm}%`},
     {l:'Utilización',v:pct(T.util),c:'#06b6d4',s:'H. oper ÷ (H. prog − H. inop)'},
     {l:'Uso productivo',v:pct(T.uso),c:colUso(T.uso),s:`H. oper ÷ H. prog · meta ${M.uso}%`},
-    {l:'MTBF',v:T.mtbf==null?'—':_fkN1(T.mtbf)+' h',c:'#8b5cf6',s:`entre fallas · ${T.nFallas} falla(s)`},
-    {l:'MTTR',v:T.mttr==null?'—':_fkN1(T.mttr)+' h',c:'#ec4899',s:`por reparación · ${T.nConT} con tiempo`},
+    {l:'MTBF',v:T.mtbf==null?'—':_fkN1(T.mtbf)+' h',c:'#8b5cf6',s:`Tiempo medio entre fallas · ${T.nFallas} falla(s)`},
+    {l:'MTTR',v:T.mttr==null?'—':_fkN1(T.mttr)+' h',c:'#ec4899',s:`Tiempo medio de reparación · ${T.nConT} con tiempo`},
     {l:'Costo de repuestos',v:_fkS(T.costo),c:'#f97316',s:T.sinPrecio?`${T.sinPrecio} insumo(s) sin precio`:'insumos × catálogo'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="color:${k.c};font-size:${String(k.v).length>9?'1.2rem':'1.7rem'}">${k.v}</div><div style="font-size:.6rem;color:var(--muted2);margin-top:.3rem">${k.s}</div></div>`).join('');
 
@@ -316,16 +316,10 @@ function rFlotaKpi(){
           <th style="${TH};text-align:right">H. Inop.</th><th style="${TH};text-align:right">Stand-by</th>
           <th style="${TH};text-align:right">Disp. Mec.</th><th style="${TH};text-align:right">Utiliz.</th>
           <th style="${TH};text-align:right">Uso Prod.</th><th style="${TH}">Fallas</th>
-          <th style="${TH};text-align:right">MTBF h</th><th style="${TH};text-align:right">MTTR h</th>
+          <th style="${TH};text-align:right" title="Tiempo medio entre fallas">MTBF h</th><th style="${TH};text-align:right" title="Tiempo medio de reparación">MTTR h</th>
           <th style="${TH};text-align:right">Repuestos</th>
         </tr></thead><tbody>${filasHtml||`<tr><td colspan="14" style="${TD};text-align:center;padding:2rem;color:var(--muted2)">Sin equipos en este filtro</td></tr>`}</tbody></table>
       </div></div>
-    </div>
-    <div style="font-size:.66rem;color:var(--muted2);margin-top:.6rem;line-height:1.6">
-      <b>Disp. Mec.</b> = (Hrs Mín. Venta − H. Inop.) ÷ Hrs Mín. Venta — la misma de Corte de Equipos; los preventivos restan ·
-      <b>Utiliz.</b> = H. Oper. ÷ (H. Prog. − H. Inop.) · <b>Uso Prod.</b> = H. Oper. ÷ H. Prog. ·
-      <b>H. Prog.</b> = turnos × ${D.HP} h · <b>MTBF</b> = H. Oper. ÷ fallas · <b>MTTR</b> = tiempo de parada ÷ fallas con tiempo ·
-      falla = auxilio «Correctiva no planificada» · el Pareto ordena por N° de eventos
     </div>`;
 
   // Gráfico de Pareto: barras de eventos y línea del % acumulado
