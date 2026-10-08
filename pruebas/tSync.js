@@ -44,7 +44,11 @@ const srv=http.createServer((req,res)=>{
       const b=JSON.parse(body);
       puts.push({id,body:b});
       if(u){
-        if(b.user_metadata)u.user_metadata=b.user_metadata;
+        // Como Supabase de verdad: COMBINA las claves. Lo que no se envía se
+        // conserva; lo que se envía en null queda en null. Antes este simulador
+        // reemplazaba todo, y por eso nunca vio que quitar un permiso del
+        // archivo no llegaba a la cuenta.
+        if(b.user_metadata)u.user_metadata={...u.user_metadata,...b.user_metadata};
         if(b.ban_duration!==undefined)
           u.banned_until=b.ban_duration==='none'?null:'2126-01-01T00:00:00Z';
       }
@@ -98,6 +102,33 @@ srv.listen(0,'127.0.0.1',async()=>{
   enAuth[j].user_metadata.cargo='Cargo Viejo';
   o=await corre(['--sincronizar','--simular']);
   es('lo muestra como antes y despues',/cargo: "Cargo Viejo" ->/.test(o),true);
+
+  console.log('\n== Quitar una restricción del archivo llega a la cuenta ==');
+  // El caso de Sixto: tenía el tareo de solo lectura y se le quitó en el archivo
+  reset();
+  const k=enAuth.findIndex(u=>u.user_metadata.codigo==='SIX_GQUI');
+  enAuth[k].user_metadata.readOnlyModules=['tareaje'];
+  o=await corre(['--sincronizar','--simular']);
+  es('la detecta como baja',/readOnlyModules: -tareaje/.test(o),true);
+  o=await corre(['--sincronizar']);
+  es('  y al aplicar la vacía en la cuenta',enAuth[k].user_metadata.readOnlyModules,null);
+  es('  enviándola en null, no omitiéndola',
+    JSON.stringify(puts[puts.length-1].body.user_metadata).includes('"readOnlyModules":null'),true);
+  o=await corre(['--sincronizar','--simular']);
+  es('  después queda todo al día',/Todo al dia/.test(o),true);
+
+  console.log('\n== --solo sincroniza a una sola persona ==');
+  reset();
+  const a1=enAuth.findIndex(u=>u.user_metadata.codigo==='JAYOJA');
+  const a2=enAuth.findIndex(u=>u.user_metadata.codigo==='NOEPAL');
+  enAuth[a1].user_metadata.cargo='Viejo 1';
+  enAuth[a2].user_metadata.cargo='Viejo 2';
+  o=await corre(['--sincronizar','--solo','JAYOJA']);
+  es('solo actualiza a esa persona',puts.length,1);
+  es('  la otra queda como estaba',enAuth[a2].user_metadata.cargo,'Viejo 2');
+  es('  y no confunde a las demás con cuentas sueltas',/ya no en js\/empresa\.js/.test(o),false);
+  o=await corre(['--sincronizar','--solo','NO_EXISTE']);
+  es('un código que no existe se avisa',/No hay ningún usuario con el código "NO_EXISTE"/.test(o),true);
 
   console.log('\n== Quien esta en Auth y ya no en el archivo ==');
   reset();

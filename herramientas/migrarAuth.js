@@ -203,7 +203,14 @@ async function banear(url,key,id,dur){
 
 async function sincronizar(){
   const{url,key}=credenciales();
-  const todos=leerUsuarios();
+  // --solo <CODIGO> también aquí: lleva a Auth el cambio de UNA persona sin
+  // tocar las cuentas de las demás.
+  const enArchivoTodos=leerUsuarios();
+  const todos=SOLO?enArchivoTodos.filter(u=>String(u.codigo).toUpperCase()===SOLO):enArchivoTodos;
+  if(SOLO&&!todos.length){
+    console.error(NL+'No hay ningún usuario con el código "'+SOLO+'".');
+    process.exit(1);
+  }
   const{porCodigo,lista}=await usuariosExistentes(url,key);
 
   const cambios=[],iguales=[];
@@ -215,12 +222,18 @@ async function sincronizar(){
     const suyos={};
     SUPABASE_PONE.forEach(k=>{if((y.user_metadata||{})[k]!==undefined)suyos[k]=y.user_metadata[k];});
     const nuevo={...suyos,...metaDe(u)};
+    // Supabase COMBINA los metadatos: una clave que no se envía se conserva.
+    // Por eso quitar una restricción del archivo (p. ej. readOnlyModules) no
+    // llegaba nunca a la cuenta. Lo que ya no está se manda vacío, y se borra.
+    Object.keys(y.user_metadata||{}).forEach(k=>{
+      if(!SUPABASE_PONE.includes(k)&&!(k in nuevo))nuevo[k]=null;
+    });
     const d=diferencias(y.user_metadata||{},nuevo);
     if(d.length)cambios.push({u,y,nuevo,d}); else iguales.push(u);
   });
 
   const pendientes=todos.filter(u=>!porCodigo.has(String(u.codigo).toUpperCase()));
-  const enArchivo=new Set(todos.map(u=>String(u.codigo).toUpperCase()));
+  const enArchivo=new Set(enArchivoTodos.map(u=>String(u.codigo).toUpperCase()));
   const huerfanos=lista.filter(x=>{
     const c=x.user_metadata&&x.user_metadata.codigo;
     return c&&!enArchivo.has(String(c).toUpperCase());

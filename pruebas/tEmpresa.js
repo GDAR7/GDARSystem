@@ -78,7 +78,7 @@ const sx=u('SIX_GQUI');
 es('Sixto entra a Control de Proyecto',(sx.areas||[]).includes('controlProyecto'),true);
 es('  con los cuatro módulos del recuadro',(sx.areaModules.controlProyecto||[]).join(','),
   'pizarra,avanceMT,dailyReport,recrecimiento');
-es('  y puede editarlos (solo el tareaje es de lectura)',(sx.readOnlyModules||[]).join(','),'tareaje');
+es('  y puede editarlos, incluido el tareo',(sx.readOnlyModules||[]).join(','),'');
 es('  sin perder lo que ya tenía',(sx.areaModules.administracion||[]).join(','),'asistencia,tareaje');
 
 console.log('\n== Registro de campo: solo el Parte de Turno ==');

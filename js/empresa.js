@@ -53,7 +53,7 @@ const EMPRESA_USERS=A=>[
   {codigo:'JAYOJA',nombre:'Jaime Aquino J.',cargo:'Asist. de Mantenimiento', areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
   {codigo:'ANT_CER',nombre:'Antony Cerquin Z.',cargo:'Ing. Planeamiento',areas:['general','administracion','controlProyecto','controlEquipos','mantenimiento','seguridad','costControl'],areaModules:{mantenimiento:['masterEquipos'],seguridad:['cursosSeguridad']}},
   {codigo:'J_A_TA',nombre:'Javier Tamara C. ',cargo:'Data Enter - 01',areas:['controlEquipos','controlProyecto','administracion','seguridad'],areaModules:{controlProyecto:['pizarra','recrecimiento'],administracion:['asistencia','resumenTareaje'],seguridad:['cursosSeguridad']},pizarraTabs:[3,4,5]},
-  {codigo:'SIX_GQUI',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad','controlProyecto'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad'],controlProyecto:['pizarra','avanceMT','dailyReport','recrecimiento']},readOnlyModules:['tareaje']},
+  {codigo:'SIX_GQUI',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad','controlProyecto'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad'],controlProyecto:['pizarra','avanceMT','dailyReport','recrecimiento']}},
   {codigo:'MARTONY',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
   {codigo:'PIE_SA',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
   // Remuneraciones ve todo; de Administración, solo el tareaje y sus vistas.
@@ -61,10 +61,10 @@ const EMPRESA_USERS=A=>[
   // Supervisión externa (BISA): solo consulta. Del Panel de Horas ve los tres
   {codigo:'CP.BISA_',nombre:'Juan Guerreo',cargo:'Control de Proy. Senior Bisa.',areas:['controlEquipos','controlProyecto'],areaModules:{controlEquipos:['panelHoras'],controlProyecto:['avanceMT']},panelHorasTabs:[1,2,3,4]},
   // Registro de campo: solo ven el formulario de Parte de Turno, nada más del sistema
-  {codigo:'ERV_RO',nombre:'Ervin Rojas',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
-  {codigo:'WIL_VE',nombre:'Wilner Vega',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
-  {codigo:'EDW_QU',nombre:'Edwin Quispe',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
-  {codigo:'MIS_TE',nombre:'Misael Tello',cargo:'Registro de Campo',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'ERV_RO',nombre:'Ervin Rojas',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'WIL_VE',nombre:'Wilner Vega',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'EDW_QU',nombre:'Edwin Quispe',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  {codigo:'MIS_TE',nombre:'Misael Tello',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
 ];
 
 // El logo de la pantalla de acceso. El src del HTML queda como respaldo:
