@@ -141,6 +141,17 @@ function _eqPuedeEliminar(id){
 //   Otros          → todo lo demás: En Tránsito, Alquilado o sin estado claro
 // Todos los botones muestran cuántos equipos hay, para que cuadre a la vista.
 let _mqFiltro='todos', _mqSub='', _mqTipo='', _mqSubtipo='';
+// Proyecto: filtra antes que todo, y los conteos de los demás niveles se
+// calculan dentro de él. '' = todos los proyectos. Arranca en el N° 04
+// (Relavera R3); el chip «Todos» muestra la flota completa.
+let _mqProy='EPY-004-26';
+const _MQ_SIN_PROY='(sin proyecto)';
+function _mqProyDe(e){return String((e&&e.proyecto)||'').trim()||_MQ_SIN_PROY;}
+function _mqEnProy(e){return !_mqProy||_mqProyDe(e)===_mqProy;}
+function _mqSetProy(p){
+  _mqProy=(_mqProy===p)?'':p;      // tocar el elegido lo suelta
+  rMaster();
+}
 // Cuarto nivel: elegido el tipo, se abre por subtipo (Excavadora, Volquete…)
 function _mqSubtipoDe(e){return String((e&&e.sub)||'(sin subtipo)').trim();}
 // Tercer nivel: elegida una condición, se abre por tipo de equipo
@@ -165,6 +176,7 @@ function _mqSubGrupo(e){
   return'';
 }
 function _mqPasa(e){
+  if(!_mqEnProy(e))return false;
   if(_mqFiltro==='todos')return true;
   if(_mqGrupo(e)!==_mqFiltro)return false;
   if(_mqFiltro==='activos'&&_mqSub&&_mqSubGrupo(e)!==_mqSub)return false;
@@ -197,14 +209,16 @@ function _mqEtiqueta(){
   const n={todos:'Todos',activos:'Activos',desmovilizados:'Desmovilizados',otros:'Otros'}[_mqFiltro]||'Todos';
   const s={oper:'Operativos',inop:'Inoperativos',parado:'Parados'}[_mqSub];
   const t=(s&&_mqTipo)?_mqTipo:'';
-  return [n,s,t,(t&&_mqSubtipo)?_mqSubtipo:''].filter(Boolean).join(' · ');
+  return [_mqProy,n,s,t,(t&&_mqSubtipo)?_mqSubtipo:''].filter(Boolean).join(' · ');
 }
 // Mismo diseño que los filtros del Dashboard de combustible: rótulo adelante,
 // píldoras con su cantidad, la elegida en naranja con ✕ para soltarla, y el
 // segundo nivel dentro de un recuadro punteado con ↳.
 function _mqBotones(){
   const el=document.getElementById('mqFiltros');if(!el)return;
-  const eqs=DB.equipos||[];
+  const todosEqs=DB.equipos||[];
+  // Los conteos de Estado → Condición → Tipo → Subtipo, dentro del proyecto
+  const eqs=todosEqs.filter(_mqEnProy);
   const cuenta=g=>eqs.filter(e=>_mqGrupo(e)===g).length;
   const sub=s=>eqs.filter(e=>_mqGrupo(e)==='activos'&&_mqSubGrupo(e)===s).length;
   const rotulo=t=>`<span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">${t}</span>`;
@@ -272,7 +286,25 @@ function _mqBotones(){
     </div>`;
   }
 
+  // Fila de proyectos: los que tienen equipos, con su nombre al pasar el mouse
+  const nomProy=c=>{const p=(DB.proyectos||[]).find(x=>String(x.codigo||'').trim()===c);return p?String(p.nombre||''):'';};
+  const nProy={};todosEqs.forEach(e=>{const c=_mqProyDe(e);nProy[c]=(nProy[c]||0)+1;});
+  const proyLista=Object.keys(nProy).sort((a,b)=>a===_MQ_SIN_PROY?1:b===_MQ_SIN_PROY?-1:a.localeCompare(b,'es',{numeric:true}));
+  const pc=c=>{
+    const act=_mqProy===c, cEsc=c.replace(/'/g,"\\'");
+    return`<button onclick="_mqSetProy('${cEsc}')" title="${(nomProy(c)||c).replace(/"/g,'&quot;')}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.74rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#a78bfa':'var(--border)'};background:${act?'rgba(167,139,250,.18)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
+      ${c} <span style="font-size:.66rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${nProy[c]} eq.</span>${act?' ✕':''}
+    </button>`;
+  };
+  const proyTodos=`<button onclick="_mqProy='';rMaster()" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${!_mqProy?'#06b6d4':'var(--border)'};background:${!_mqProy?'rgba(6,182,212,.15)':'var(--panel2)'};color:${!_mqProy?'#06b6d4':'var(--muted2)'}">Todos <span style="font-family:monospace;font-size:.68rem;font-weight:900">${todosEqs.length}</span></button>`;
+  const proyNombre=_mqProy?nomProy(_mqProy):'';
+
   el.innerHTML=`
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem">
+      ${rotulo('Proyecto:')}
+      ${proyTodos}${proyLista.map(pc).join('')}
+      ${proyNombre?`<span style="font-size:.7rem;color:#a78bfa;align-self:center;margin-left:.2rem">${proyNombre.replace(/</g,'&lt;')}</span>`:''}
+    </div>
     <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
       ${rotulo('Estado:')}
       ${todos}${chip('activos','Activos')}${chip('desmovilizados','Desmovilizados')}${chip('otros','Otros')}

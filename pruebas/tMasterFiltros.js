@@ -30,6 +30,27 @@ vm.runInContext(src.slice(ini,fin),ctx,{filename:'mantenimiento.js'});
 const ev=x=>vm.runInContext(x,ctx);
 const cods=()=>ev('_mqFiltrados().map(e=>e.codigo).join(",")');
 
+console.log('\n== Proyecto: arranca en el N° 04 ==');
+es('el filtro de proyecto arranca en EPY-004-26',ev('_mqProy'),'EPY-004-26');
+// Tres equipos de prueba pasan a otros proyectos
+DB.equipos[0].proyecto='EPY-004-26';DB.equipos[1].proyecto='EPY-004-26';DB.equipos[2].proyecto='EPY-001-26';
+es('  solo muestra los del 04',cods(),'EXC-1,EXC-2');
+es('  y los conteos de Estado son del 04',ev("DB.equipos.filter(_mqEnProy).filter(e=>_mqGrupo(e)==='activos').length"),2);
+ev("_mqSetProy('EPY-001-26')");
+es('cambiar de proyecto',cods(),'VOL-1');
+ev("_mqSetProy('EPY-001-26')");
+es('tocar el elegido lo suelta: todos los proyectos',ev('_mqProy'),'');
+es('  y vuelven los diez',ev('_mqFiltrados().length'),10);
+es('sin proyecto se agrupa aparte',ev("_mqProyDe({})"),'(sin proyecto)');
+es('la etiqueta del PDF dice el proyecto',(ev("_mqProy='EPY-004-26'"),ev('_mqEtiqueta()')),'EPY-004-26 · Todos');
+ev("_mqBotones()");
+const HP=nodo('mqFiltros').innerHTML;
+es('la fila de proyecto va antes que Estado',HP.indexOf('Proyecto:')<HP.indexOf('Estado:'),true);
+es('  con cada proyecto y su cantidad',/EPY-004-26 <span[^>]*>2 eq\./.test(HP)&&/EPY-001-26 <span[^>]*>1 eq\./.test(HP),true);
+// El resto de la suite mide los niveles con todos los proyectos
+ev("_mqProy=''");
+DB.equipos.forEach(e=>{delete e.proyecto;});
+
 console.log('\n== Todos ==');
 es('arranca mostrando todo, como hasta ahora',ev('_mqFiltro'),'todos');
 es('  los diez equipos',ev('_mqFiltrados().length'),10);
