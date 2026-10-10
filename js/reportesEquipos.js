@@ -139,7 +139,9 @@ function rDashEquipos(){
   }
   let chipEquipos='';
   if(_deqTipo&&_deqSub&&tiposMap[_deqTipo]&&tiposMap[_deqTipo].subs[_deqSub]){
-    const eqsT=Object.values(tiposMap[_deqTipo].subs[_deqSub].eqs).sort((a,b)=>b.ef-a.ef);
+    // Por código, comparando el número: VOL ECOP-001, -002 … -010, -011
+    const eqsT=Object.values(tiposMap[_deqTipo].subs[_deqSub].eqs)
+      .sort((a,b)=>String(a.eq.codigo||'').localeCompare(String(b.eq.codigo||''),'es',{numeric:true}));
     chipEquipos=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(6,182,212,.05);border:1px dashed rgba(6,182,212,.35);border-radius:9px">
       <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_deqSub}:</span>
       ${eqsT.map(({eq,ef})=>{
