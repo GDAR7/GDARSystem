@@ -623,7 +623,9 @@ function rCorteEquipos(){
 
   let chipEqs='';
   if(_ceTipo&&_ceSub&&tipos[_ceTipo]&&tipos[_ceTipo].subs[_ceSub]){
-    const lista=Object.values(tipos[_ceTipo].subs[_ceSub].eqs).sort((a,b)=>b.h-a.h);
+    // Por código, comparando el número: VOL ECOP-001, -002 … -010, -011
+    const lista=Object.values(tipos[_ceTipo].subs[_ceSub].eqs)
+      .sort((a,b)=>String(a.eq.codigo||'').localeCompare(String(b.eq.codigo||''),'es',{numeric:true}));
     chipEqs=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(249,115,22,.05);border:1px dashed rgba(249,115,22,.35);border-radius:9px">
       <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_ceEsc(_ceSub)}:</span>
       ${lista.map(({eq,h,dt})=>{
