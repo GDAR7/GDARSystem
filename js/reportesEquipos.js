@@ -7,13 +7,14 @@ let _deqOffset=0,_deqTipo=null,_deqSub=null,_deqEqId=null,_deqChart=null;
 // Pestaña: 'resumen' (gráfico y tabla) o 'calendario' (js/dashEquiposCal.js)
 let _deqVista='resumen';
 function _deqSetVista(v){
-  _deqVista=v==='calendario'?'calendario':'resumen';
+  _deqVista=['calendario','flota'].includes(v)?v:'resumen';
   if(typeof _dqcSel!=='undefined')_dqcSel=null;
+  if(typeof _dqfSel!=='undefined')_dqfSel=null;
   rDashEquipos();
 }
-// Lo que dice cada chip: horas en Resumen; en Calendario, la métrica del tipo
+// Lo que dice cada chip: horas en Resumen; en Calendario y Flota, la métrica del tipo
 function _deqChipVal(tipo,nodo){
-  if(_deqVista==='calendario'&&typeof _dqcChipVal==='function')return _dqcChipVal(tipo,nodo);
+  if(_deqVista!=='resumen'&&typeof _dqcChipVal==='function')return _dqcChipVal(tipo,nodo);
   return Number(nodo.ef||0).toLocaleString('es-PE',{maximumFractionDigits:1})+' h';
 }
 function _deqSelTipo(t){
@@ -198,8 +199,11 @@ function rDashEquipos(){
   }).join('');
 
   // Pestaña Calendario: mismos partes filtrados y mismo período
-  const enCal=_deqVista==='calendario'&&typeof _dqcHtml==='function';
-  const cal=enCal?_dqcHtml({partes,per,tipo:_deqTipo,sub:_deqSub,eqId:_deqEqId,eqById,titulo:tituloSel}):null;
+  // Calendario o Flota: las dos devuelven {kpis,cuerpo} y reemplazan al Resumen
+  const _vctx={partes,per,tipo:_deqTipo,sub:_deqSub,eqId:_deqEqId,eqById,titulo:tituloSel};
+  const cal=(_deqVista==='calendario'&&typeof _dqcHtml==='function')?_dqcHtml(_vctx)
+    :(_deqVista==='flota'&&typeof _dqfHtml==='function')?_dqfHtml(_vctx):null;
+  const enCal=!!cal;
   if(enCal&&_deqChart){try{_deqChart.destroy();}catch(e){}_deqChart=null;}
   const tab=(k,lbl)=>{const on=_deqVista===k;return`<button onclick="_deqSetVista('${k}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${on?'#06b6d4':'transparent'};color:${on?'#fff':'var(--muted2)'}">${lbl}</button>`;};
 
@@ -209,7 +213,7 @@ function rDashEquipos(){
       <div class="ph-sub">Horas efectivas por tipo, subtipo y equipo · filtros dinámicos</div>
     </div>
     <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
-      ${tab('resumen','📊 Resumen')}${tab('calendario','📅 Calendario')}
+      ${tab('resumen','📊 Resumen')}${tab('calendario','📅 Calendario')}${tab('flota','🚜 Flota')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
       <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
