@@ -93,6 +93,33 @@ es('un equipo con un turno inoperativo cuenta inoperativo el día',(()=>{
   const r=datos('Equipos Menores',null,null).map['2026-09-24'];
   DB.partes=DB.partes.filter(p=>p.id<998);return r.op+'/'+r.n;})(),'0/1');
 
+console.log('\n== Por qué un día salió sin horas ==');
+es('inoperativo → ino',ev("_dqcCond({condicion:'INOPERATIVO (FALLA MECANICA)'})"),'ino');
+es('el mixto también es ino',ev("_dqcCond({condicion:'OPERATIVO/INOPERATIVO'})"),'ino');
+es('preventivo → pm',ev("_dqcCond({condicion:'PM1, PM2, PM3, PM4'})"),'pm');
+es('stand-by → stb',ev("_dqcCond({condicion:'OPERATIVO (STANDBY)'})"),'stb');
+es('trabajado → nada',ev("_dqcCond({condicion:'OPERATIVO (TRABAJADO)'})"),'');
+es('si hay de los tres, gana inoperativo',ev("_dqcEtiqueta({ino:1,pm:1,stb:1}).txt"),'INO');
+es('  luego preventivo',ev("_dqcEtiqueta({pm:1,stb:2}).txt"),'PM');
+es('sin condición especial, sin etiqueta',ev('_dqcEtiqueta({np:2})'),null);
+// La excavadora 010: un día inoperativo sin horas y otro en stand-by
+P(2,'2026-09-25',{ef:0,condicion:'INOPERATIVO (FALLA MECANICA)'});
+P(2,'2026-09-26',{ef:0,condicion:'OPERATIVO (STANDBY)'});
+P(2,'2026-09-27',{ef:4,condicion:'INOPERATIVO (FALLA MECANICA)'});
+ev("_deqVista='calendario';_deqTipo='Línea Amarilla';_deqSub='EXCAVADORA';_deqEqId=2;_dqcSel=null;rDashEquipos()");
+let HC=nodos['page-dashEquipos'].innerHTML;
+const celda=f=>{const m=HC.match(new RegExp('title="'+f+'[^"]*"[\\s\\S]*?font-size:\\.95rem">([\\s\\S]*?)</div>'));return m?m[1].replace(/<[^>]+>/g,'').trim():null;};
+es('día sin horas e inoperativo dice INO',celda('2026-09-25'),'INO');
+es('  en rojo',/color:#ef4444;">INO</.test(HC),true);
+es('día sin horas en stand-by dice STB',celda('2026-09-26'),'STB');
+es('día con horas pero falla: «4.0 h // INO»',celda('2026-09-27'),'4.0 h // INO');
+es('día con horas sin falla, solo el número',celda('2026-09-22'),'6.0');
+es('día sin parte sigue con guion',celda('2026-09-30'),'—');
+es('el cuadro de ayuda dice la condición',/title="2026-09-25 · 1 parte\(s\) · 1 inoperativo"/.test(HC),true);
+es('la leyenda explica las siglas',/INO<\/b> inoperativo/.test(HC)&&/STB<\/b> stand-by/.test(HC),true);
+DB.partes=DB.partes.filter(p=>!['2026-09-25','2026-09-26','2026-09-27'].includes(p.fecha));
+ev('_deqEqId=null;_deqSub=null');
+
 console.log('\n== La pestaña dentro del Dashboard ==');
 ev("_deqVista='calendario';_deqTipo=null;rDashEquipos()");
 let H=nodos['page-dashEquipos'].innerHTML;

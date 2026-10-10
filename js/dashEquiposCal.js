@@ -47,6 +47,22 @@ function _dqcKm(p){
 // Un parte inoperativo (incluye el mixto «OPERATIVO/INOPERATIVO»: hubo falla)
 function _dqcInop(p){return /INOPERATIVO/i.test(String(p.condicion||''));}
 function _dqcSelDia(f){_dqcSel=(_dqcSel===f)?null:f;rDashEquipos();}
+// Clase de la condición de un parte: 'ino' inoperativo, 'pm' preventivo,
+// 'stb' stand-by, o '' si trabajó normal
+function _dqcCond(p){
+  const c=String(p.condicion||'').toUpperCase();
+  if(/INOPERATIVO/.test(c))return'ino';
+  if(/\bPM\d/.test(c))return'pm';
+  if(/STAND\s*-?\s*BY/.test(c))return'stb';
+  return'';
+}
+// Etiqueta para un día de horas o km: la causa cuando no hubo, o el aviso de
+// una falla cuando sí hubo. Prioridad: inoperativo, preventivo, stand-by.
+const _DQC_ETQ={ino:['INO','#ef4444','Inoperativo'],pm:['PM','#ef4444','Mantenimiento preventivo'],stb:['STB','#f59e0b','Stand-by']};
+function _dqcEtiqueta(m){
+  const k=['ino','pm','stb'].find(x=>m[x]>0);
+  return k?{k,txt:_DQC_ETQ[k][0],col:_DQC_ETQ[k][1],nombre:_DQC_ETQ[k][2]}:null;
+}
 
 // Valor a mostrar en los chips de filtro, según el tipo
 function _dqcChipVal(tipo,nodo){
@@ -87,6 +103,10 @@ function _dqcDatos(ctx){
   partes.forEach(p=>{
     const m=map[p.fecha];if(!m)return;
     const g=grupo(p);
+    // Condición de los partes del día: explica por qué un día salió sin horas
+    const c=_dqcCond(p);
+    m.np=(m.np||0)+1;
+    if(c)m[c]=(m[c]||0)+1;
     if(modo==='oper'){
       // Por equipo y día: basta un parte inoperativo para que el día cuente así
       const inop=_dqcInop(p);
@@ -166,7 +186,11 @@ function _dqcHtml(ctx){
   D.dias.forEach(f=>{
     const m=D.map[f], tiene=M==='oper'?m.n>0:m.v>0;
     const d=new Date(f+'T12:00:00');
-    const bg=!tiene?'var(--panel2)'
+    // Horas y km: por qué un día salió en cero (o si falló aun trabajando)
+    const etq=M==='oper'?null:_dqcEtiqueta(m);
+    const sinHorasConParte=M!=='oper'&&!tiene&&(m.np||0)>0;
+    const bg=sinHorasConParte&&etq?(etq.k==='stb'?'rgba(245,158,11,.10)':'rgba(239,68,68,.12)')
+      :!tiene?'var(--panel2)'
       :M==='oper'?`rgba(${semaforo(m.v)},.26)`
       :`rgba(${rgb},${(0.10+0.42*m.v/max).toFixed(3)})`;
     const sel=_dqcSel===f;
@@ -179,10 +203,20 @@ function _dqcHtml(ctx){
           .map(([g,v])=>`<i style="flex:${v.toFixed(2)};background:${D.color[g]}"></i>`).join('');
       }
     }
-    const valor=!tiene?'<span style="color:var(--muted);font-weight:400">—</span>'
+    const etqHtml=(e,chica)=>`<span style="font-family:monospace;font-weight:900;letter-spacing:.06em;color:${e.col};${chica?'font-size:.6rem;padding:.05rem .3rem;border:1px solid '+e.col+';border-radius:4px;margin-left:.3rem':''}">${e.txt}</span>`;
+    const valor=sinHorasConParte
+      ?(etq?etqHtml(etq,false):fmtV(0).replace(und,''))
+      :!tiene?'<span style="color:var(--muted);font-weight:400">—</span>'
       :M==='oper'?`${Math.round(m.v)}% <span style="font-size:.62rem;color:var(--muted2);font-weight:600">${m.op}/${m.n}</span>`
-      :fmtV(m.v).replace(und,'');
-    celdas+=`<div onclick="_dqcSelDia('${f}')" title="${f}" style="cursor:pointer;min-width:0;min-height:74px;display:flex;flex-direction:column;gap:.3rem;padding:.4rem .5rem;border-radius:8px;background:${bg};border:${sel?'2px solid var(--text)':'1px solid var(--border)'}">
+      // Trabajó y falló el mismo día: «1.2 h // INO»
+      :(etq&&etq.k!=='stb')
+        ?`${fmtV(m.v)} <span style="color:var(--muted2);font-weight:400">//</span> ${etqHtml(etq,false)}`
+        :fmtV(m.v).replace(und,'');
+    // El cuadro de ayuda dice cuántos partes y de qué condición
+    const ayuda=f+(M==='oper'?'':(m.np?' · '+m.np+' parte(s)'
+      +['ino','pm','stb'].filter(k=>m[k]).map(k=>' · '+m[k]+' '+_DQC_ETQ[k][2].toLowerCase()).join('')
+      :' · sin parte'));
+    celdas+=`<div onclick="_dqcSelDia('${f}')" title="${_dqcEsc(ayuda)}" style="cursor:pointer;min-width:0;min-height:74px;display:flex;flex-direction:column;gap:.3rem;padding:.4rem .5rem;border-radius:8px;background:${bg};border:${sel?'2px solid var(--text)':'1px solid var(--border)'}">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <b style="font-family:monospace;font-size:.72rem;color:var(--muted2)">${String(d.getDate()).padStart(2,'0')}</b>
         <span style="font-size:.55rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${_DQC_MES[d.getMonth()]}</span>
@@ -227,7 +261,13 @@ function _dqcHtml(ctx){
   const alcance=!ctx.tipo?'Línea Amarilla + Línea Blanca':'';
   const leyenda=M==='oper'
     ?`<span style="display:inline-flex;gap:.6rem;align-items:center;font-size:.64rem;color:var(--muted2)"><span>■ <span style="color:#10b981">≥90%</span></span><span>■ <span style="color:#f59e0b">75–89%</span></span><span>■ <span style="color:#ef4444">&lt;75%</span></span></span>`
-    :`<span style="display:inline-flex;gap:.25rem;align-items:center;font-size:.64rem;color:var(--muted2)">menos ${[1,2,3,4,5].map(i=>`<i style="display:block;width:14px;height:10px;border-radius:2px;background:rgba(${rgb},${(0.12+i*0.1).toFixed(2)})"></i>`).join('')} más</span>`;
+    :`<span style="display:inline-flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.64rem;color:var(--muted2)">
+        <span style="display:inline-flex;gap:.25rem;align-items:center">menos ${[1,2,3,4,5].map(i=>`<i style="display:block;width:14px;height:10px;border-radius:2px;background:rgba(${rgb},${(0.12+i*0.1).toFixed(2)})"></i>`).join('')} más</span>
+        <span><b style="font-family:monospace;color:#ef4444">INO</b> inoperativo</span>
+        <span><b style="font-family:monospace;color:#ef4444">PM</b> preventivo</span>
+        <span><b style="font-family:monospace;color:#f59e0b">STB</b> stand-by</span>
+        <span><b style="color:var(--muted)">—</b> sin parte</span>
+      </span>`;
 
   // KPIs aparte: el Dashboard los pone arriba de los filtros, como en Resumen
   return{kpis:kpiHtml,cuerpo:`
