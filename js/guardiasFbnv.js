@@ -37,18 +37,19 @@ function _tarPgTab(k){
   document.getElementById('tarPgPanelResumen').style.display=esRes?'':'none';
   document.getElementById('tarPgPanelGuardias').style.display=k==='guardias'?'':'none';
   document.getElementById('tarPgPanelHist').style.display=k==='hist'?'':'none';
+  const pc=document.getElementById('tarPgPanelCorte');if(pc)pc.style.display=k==='corte'?'':'none';
   // Los controles de columnas y los botones de exportar son propios del resumen
   const colW=document.getElementById('tarPgColWrap');if(colW)colW.style.display=esRes?'':'none';
   ['tarPgBtnXls','tarPgBtnPdf'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display=esRes?'':'none';});
   // La guardia individual no aplica al cuadro de las tres guardias
   const gw=document.getElementById('tarPgGuardia');
   if(gw&&gw.parentElement)gw.parentElement.style.display=k==='guardias'?'none':'';
-  ['resumen','guardias','hist'].forEach(n=>{
+  ['resumen','guardias','hist','corte'].forEach(n=>{
     const act=n===k;
     const b=document.getElementById('tarPgTabBtn-'+n);
     if(b){b.style.background=act?'var(--adm)':'transparent';b.style.color=act?'#fff':'var(--muted2)';}
   });
-  if(esRes)rTareResumenPg();else if(k==='guardias')rGuardiasFbnv();else rTarHist();
+  if(esRes)rTareResumenPg();else if(k==='guardias')rGuardiasFbnv();else if(k==='corte')rTarCorte();else rTarHist();
 }
 
 function _gdEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
