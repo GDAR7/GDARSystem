@@ -4,6 +4,18 @@
 // ══ DASHBOARD EQUIPOS (estilo Power BI, como el dashboard de Combustible) ══
 // Filtros en cascada por chips: Tipo → Subtipo → Código · período 21→20 navegable
 let _deqOffset=0,_deqTipo=null,_deqSub=null,_deqEqId=null,_deqChart=null;
+// Pestaña: 'resumen' (gráfico y tabla) o 'calendario' (js/dashEquiposCal.js)
+let _deqVista='resumen';
+function _deqSetVista(v){
+  _deqVista=v==='calendario'?'calendario':'resumen';
+  if(typeof _dqcSel!=='undefined')_dqcSel=null;
+  rDashEquipos();
+}
+// Lo que dice cada chip: horas en Resumen; en Calendario, la métrica del tipo
+function _deqChipVal(tipo,nodo){
+  if(_deqVista==='calendario'&&typeof _dqcChipVal==='function')return _dqcChipVal(tipo,nodo);
+  return Number(nodo.ef||0).toLocaleString('es-PE',{maximumFractionDigits:1})+' h';
+}
 function _deqSelTipo(t){
   if(_deqTipo===t){_deqTipo=null;_deqSub=null;_deqEqId=null;}
   else{_deqTipo=t;_deqSub=null;_deqEqId=null;}
@@ -56,6 +68,13 @@ function rDashEquipos(){
     tiposMap[t].subs[s].ef+=ef;
     if(!tiposMap[t].subs[s].eqs[eq.id])tiposMap[t].subs[s].eqs[eq.id]={eq,ef:0};
     tiposMap[t].subs[s].eqs[eq.id].ef+=ef;
+    // Para el Calendario: km recorridos y operatividad por equipo-día
+    const km=Math.max(0,+p.kmRec||((+p.kmFin||0)-(+p.kmIni||0))||0);
+    const k=p.eqId+'|'+p.fecha, inop=/INOPERATIVO/i.test(String(p.condicion||''));
+    [tiposMap[t],tiposMap[t].subs[s],tiposMap[t].subs[s].eqs[eq.id]].forEach(n=>{
+      n.km=(n.km||0)+km;
+      n.od=n.od||{};n.od[k]=!!(n.od[k]||inop);
+    });
   });
   if(_deqTipo&&!tiposMap[_deqTipo]){_deqTipo=null;_deqSub=null;_deqEqId=null;}
   if(_deqSub&&(!_deqTipo||!tiposMap[_deqTipo].subs[_deqSub])){_deqSub=null;_deqEqId=null;}
@@ -120,7 +139,7 @@ function rDashEquipos(){
     const act=_deqTipo===t;
     const tEsc=t.replace(/'/g,"\\'");
     return`<button onclick="_deqSelTipo('${tEsc}')" style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;cursor:pointer;font-size:.76rem;font-weight:700;border:1.5px solid ${act?'#06b6d4':'var(--border)'};background:${act?'rgba(6,182,212,.18)':'var(--panel2)'};color:${act?'#06b6d4':'var(--text)'};transition:all .15s">
-      ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#06b6d4':'var(--muted2)'}">${fmt1(d.ef)} h</span>${act?' ✕':''}
+      ${t} <span style="font-family:monospace;font-size:.68rem;font-weight:900;color:${act?'#06b6d4':'var(--muted2)'}">${_deqChipVal(t,d)}</span>${act?' ✕':''}
     </button>`;
   }).join('');
   let chipSubs='';
@@ -132,7 +151,7 @@ function rDashEquipos(){
         const act=_deqSub===s;
         const sEsc=s.replace(/'/g,"\\'");
         return`<button onclick="_deqSelSub('${sEsc}')" style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:18px;cursor:pointer;font-size:.73rem;font-weight:700;border:1.5px solid ${act?'#8b5cf6':'var(--border)'};background:${act?'rgba(139,92,246,.2)':'var(--panel2)'};color:${act?'#a78bfa':'var(--text)'};transition:all .15s">
-          ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${fmt1(d.ef)} h</span>${act?' ✕':''}
+          ${s} <span style="font-family:monospace;font-size:.64rem;font-weight:900;color:${act?'#a78bfa':'var(--muted2)'}">${_deqChipVal(_deqTipo,d)}</span>${act?' ✕':''}
         </button>`;
       }).join('')}
     </div>`;
@@ -144,10 +163,11 @@ function rDashEquipos(){
       .sort((a,b)=>String(a.eq.codigo||'').localeCompare(String(b.eq.codigo||''),'es',{numeric:true}));
     chipEquipos=`<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem;padding:.55rem .7rem;background:rgba(6,182,212,.05);border:1px dashed rgba(6,182,212,.35);border-radius:9px">
       <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;align-self:center">↳ ${_deqSub}:</span>
-      ${eqsT.map(({eq,ef})=>{
+      ${eqsT.map(nodo=>{
+        const eq=nodo.eq;
         const act=_deqEqId===eq.id;
         return`<button onclick="_deqSelEq(${eq.id})" style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:16px;cursor:pointer;font-size:.7rem;font-weight:700;font-family:monospace;border:1.5px solid ${act?'#06b6d4':'var(--border)'};background:${act?'#06b6d4':'var(--panel2)'};color:${act?'#fff':'var(--text)'};transition:all .15s">
-          ${eq.codigo} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${fmt1(ef)}h</span>${act?' ✕':''}
+          ${eq.codigo} <span style="font-size:.62rem;font-weight:900;color:${act?'rgba(255,255,255,.75)':'var(--muted2)'}">${_deqChipVal(_deqTipo,nodo)}</span>${act?' ✕':''}
         </button>`;
       }).join('')}
     </div>`;
@@ -177,10 +197,19 @@ function rDashEquipos(){
     </tr>`;
   }).join('');
 
+  // Pestaña Calendario: mismos partes filtrados y mismo período
+  const enCal=_deqVista==='calendario'&&typeof _dqcHtml==='function';
+  const cal=enCal?_dqcHtml({partes,per,tipo:_deqTipo,sub:_deqSub,eqId:_deqEqId,eqById,titulo:tituloSel}):null;
+  if(enCal&&_deqChart){try{_deqChart.destroy();}catch(e){}_deqChart=null;}
+  const tab=(k,lbl)=>{const on=_deqVista===k;return`<button onclick="_deqSetVista('${k}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${on?'#06b6d4':'transparent'};color:${on?'#fff':'var(--muted2)'}">${lbl}</button>`;};
+
   el.innerHTML=`
     <div class="ph">
       <div class="ph-title" style="color:#06b6d4">📊 Dashboard – Control de Equipos</div>
       <div class="ph-sub">Horas efectivas por tipo, subtipo y equipo · filtros dinámicos</div>
+    </div>
+    <div style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem">
+      ${tab('resumen','📊 Resumen')}${tab('calendario','📅 Calendario')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
       <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
@@ -190,7 +219,7 @@ function rDashEquipos(){
         <button onclick="_deqNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
       </div>
     </div>
-    <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
+    ${enCal?cal.kpis:`<div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>`}
     <div style="margin-bottom:1rem">
       <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
         <span style="font-size:.64rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;font-weight:700">Tipo de equipo:</span>
@@ -199,7 +228,7 @@ function rDashEquipos(){
       ${chipSubs}
       ${chipEquipos}
     </div>
-    <div class="card" style="margin-bottom:1rem">
+    ${enCal?cal.cuerpo:`<div class="card" style="margin-bottom:1rem">
       <div class="card-head"><span class="card-title">⏱️ Horas efectivas por día — <span style="color:#06b6d4">${tituloSel}</span>${selEq?' <span style="font-size:.68rem;color:var(--muted2)">(☀ Día / 🌙 Noche)</span>':''}</span></div>
       <div class="card-body" style="height:260px;position:relative">
         ${partes.length?'<canvas id="deqChart"></canvas>':'<div style="text-align:center;padding:3rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en este período</div>'}
@@ -219,10 +248,10 @@ function rDashEquipos(){
         </tr></thead>
         <tbody>${tbody||`<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin partes diarios en este período</td></tr>`}</tbody>
       </table></div></div>
-    </div>`;
+    </div>`}`;
 
   // Gráfico diario: barras totales · con equipo seleccionado → dos barras ☀ Día / 🌙 Noche
-  if(partes.length&&typeof Chart!=='undefined'){
+  if(!enCal&&partes.length&&typeof Chart!=='undefined'){
     if(_deqChart){_deqChart.destroy();_deqChart=null;}
     const ctx=document.getElementById('deqChart');
     if(ctx){
