@@ -204,7 +204,10 @@ const _MV_EST={
   ok:{l:'Vigentes',c:'#10b981'},
   sin:{l:'Sin fecha',c:'#64748b'}
 };
-const _MV_TIPOS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
+// Los documentos (SOAT, póliza, revisión técnica, RIC, GPS) solo aplican a
+// los vehículos que circulan: Línea Blanca y Vehículo Menor
+const _MV_TIPOS=['Línea Blanca','Vehículo Menor'];
+function _mvBase(){return _mqFiltrados().filter(e=>_MV_TIPOS.includes(String(e.tipo||'').trim()));}
 let _mvAgrup='tipo';
 let _mvEst='';          // '' | 'venc' | 'prox' | 'ok' | 'sin'
 let _mvDoc='';          // '' = todos los documentos, o la clave de uno
@@ -269,7 +272,7 @@ function _mvCelda(f){
 function rMasterVenc(){
   _mrTabs();
   const body=document.getElementById('mqResumenBody');if(!body)return;
-  const base=_mqFiltrados();
+  const base=_mvBase();
   const cnt=_mvConteos(base);
   const {grupos,total}=_mvDatos(base,{agrup:_mvAgrup,est:_mvEst,doc:_mvDoc,q:_mvQ});
 
@@ -298,7 +301,7 @@ function rMasterVenc(){
     <input id="mvQ" type="search" value="${_mrEsc(_mvQ)}" oninput="_mvBuscar(this.value)" placeholder="Buscar código, equipo, placa, proveedor…" style="flex:1 1 220px;min-width:170px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.32rem .6rem;font-size:.78rem">
     <button onclick="exportMasterVencXLSX()" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:.36rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Excel</button>
   </div>
-  <div style="font-size:.72rem;color:var(--muted2);margin-bottom:.6rem">${total} equipos · filtro: ${_mrEsc(typeof _mqEtiqueta==='function'?_mqEtiqueta()||'Todos':'Todos')}${_mvEst?' · '+_MV_EST[_mvEst].l.toLowerCase():''}${docSel?' en '+_mrEsc(docSel):''} · ámbar = vence en 30 días o menos</div>`;
+  <div style="font-size:.72rem;color:var(--muted2);margin-bottom:.6rem">${total} equipos de Línea Blanca y Vehículo Menor · filtro: ${_mrEsc(typeof _mqEtiqueta==='function'?_mqEtiqueta()||'Todos':'Todos')}${_mvEst?' · '+_MV_EST[_mvEst].l.toLowerCase():''}${docSel?' en '+_mrEsc(docSel):''} · ámbar = vence en 30 días o menos</div>`;
 
   if(!grupos.length){
     body.innerHTML=h+`<div class="card" style="padding:2rem;text-align:center;color:var(--muted2)">Ningún equipo con estos filtros.</div>`;
@@ -336,7 +339,7 @@ function rMasterVenc(){
 
 function exportMasterVencXLSX(){
   if(typeof XLSX==='undefined'){alert('No se pudo cargar la librería de Excel.');return;}
-  const {grupos}=_mvDatos(_mqFiltrados(),{agrup:_mvAgrup,est:_mvEst,doc:_mvDoc,q:_mvQ});
+  const {grupos}=_mvDatos(_mvBase(),{agrup:_mvAgrup,est:_mvEst,doc:_mvDoc,q:_mvQ});
   const est=f=>{const s=_mvEstado(f);return s==='sin'?'':{venc:'VENCIDO',prox:'POR VENCER',ok:'VIGENTE'}[s];};
   const cab=['Código','Equipo','Placa','Tipo','Proveedor','Proyecto',..._MV_DOCS.flatMap(d=>[d.l,d.l+' · estado'])];
   const aoa=[[`Vencimientos de documentos — ${typeof _mqEtiqueta==='function'?_mqEtiqueta()||'Todos':'Todos'} · al ${_mrDMY(today())}`],[],cab];
