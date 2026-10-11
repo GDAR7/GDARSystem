@@ -21,7 +21,7 @@ const USERS=new Function('document',empSrc+';return EMPRESA_USERS;')
 const meta=u=>{
   const m={dni:u.dni,nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas,
     email_verified:true};   // lo agrega Supabase por su cuenta
-  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','admin']
+  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','masterTabs','admin']
     .forEach(k=>{if(u[k]!==undefined)m[k]=u[k];});
   return m;
 };

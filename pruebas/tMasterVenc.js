@@ -85,5 +85,30 @@ es('  con fecha y estado de cada documento',hoja[4].slice(0,1).concat(hoja[4].sl
 ev("_mrSetVista('lista')");
 es('volver al listado',nodos.mqPanelLista.style.display+'|'+nodos.mqPanelResumen.style.display,'|none');
 
+console.log('\n== Usuario que solo ve Vencimientos (CU.masterTabs) ==');
+es('sin la lista se ve el código como enlace a la ficha',/onclick="verEquipo\(/.test((ev("_mrSetVista('venc')"),nodos.mqResumenBody.innerHTML)),true);
+ev("var CU={masterTabs:['venc']};_mrVista='lista';rMaster()");
+es('entra directo a Vencimientos aunque estuviera en Listado',ev('_mrVista'),'venc');
+es('  el listado queda oculto',nodos.mqPanelLista.style.display,'none');
+es('  solo aparece la pestaña de Vencimientos',/🚦 Vencimientos/.test(nodos.mqTabs.innerHTML)&&!/Listado|Resumen agrupado/.test(nodos.mqTabs.innerHTML),true);
+ev("_mrSetVista('resumen')");
+es('  no puede cambiar a otra pestaña',ev('_mrVista'),'venc');
+es('  el código no abre la ficha (tarifas, proveedor…)',/verEquipo\(/.test(nodos.mqResumenBody.innerHTML),false);
+ev("CU={};_mrSetVista('lista')");
+es('los demás usuarios siguen viendo todo',ev('_mrVista'),'lista');
+
+console.log('\n== Sixto en empresa.js ==');
+const empSrc=fs.readFileSync(R+'js/empresa.js','utf8').replace(/\(\(\)=>\{const el=[\s\S]*$/,'');
+const cfg=fs.readFileSync(R+'js/config.js','utf8');
+const AR={};[...cfg.match(/const AREAS=\{[\s\S]*?\n\};/)[0].matchAll(/^  (\w+):\{/gm)].forEach(m=>AR[m[1]]=true);
+const USERS=new Function('document',empSrc+';return EMPRESA_USERS;')({getElementById:()=>null})(AR);
+const six=USERS.find(u=>u.codigo==='SIX_GQUI');
+es('tiene el área de Mantenimiento',six.areas.includes('mantenimiento'),true);
+es('  pero solo el Máster de Equipos',JSON.stringify(six.areaModules.mantenimiento),'["masterEquipos"]');
+es('  y del Máster solo Vencimientos',JSON.stringify(six.masterTabs),'["venc"]');
+es('  conserva lo que ya tenía',six.areas.join(','),'controlEquipos,administracion,seguridad,controlProyecto,mantenimiento');
+const mig=fs.readFileSync(R+'herramientas/migrarAuth.js','utf8');
+es('el sincronizador lleva masterTabs a Supabase (2 lugares)',(mig.match(/'masterTabs'/g)||[]).length,2);
+
 console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);

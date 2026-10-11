@@ -148,7 +148,7 @@ function metaDe(u){
   // Sin dni: no lo usa nada de la aplicacion y es un dato personal que no
   // tiene por que viajar ni quedarse guardado.
   const m={nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas};
-  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs',
+  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','masterTabs',
    'admin'].forEach(k=>{if(u[k]!==undefined)m[k]=u[k];});
   return m;
 }
@@ -354,7 +354,7 @@ async function cambiarBloqueo(cod,bloquear){
     const cred=u.codigo+'-'+sufijo(6);
     // Todo lo que la aplicación lee de CU, menos la credencial misma
     const meta={dni:u.dni,nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas};
-    ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs']
+    ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','masterTabs']
       .forEach(k=>{if(u[k]!==undefined)meta[k]=u[k];});
     return{u,cred,email:aEmail(cred),meta};
   });

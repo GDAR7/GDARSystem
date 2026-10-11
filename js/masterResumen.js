@@ -66,7 +66,19 @@ function _mrDatos(eqs,agrup,q){
   return{grupos,total:lista.length};
 }
 
-function _mrSetVista(v){_mrVista=v;rMaster();}
+// Un usuario puede tener limitadas las pestañas del Máster (CU.masterTabs,
+// p. ej. ['venc']). Sin la lista ve las tres, que es como funcionó siempre.
+function _mrTabsOk(){
+  const a=typeof CU!=='undefined'&&CU&&CU.masterTabs;
+  return (Array.isArray(a)&&a.length)?a:null;
+}
+function _mrVistaValida(){const ok=_mrTabsOk();if(ok&&!ok.includes(_mrVista))_mrVista=ok[0];}
+// Quien no ve el Listado tampoco abre la ficha completa (tarifas, proveedor…)
+function _mrVeFicha(){const ok=_mrTabsOk();return !ok||ok.includes('lista');}
+function _mrSetVista(v){
+  const ok=_mrTabsOk();if(ok&&!ok.includes(v))return;
+  _mrVista=v;rMaster();
+}
 function _mrSetAgrup(k){_mrAgrup=k;_mrCerrados=new Set();rMasterResumen();}
 function _mrToggle(k){_mrCerrados.has(k)?_mrCerrados.delete(k):_mrCerrados.add(k);rMasterResumen();}
 function _mrTodos(abrir){
@@ -81,8 +93,10 @@ function _mrBuscar(v){
 
 // Botones Listado / Resumen agrupado (se pintan siempre, en las dos vistas)
 function _mrTabs(){
+  _mrVistaValida();
   const el=document.getElementById('mqTabs');if(!el)return;
-  const b=(k,t)=>{const a=_mrVista===k;
+  const ok=_mrTabsOk();
+  const b=(k,t)=>{if(ok&&!ok.includes(k))return '';const a=_mrVista===k;
     return `<button onclick="_mrSetVista('${k}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${a?'var(--mec)':'transparent'};color:${a?'#fff':'var(--muted2)'}">${t}</button>`;};
   el.innerHTML=b('lista','📋 Listado')+b('resumen','🗂️ Resumen agrupado')+b('venc','🚦 Vencimientos');
   // Resumen y Vencimientos se pintan en el mismo panel
@@ -324,7 +338,7 @@ function rMasterVenc(){
     G.eqs.forEach(e=>{
       const td=(v,x)=>`<td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);${x||''}">${v}</td>`;
       t+=`<tr>
-        ${td(`<span class="mono" style="color:var(--mec);cursor:pointer" onclick="verEquipo(${e.id})" title="Ver ficha">${_mrEsc(e.codigo)}</span>`,'white-space:nowrap')}
+        ${td(_mrVeFicha()?`<span class="mono" style="color:var(--mec);cursor:pointer" onclick="verEquipo(${e.id})" title="Ver ficha">${_mrEsc(e.codigo)}</span>`:`<span class="mono" style="color:var(--mec)">${_mrEsc(e.codigo)}</span>`,'white-space:nowrap')}
         ${td(`<strong>${_mrEsc(e.nombre)}</strong>`)}
         ${td(_mrEsc(e.placa||'—'),'font-family:monospace;white-space:nowrap')}
         ${td(_mrEsc((_mvAgrup==='tipo'?e.proveedor:e.tipo)||'—'),'font-size:.7rem;color:var(--muted2)')}
