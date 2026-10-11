@@ -316,6 +316,9 @@ function _mqBotones(){
 
 function rMaster(){
   _mqBotones();
+  // Pestaña «Resumen agrupado» (js/masterResumen.js): mismos filtros, otra vista
+  if(typeof _mrTabs==='function')_mrTabs();
+  if(typeof _mrVista!=='undefined'&&_mrVista==='resumen'){rMasterResumen();return;}
   const sorted=_mqFiltrados().sort((a,b)=>_eqSort==='tipo'
     ?(a.tipo||'').localeCompare(b.tipo||'')||a.codigo.localeCompare(b.codigo)
     :a.codigo.localeCompare(b.codigo));

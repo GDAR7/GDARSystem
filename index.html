@@ -748,7 +748,10 @@
   <div class="ph"><div class="ph-title" style="color:var(--mec)">Máster de Equipos</div><div class="ph-sub">Registro completo de toda la flota</div></div>
   <!-- Filtros por estado, con el diseño del Dashboard de combustible (js/mantenimiento.js · _mqBotones) -->
   <div id="mqFiltros" style="margin-bottom:1rem"></div>
-  <div class="card">
+  <!-- Pestañas: Listado (tabla de siempre) · Resumen agrupado (js/masterResumen.js) -->
+  <div id="mqTabs" style="display:flex;gap:.2rem;border-bottom:2px solid var(--border);margin-bottom:.9rem"></div>
+  <div id="mqPanelResumen" style="display:none"><div id="mqResumenBody"></div></div>
+  <div class="card" id="mqPanelLista">
     <div class="card-head"><span class="card-title">Flota Completa</span>
       <div class="card-head-right">
         <div class="search-wrap"><span>🔍</span><input id="masterSearch" class="search-input" placeholder="Buscar..." oninput="flt(this,'tbMaster')"></div>
@@ -3385,7 +3388,8 @@
 <script src="js/reembolsables_otros.js?v=13"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>
-<script src="js/mantenimiento.js?v=17"></script>
+<script src="js/mantenimiento.js?v=18"></script>
+<script src="js/masterResumen.js?v=1"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
 <script src="js/tareaje.js?v=29"></script>
 <script src="js/tareajeHist.js?v=2"></script>
