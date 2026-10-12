@@ -181,7 +181,7 @@ function _srRender(body){
       <td style="font-family:monospace;font-size:.72rem;white-space:nowrap">${_srDMY(r.det)}</td>
       <td style="font-family:monospace;font-size:.72rem;white-space:nowrap;${r.vencida?'color:#ef4444;font-weight:700':''}">${_srDMY(r.comp)}</td>
       <td style="font-family:monospace;font-size:.72rem;white-space:nowrap">${r.edad!=null?'<b>'+r.edad+'</b> d':'—'}</td>
-      <td>${_srChipEstado(r)}${r.reprog?` <span title="Reprogramaciones" style="font-size:.64rem;color:${r.reprog>=2?'#ef4444':'#f59e0b'};font-weight:800">↻${r.reprog}</span>`:''}</td>
+      <td>${_srChipEstado(r)}${_srEvid(t).length?` <span title="${_srEvid(t).length} archivo(s) de sustento" style="font-size:.66rem">📎${_srEvid(t).length}</span>`:''}${r.reprog?` <span title="Reprogramaciones" style="font-size:.64rem;color:${r.reprog>=2?'#ef4444':'#f59e0b'};font-weight:800">↻${r.reprog}</span>`:''}</td>
       <td style="white-space:nowrap;font-size:.72rem"><i style="display:inline-block;width:6px;height:14px;border-radius:1px;background:${ic};vertical-align:middle;margin-right:4px"></i>${_srImpLbl(t.prioridad)}</td>
     </tr>`;
     if(ab)f+=_srDetalle(r,corte);
@@ -223,6 +223,7 @@ function _srDetalle(r,corte){
         <div style="font-size:.8rem;line-height:1.6;white-space:pre-line;max-width:75ch">${_srEsc(t.restriccionDet||'— sin comentarios —')}</div>
         ${barra}
         ${aviso?`<div style="margin-top:.6rem;border-left:3px solid #f59e0b;background:rgba(245,158,11,.1);padding:.45rem .65rem;font-size:.74rem">${aviso}</div>`:''}
+        ${_srSustentoHtml(r)}
       </div>
       <div>
         <div style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin-bottom:.3rem">Trazabilidad</div>
@@ -241,6 +242,81 @@ function _srDetalle(r,corte){
         </div>
       </div>
     </div></td></tr>`;
+}
+
+// ── Sustento del levantamiento (imágenes / PDF) ─────────────────────────
+// Mismo depósito de Storage que las fotos de Auxilios Mecánicos, en la
+// carpeta restricciones/<id>/. La lista se guarda como texto JSON en
+// «evidencias» (sql/seguimiento_restricciones_sustento.sql).
+const _SR_BUCKET='AuxMec_Evidencias';
+const _SR_MAX_MB=10;
+function _srEvid(t){
+  const v=t&&t.evidencias;
+  if(Array.isArray(v))return v;
+  try{const a=JSON.parse(v||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}
+}
+function _srEsPdf(f){return /\.pdf$/i.test(f.nombre||f.path||'');}
+function _srSustentoHtml(r){
+  const t=r.t,ev=_srEvid(t);
+  const item=(f,i)=>{
+    const u=_srEsc(f.url),tit=_srEsc((f.nombre||'archivo')+(f.fecha?' · '+_srDMY(f.fecha):'')+(f.por?' · '+f.por:''));
+    const vista=_srEsPdf(f)
+      ?`<div style="width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--panel);border:1px solid var(--border);border-radius:7px;font-size:1.4rem">📄<span style="font-size:.55rem;color:var(--muted2);max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_srEsc(f.nombre||'PDF')}</span></div>`
+      :`<img src="${u}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid var(--border)">`;
+    return `<div style="position:relative" title="${tit}">
+      <a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${vista}</a>
+      <button onclick="event.stopPropagation();_srBorrarEvid(${t.id},${i})" title="Quitar" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
+    </div>`;
+  };
+  const falta=r.lev&&!ev.length;
+  return `<div style="margin-top:.8rem" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap">
+      <span style="font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;font-weight:800">📎 Sustento del levantamiento</span>
+      ${falta?'<span style="font-size:.66rem;color:#f59e0b;font-weight:700">Levantada sin sustento adjunto</span>':''}
+      <label style="margin-left:auto;cursor:pointer;font-size:.72rem;font-weight:700;color:#3b82f6;border:1px solid #3b82f660;border-radius:6px;padding:.2rem .6rem">
+        ＋ Subir imagen / PDF
+        <input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="_srSubirEvid(this,${t.id})">
+      </label>
+      <span id="srEvSt${t.id}" style="font-size:.68rem;color:var(--muted2)"></span>
+    </div>
+    <div style="display:flex;gap:.45rem;flex-wrap:wrap">${ev.length?ev.map(item).join(''):'<span style="font-size:.72rem;color:var(--muted2)">Sin archivos. Sube fotos o el acta que respalde el levantamiento.</span>'}</div>
+  </div>`;
+}
+async function _srSubirEvid(input,id){
+  const t=_srTodas().find(x=>x.id===id);
+  const files=[...(input.files||[])];input.value='';
+  if(!t||!files.length)return;
+  if(typeof supa==='undefined'||!supa){toast('Sin conexión con Supabase',true);return;}
+  const st=document.getElementById('srEvSt'+id);
+  const ev=_srEvid(t);let n=0;
+  for(const file of files){
+    if(!/^image\//.test(file.type)&&!/pdf$/i.test(file.type)){toast(file.name+': solo imágenes o PDF',true);continue;}
+    if(file.size>_SR_MAX_MB*1048576){toast(file.name+': pesa más de '+_SR_MAX_MB+' MB',true);continue;}
+    if(st)st.textContent='Subiendo '+(n+1)+' de '+files.length+'…';
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const path=`restricciones/${id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const{error}=await supa.storage.from(_SR_BUCKET).upload(path,file,{upsert:false});
+    if(error){toast('Error al subir '+file.name+': '+error.message,true);continue;}
+    const{data:{publicUrl}}=supa.storage.from(_SR_BUCKET).getPublicUrl(path);
+    ev.push({url:publicUrl,path,nombre:file.name,fecha:today(),por:CU?CU.nombre:''});n++;
+  }
+  if(st)st.textContent='';
+  if(!n)return;
+  t.evidencias=JSON.stringify(ev);
+  syncSheet('saveSegTarea',t);
+  _srAbierta=id;_segRender();
+  toast(n+' archivo(s) de sustento subido(s)');
+}
+async function _srBorrarEvid(id,i){
+  const t=_srTodas().find(x=>x.id===id);if(!t)return;
+  const ev=_srEvid(t),f=ev[i];if(!f)return;
+  if(!confirm('¿Quitar «'+(f.nombre||'archivo')+'» del sustento?'))return;
+  try{if(f.path&&typeof supa!=='undefined'&&supa)await supa.storage.from(_SR_BUCKET).remove([f.path]);}catch(e){}
+  ev.splice(i,1);
+  t.evidencias=JSON.stringify(ev);
+  syncSheet('saveSegTarea',t);
+  _srAbierta=id;_segRender();
+  toast('Archivo quitado');
 }
 
 // ── Formulario ───────────────────────────────────────────────────────────
@@ -327,6 +403,9 @@ function _srLevantar(id){
 function _srEliminar(id){
   const t=_srTodas().find(x=>x.id===id);if(!t)return;
   if(!confirm('¿Eliminar la restricción N° '+(t.numero||'')+' «'+(t.titulo||'')+'»?'))return;
+  // Sus archivos de sustento también se borran del Storage
+  const paths=_srEvid(t).map(x=>x.path).filter(Boolean);
+  if(paths.length&&typeof supa!=='undefined'&&supa)supa.storage.from(_SR_BUCKET).remove(paths).catch(()=>{});
   DB.seguimiento=DB.seguimiento.filter(x=>x.id!==id);
   supaDelete('seguimiento',id);
   _srAbierta=null;_segRender();toast('Restricción eliminada');
@@ -339,12 +418,12 @@ function exportSegRestrXLSX(){
   const lista=[...vista].sort((a,b)=>(+a.t.numero||0)-(+b.t.numero||0));
   const aoa=[['SEGUIMIENTO DE RESTRICCIONES DEL LPS'],[`Corte al ${_srDMY(corte)}${_srMes?' · vivas en '+_srMesNombre(_srMes):''}`],
     ['N°','Restricción','Fecha de detección','Actividad afectada','Tipo','Responsable','Fecha compromiso','Estado','Acciones / Comentarios',
-     'Fecha real de levantamiento','N° de reprogramaciones','Impacto','Causa raíz','Antigüedad (d)','Días de atraso']];
+     'Fecha real de levantamiento','N° de reprogramaciones','Impacto','Causa raíz','Antigüedad (d)','Días de atraso','Sustento (enlaces)']];
   lista.forEach(r=>{const t=r.t;aoa.push([t.numero||'',t.titulo||'',_srDMY(r.det),t.actividad||'',t.tipoRestr||'',t.responsable||'',
     r.comp?_srDMY(r.comp):'',r.est,t.restriccionDet||'',r.real?_srDMY(r.real):'',r.reprog,_srImpLbl(t.prioridad),t.restriccion||'',
-    r.edad??'',r.atraso!=null&&r.atraso>0?r.atraso:'']);});
+    r.edad??'',r.atraso!=null&&r.atraso>0?r.atraso:'',_srEvid(t).map(x=>x.url).join('\n')]);});
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:5},{wch:34},{wch:12},{wch:34},{wch:10},{wch:22},{wch:12},{wch:11},{wch:70},{wch:14},{wch:10},{wch:8},{wch:24},{wch:10},{wch:9}];
+  ws['!cols']=[{wch:5},{wch:34},{wch:12},{wch:34},{wch:10},{wch:22},{wch:12},{wch:11},{wch:70},{wch:14},{wch:10},{wch:8},{wch:24},{wch:10},{wch:9},{wch:60}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Restricciones');
   XLSX.writeFile(wb,`Restricciones_LPS_${(_srMes||'todas')}.xlsx`);

@@ -106,6 +106,45 @@ es('  y no aparece en el Tablero',ev('_segTareas().some(x=>x.id===500)'),false);
 ev('_srLevantar(21)');
 es('«Levantar hoy»',DB.seguimiento.find(x=>x.id===21).est,'Levantada');
 
+console.log('\n== Sustento del levantamiento ==');
+const subidos=[],borrados=[];
+ctx.supa={storage:{from:b=>({
+  upload:async(path,file)=>{subidos.push(b+'/'+path);return{error:null};},
+  getPublicUrl:path=>({data:{publicUrl:'https://x/'+path}}),
+  remove:async p=>{borrados.push(...p);return{};}})}};
+(async()=>{
+  ev('_srToggle(12)');
+  es('levantada sin archivos lo avisa',/Levantada sin sustento adjunto/.test(nodos.segBody.innerHTML),true);
+  const input={files:[{name:'acta.pdf',type:'application/pdf',size:2e5},{name:'foto.jpg',type:'image/jpeg',size:3e5},
+    {name:'planilla.xlsx',type:'application/vnd.ms-excel',size:1e4},{name:'enorme.jpg',type:'image/jpeg',size:30*1048576}],value:'x'};
+  await ev('_srSubirEvid')(input,12);
+  const t12=DB.seguimiento.find(x=>x.id===12);
+  const e12=JSON.parse(t12.evidencias);
+  es('sube imágenes y PDF (el Excel y el de 30 MB no)',e12.map(f=>f.nombre).join(','),'acta.pdf,foto.jpg');
+  es('  en la carpeta de la restricción, en el depósito de Auxilios',subidos.every(p=>p.startsWith('AuxMec_Evidencias/restricciones/12/')),true);
+  es('  guarda quién y cuándo',e12[0].por+' '+e12[0].fecha,'Yo 2026-10-11');
+  let H=nodos.segBody.innerHTML;
+  es('  se ven en el detalle (PDF como ícono, foto en miniatura)',/📄/.test(H)&&/<img src="https:\/\/x\/restricciones\/12\//.test(H),true);
+  es('  la tabla muestra cuántos tiene',/📎2/.test(H),true);
+  es('  ya no avisa que falta',/Levantada sin sustento adjunto/.test(H),false);
+  await ev('_srBorrarEvid')(12,0);
+  es('quitar un archivo lo borra del Storage',borrados.length+' '+JSON.parse(t12.evidencias).map(f=>f.nombre).join(','),'1 foto.jpg');
+  ev('_srEliminar(12)');
+  es('eliminar la restricción borra también sus archivos',borrados.length,2);
+  ev('exportSegRestrXLSX()');
+  es('el Excel trae la columna de enlaces del sustento',hoja[2][hoja[2].length-1],'Sustento (enlaces)');
+  const html=fs.readFileSync(R+'index.html','utf8');
+  console.log('\n== SQL del sustento ==');
+  const sq=fs.readFileSync(R+'sql/seguimiento_restricciones_sustento.sql','utf8');
+  es('agrega «evidencias» a la tabla real',/alter table public\.seguimiento_tareas add column if not exists evidencias text/.test(sq),true);
+  fin();
+})();
+
+function fin(){
+console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
+process.exit(mal?1:0);
+}
+
 console.log('\n== Excel ==');
 ev('exportSegRestrXLSX()');
 es('nombre del archivo',xls,'Restricciones_LPS_todas.xlsx');
@@ -121,6 +160,4 @@ const sql=fs.readFileSync(R+'sql/seguimiento_restricciones.sql','utf8');
 const tabla=(fs.readFileSync(R+'js/config.js','utf8').match(/^\s*seguimiento:'([^']+)'/m)||[])[1];
 es('el SQL altera la tabla real de Supabase ('+tabla+')',(sql.match(/alter table public\.(\w+)/g)||[]).every(x=>x.endsWith('.'+tabla))&&!!tabla,true);
 es('el SQL agrega las columnas que se guardan',['es_restriccion','numero','actividad','tipo_restr','reprog '].every(c=>sql.includes(c)),true);
-
-console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
-process.exit(mal?1:0);
+// El cierre lo hace fin(), cuando termina la parte asíncrona del sustento

@@ -75,7 +75,7 @@ Fecha anotada en la hoja como levantamiento: 10/10/2026 (la restricciÃ³n sigue Â
 ), base as (select coalesce(max(id),0) as m from public.seguimiento_tareas)
 insert into public.seguimiento_tareas
   (id, es_restriccion, numero, titulo, fecha, actividad, tipo_restr, responsable, fecha_prom, est, restriccion_det, fecha_comp, reprog, prioridad, creado_por)
-select base.m + d.orden, true, d.numero, d.titulo, d.fecha, d.actividad, d.tipo_restr, d.responsable, d.fecha_prom, d.est, d.restriccion_det, d.fecha_comp, d.reprog, d.prioridad, 'Carga Excel 2026'
+select base.m + d.orden, true, d.numero, d.titulo, d.fecha::date, d.actividad, d.tipo_restr, d.responsable, d.fecha_prom::date, d.est, d.restriccion_det, d.fecha_comp::date, d.reprog, d.prioridad, 'Carga Excel 2026'
 from datos d cross join base
 where not exists (select 1 from public.seguimiento_tareas s
                   where s.es_restriccion and s.numero = d.numero and s.titulo = d.titulo);
