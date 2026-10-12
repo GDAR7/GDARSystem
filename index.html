@@ -1221,12 +1221,13 @@
 <div class="page" id="page-seguimiento">
   <div class="ph">
     <div class="ph-title" style="color:var(--ctl)">Seguimiento General</div>
-    <div class="ph-sub">Panel de tareas tipo tablero · Compromisos, recursos, desfases y causas</div>
+    <div class="ph-sub">Restricciones del LPS · tablero de tareas, compromisos, desfases y causas</div>
   </div>
   <div style="display:flex;gap:.3rem;margin-bottom:.8rem;border-bottom:1px solid var(--border);padding-bottom:0;align-items:flex-end">
-    <button class="lps-tab active seg-tab" onclick="_segTabSwitch(1)">🗂️ Tablero</button>
-    <button class="lps-tab seg-tab" onclick="_segTabSwitch(2)">📊 Análisis de Desfases</button>
-    <button class="lps-tab seg-tab" onclick="_segTabSwitch(3)">👥 Carga por Persona</button>
+    <button class="lps-tab active seg-tab" data-t="4" onclick="_segTabSwitch(4)">⛔ Restricciones LPS</button>
+    <button class="lps-tab seg-tab" data-t="1" onclick="_segTabSwitch(1)">🗂️ Tablero</button>
+    <button class="lps-tab seg-tab" data-t="2" onclick="_segTabSwitch(2)">📊 Análisis de Desfases</button>
+    <button class="lps-tab seg-tab" data-t="3" onclick="_segTabSwitch(3)">👥 Carga por Persona</button>
     <button onclick="rSeguimiento()" title="Actualizar" style="margin-left:auto;margin-bottom:4px;background:rgba(16,185,129,.1);border:1px solid #10b98140;border-radius:6px;color:#10b981;padding:.3rem .7rem;font-size:.73rem;cursor:pointer">🔄 Actualizar</button>
   </div>
   <div id="segBody"></div>
@@ -3419,7 +3420,8 @@
 <script src="js/pizarra.js?v=2"></script>
 <script src="js/frentes.js?v=1"></script>
 <script src="js/avanceMT.js?v=14"></script>
-<script src="js/seguimiento.js?v=4"></script>
+<script src="js/seguimiento.js?v=5"></script>
+<script src="js/segRestricciones.js?v=2"></script>
 <script src="js/liberacion.js?v=1"></script>
 <script src="js/parteTurno.js?v=3"></script>
 <script src="js/recrecimiento.js?v=13"></script>

@@ -1,5 +1,6 @@
 // ══ SEGUIMIENTO GENERAL (Panel tipo Trello) ══
-let _segTab=1,_segQ='',_segFResp='',_segDragId=null,_segCompId=null,_segBloqId=null;
+// 4 = Restricciones LPS (js/segRestricciones.js), la primera pestaña
+let _segTab=4,_segQ='',_segFResp='',_segDragId=null,_segCompId=null,_segBloqId=null;
 
 const SEG_ESTADOS=[
   {key:'Pendiente', icon:'📋', color:'#f59e0b'},
@@ -19,7 +20,7 @@ function rSeguimiento(){
 
 function _segTabSwitch(n){
   _segTab=n;
-  document.querySelectorAll('.seg-tab').forEach((b,i)=>b.classList.toggle('active',i+1===n));
+  document.querySelectorAll('.seg-tab').forEach(b=>b.classList.toggle('active',+b.dataset.t===n));
   _segRender();
 }
 
@@ -39,8 +40,10 @@ function _segBadgeDesfase(d){
   return '<span class="badge b-green">A tiempo</span>';
 }
 
+// Las tareas del Tablero; las restricciones del LPS (esRestriccion) van en su pestaña
+function _segSoloTareas(){return (DB.seguimiento||[]).filter(t=>!t.esRestriccion);}
 function _segTareas(){
-  let list=DB.seguimiento||[];
+  let list=_segSoloTareas();
   if(_segQ){
     const q=_segQ.toLowerCase();
     list=list.filter(t=>Object.values(t).join(' ').toLowerCase().includes(q));
@@ -54,7 +57,8 @@ function _segRender(){
   const active=document.activeElement;
   const wasSearch=!!(active&&active.id==='segSearchQ');
   const selStart=wasSearch?active.selectionStart:null,selEnd=wasSearch?active.selectionEnd:null;
-  if(_segTab===1)_segRenderBoard(body);
+  if(_segTab===4&&typeof _srRender==='function')_srRender(body);
+  else if(_segTab===1)_segRenderBoard(body);
   else if(_segTab===2)_segRenderAnalisis(body);
   else _segRenderCarga(body);
   if(wasSearch){
@@ -72,7 +76,7 @@ function _segQInput(val){
 
 // ── Barra de filtros ─────────────────────────────────────────────────────────
 function _segFiltroBar(){
-  const resps=[...new Set((DB.seguimiento||[]).map(t=>t.responsable).filter(Boolean))].sort();
+  const resps=[...new Set(_segSoloTareas().map(t=>t.responsable).filter(Boolean))].sort();
   return `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <div class="search-wrap" style="flex:0 0 220px"><span>🔍</span><input id="segSearchQ" class="search-input" placeholder="Buscar tarea..." value="${_segQ}" oninput="_segQInput(this.value)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Responsable</span>
@@ -411,7 +415,7 @@ function _segRenderAnalisis(body){
 // ── TAB 3: CARGA POR PERSONA ────────────────────────────────────────────────
 function _segRenderCarga(body){
   const hoy=today();
-  let list=DB.seguimiento||[];
+  let list=_segSoloTareas();
   if(_segQ){
     const q=_segQ.toLowerCase();
     list=list.filter(t=>Object.values(t).join(' ').toLowerCase().includes(q));
