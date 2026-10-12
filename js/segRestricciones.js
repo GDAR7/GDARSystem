@@ -14,8 +14,11 @@
 //  hasta fin de mes y no levantadas antes de que empezara.
 // ══════════════════════════════════════════════════════════════════════════
 
-const _SR_EST=['Abierta','En gestión','Levantada'];
-const _SR_EST_COL={'Abierta':'#ef4444','En gestión':'#f59e0b','Levantada':'#10b981'};
+// Cancelada: se registró, pero ya no se continuó (p. ej. el cliente decidió
+// no seguir con eso). Tiene su propia tarjeta y no se marca como vencida:
+// una restricción que se dejó de lado no tiene un compromiso que cumplir.
+const _SR_EST=['Abierta','En gestión','Levantada','Cancelada'];
+const _SR_EST_COL={'Abierta':'#ef4444','En gestión':'#f59e0b','Levantada':'#10b981','Cancelada':'#64748b'};
 const _SR_TIPOS=['Interna','Externa','Cliente','Sponsor','Proveedor'];
 const _SR_TIPO_COL={Interna:'#06b6d4',Externa:'#3b82f6',Cliente:'#ec4899',Sponsor:'#a855f7',Proveedor:'#64748b'};
 const _SR_IMP=[['Alta','Alto'],['Media','Medio'],['Baja','Bajo']];        // guardado en «prioridad»
@@ -47,12 +50,14 @@ function _srCalc(t,corte){
   const det=String(t.fecha||'').slice(0,10),comp=String(t.fechaProm||'').slice(0,10),real=String(t.fechaComp||'').slice(0,10);
   const est=_SR_EST.includes(t.est)?t.est:'Abierta';
   const lev=est==='Levantada';
+  const canc=est==='Cancelada';
   const cierre=lev&&real?real:corte;
   const edad=det?Math.max(0,_srDias(det,cierre)):null;
   const atraso=comp?_srDias(comp,cierre):null;
-  return{t,det,comp,real,est,lev,edad,atraso,
-    vencida:!lev&&atraso!=null&&atraso>0,
-    porVencer:!lev&&atraso!=null&&atraso<=0&&atraso>=-3,
+  return{t,det,comp,real,est,lev,canc,edad,atraso,
+    // Una cancelada no se marca vencida ni por vencer: ya no tiene compromiso
+    vencida:!lev&&!canc&&atraso!=null&&atraso>0,
+    porVencer:!lev&&!canc&&atraso!=null&&atraso<=0&&atraso>=-3,
     reprog:+t.reprog||0};
 }
 // ¿Estuvo viva en el mes? Detectada hasta fin de mes y no levantada antes de que empezara
@@ -117,6 +122,7 @@ function _srBarras(grupos,base){
 function _srChipEstado(r){
   const c=(txt,col,solid)=>`<span style="display:inline-block;font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:4px;white-space:nowrap;${solid?`background:${col};color:#fff`:`color:${col};background:${col}22;border:1px solid ${col}55`}">${txt}</span>`;
   if(r.lev)return c('Levantada','#10b981');
+  if(r.canc)return c('Cancelada','#64748b');
   if(r.vencida)return c('Vencida '+r.atraso+' d','#b91c1c',true);
   if(r.porVencer)return c(r.atraso===0?'Vence hoy':'Vence en '+(-r.atraso)+' d','#f59e0b');
   return c(r.est,_SR_EST_COL[r.est]);
@@ -150,6 +156,7 @@ function _srRender(body){
     ${_srKpi('En gestión',cnt('En gestión'),'#f59e0b')}
     ${_srKpi('Vencidas',base.filter(r=>r.vencida).length,'#b91c1c','compromiso pasado')}
     ${_srKpi('Levantadas',lev,'#10b981')}
+    ${_srKpi('Canceladas',cnt('Cancelada'),'#64748b','no se continuaron')}
     ${_srKpi('% Liberación',base.length?Math.round(100*lev/base.length)+'%':'—','#10b981','levantadas ÷ total')}
     ${_srKpi('Antigüedad prom.',vivas.length?edadProm.toFixed(0)+' d':'—','#06b6d4','de las no levantadas')}
     ${_srKpi('Impacto alto abierto',vivas.filter(r=>r.t.prioridad==='Alta').length,'#ef4444')}

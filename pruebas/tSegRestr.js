@@ -137,6 +137,26 @@ ctx.supa={storage:{from:b=>({
   console.log('\n== SQL del sustento ==');
   const sq=fs.readFileSync(R+'sql/seguimiento_restricciones_sustento.sql','utf8');
   es('agrega «evidencias» a la tabla real',/alter table public\.seguimiento_tareas add column if not exists evidencias text/.test(sq),true);
+
+  console.log('\n== Estado «Cancelada» ==');
+  // El cliente decidió no continuar: el compromiso ya pasó, pero no está vencida
+  DB.seguimiento.push(X(30,30,'Muro de contención lado oeste',{tipoRestr:'Cliente',responsable:'Elver C.',
+    fecha:'2026-09-20',fechaProm:'2026-10-01',est:'Cancelada'}));
+  ev('_srEst="";_srTipo="";_srImp="";_srMes="";_srQ=""');
+  const c30=calc(30);
+  es('se reconoce el estado',c30.est,'Cancelada');
+  es('  no se marca vencida aunque el compromiso pasó',c30.vencida,false);
+  es('  ni por vencer',c30.porVencer,false);
+  es('  tampoco es levantada',c30.lev,false);
+  ev('_segRender()');H=nodos.segBody.innerHTML;
+  es('la pestaña se dibuja con ella',/Muro de contención lado oeste/.test(H),true);
+  es('  con su chip gris «Cancelada»',/color:#64748b;background:#64748b22[^>]*>Cancelada</.test(H),true);
+  es('tiene su propia tarjeta',/>Canceladas<\/div>[\s\S]{0,200}>1</.test(H),true);
+  es('aparece en el filtro de estado',/_srSet\('est','Cancelada'\)/.test(H),true);
+  ev('_srSet("est","Cancelada")');
+  es('  y filtra solo las canceladas',nums(),'30');
+  ev('_srSet("est","Cancelada")');
+  es('el formulario la ofrece',ev('_SR_EST.join(",")'),'Abierta,En gestión,Levantada,Cancelada');
   fin();
 })();
 
