@@ -44,17 +44,10 @@ function _ptFrentes(){
   const f=(DB.frentesTrabajo||[]).map(x=>String(x.nombre||'').trim()).filter(Boolean);
   return f.length?[...new Set(f)].sort((a,b)=>a.localeCompare(b,'es')):['(sin frentes cargados)'];
 }
-// Los equipos que se pueden marcar: los operativos, por código
-function _ptEquipos(){
-  return (DB.equipos||[]).filter(e=>String(e.est||'')!=='Desmovilizado')
-    .map(e=>String(e.codigo||'').trim()).filter(Boolean)
-    .sort((a,b)=>a.localeCompare(b,'es'));
-}
-
 // ── Filas de actividad ──────────────────────────────────────────────────────
 function _ptFilaActividad(){
   const i=++_ptNAct;
-  const frentes=_ptFrentes(), equipos=_ptEquipos();
+  const frentes=_ptFrentes();
   // La cabecera lleva el frente; al contraerse suma un resumen y se abre al
   // tocarla. Así un turno con varias actividades no se vuelve una lista eterna.
   return`<div class="pt-act" data-n="${i}">
@@ -85,13 +78,6 @@ function _ptFilaActividad(){
         <select class="pt-unid">${_PT_UNIDADES.map(u=>`<option>${_ptEsc(u)}</option>`).join('')}</select>
       </label>
     </div>
-    <div class="pt-f">Equipos empleados
-      <div class="pt-chips">${equipos.map((e,k)=>`
-        <input type="checkbox" id="ptEq${i}_${k}" value="${_ptEsc(e)}">
-        <label for="ptEq${i}_${k}">${_ptEsc(e)}</label>`).join('')}
-        ${equipos.length?'':'<span class="pt-hint">Sin equipos cargados</span>'}
-      </div>
-    </div>
   </div>`;
 }
 // Resumen de una actividad para su cabecera contraída
@@ -100,11 +86,9 @@ function _ptResumenAct(act){
   const v=s=>{const el=act.querySelector(s);return el?String(el.value||'').trim():'';};
   const desc=v('.pt-desc').replace(/\s+/g,' ');
   const cant=v('.pt-cant'), un=v('.pt-unid');
-  const nEq=act.querySelectorAll('input[type="checkbox"]:checked').length;
   const partes=[];
   partes.push(desc?(desc.length>60?desc.slice(0,60)+'…':desc):'⚠ sin descripción');
   if(cant!=='')partes.push(cant+' '+un);
-  if(nEq)partes.push(nEq+' equipo'+(nEq===1?'':'s'));
   if(v('.pt-x')!=='')partes.push('📍');
   return partes.join(' · ');
 }
@@ -315,7 +299,6 @@ function _ptLeerActividades(){
       descripcion:String(v('.pt-desc')||'').trim(),
       cantidad:cant===''?null:+cant,
       unidad:v('.pt-unid'),
-      equipos:[...a.querySelectorAll('input[type="checkbox"]:checked')].map(c=>c.value),
       // Punto tocado en la imagen aérea, en % de la imagen (igual que los
       // polígonos de los frentes). null si no se marcó: es opcional.
       ubicacion:(x!==''&&y!=='')?{x:+x,y:+y}:null
@@ -377,6 +360,9 @@ async function _ptGuardar(){
   if(err){DB.partesTurno=DB.partesTurno.filter(x=>+x.id!==+rec.id);return;}
 
   try{localStorage.setItem('gdar_pt_autor',autor);}catch(e){}
+  // Queda a mano para verlo y compartirlo como documento
+  _ptUltimo={...rec};
+  _ptPintarUltimo();
   // Listo para el siguiente: se conservan fecha, turno y quién registra
   _ptLimpiar(false);
   toast('✓ Parte de turno guardado'+(horasPerdidas?' · '+horasPerdidas+' h perdidas':''));
@@ -412,6 +398,7 @@ function rParteTurno(){
       <div class="ph-sub">Registro de los trabajos ejecutados en el turno</div>
     </div>
     ${_ptEstilos()}
+    <div id="ptUltimo" style="max-width:720px"></div>
     <div class="card" style="max-width:720px">
       <div class="card-body pt-stack">
         <div class="pt-grid2">
@@ -467,6 +454,194 @@ function rParteTurno(){
       </div>
     </div>`;
   _ptActualizarHoras();
+  _ptPintarUltimo();
+}
+
+// ══ DOCUMENTO PARA COMPARTIR ════════════════════════════════════════════════
+// Al guardar, el parte queda disponible como documento de presentación: se ve
+// en pantalla y, con «Compartir», se genera un PDF y se abre el menú del
+// celular (WhatsApp, correo…). En la computadora el PDF se descarga.
+// Respeta el «solo registrar»: se ofrece únicamente el parte recién guardado.
+//
+// Las librerías de PDF (html2canvas + jsPDF) se cargan recién al tocar
+// «Compartir», para no sumarle peso al sistema a quien nunca las usa.
+let _ptUltimo=null;
+const _PT_LIB_H2C='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const _PT_LIB_PDF='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+function _ptPintarUltimo(){
+  const el=document.getElementById('ptUltimo');if(!el)return;
+  if(!_ptUltimo){el.innerHTML='';return;}
+  const r=_ptUltimo;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.6rem .8rem;border:1px solid #10b98170;background:rgba(16,185,129,.1);border-radius:9px">
+    <span style="font-size:.78rem;color:#10b981;font-weight:700;flex:1;min-width:200px">✓ Guardado: ${_ptEsc(_ptFechaLarga(r.fecha))} · turno ${_ptEsc(r.turno)} · ${(r.actividades||[]).length} actividad(es)</span>
+    <button type="button" onclick="_ptVerDoc()" style="font-size:.8rem;padding:.5rem .9rem;border-radius:7px;border:none;background:#10b981;color:#0b1220;font-weight:800;cursor:pointer">📄 Ver y compartir</button>
+  </div>`;
+}
+
+const _PT_DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const _PT_MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
+function _ptFechaLarga(iso){
+  const s=String(iso||'');if(!/^\d{4}-\d{2}-\d{2}/.test(s))return s;
+  const [y,m,d]=s.slice(0,10).split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  return _PT_DIAS[dt.getDay()]+' '+d+' de '+_PT_MESES[m-1]+' de '+y;
+}
+// Nombre del archivo: fecha, turno y quién lo registró
+function _ptNombreArchivo(r){
+  const quien=String(r.autor||'').replace(/[\\/:*?"<>|]+/g,'').trim().slice(0,40);
+  return 'Parte de Turno '+String(r.fecha||'')+' '+String(r.turno||'')+(quien?' - '+quien:'')+'.pdf';
+}
+
+// El documento, en hoja blanca de 794 px (el ancho de un A4)
+function _ptDocHtml(r){
+  const AZ='#1e3a5f', AC='#b45309';
+  const logo=(typeof EMPRESA!=='undefined'&&EMPRESA.logo)?EMPRESA.logo:'';
+  const acts=r.actividades||[];
+  const conUbic=acts.filter(a=>a&&a.ubicacion&&isFinite(+a.ubicacion.x));
+  const TD='padding:7px 9px;border:1px solid #d6dbe3;font-size:12px;vertical-align:top;color:#111';
+  const TH=`padding:7px 9px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;text-align:left`;
+  const filas=acts.map((a,i)=>`<tr>
+    <td style="${TD};text-align:center;font-weight:800;color:${AC}">${i+1}</td>
+    <td style="${TD};font-weight:700">${_ptEsc(a.frente||'—')}${a.ubicacion?` <span style="color:#10b981">📍</span>`:''}</td>
+    <td style="${TD};white-space:pre-wrap">${_ptEsc(a.descripcion||'')}</td>
+    <td style="${TD};text-align:right;white-space:nowrap;font-weight:700">${a.cantidad!=null&&a.cantidad!==''?_ptEsc(a.cantidad)+' '+_ptEsc(a.unidad||''):'—'}</td>
+  </tr>`).join('');
+  const paraliza=+r.horasPerdidas>0;
+  // Plano con los puntos marcados, si se ubicó alguna actividad
+  const mapa=conUbic.length?`
+    <div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">Ubicación de los trabajos</div>
+    <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
+      <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%">
+      ${conUbic.map(a=>{const n=acts.indexOf(a)+1;return`<div style="position:absolute;left:${+a.ubicacion.x}%;top:${+a.ubicacion.y}%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${AC};border:2px solid #fff;color:#fff;font:800 11px Arial;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${n}</div>`;}).join('')}
+    </div>`:'';
+  return`<div style="width:794px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid ${AZ};padding-bottom:10px">
+      <div>
+        <div style="font-size:24px;font-weight:900;color:${AZ};letter-spacing:.02em">PARTE DE TURNO</div>
+        <div style="font-size:13px;color:#334155;margin-top:3px;text-transform:capitalize">${_ptEsc(_ptFechaLarga(r.fecha))}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:13px;font-weight:800;padding:6px 14px;border-radius:20px;background:${r.turno==='Noche'?'#1e293b':'#f59e0b'};color:${r.turno==='Noche'?'#fff':'#111'}">Turno ${_ptEsc(r.turno||'')}</span>
+        ${logo?`<img src="${_ptEsc(logo)}" alt="" style="height:52px;max-width:170px;object-fit:contain">`:''}
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">Actividades ejecutadas · ${acts.length}</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px">
+      <tr><th style="${TH};width:30px;text-align:center">N°</th><th style="${TH};width:150px">Frente</th><th style="${TH}">Trabajo realizado</th>
+        <th style="${TH};width:110px;text-align:right">Cantidad</th></tr>
+      ${filas||`<tr><td colspan="4" style="${TD};text-align:center;color:#64748b">Sin actividades</td></tr>`}
+    </table>
+    ${mapa}
+    <div style="display:flex;gap:12px;margin-top:14px">
+      <div style="flex:1;border:2px solid ${paraliza?'#b91c1c':'#d6dbe3'};border-radius:8px;padding:9px 12px">
+        <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Clima</div>
+        <div style="font-size:14px;font-weight:800;color:${paraliza?'#b91c1c':'#111'};margin-top:2px">${_ptEsc(r.clima||'—')}${r.climaObs?` <span style="font-weight:400;color:#475569">· ${_ptEsc(r.climaObs)}</span>`:''}</div>
+        ${paraliza?`<div style="font-size:12px;color:#b91c1c;margin-top:3px">Paralización: <b>${_ptEsc(r.horasPerdidas)} h</b> (${_ptEsc(r.climaIni)} a ${_ptEsc(r.climaFin)})</div>`:''}
+      </div>
+    </div>
+    ${r.pendiente?`<div style="margin-top:12px;border-left:4px solid ${AC};background:#fff7ed;padding:9px 12px;border-radius:0 6px 6px 0">
+      <div style="font-size:10px;font-weight:800;color:${AC};text-transform:uppercase;letter-spacing:.06em">Pendiente para el siguiente turno</div>
+      <div style="font-size:12.5px;margin-top:3px;white-space:pre-wrap">${_ptEsc(r.pendiente)}</div></div>`:''}
+    ${r.observaciones?`<div style="margin-top:12px;border-left:4px solid #64748b;background:#f8fafc;padding:9px 12px;border-radius:0 6px 6px 0">
+      <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em">Observaciones</div>
+      <div style="font-size:12.5px;margin-top:3px;white-space:pre-wrap">${_ptEsc(r.observaciones)}</div></div>`:''}
+    <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #d6dbe3;padding-top:9px;font-size:11px;color:#475569">
+      <span>Registró: <b style="color:#111">${_ptEsc(r.autor||'—')}</b></span>
+      <span>Generado ${_ptEsc(new Date(r.creadoEn||Date.now()).toLocaleString('es-PE'))}</span>
+    </div>
+  </div>`;
+}
+
+function _ptVerDoc(){
+  if(!_ptUltimo)return;
+  let ov=document.getElementById('ptDocView');
+  if(!ov){ov=document.createElement('div');ov.id='ptDocView';document.body.appendChild(ov);}
+  ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.92);display:flex;flex-direction:column';
+  const bt='font-size:.85rem;padding:.6rem 1rem;border-radius:8px;cursor:pointer;font-weight:800;white-space:nowrap';
+  ov.innerHTML=`
+    <div style="display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;flex-wrap:wrap">
+      <b style="flex:1;color:#e2e8f0;font-size:.9rem">📄 Parte de turno</b>
+      <button type="button" id="ptBtnCompartir" onclick="_ptCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir PDF</button>
+      <button type="button" onclick="_ptCerrarDoc()" style="${bt};background:none;border:1px solid #ffffff30;color:#e2e8f0">Cerrar</button>
+    </div>
+    <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px">
+      <div id="ptDocWrap" style="max-width:794px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5)">${_ptDocHtml(_ptUltimo)}</div>
+    </div>`;
+  // En pantallas angostas, la hoja se achica para que entre entera
+  const wrap=document.getElementById('ptDocWrap');
+  if(wrap&&typeof window!=='undefined'&&window.innerWidth){
+    const disp=Math.min(794,window.innerWidth-24);
+    if(disp<794){
+      const hoja=wrap.firstElementChild;
+      if(hoja){hoja.style.transform='scale('+(disp/794)+')';hoja.style.transformOrigin='top left';}
+      wrap.style.width=disp+'px';
+    }
+  }
+}
+function _ptCerrarDoc(){
+  const ov=document.getElementById('ptDocView');
+  if(ov){ov.innerHTML='';ov.style.display='none';}
+}
+
+function _ptCargarLib(src,global){
+  return new Promise((ok,mal)=>{
+    if(global())return ok();
+    const s=document.createElement('script');
+    s.src=src;s.onload=()=>global()?ok():mal(new Error('no se cargó '+src));
+    s.onerror=()=>mal(new Error('sin conexión para cargar la librería de PDF'));
+    document.head.appendChild(s);
+  });
+}
+// Arma el PDF a partir del documento: lo dibuja en una hoja oculta de 794 px
+// (fuera de la pantalla, sin la reducción del celular) y lo pasa a A4.
+async function _ptGenerarPdf(r){
+  await _ptCargarLib(_PT_LIB_H2C,()=>typeof window.html2canvas==='function');
+  await _ptCargarLib(_PT_LIB_PDF,()=>!!(window.jspdf&&window.jspdf.jsPDF));
+  const caja=document.createElement('div');
+  caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+  caja.innerHTML=_ptDocHtml(r);
+  document.body.appendChild(caja);
+  try{
+    const cv=await window.html2canvas(caja.firstElementChild,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+    const W=210, H=297;
+    const alto=cv.height*W/cv.width;
+    const img=cv.toDataURL('image/jpeg',0.92);
+    // Si el parte es más largo que una hoja, sigue en las siguientes
+    let y=0;
+    pdf.addImage(img,'JPEG',0,0,W,alto);
+    while(alto-y>H){y+=H;pdf.addPage();pdf.addImage(img,'JPEG',0,-y,W,alto);}
+    return pdf.output('blob');
+  }finally{caja.remove();}
+}
+async function _ptCompartirPdf(){
+  if(!_ptUltimo)return;
+  const btn=document.getElementById('ptBtnCompartir');
+  if(btn){btn.disabled=true;btn.textContent='Generando PDF…';}
+  try{
+    const blob=await _ptGenerarPdf(_ptUltimo);
+    const nombre=_ptNombreArchivo(_ptUltimo);
+    const archivo=new File([blob],nombre,{type:'application/pdf'});
+    // En el celular: el menú de compartir (WhatsApp, correo…)
+    if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+      try{
+        await navigator.share({files:[archivo],title:'Parte de turno',
+          text:'Parte de turno · '+_ptFechaLarga(_ptUltimo.fecha)+' · turno '+_ptUltimo.turno});
+      }catch(e){if(e&&e.name!=='AbortError')throw e;}   // cerrar el menú no es un error
+    }else{
+      // En la computadora: se descarga
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);a.download=nombre;
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+      toast('PDF descargado: '+nombre);
+    }
+  }catch(e){
+    toast('No se pudo generar el PDF: '+((e&&e.message)||e),true);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='📤 Compartir PDF';}
+  }
 }
 
 // Estilos propios: el formulario es de campo, con campos grandes y en una sola

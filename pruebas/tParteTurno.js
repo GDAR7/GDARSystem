@@ -248,5 +248,87 @@ es('  no toca lo que no es de este dominio',/url\.origin !== self\.location\.ori
 es('  ni las escrituras',/req\.method !== 'GET'/.test(sw),true);
 es('  y para index va primero a la red',/req\.mode === 'navigate'/.test(sw),true);
 
-console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
-process.exit(mal?1:0);
+console.log('\n== Documento para compartir ==');
+const parteDoc={id:7,fecha:'2026-10-13',turno:'Noche',autor:'Ervin Rojas',creadoEn:'2026-10-13T23:10:00Z',
+  clima:'Lluvia fuerte',climaObs:'tormenta',climaIni:'02:00',climaFin:'04:30',horasPerdidas:2.5,
+  pendiente:'Material inadecuado en Acceso Este',observaciones:'Sin incidentes',
+  actividades:[
+    {frente:'R3 - Lado este',descripcion:'Corte y carguío\nde material',cantidad:18,unidad:'viajes',
+      equipos:['EXC ECOP-003','VOL ECOP-001'],ubicacion:{x:40,y:55}},
+    {frente:'Acceso Nor Oeste',descripcion:'Perfilado <de> talud',cantidad:null,unidad:'viajes',equipos:[],ubicacion:null}
+  ]};
+ctx.__p=parteDoc;
+const DOC=ev('_ptDocHtml(__p)');
+es('se titula Parte de Turno',/PARTE DE TURNO/.test(DOC),true);
+es('  con la fecha en palabras',/martes 13 de octubre de 2026/.test(DOC),true);
+es('  y el turno',/Turno Noche/.test(DOC),true);
+es('una fila por actividad',(DOC.match(/<tr>\s*<td/g)||[]).length,2);
+es('  con su cantidad',/18 viajes/.test(DOC),true);
+es('  y sus equipos',/EXC ECOP-003, VOL ECOP-001/.test(DOC),true);
+es('  la que no tiene cantidad dice —',/Perfilado &lt;de&gt; talud/.test(DOC),true);
+es('el texto escrito no se interpreta como código',/<de>/.test(DOC),false);
+es('el plano aparece porque hay una actividad ubicada',/Ubicación de los trabajos/.test(DOC),true);
+es('  con su punto numerado en el lugar marcado',/left:40%;top:55%/.test(DOC),true);
+es('la paralización por lluvia, con sus horas',/Paralización: <b>2\.5 h<\/b> \(02:00 a 04:30\)/.test(DOC),true);
+es('el pendiente para el siguiente turno',/Material inadecuado en Acceso Este/.test(DOC),true);
+es('las observaciones',/Sin incidentes/.test(DOC),true);
+es('quién lo registró',/Registró: <b[^>]*>Ervin Rojas/.test(DOC),true);
+es('ancho de hoja A4',/width:794px/.test(DOC),true);
+ctx.__p=Object.assign({},parteDoc,{actividades:[parteDoc.actividades[1]],pendiente:'',observaciones:'',horasPerdidas:0,clima:'Despejado'});
+const DOC2=ev('_ptDocHtml(__p)');
+es('sin ubicaciones no hay plano',/Ubicación de los trabajos/.test(DOC2),false);
+es('  sin pendiente ni observaciones, no salen esos bloques',/Pendiente para el siguiente turno|Observaciones/.test(DOC2),false);
+es('  sin lluvia no hay paralización',/Paralización/.test(DOC2),false);
+ctx.__p=parteDoc;
+es('el archivo se nombra con fecha, turno y autor',ev('_ptNombreArchivo(__p)'),'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+
+console.log('\n== Tras guardar, se ofrece ver y compartir ==');
+ev('_ptUltimo=null;_ptPintarUltimo()');
+es('sin parte guardado no hay aviso',nodo('ptUltimo').innerHTML,'');
+ev('_ptUltimo=__p;_ptPintarUltimo()');
+es('con el parte guardado aparece el botón',/_ptVerDoc\(\)/.test(nodo('ptUltimo').innerHTML),true);
+es('  y resume qué se guardó',/martes 13 de octubre de 2026 · turno Noche · 2 actividad/.test(nodo('ptUltimo').innerHTML),true);
+const srcPT=fs.readFileSync(R+'js/parteTurno.js','utf8');
+es('_ptGuardar deja el parte disponible',/_ptUltimo=\{\.\.\.rec\};\s*\r?\n\s*_ptPintarUltimo\(\)/.test(srcPT),true);
+es('las librerías de PDF se cargan solo al compartir',/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(fs.readFileSync(R+'index.html','utf8')),false);
+
+// ── Compartir: el celular y la computadora, simulados ──────────────────────
+(async()=>{
+  const llamadas={imgs:0,pags:0};
+  // Con scale:2 el lienzo mide 1588 px de ancho; 1.5 hojas A4 de alto
+  ctx.window.html2canvas=async()=>({width:1588,height:Math.round(1588*297/210*1.5),toDataURL:()=>'data:image/jpeg;base64,X'});
+  ctx.window.jspdf={jsPDF:class{addImage(){llamadas.imgs++;}addPage(){llamadas.pags++;}output(){return{pdf:true};}}};
+  ctx.File=class{constructor(p,n,o){this.name=n;this.type=o.type;}};
+  let compartido=null,descargado=null;
+  ctx.URL={createObjectURL:()=>'blob:x',revokeObjectURL(){}};
+  ctx.document.head={appendChild(){}};
+  // Celular: hay menú de compartir
+  ctx.navigator={canShare:()=>true,share:async d=>{compartido=d;}};
+  await ev('_ptCompartirPdf()');
+  es('en el celular abre el menú de compartir',!!compartido,true);
+  es('  con el PDF adjunto',compartido&&compartido.files[0].name,'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+  es('  como PDF',compartido&&compartido.files[0].type,'application/pdf');
+  es('un parte de 1.5 hojas se reparte en 2 páginas',llamadas.imgs+' imágenes · '+llamadas.pags+' página extra','2 imágenes · 1 página extra');
+  // Si el usuario cierra el menú sin elegir, no es un error
+  avisos.length=0;
+  ctx.navigator={canShare:()=>true,share:async()=>{const e=new Error('cancelado');e.name='AbortError';throw e;}};
+  await ev('_ptCompartirPdf()');
+  es('cerrar el menú sin compartir no muestra error',avisos.some(a=>a.e),false);
+  // Computadora: sin menú de compartir, se descarga
+  ctx.navigator={};
+  const prevCreate=ctx.document.createElement;
+  ctx.document.createElement=tag=>tag==='a'?{click(){descargado=this.download;},remove(){},set href(v){}}:prevCreate(tag);
+  await ev('_ptCompartirPdf()');
+  es('en la computadora se descarga',descargado,'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+  ctx.document.createElement=prevCreate;
+  // Sin conexión para la librería: se avisa, no se rompe
+  ctx.window.html2canvas=undefined;
+  ctx.document.createElement=tag=>{const n=prevCreate(tag);setTimeout(()=>n.onerror&&n.onerror(),0);return n;};
+  avisos.length=0;
+  await ev('_ptCompartirPdf()');
+  es('sin la librería, avisa en lugar de romperse',avisos.some(a=>a.e&&/No se pudo generar el PDF/.test(a.m)),true);
+  ctx.document.createElement=prevCreate;
+
+  console.log('\n'+(mal?'X '+mal+' fallo(s)':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
+  process.exit(mal?1:0);
+})();
