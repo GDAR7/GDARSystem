@@ -290,10 +290,29 @@ es('con el parte guardado aparece el botón',/_ptVerDoc\(\)/.test(nodo('ptUltimo
 es('  y resume qué se guardó',/martes 13 de octubre de 2026 · turno Noche · 2 actividad/.test(nodo('ptUltimo').innerHTML),true);
 const srcPT=fs.readFileSync(R+'js/parteTurno.js','utf8');
 es('_ptGuardar deja el parte disponible',/_ptUltimo=\{\.\.\.rec\};\s*\r?\n\s*_ptPintarUltimo\(\)/.test(srcPT),true);
+// El guardado real usa el toSnake del sistema, que renombra actividades→act
+{
+  const cfg=fs.readFileSync(R+'js/config.js','utf8');
+  const ren=cfg.match(/const _RENAME_TO\s*=[^\n]*/)[0];
+  const ts=cfg.match(/function toSnake\(obj\)\{[\s\S]*?\n\}/)[0];
+  vm.runInContext(ren.replace('const ','var ')+'\n'+ts,ctx);
+  ctx.__filas=[];
+  ctx.SUPA_TABLES={partesTurno:'partes_turno'};
+  ctx.supa={from:t=>({upsert:async f=>{ctx.__filas.push({t,f});return {error:null};}})};
+}
 es('las librerías de PDF se cargan solo al compartir',/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(fs.readFileSync(R+'index.html','utf8')),false);
 
 // ── Compartir: el celular y la computadora, simulados ──────────────────────
 (async()=>{
+  // Guardado contra la tabla real: la columna es «actividades», no «act»
+  const errUp=await ev('_ptUpsert({id:9,fecha:"2026-10-13",actividades:[{frente:"X"}],climaIni:"",creadoPor:"Juan"})');
+  const fila=(ctx.__filas[0]||{}).f||{};
+  es('se guarda en partes_turno',(ctx.__filas[0]||{}).t,'partes_turno');
+  es('  sin error',errUp,null);
+  es('  las actividades van en su columna',JSON.stringify(fila.actividades),'[{"frente":"X"}]');
+  es('  y NO en «act» (la del parte diario)','act' in fila,false);
+  es('  el resto se convierte como siempre',fila.creado_por+' · '+fila.clima_ini,'Juan · null');
+
   const llamadas={imgs:0,pags:0};
   // Con scale:2 el lienzo mide 1588 px de ancho; 1.5 hojas A4 de alto
   ctx.window.html2canvas=async()=>({width:1588,height:Math.round(1588*297/210*1.5),toDataURL:()=>'data:image/jpeg;base64,X'});

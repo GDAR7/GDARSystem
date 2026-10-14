@@ -326,6 +326,20 @@ function _ptActualizarHoras(){
 }
 
 // ── Guardar ─────────────────────────────────────────────────────────────────
+// No pasa por supaUpsert: toSnake renombra «actividades» a «act» (la columna
+// del parte diario de equipos), y en partes_turno la columna se llama
+// actividades. Se convierte lo demás igual y se repone esa clave.
+async function _ptUpsert(rec){
+  const fila=toSnake(rec);
+  delete fila.act;
+  fila.actividades=rec.actividades;
+  try{
+    const {error}=await supa.from(SUPA_TABLES.partesTurno).upsert(fila);
+    if(error){console.warn('[Supabase upsert] partes_turno',error.message);toast('Error al guardar: '+error.message,true);return error;}
+    return null;
+  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);return e;}
+}
+
 async function _ptGuardar(){
   const v=id=>{const el=document.getElementById(id);return el?String(el.value||'').trim():'';};
   const fecha=v('ptFecha')||_ptHoy();
@@ -355,7 +369,7 @@ async function _ptGuardar(){
     creadoEn:new Date().toISOString()
   };
   DB.partesTurno.push({...rec});
-  const err=await supaUpsert('partesTurno',rec);
+  const err=await _ptUpsert(rec);
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar parte';}
   if(err){DB.partesTurno=DB.partesTurno.filter(x=>+x.id!==+rec.id);return;}
 
