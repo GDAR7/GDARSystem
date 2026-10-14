@@ -480,6 +480,7 @@ function rParteTurno(){
 // Las librerías de PDF (html2canvas + jsPDF) se cargan recién al tocar
 // «Compartir», para no sumarle peso al sistema a quien nunca las usa.
 let _ptUltimo=null;
+let _ptDocActual=null;            // el parte abierto en el visor (el recién guardado u otro de Supervisión)
 const _PT_LIB_H2C='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 const _PT_LIB_PDF='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
 
@@ -567,8 +568,9 @@ function _ptDocHtml(r){
   </div>`;
 }
 
-function _ptVerDoc(){
-  if(!_ptUltimo)return;
+function _ptVerDoc(rec){
+  const r=rec||_ptUltimo;if(!r)return;
+  _ptDocActual=r;
   let ov=document.getElementById('ptDocView');
   if(!ov){ov=document.createElement('div');ov.id='ptDocView';document.body.appendChild(ov);}
   ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.92);display:flex;flex-direction:column';
@@ -580,7 +582,7 @@ function _ptVerDoc(){
       <button type="button" onclick="_ptCerrarDoc()" style="${bt};background:none;border:1px solid #ffffff30;color:#e2e8f0">Cerrar</button>
     </div>
     <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px">
-      <div id="ptDocWrap" style="max-width:794px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5)">${_ptDocHtml(_ptUltimo)}</div>
+      <div id="ptDocWrap" style="max-width:794px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5)">${_ptDocHtml(r)}</div>
     </div>`;
   // En pantallas angostas, la hoja se achica para que entre entera
   const wrap=document.getElementById('ptDocWrap');
@@ -596,6 +598,7 @@ function _ptVerDoc(){
 function _ptCerrarDoc(){
   const ov=document.getElementById('ptDocView');
   if(ov){ov.innerHTML='';ov.style.display='none';}
+  _ptDocActual=null;
 }
 
 function _ptCargarLib(src,global){
@@ -629,19 +632,19 @@ async function _ptGenerarPdf(r){
     return pdf.output('blob');
   }finally{caja.remove();}
 }
-async function _ptCompartirPdf(){
-  if(!_ptUltimo)return;
+async function _ptCompartirPdf(rec){
+  const r=rec||_ptDocActual||_ptUltimo;if(!r)return;
   const btn=document.getElementById('ptBtnCompartir');
   if(btn){btn.disabled=true;btn.textContent='Generando PDF…';}
   try{
-    const blob=await _ptGenerarPdf(_ptUltimo);
-    const nombre=_ptNombreArchivo(_ptUltimo);
+    const blob=await _ptGenerarPdf(r);
+    const nombre=_ptNombreArchivo(r);
     const archivo=new File([blob],nombre,{type:'application/pdf'});
     // En el celular: el menú de compartir (WhatsApp, correo…)
     if(navigator.canShare&&navigator.canShare({files:[archivo]})){
       try{
         await navigator.share({files:[archivo],title:'Parte de turno',
-          text:'Parte de turno · '+_ptFechaLarga(_ptUltimo.fecha)+' · turno '+_ptUltimo.turno});
+          text:'Parte de turno · '+_ptFechaLarga(r.fecha)+' · turno '+r.turno});
       }catch(e){if(e&&e.name!=='AbortError')throw e;}   // cerrar el menú no es un error
     }else{
       // En la computadora: se descarga

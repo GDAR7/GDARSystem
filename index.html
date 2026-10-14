@@ -667,25 +667,11 @@
   </div>
 </div>
 
-<!-- OPERACIONES – SUPERVISIÓN -->
 <!-- OPERACIONES – PARTE DE TURNO (js/parteTurno.js) -->
 <div class="page" id="page-parteTurno"></div>
 
-<div class="page" id="page-supervision">
-  <div class="ph"><div class="ph-title" style="color:var(--ope)">Supervisión</div><div class="ph-sub">Registro de actividades supervisadas</div></div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Reportes de Supervisión</span>
-      <div class="card-head-right">
-        <div class="search-wrap"><span>🔍</span><input class="search-input" placeholder="Buscar..." oninput="flt(this,'tbSuper')"></div>
-        <button class="btn btn-a" style="--ba:var(--ope)" onclick="openM('mSuper')">＋ Nueva</button>
-      </div>
-    </div>
-    <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Supervisor</th><th>Área</th><th>Actividad</th><th>Observaciones</th><th>Resultado</th><th></th></tr></thead>
-      <tbody id="tbSuper"></tbody>
-    </table></div></div>
-  </div>
-</div>
+<!-- OPERACIONES – SUPERVISIÓN: partes de turno del día (js/supTurnos.js) -->
+<div class="page" id="page-supervision"></div>
 
 <!-- LIBERACIÓN DE RESTRICCIONES -->
 <div class="page" id="page-liberacion">
@@ -3369,7 +3355,7 @@
 
 <script src="js/empresa.js?v=10"></script>
 <script src="js/config.js?v=54"></script>
-<script src="js/utils.js?v=37"></script>
+<script src="js/utils.js?v=38"></script>
 <script src="js/personal.js?v=24"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
@@ -3423,7 +3409,8 @@
 <script src="js/seguimiento.js?v=5"></script>
 <script src="js/segRestricciones.js?v=4"></script>
 <script src="js/liberacion.js?v=1"></script>
-<script src="js/parteTurno.js?v=7"></script>
+<script src="js/parteTurno.js?v=8"></script>
+<script src="js/supTurnos.js?v=1"></script>
 <script src="js/recrecimiento.js?v=13"></script>
 <script src="js/wbsPlanta.js?v=2"></script>
 <script src="js/histograma.js?v=7"></script>
