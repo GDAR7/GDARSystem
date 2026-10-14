@@ -59,8 +59,7 @@ es('una hora inválida no rompe',ev('_ptHorasEntre("abc","10:00")'),0);
 console.log('\n== Los catálogos salen del sistema ==');
 es('los frentes son los cargados, ordenados',ev('_ptFrentes().join(" · ")'),
   'Acceso Este · Huantajaya · R3 - Dique Auxiliar');
-es('los equipos son los operativos',ev('_ptEquipos().join(",")'),'EXC ECOP-003,VOL ECOP-001');
-es('  sin los desmovilizados',ev('_ptEquipos().includes("ROD VIEJO")'),false);
+es('ya no hay selector de equipos',ev('typeof _ptEquipos'),'undefined');
 DB.frentesTrabajo=[];
 es('sin frentes cargados avisa, no deja el combo vacío',ev('_ptFrentes()[0]'),'(sin frentes cargados)');
 DB.frentesTrabajo=[{codigo:'FT-01',nombre:'Acceso Este'},{codigo:'FT-02',nombre:'R3 - Dique Auxiliar'}];
@@ -70,7 +69,7 @@ const fila=ev('_ptFilaActividad()');
 es('trae el frente',/class="pt-frente"/.test(fila),true);
 es('  la descripción',/class="pt-desc"/.test(fila),true);
 es('  cantidad y unidad',/class="pt-cant"/.test(fila)&&/class="pt-unid"/.test(fila),true);
-es('  y los equipos como casillas',/type="checkbox"/.test(fila),true);
+es('  y ya no pide equipos',/type="checkbox"/.test(fila)||/Equipos empleados/.test(fila),false);
 es('las unidades incluyen viajes y m³',/>viajes</.test(fila)&&/>m³</.test(fila),true);
 es('se numeran',/Actividad 2/.test(ev('_ptFilaActividad()')),true);
 es('cada una se puede quitar',/_ptQuitarActividad\(this\)/.test(fila),true);
@@ -96,7 +95,7 @@ ctx.__a=a1;
 ev('_ptColapsar(__a,true)');
 es('al contraerla, la cabecera dice el frente',a1.campos['.pt-act-fr'].textContent,'Acceso Nor Oeste');
 es('  y un resumen en una sola línea',a1.campos['.pt-act-res'].textContent,
-  'Corte y carguío de material · 12 viajes · 2 equipos');
+  'Corte y carguío de material · 12 viajes');
 es('  con la flecha de cerrada',a1.campos['.pt-act-chev'].textContent,'▸');
 ev('_ptColapsar(__a,false)');
 es('al abrirla, el resumen desaparece',a1.campos['.pt-act-res'].textContent,'');
@@ -264,7 +263,8 @@ es('  con la fecha en palabras',/martes 13 de octubre de 2026/.test(DOC),true);
 es('  y el turno',/Turno Noche/.test(DOC),true);
 es('una fila por actividad',(DOC.match(/<tr>\s*<td/g)||[]).length,2);
 es('  con su cantidad',/18 viajes/.test(DOC),true);
-es('  y sus equipos',/EXC ECOP-003, VOL ECOP-001/.test(DOC),true);
+es('  sin columna de equipos (aunque el parte antiguo los traiga)',
+  /Equipos<\/th>/.test(DOC)||/EXC ECOP-003/.test(DOC),false);
 es('  la que no tiene cantidad dice —',/Perfilado &lt;de&gt; talud/.test(DOC),true);
 es('el texto escrito no se interpreta como código',/<de>/.test(DOC),false);
 es('el plano aparece porque hay una actividad ubicada',/Ubicación de los trabajos/.test(DOC),true);

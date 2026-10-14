@@ -5,15 +5,15 @@
 //  al terminar el turno, por gente que solo tiene acceso a este módulo.
 //
 //  No reemplaza al parte diario de equipos: aquel mide horómetros y horas para
-//  valorizar; este deja constancia de QUÉ se hizo, en qué frente, con qué
-//  equipos, y de las horas perdidas por clima — el sustento para pedir
-//  ampliación de plazo.
+//  valorizar; este deja constancia de QUÉ se hizo, en qué frente y cuánto,
+//  y de las horas perdidas por clima — el sustento para pedir ampliación de
+//  plazo.
 //
 //  Solo registra: al guardar se limpia y queda listo para el siguiente. No
 //  lista lo ya registrado; eso se consulta desde la oficina.
 //
-//  Los frentes y los equipos salen de los catálogos del sistema, no de listas
-//  fijas: lo que se registre aquí habla el mismo idioma que el resto.
+//  Los frentes salen del catálogo del sistema, no de una lista fija: lo que
+//  se registre aquí habla el mismo idioma que el resto.
 //
 //  Prefijo _pt.
 // ══════════════════════════════════════════════════════════════════════════
@@ -320,7 +320,7 @@ function _ptActualizarHoras(){
     el.textContent='Son '+h+' hora(s), pero «'+clima+'» no paraliza el frente: no suman horas perdidas.';
     el.style.color='var(--muted2)';
   }else{
-    el.textContent='Si hubo lluvia u otro evento que paralizó el frente, marque la hora de inicio y fin: se calculan las horas perdidas para el sustento de ampliación de plazo.';
+    el.textContent='Marcar la hora de inicio y fin obligatorio.';
     el.style.color='var(--muted2)';
   }
 }
@@ -682,13 +682,6 @@ function _ptEstilos(){
     cursor:pointer;text-decoration:underline;padding:.2rem}
   .pt-link:hover{color:#f87171}
   .pt-qty{display:grid;grid-template-columns:1fr 1.1fr;gap:.6rem}
-  .pt-chips{display:flex;flex-wrap:wrap;gap:.35rem;max-height:150px;overflow-y:auto;
-    padding:.25rem;border:1px solid var(--border);border-radius:7px;background:var(--panel)}
-  .pt-chips input{position:absolute;opacity:0;width:1px;height:1px}
-  .pt-chips label{border:1px solid var(--border);border-radius:999px;padding:.3rem .7rem;
-    font-size:.72rem;cursor:pointer;background:var(--panel2);color:var(--text);
-    text-transform:none;letter-spacing:0;font-weight:500;font-family:monospace;white-space:nowrap}
-  .pt-chips input:checked+label{background:rgba(245,158,11,.18);border-color:#f59e0b;color:#f59e0b;font-weight:700}
   .pt-hint{font-size:.7rem;color:var(--muted2);line-height:1.45}
   </style>`;
 }
