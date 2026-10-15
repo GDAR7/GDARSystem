@@ -9,6 +9,11 @@
 //    · Turno día   : TD, DLT y A5
 //    · Turno noche : TN
 //
+//  Junto al resultado del Roster va el RESULTADO CON LA ASISTENCIA real del
+//  día (el tareaje marcado, DB.tareaje), con la misma flota y el mismo
+//  reparto. Los días sin nada marcado (futuros o pendientes) quedan
+//  «sin marcar».
+//
 //  Cada turno tiene su propia flota (coaster y camionetas). Reparto:
 //    · los obreros van primero en coaster; los staff, primero en camioneta;
 //    · si una de las dos se llena, el resto pasa a la otra;
@@ -87,12 +92,43 @@ function _rtPersonasDia(fecha){
   return r;
 }
 
+// ── Asistencia real, desde el tareaje marcado ─────────────────────────────
+// Índice fecha → (persona → registro). Si una persona tiene más de una fila el
+// mismo día, vale la de id más alto (la última guardada).
+function _rtIndiceAsistencia(dias){
+  const quiero=new Set(dias), idx=new Map();
+  (DB.tareaje||[]).forEach(t=>{
+    const f=String(t&&t.fecha||'').slice(0,10);
+    if(!quiero.has(f))return;
+    if(!idx.has(f))idx.set(f,new Map());
+    const m=idx.get(f), prev=m.get(+t.personalId);
+    if(!prev||+t.id>+prev.id)m.set(+t.personalId,t);
+  });
+  return idx;
+}
+// Personas que de verdad trabajaron ese día, por turno. null = nada marcado.
+function _rtAsistenciaDia(fecha,idx){
+  const m=idx.get(fecha);
+  if(!m||!m.size)return null;
+  const porId=new Map((DB.personal||[]).map(p=>[+p.id,p]));
+  const r={dia:{obr:0,stf:0},noche:{obr:0,stf:0}};
+  m.forEach((t,pid)=>{
+    const k=_RT_TIPOS_DIA.includes(t.tipo)?'dia':_RT_TIPOS_NOCHE.includes(t.tipo)?'noche':null;
+    if(!k)return;
+    r[k][_rtEsStaff(porId.get(pid))?'stf':'obr']++;
+  });
+  return r;
+}
+
 // Todo el período: personas y reparto de cada turno, día por día
 function _rtCalcular(dias){
   const PD=_rtPlazas(_rtFlota.DIA), PN=_rtPlazas(_rtFlota.NOCHE);
+  const idx=_rtIndiceAsistencia(dias);
   const filas=dias.map(fecha=>{
-    const g=_rtPersonasDia(fecha);
-    return {fecha,dia:_rtAsignar(g.dia.obr,g.dia.stf,PD),noche:_rtAsignar(g.noche.obr,g.noche.stf,PN)};
+    const g=_rtPersonasDia(fecha), a=_rtAsistenciaDia(fecha,idx);
+    return {fecha,dia:_rtAsignar(g.dia.obr,g.dia.stf,PD),noche:_rtAsignar(g.noche.obr,g.noche.stf,PN),
+      asisDia:a?_rtAsignar(a.dia.obr,a.dia.stf,PD):null,
+      asisNoche:a?_rtAsignar(a.noche.obr,a.noche.stf,PN):null};
   });
   const res=k=>{
     const L=filas.map(f=>f[k]);
@@ -216,6 +252,17 @@ function _rtMapaTurno(a,P,noche){
   </div>`;
 }
 
+// Diferencia de la asistencia contra lo programado en el Roster
+function _rtDifTxt(real,prog){
+  const d=real-prog;
+  return d===0?'igual al roster':(d>0?'+':'−')+Math.abs(d)+' vs roster';
+}
+// Columna «Resultado asistencia»: la misma flota, con los que de verdad subieron
+function _rtCeldaAsis(a,prog){
+  if(!a)return '<td class="rt-asis"><span class="rt-chip" style="color:var(--muted2)">Sin marcar</span></td>';
+  return '<td class="rt-asis">'+_rtChip(a)+'<small class="rt-asis-s">'+a.pers+' asistieron · '+_rtDifTxt(a.pers,prog.pers)+'</small></td>';
+}
+
 function _rtPintarCalculo(){
   const cont=document.getElementById('rtCalculo');if(!cont)return;
   const dias=_rtDias();
@@ -245,11 +292,11 @@ function _rtPintarCalculo(){
       <td class="rt-n rt-sep">${d.pers}<small>${d.obr} ob · ${d.stf} st</small></td>
       <td class="rt-n" style="color:${_RT_COL.obr}">${d.coUsadas}</td>
       <td class="rt-n" style="color:${_RT_COL.stf}">${d.caUsadas}</td>
-      <td>${_rtBarra(d)}</td><td>${_rtChip(d)}</td>
+      <td>${_rtBarra(d)}</td><td>${_rtChip(d)}</td>${_rtCeldaAsis(f.asisDia,d)}
       <td class="rt-n rt-sep">${n.pers}<small>${n.obr} ob · ${n.stf} st</small></td>
       <td class="rt-n" style="color:${_RT_COL.obr}">${n.coUsadas}</td>
       <td class="rt-n" style="color:${_RT_COL.stf}">${n.caUsadas}</td>
-      <td>${_rtBarra(n)}</td><td>${_rtChip(n)}</td>
+      <td>${_rtBarra(n)}</td><td>${_rtChip(n)}</td>${_rtCeldaAsis(f.asisNoche,n)}
     </tr>`;
   }).join('');
   const sel=C.filas.find(f=>f.fecha===_rtSel)||C.filas[0];
@@ -258,10 +305,10 @@ function _rtPintarCalculo(){
     <div class="rt-tabla"><table>
       <thead>
         <tr><th rowspan="2">Día</th>
-          <th colspan="5" class="rt-sep" style="color:${_RT_COL.dia}">☀ Turno Día · TD + DLT + A5</th>
-          <th colspan="5" class="rt-sep" style="color:${_RT_COL.noche}">🌙 Turno Noche · TN</th></tr>
-        <tr><th class="rt-n rt-sep">Personas</th><th class="rt-n">Coaster</th><th class="rt-n">Camioneta</th><th>Ocupación</th><th>Resultado</th>
-          <th class="rt-n rt-sep">Personas</th><th class="rt-n">Coaster</th><th class="rt-n">Camioneta</th><th>Ocupación</th><th>Resultado</th></tr>
+          <th colspan="6" class="rt-sep" style="color:${_RT_COL.dia}">☀ Turno Día · TD + DLT + A5</th>
+          <th colspan="6" class="rt-sep" style="color:${_RT_COL.noche}">🌙 Turno Noche · TN</th></tr>
+        <tr><th class="rt-n rt-sep">Personas</th><th class="rt-n">Coaster</th><th class="rt-n">Camioneta</th><th>Ocupación</th><th>Resultado roster</th><th class="rt-asis">Resultado asistencia</th>
+          <th class="rt-n rt-sep">Personas</th><th class="rt-n">Coaster</th><th class="rt-n">Camioneta</th><th>Ocupación</th><th>Resultado roster</th><th class="rt-asis">Resultado asistencia</th></tr>
       </thead>
       <tbody>${filas}</tbody>
     </table></div>
@@ -273,7 +320,7 @@ function _rtPintarCalculo(){
       ${_rtMapaTurno(sel.dia,C.PD,false)}
       ${_rtMapaTurno(sel.noche,C.PN,true)}
     </div>
-    <p class="rt-nota">Las personas salen del Roster: personal activo con guardia, según su ciclo, su turno individual, su fecha de incorporación y los días cambiados a mano en la grilla. Los obreros van primero en coaster y los staff primero en camioneta; si una se llena, el resto pasa a la otra.</p>`;
+    <p class="rt-nota">«Resultado asistencia» calcula con lo marcado en el tareaje de ese día, con la misma flota y el mismo reparto; «Sin marcar» si todavía no hay registro. Las personas programadas salen del Roster: personal activo con guardia, según su ciclo, su turno individual, su fecha de incorporación y los días cambiados a mano en la grilla. Los obreros van primero en coaster y los staff primero en camioneta; si una se llena, el resto pasa a la otra.</p>`;
 }
 
 // ── PDF: hoja A4 horizontal, como el PDF del Cronograma ───────────────────
@@ -304,15 +351,18 @@ function _rtPdf(){
     :a.holgura<=3?`<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-weight:700">Justo · ${a.holgura}</span>`
     :'<span style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-weight:700">Alcanza</span>';
   const TD='padding:2px 5px;border:1px solid #e2e8f0;text-align:right';
+  const AS=TD+';text-align:left;background:#eff6ff';
+  const asis=(a,prog)=>a?'<td style="'+AS+'">'+chip(a)+' <span style="color:#64748b">'+a.pers+' · '+_rtDifTxt(a.pers,prog.pers)+'</span></td>'
+    :'<td style="'+AS+';color:#94a3b8">Sin marcar</td>';
   const filas=C.filas.map((f,i)=>{
     const d=f.dia,n=f.noche,dow=_rosterDia(f.fecha);
     const bg=f.fecha===hoy?'#fef9c3':i%2?'#f8fafc':'#fff';
     return `<tr style="background:${bg}">
       <td style="${TD};text-align:left;font-weight:700${dow===0?';color:#b91c1c':''}">${_rosterFmt(f.fecha)} ${_DN[dow]}</td>
       <td style="${TD};border-left:2px solid ${AZ}">${d.pers} <span style="color:#64748b">(${d.obr}/${d.stf})</span></td><td style="${TD}">${d.coUsadas}</td><td style="${TD}">${d.caUsadas}</td>
-      <td style="${TD}">${(100*d.ocup).toFixed(0)}%</td><td style="${TD};text-align:left">${chip(d)}</td>
+      <td style="${TD}">${(100*d.ocup).toFixed(0)}%</td><td style="${TD};text-align:left">${chip(d)}</td>${asis(f.asisDia,d)}
       <td style="${TD};border-left:2px solid ${AZ}">${n.pers} <span style="color:#64748b">(${n.obr}/${n.stf})</span></td><td style="${TD}">${n.coUsadas}</td><td style="${TD}">${n.caUsadas}</td>
-      <td style="${TD}">${(100*n.ocup).toFixed(0)}%</td><td style="${TD};text-align:left">${chip(n)}</td></tr>`;
+      <td style="${TD}">${(100*n.ocup).toFixed(0)}%</td><td style="${TD};text-align:left">${chip(n)}</td>${asis(f.asisNoche,n)}</tr>`;
   }).join('');
   const flota=(k,P,col)=>{const f=_rtFlota[k];return `<div style="flex:1;border:1px solid ${col};border-top:3px solid ${col};border-radius:5px;padding:5px 8px">
     <div style="font-weight:800;color:${col};font-size:9px">${k==='DIA'?'TURNO DÍA · TD + DLT + A5':'TURNO NOCHE · TN'} — ${P.total} plazas</div>
@@ -342,16 +392,16 @@ table{width:100%;border-collapse:collapse}@media print{body{-webkit-print-color-
   ${kpi('Noche · no alcanza',C.noche.fallan+(C.noche.fallan?' días':''),C.noche.fallan?'#b91c1c':'#047857')}
 </div>
 <table><thead>
-  <tr><th rowspan="2" style="${TH};text-align:left">Día</th><th colspan="5" style="${TH}">☀ Turno Día</th><th colspan="5" style="${TH}">🌙 Turno Noche</th></tr>
-  <tr><th style="${TH}">Personas (ob/st)</th><th style="${TH}">Coaster</th><th style="${TH}">Camioneta</th><th style="${TH}">Ocup.</th><th style="${TH}">Resultado</th>
-      <th style="${TH}">Personas (ob/st)</th><th style="${TH}">Coaster</th><th style="${TH}">Camioneta</th><th style="${TH}">Ocup.</th><th style="${TH}">Resultado</th></tr>
+  <tr><th rowspan="2" style="${TH};text-align:left">Día</th><th colspan="6" style="${TH}">☀ Turno Día</th><th colspan="6" style="${TH}">🌙 Turno Noche</th></tr>
+  <tr><th style="${TH}">Personas (ob/st)</th><th style="${TH}">Coaster</th><th style="${TH}">Camioneta</th><th style="${TH}">Ocup.</th><th style="${TH}">Resultado roster</th><th style="${TH};background:#1d4ed8">Resultado asistencia</th>
+      <th style="${TH}">Personas (ob/st)</th><th style="${TH}">Coaster</th><th style="${TH}">Camioneta</th><th style="${TH}">Ocup.</th><th style="${TH}">Resultado roster</th><th style="${TH};background:#1d4ed8">Resultado asistencia</th></tr>
 </thead><tbody>${filas}</tbody></table>
 <div style="margin-top:8px;border:1px solid #cbd5e1;border-radius:5px;padding:6px 8px;page-break-inside:avoid">
   <div style="font-weight:800;color:${AZ};font-size:9px;margin-bottom:3px">Distribución del ${_rosterFmt(sel.fecha)} ${_DN[_rosterDia(sel.fecha)]}</div>
   <div><b>☀ Día</b> — ${sel.dia.pers} personas: ${_rtUnidadesTexto(sel.dia,C.PD)}${sel.dia.falta?` &nbsp;<b style="color:#b91c1c">· ${sel.dia.falta} sin asiento</b>`:''}</div>
   <div style="margin-top:2px"><b>🌙 Noche</b> — ${sel.noche.pers} personas: ${_rtUnidadesTexto(sel.noche,C.PN)}${sel.noche.falta?` &nbsp;<b style="color:#b91c1c">· ${sel.noche.falta} sin asiento</b>`:''}</div>
 </div>
-<div style="margin-top:6px;font-size:6.5px;color:#64748b">Personas según el Roster (ciclo de guardia, turno individual, incorporación y días cambiados a mano). Obreros primero en coaster, staff primero en camioneta; si una se llena, el resto pasa a la otra. ob = obreros · st = staff.</div>
+<div style="margin-top:6px;font-size:6.5px;color:#64748b">Personas según el Roster (ciclo de guardia, turno individual, incorporación y días cambiados a mano). Resultado asistencia: la misma flota con lo marcado en el tareaje ese día. Obreros primero en coaster, staff primero en camioneta; si una se llena, el resto pasa a la otra. ob = obreros · st = staff.</div>
 </body></html>`;
   const win=window.open('','_blank');
   if(!win){toast('Active ventanas emergentes',true);return;}
@@ -402,7 +452,9 @@ function _rtEstilos(){
   .rt-kpi-v{font-size:1.6rem;font-weight:900;line-height:1.1;margin-top:.15rem;font-variant-numeric:tabular-nums}
   .rt-kpi-s{font-size:.64rem;color:var(--muted2)}
   .rt-tabla{overflow-x:auto;border:1px solid var(--border);border-radius:9px;background:var(--panel);max-height:460px;overflow-y:auto}
-  .rt-tabla table{border-collapse:collapse;width:100%;min-width:900px}
+  .rt-tabla table{border-collapse:collapse;width:100%;min-width:1100px}
+  .rt-tabla .rt-asis{background:rgba(59,130,246,.07)}
+  .rt-asis-s{display:block;font-size:.58rem;color:var(--muted2);margin-top:.15rem}
   .rt-tabla th{position:sticky;top:0;background:var(--panel);font-size:.58rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2);padding:.4rem .5rem;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border)}
   .rt-tabla thead tr:nth-child(2) th{top:1.55rem}
   .rt-tabla td{padding:.32rem .5rem;font-size:.74rem;color:var(--text);white-space:nowrap;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}

@@ -139,6 +139,49 @@ es('  una fila por día',(P.match(/<tr style="background:/g)||[]).length,35);
 es('  la distribución del día elegido',/Distribución del 14\/10/.test(P)&&/Coaster 01: <b>/.test(P),true);
 es('  sin celdas rotas',/undefined|NaN/.test(P),false);
 
+console.log('\n== Resultado con la asistencia del día ==');
+// 13/10: marcaron 30 obreros + 8 staff en TD, 2 DLT, 1 A5, 12 TN, 2 faltas y 1 DM.
+// Un registro repetido de la persona 1: vale el de id más alto.
+ev('_rtFlota={DIA:{..._RT_DEF.DIA},NOCHE:{..._RT_DEF.NOCHE}}');
+{
+  const T=[];let tid=1;
+  const marca=(pid,tipo,fecha)=>T.push({id:tid++,personalId:pid,fecha:fecha||'2026-10-13',tipo});
+  for(let i=1;i<=30;i++)marca(i,'TD');
+  for(let i=41;i<=48;i++)marca(i,'TD');          // staff de A
+  marca(31,'DLT');marca(32,'A5');marca(33,'DLT');
+  for(let i=49;i<=58;i++)marca(i,'TN');          // obreros de B
+  marca(59,'TN');marca(60,'TN');                  // 2 staff de B
+  marca(34,'F');marca(35,'F');marca(36,'DM');
+  marca(1,'F');                                   // corrección posterior: la persona 1 faltó
+  T.push({id:tid++,personalId:1,fecha:'2026-10-14T00:00:00+00:00',tipo:'TD'});  // fecha con hora
+  DB.tareaje=T;
+}
+const CA=ev('_rtCalcular(_rtDias())');
+const f13=CA.filas.find(f=>f.fecha==='2026-10-13');
+es('día: TD + DLT + A5 marcados (la corrección a falta resta)',f13.asisDia.pers,40);
+es('  obreros y staff separados',f13.asisDia.obr+' ob · '+f13.asisDia.stf+' st','32 ob · 8 st');
+es('noche: los TN marcados',f13.asisNoche.pers,12);
+es('las faltas y descansos médicos no suben',f13.asisDia.pers+f13.asisNoche.pers,52);
+es('se calcula con la misma flota del turno',f13.asisNoche.holgura,28-12);
+es('la fecha con hora también se lee',CA.filas.find(f=>f.fecha==='2026-10-14').asisDia.pers,1);
+es('un día sin nada marcado queda sin marcar',CA.filas.find(f=>f.fecha==='2026-10-20').asisDia,null);
+es('diferencia contra el roster',ev('_rtDifTxt(40,48)')+' | '+ev('_rtDifTxt(50,48)')+' | '+ev('_rtDifTxt(5,5)'),'−8 vs roster | +2 vs roster | igual al roster');
+ev('rRosterTransporte()');
+const KA=nodo('rtCalculo').innerHTML;
+es('una columna más por turno (dos en total)',(KA.match(/<th class="rt-asis">Resultado asistencia<\/th>/g)||[]).length,2);
+es('  junto al resultado del roster',/<th>Resultado roster<\/th><th class="rt-asis">Resultado asistencia<\/th>/.test(KA),true);
+es('  cada fila trae las dos celdas',(KA.match(/<td class="rt-asis">/g)||[]).length,70);
+es('  con el chip y cuántos asistieron',/40 asistieron · −8 vs roster/.test(KA),true);
+es('  y «Sin marcar» donde no hay registro',/Sin marcar/.test(KA),true);
+ev('_rtSet("NOCHE","coN","0")');
+es('si la noche real no entra en la flota, lo dice',/Faltan 8<\/span><small class="rt-asis-s">12 asistieron/.test(nodo('rtCalculo').innerHTML),true);
+ev('_rtSet("NOCHE","coN","1")');
+ev('_rtPdf()');
+const PA=ventana.html;
+es('el PDF también trae la columna',(PA.match(/Resultado asistencia<\/th>/g)||[]).length,2);
+es('  con lo marcado',/Alcanza<\/span> <span style="color:#64748b">40 · −8 vs roster/.test(PA),true);
+es('  sin celdas rotas',/undefined|NaN/.test(PA+KA),false);
+
 console.log('\n== Conexión con el Roster ==');
 const IX=fs.readFileSync(R+'index.html','utf8');
 const posFb=IX.indexOf('rosterTabBtn-fbnv'), posTr=IX.indexOf('rosterTabBtn-trans');
