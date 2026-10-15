@@ -49,7 +49,8 @@ const ev=x=>vm.runInContext(x,ctx);
 // El visor y el PDF son los del formulario: aquí solo se registra qué parte reciben
 ctx._ptVerDoc=r=>vistos.push(r);
 ctx._ptCompartirPdf=async r=>{compartidos.push(r);};
-ctx._ptHoy=()=>'2026-10-13';
+// _ptHoy es const en parteTurno.js: no se puede reemplazar desde aquí, así que
+// el día se fija con _stFecha para que la prueba no dependa del reloj.
 const espera=()=>new Promise(r=>setImmediate(r));
 
 (async()=>{
@@ -59,15 +60,16 @@ es('fin de mes',ev('_stSumarDias("2026-10-31",1)'),'2026-11-01');
 es('día anterior cruzando el año',ev('_stSumarDias("2026-01-01",-1)'),'2025-12-31');
 
 console.log('\n== La pantalla ==');
-ev('rSupTurnos()');
+es('sin día elegido arranca en hoy',(ev('_stFecha="";rSupTurnos()'),ev('_stFecha===_ptHoy()')),true);
+ev('_stFecha="2026-10-13";rSupTurnos()');
 const PG=nodo('page-supervision').innerHTML;
 es('reemplaza a la tabla vieja de Supervisión',/tbSuper|＋ Nueva/.test(PG),false);
 es('título del bloque',/Partes de Turno del día/.test(PG),true);
-es('abre en el día de hoy',/id="stFecha" value="2026-10-13"/.test(PG),true);
+es('el selector muestra el día elegido',/id="stFecha" value="2026-10-13"/.test(PG),true);
 es('flechas de día anterior y siguiente',/_stMover\(-1\)/.test(PG)&&/_stMover\(1\)/.test(PG),true);
 es('botón Hoy y buscador',/_stIrA\(_ptHoy\(\)\)/.test(PG)&&/_stBuscar\(this\.value\)/.test(PG),true);
 await espera();
-es('consulta a Supabase solo el día elegido',JSON.stringify(consultas[0]),'{"t":"partes_turno","c":"fecha","v":"2026-10-13"}');
+es('consulta a Supabase solo el día elegido',JSON.stringify(consultas[consultas.length-1]),'{"t":"partes_turno","c":"fecha","v":"2026-10-13"}');
 es('trae los partes de ese día',ev('_stPartes.length'),2);
 es('  Día antes que Noche',ev('_stPartes.map(p=>p.turno).join(",")'),'Día,Noche');
 es('  ya en camelCase',ev('_stPartes[1].creadoEn+" · "+_stPartes[1].climaIni'),'2026-10-14T03:22:28Z · 20:00');

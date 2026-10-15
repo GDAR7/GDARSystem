@@ -981,9 +981,12 @@
   <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
     <button id="rosterTabBtn-grid" onclick="_rosterTab('grid')" style="background:var(--adm);color:#fff;border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🗓️ Cronograma</button>
     <button id="rosterTabBtn-fbnv" onclick="_rosterTab('fbnv')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🛡️ Guardias FBNV</button>
+    <button id="rosterTabBtn-trans" onclick="_rosterTab('trans')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🚐 Transporte</button>
   </div>
   <div id="rosterBody"></div>
   <div id="gdRosBody" style="display:none"></div>
+  <!-- Capacidad de transporte por turno, según el Roster (js/rosterTransporte.js) -->
+  <div id="rtBody" style="display:none"></div>
 </div>
 
 <!-- RESUMEN DIARIO TAREAJE – página completa -->
@@ -3356,7 +3359,8 @@
 <script src="js/empresa.js?v=10"></script>
 <script src="js/config.js?v=54"></script>
 <script src="js/utils.js?v=38"></script>
-<script src="js/personal.js?v=24"></script>
+<script src="js/personal.js?v=25"></script>
+<script src="js/rosterTransporte.js?v=1"></script>
 <script src="js/planilla.js?v=27"></script>
 <script src="js/afpTasas.js?v=4"></script>
 <script src="js/atencionRecursos.js?v=11"></script>

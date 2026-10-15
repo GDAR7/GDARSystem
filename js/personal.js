@@ -1191,19 +1191,23 @@ function _rosterGetCfg(guardia){
 }
 
 // Tabs del Roster: 'grid' = cronograma de 35 días · 'fbnv' = cuadro de las tres
-// guardias para un día, armado con la programación (no con el tareaje marcado).
+// guardias para un día, armado con la programación (no con el tareaje marcado)
+// · 'trans' = capacidad de transporte por turno (js/rosterTransporte.js).
 let _rosterTabAct='grid';
+const _ROSTER_TABS={grid:'rosterBody',fbnv:'gdRosBody',trans:'rtBody'};
 function _rosterTab(k){
+  if(!_ROSTER_TABS[k])k='grid';
   _rosterTabAct=k;
-  const esGrid=k==='grid';
-  const g=document.getElementById('rosterBody'),f=document.getElementById('gdRosBody');
-  if(g)g.style.display=esGrid?'':'none';
-  if(f)f.style.display=esGrid?'none':'';
-  [['grid',esGrid],['fbnv',!esGrid]].forEach(([n,act])=>{
+  Object.entries(_ROSTER_TABS).forEach(([n,id])=>{
+    const act=n===k;
+    const el=document.getElementById(id);
+    if(el)el.style.display=act?'':'none';
     const b=document.getElementById('rosterTabBtn-'+n);
     if(b){b.style.background=act?'var(--adm)':'transparent';b.style.color=act?'#fff':'var(--muted2)';}
   });
-  if(esGrid)rRoster();else rGuardiasRoster();
+  if(k==='grid')rRoster();
+  else if(k==='fbnv')rGuardiasRoster();
+  else if(typeof rRosterTransporte==='function')rRosterTransporte();
 }
 
 function rRoster(){
