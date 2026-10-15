@@ -428,9 +428,29 @@
         <button class="btn btn-out btn-sm" style="flex:0 0 auto;padding:.28rem .45rem;font-size:.72rem;border-color:#64748b;color:#64748b;white-space:nowrap" onclick="document.getElementById('almFiltFecha').value='';_almChangeFilt()" title="Limpiar fecha">✕</button>
         <div class="search-wrap" style="flex:0 0 auto"><span>🔍</span><input id="almFiltBuscar" class="search-input" placeholder="Buscar..." oninput="_almChangeFilt()"></div>
       </div>
+      <!-- Último stock y multi-filtro de materiales (js/almacen.js) -->
+      <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+        <button id="almBtnStock" type="button" class="btn btn-sm" style="padding:.32rem .8rem;font-size:.76rem;font-weight:800;border:1px solid #f59e0b;color:#f59e0b;background:transparent" onclick="_almToggleStock()" title="Una fila por material con su stock actual">📦 Último stock</button>
+        <button id="almMatBtn" type="button" class="btn btn-out btn-sm" style="padding:.32rem .8rem;font-size:.76rem" onclick="_almMatAbrir(event)" title="Elegir uno o varios materiales">🧾 Materiales ▾</button>
+        <label id="almOcultarCeroWrap" style="display:none;align-items:center;gap:.3rem;font-size:.74rem;color:var(--muted2);cursor:pointer"><input id="almOcultarCero" type="checkbox" onchange="_almSetOcultarCero(this.checked)"> Ocultar stock cero</label>
+        <span id="almAvisoHist" style="display:none;font-size:.68rem;color:#f59e0b"></span>
+      </div>
+      <div id="almChips" style="display:none;flex-wrap:wrap;gap:.3rem"></div>
     </div>
+    <style>
+      .alm-ms-pop{position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.6rem;box-shadow:0 10px 32px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:.45rem}
+      .alm-ms-lista{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:7px}
+      .alm-ms-op{display:grid;grid-template-columns:auto auto 1fr auto;gap:.45rem;align-items:center;padding:.38rem .55rem;font-size:.74rem;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border)}
+      .alm-ms-op:hover{background:var(--panel2)}
+      .alm-ms-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .alm-ms-s{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+      .alm-chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;padding:.2rem .3rem .2rem .55rem;border:1px solid #f59e0b;border-radius:999px;background:rgba(245,158,11,.1);color:var(--text)}
+      .alm-chip button{background:none;border:0;color:var(--muted2);cursor:pointer;font-size:.7rem;padding:0 .2rem}
+      .alm-chip button:hover{color:#ef4444}
+      .alm-chip-x{background:none;border:0;color:var(--muted2);font-size:.68rem;text-decoration:underline;cursor:pointer}
+    </style>
     <div class="card-body"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Proyecto</th><th>RQ / VAL</th><th>Código</th><th>Material / EPP / Insumo</th><th>Unidad</th><th>Mov.</th><th class="tr">Cant.</th><th class="tr">Stock</th><th>Tipo Costo</th><th>Para Persona / Equipo</th><th>Proveedor</th><th></th></tr></thead>
+      <thead id="almThead"><tr><th>Fecha</th><th>Proyecto</th><th>RQ / VAL</th><th>Código</th><th>Material / EPP / Insumo</th><th>Unidad</th><th>Mov.</th><th class="tr">Cant.</th><th class="tr">Stock</th><th>Tipo Costo</th><th>Para Persona / Equipo</th><th>Proveedor</th><th></th></tr></thead>
       <tbody id="tbAlm"></tbody>
     </table></div>
     <div id="almPagNav" style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .75rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted2)"></div>
@@ -3367,7 +3387,7 @@
 <script src="js/planillaCierre.js?v=1"></script>
 <script src="js/boletaPago.js?v=6"></script>
 <script src="js/renta5ta.js?v=6"></script>
-<script src="js/almacen.js?v=3"></script>
+<script src="js/almacen.js?v=4"></script>
 <script src="js/analisisAbc.js?v=7"></script>
 <script src="js/kardexEpp.js?v=1"></script>
 <script src="js/insumosAux.js?v=1"></script>
@@ -3375,7 +3395,7 @@
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=18"></script>
 <script src="js/combustible.js?v=11"></script>
-<script src="js/requerimientos.js?v=18"></script>
+<script src="js/requerimientos.js?v=19"></script>
 <script src="js/reembolsables_otros.js?v=13"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>
@@ -3414,7 +3434,7 @@
 <script src="js/segRestricciones.js?v=4"></script>
 <script src="js/liberacion.js?v=1"></script>
 <script src="js/parteTurno.js?v=8"></script>
-<script src="js/supTurnos.js?v=1"></script>
+<script src="js/supTurnos.js?v=2"></script>
 <script src="js/recrecimiento.js?v=13"></script>
 <script src="js/wbsPlanta.js?v=2"></script>
 <script src="js/histograma.js?v=7"></script>

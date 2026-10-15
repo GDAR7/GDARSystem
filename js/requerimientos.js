@@ -429,14 +429,16 @@ function exportReqXLS(){
 
 function exportKardexXLS(){
   if(!window.XLSX){toast('Librería Excel no cargada aún, intenta en unos segundos',true);return;}
-  // Mismo orden y filtros que rAlm()
-  const filas=[...DB.almacen].sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.id-b.id);
-  const saldos={},saldoMap={};
-  filas.forEach(r=>{if(saldos[r.codigo]===undefined)saldos[r.codigo]=0;saldos[r.codigo]+=(r.tipo==='E'?1:-1)*r.cant;saldoMap[r.id]=saldos[r.codigo];});
+  // En la vista «Último stock» se exporta esa vista
+  if(typeof _almModoStock!=='undefined'&&_almModoStock){_almExportStockXLS();return;}
+  // Mismo orden y filtros que rAlm(); el saldo, con todo el historial
+  const filas=[...DB.almacen].sort(_almOrden);
+  const saldoMap=_almSaldoMap();
   let fm=_almFiltTipo?filas.filter(r=>r.tipo===_almFiltTipo):filas;
   if(_almFiltProy)fm=fm.filter(r=>(r.codProy||'').trim()===_almFiltProy);
   if(_almFiltMat)fm=fm.filter(r=>r.codigo&&r.codigo.toUpperCase().startsWith(_almFiltMat.toUpperCase()+'-'));
   if(_almFiltFecha)fm=fm.filter(r=>r.fecha===_almFiltFecha);
+  if(_almMatSel.size)fm=fm.filter(r=>_almMatSel.has(r.codigo));
   if(_almFiltText)fm=fm.filter(r=>[r.codigo,r.nombre,r.proyecto,r.rqRef,r.numVale,r.para,r.tipoCosto,r.proveedor].some(v=>String(v||'').toLowerCase().includes(_almFiltText)));
   const wb=XLSX.utils.book_new();
   const hdr=['Fecha','Proyecto','Cód. Proyecto','RQ / VAL','Código','Descripción','Unidad','Movimiento','Cantidad','Saldo','Tipo Costo','Para Persona/Equipo','Proveedor'];

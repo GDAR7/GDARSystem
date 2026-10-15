@@ -44,7 +44,7 @@ function _stHora(iso){
 // Lo que coincide con el buscador: autor, frente o descripción
 function _stCoincide(p,q){
   if(!q)return true;
-  const n=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const n=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const t=n(q);
   if(n(p.autor).includes(t)||n(p.turno).includes(t))return true;
   return (p.actividades||[]).some(a=>n(a.frente).includes(t)||n(a.descripcion).includes(t));

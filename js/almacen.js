@@ -1,14 +1,263 @@
 ﻿// ══ ALMACÉN ══
+// El stock se calcula SIEMPRE con todo el historial (_almMovsCompletos), no
+// solo con el período elegido arriba: con «Últimos 4 meses» las entradas
+// anteriores quedaban fuera y el saldo salía mal en 227 de 601 materiales.
 function getStock(){
   const s={};
-  DB.almacen.forEach(r=>{
+  _almMovsCompletos().forEach(r=>{
     if(!s[r.codigo])s[r.codigo]={nombre:r.nombre,unidad:r.unidad,stock:0};
-    s[r.codigo].stock+=(r.tipo==='E'?1:-1)*r.cant;
+    s[r.codigo].stock+=(r.tipo==='E'?1:-1)*(+r.cant||0);
   });
   return s;
 }
 let _almFiltTipo='',_almFiltProy='',_almFiltMat='',_almFiltFecha='',_almFiltText='',_almEditId=null,_almPage=0;
 const ALM_PAGE_SIZE=20;
+
+// ── Historial completo de movimientos ───────────────────────────────────────
+// DB.almacen trae solo el período del selector. Para el stock hace falta todo:
+// se pide una vez, liviano (solo las columnas del cálculo), y se combina con
+// DB.almacen, que manda dentro del período porque ahí están las altas, cambios
+// y bajas de esta sesión.
+let _almHist=null;              // movimientos de todo el historial (camelCase)
+let _almHistEstado='';          // '' | 'cargando' | 'ok' | 'error'
+let _almHistErrT=0;             // cuándo falló: se reintenta como mucho una vez por minuto
+const _ALM_HIST_COLS='id,fecha,codigo,nombre,unidad,tipo,cant,proyecto,cod_proy';
+
+function _almDesdePeriodo(){
+  const sel=document.getElementById('almPeriodoSel');
+  const dias=sel?+sel.value:60;
+  if(!(dias>0))return '';                       // todo el historial ya está en DB.almacen
+  const d=new Date();d.setDate(d.getDate()-dias);
+  return d.toISOString().slice(0,10);
+}
+function _almMovsCompletos(){
+  const desde=_almDesdePeriodo();
+  if(!desde||!_almHist)return DB.almacen||[];
+  const ids=new Set((DB.almacen||[]).map(r=>+r.id));
+  return _almHist.filter(r=>String(r.fecha||'')<desde&&!ids.has(+r.id)).concat(DB.almacen||[]);
+}
+// Pide el historial si falta; al llegar, redibuja el Kardex
+async function _almAsegurarHistorial(){
+  if(!_almDesdePeriodo()||_almHistEstado==='cargando'||_almHistEstado==='ok')return;
+  if(_almHistEstado==='error'&&Date.now()-_almHistErrT<60000)return;
+  _almHistEstado='cargando';
+  try{
+    let all=[],from=0;
+    for(;;){
+      const{data,error}=await supa.from('almacen').select(_ALM_HIST_COLS).order('id').range(from,from+999);
+      if(error)throw error;
+      all=all.concat(data||[]);
+      if(!data||data.length<1000)break;
+      from+=1000;
+    }
+    _almHist=all.map(toCamel);
+    _almHistEstado='ok';
+  }catch(e){
+    console.warn('[Almacén] historial completo',e);
+    _almHistEstado='error';
+    _almHistErrT=Date.now();
+  }
+  if(document.getElementById('tbAlm'))rAlm();
+}
+const _almOrden=(a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.id-b.id;
+// Saldo acumulado por código después de cada movimiento, con todo el historial
+function _almSaldoMap(){
+  const saldos={},map={};
+  [..._almMovsCompletos()].sort(_almOrden).forEach(r=>{
+    if(saldos[r.codigo]===undefined)saldos[r.codigo]=0;
+    saldos[r.codigo]+=(r.tipo==='E'?1:-1)*(+r.cant||0);
+    map[r.id]=saldos[r.codigo];
+  });
+  return map;
+}
+// Aviso junto al período mientras el stock todavía no incluye todo el historial
+function _almAvisoHistorial(){
+  if(!_almDesdePeriodo())return '';
+  if(_almHistEstado==='cargando'||_almHistEstado==='')return '⏳ calculando el stock con todo el historial…';
+  if(_almHistEstado==='error')return '⚠ no se pudo traer el historial completo: el stock solo cuenta el período elegido';
+  return '';
+}
+
+// ── Vista «Último stock» y multi-filtro de materiales ──────────────────────
+let _almModoStock=false;        // true = una fila por material con su stock actual
+let _almMatSel=new Set();       // códigos elegidos en el multi-filtro
+let _almOcultarCero=false;
+let _almStockPage=0;
+const ALM_STOCK_PAGE=50;
+const _almEscH=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const _almNorm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+// Stock actual y último movimiento de cada material. Con proyecto elegido,
+// solo cuentan los movimientos de ese proyecto (sus entradas menos sus salidas).
+function _almStockActual(){
+  const out={};
+  [..._almMovsCompletos()].sort(_almOrden).forEach(r=>{
+    if(_almFiltProy&&(r.codProy||'').trim()!==_almFiltProy)return;
+    const c=r.codigo;if(!c)return;
+    if(!out[c])out[c]={codigo:c,nombre:r.nombre,unidad:r.unidad,stock:0,nMov:0,ult:null};
+    const o=out[c];
+    o.stock+=(r.tipo==='E'?1:-1)*(+r.cant||0);
+    o.nMov++;
+    o.ult=r;                                     // ordenados: el último gana
+    if(r.nombre)o.nombre=r.nombre;
+    if(r.unidad)o.unidad=r.unidad;
+  });
+  Object.values(out).forEach(o=>{o.stock=Math.round(o.stock*1000)/1000;});
+  return out;
+}
+// Filas de la vista, con los filtros que aplican: tipo de material, buscador,
+// multi-filtro y ocultar stock cero
+function _almFilasStock(){
+  let L=Object.values(_almStockActual());
+  if(_almFiltMat)L=L.filter(o=>o.codigo.toUpperCase().startsWith(_almFiltMat.toUpperCase()+'-'));
+  if(_almMatSel.size)L=L.filter(o=>_almMatSel.has(o.codigo));
+  if(_almFiltText){const t=_almNorm(_almFiltText);L=L.filter(o=>_almNorm(o.codigo+' '+o.nombre).includes(t));}
+  if(_almOcultarCero)L=L.filter(o=>Math.abs(o.stock)>1e-9);
+  return L.sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es')||a.codigo.localeCompare(b.codigo));
+}
+
+function _almToggleStock(){
+  _almModoStock=!_almModoStock;
+  _almStockPage=0;_almPage=0;
+  rAlm();
+}
+function _almSetOcultarCero(v){_almOcultarCero=!!v;_almStockPage=0;rAlm();}
+
+// Multi-filtro: lista desplegable con buscador y casillas
+function _almMatLista(q){
+  const t=_almNorm(q);
+  const st=getStock();
+  return Object.entries(st)
+    .map(([c,v])=>({codigo:c,nombre:v.nombre||'',stock:v.stock,unidad:v.unidad||''}))
+    .filter(o=>!t||_almNorm(o.codigo+' '+o.nombre).includes(t))
+    .sort((a,b)=>(_almMatSel.has(b.codigo)-_almMatSel.has(a.codigo))||a.nombre.localeCompare(b.nombre,'es'))
+    .slice(0,150);
+}
+function _almMatPintarLista(){
+  const box=document.getElementById('almMatLista');if(!box)return;
+  const q=(document.getElementById('almMatBuscar')||{}).value||'';
+  const L=_almMatLista(q);
+  box.innerHTML=L.length?L.map(o=>`<label class="alm-ms-op">
+      <input type="checkbox" ${_almMatSel.has(o.codigo)?'checked':''} onchange="_almMatToggle('${_almEscH(o.codigo).replace(/'/g,'&#39;')}',this.checked)">
+      <span class="mono">${_almEscH(o.codigo)}</span><span class="alm-ms-n">${_almEscH(o.nombre)}</span>
+      <span class="alm-ms-s" style="color:${o.stock<=0?'#ef4444':'#10b981'}">${fmtN(o.stock)} ${_almEscH(o.unidad)}</span></label>`).join('')
+    :'<div style="padding:.6rem;font-size:.75rem;color:var(--muted2)">Ningún material coincide</div>';
+}
+function _almMatAbrir(ev){
+  if(ev)ev.stopPropagation();
+  let pop=document.getElementById('almMatPop');
+  if(pop){pop.remove();return;}
+  const btn=document.getElementById('almMatBtn');
+  pop=document.createElement('div');
+  pop.id='almMatPop';
+  pop.className='alm-ms-pop';
+  pop.innerHTML=`<div style="display:flex;gap:.35rem;align-items:center">
+      <input id="almMatBuscar" class="sel" placeholder="Buscar material o código…" style="flex:1;font-size:.78rem" oninput="_almMatPintarLista()">
+      <button type="button" class="btn btn-out btn-sm" style="font-size:.7rem" onclick="_almMatLimpiar()">Limpiar</button>
+    </div>
+    <div id="almMatLista" class="alm-ms-lista"></div>
+    <div style="font-size:.62rem;color:var(--muted2)">Marque uno o varios materiales. Se muestran hasta 150; escriba para encontrar otros.</div>`;
+  document.body.appendChild(pop);
+  const r=btn?btn.getBoundingClientRect():{left:20,bottom:120};
+  const w=Math.min(460,window.innerWidth-16);
+  pop.style.width=w+'px';
+  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+'px';
+  pop.style.top=(r.bottom+4)+'px';
+  _almMatPintarLista();
+  const inp=document.getElementById('almMatBuscar');if(inp)inp.focus();
+  setTimeout(()=>document.addEventListener('mousedown',function cerrar(e){
+    const p=document.getElementById('almMatPop');
+    if(!p){document.removeEventListener('mousedown',cerrar);return;}
+    if(!p.contains(e.target)&&e.target.id!=='almMatBtn'){p.remove();document.removeEventListener('mousedown',cerrar);}
+  }),30);
+}
+function _almMatToggle(cod,on){
+  if(on)_almMatSel.add(cod);else _almMatSel.delete(cod);
+  _almPage=0;_almStockPage=0;
+  rAlm();
+}
+function _almMatQuitar(cod){_almMatToggle(cod,false);_almMatPintarLista();}
+function _almMatLimpiar(){_almMatSel.clear();_almPage=0;_almStockPage=0;rAlm();_almMatPintarLista();}
+
+// Botones y chips de la barra de filtros
+function _almPintarControles(){
+  const b=document.getElementById('almBtnStock');
+  if(b){
+    b.style.background=_almModoStock?'#f59e0b':'transparent';
+    b.style.color=_almModoStock?'#111':'#f59e0b';
+  }
+  const mb=document.getElementById('almMatBtn');
+  if(mb)mb.textContent=_almMatSel.size?`🧾 ${_almMatSel.size} material${_almMatSel.size===1?'':'es'} ▾`:'🧾 Materiales ▾';
+  const oc=document.getElementById('almOcultarCeroWrap');
+  if(oc)oc.style.display=_almModoStock?'':'none';
+  const ocI=document.getElementById('almOcultarCero');if(ocI)ocI.checked=_almOcultarCero;
+  // En «Último stock» el filtro de movimiento y el de fecha no aplican
+  ['almFiltTipo','almFiltFecha'].forEach(id=>{const el=document.getElementById(id);if(el){el.disabled=_almModoStock;el.style.opacity=_almModoStock?.45:1;}});
+  const ch=document.getElementById('almChips');
+  if(ch){
+    if(!_almMatSel.size){ch.innerHTML='';ch.style.display='none';}
+    else{
+      const st=getStock();
+      ch.style.display='flex';
+      ch.innerHTML=[..._almMatSel].map(c=>`<span class="alm-chip"><span class="mono">${_almEscH(c)}</span> ${_almEscH(((st[c]||{}).nombre||'').slice(0,34))}
+        <button type="button" onclick="_almMatQuitar('${_almEscH(c).replace(/'/g,'&#39;')}')" title="Quitar">✕</button></span>`).join('')
+        +`<button type="button" class="alm-chip-x" onclick="_almMatLimpiar()">Quitar todos</button>`;
+    }
+  }
+  const av=document.getElementById('almAvisoHist');
+  if(av){const t=_almAvisoHistorial();av.textContent=t;av.style.display=t?'':'none';}
+}
+
+const _ALM_TH_MOV='<tr><th>Fecha</th><th>Proyecto</th><th>RQ / VAL</th><th>Código</th><th>Material / EPP / Insumo</th><th>Unidad</th><th>Mov.</th><th class="tr">Cant.</th><th class="tr">Stock</th><th>Tipo Costo</th><th>Para Persona / Equipo</th><th>Proveedor</th><th></th></tr>';
+const _ALM_TH_STOCK='<tr><th>Código</th><th>Material / EPP / Insumo</th><th>Unidad</th><th class="tr">Stock actual</th><th>Último movimiento</th><th class="tr">Cant.</th><th>Proyecto</th><th class="tr">Movimientos</th></tr>';
+
+function _almRenderStock(){
+  const th=document.getElementById('almThead');if(th)th.innerHTML=_ALM_TH_STOCK;
+  const L=_almFilasStock();
+  const total=L.length, pags=Math.max(1,Math.ceil(total/ALM_STOCK_PAGE));
+  if(_almStockPage>=pags)_almStockPage=pags-1;
+  const desde=_almStockPage*ALM_STOCK_PAGE, hasta=Math.min(desde+ALM_STOCK_PAGE,total);
+  const conStock=L.filter(o=>o.stock>1e-9).length, cero=L.filter(o=>Math.abs(o.stock)<=1e-9).length, neg=L.filter(o=>o.stock<-1e-9).length;
+  const tb=document.getElementById('tbAlm');
+  if(tb)tb.innerHTML=total?L.slice(desde,hasta).map(o=>{
+    const u=o.ult||{};
+    const col=o.stock>1e-9?'#10b981':'#ef4444';
+    return `<tr>
+      <td class="mono">${_almEscH(o.codigo)}</td>
+      <td><strong>${_almEscH(o.nombre||'—')}</strong></td>
+      <td>${_almEscH(o.unidad||'')}</td>
+      <td class="tr mono" style="font-weight:800;font-size:.95rem;color:${col}">${fmtN(o.stock)}</td>
+      <td style="white-space:nowrap"><span class="mono">${_almEscH(u.fecha||'—')}</span> ${u.tipo==='E'?'<span class="badge b-green">⬆ ENT</span>':u.tipo==='S'?'<span class="badge b-red">⬇ SAL</span>':''}</td>
+      <td class="tr mono">${u.cant!=null&&u.cant!==''?fmtN(u.cant):'—'}</td>
+      <td style="font-size:.75rem;color:var(--muted2)">${_almEscH(u.proyecto||u.codProy||'—')}</td>
+      <td class="tr mono" style="color:var(--muted2)">${o.nMov}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="8" style="text-align:center;padding:1.2rem;color:var(--muted2)">Ningún material con estos filtros</td></tr>`;
+  const nav=document.getElementById('almPagNav');
+  if(nav){
+    nav.innerHTML=total?`<span>📦 Último stock${_almFiltProy?' del proyecto <strong>'+_almEscH(_almFiltProy)+'</strong>':''} · <strong>${desde+1}–${hasta}</strong> de <strong>${total}</strong> materiales
+        · <span style="color:#10b981">${conStock} con stock</span> · <span style="color:#ef4444">${cero} en cero</span>${neg?` · <span style="color:#ef4444">${neg} negativo${neg===1?'':'s'}</span>`:''}</span>
+      <div style="display:flex;align-items:center;gap:.4rem">
+        <button class="btn btn-out btn-sm" style="padding:.25rem .65rem;font-size:.75rem" onclick="_almStockPage=Math.max(0,_almStockPage-1);rAlm()" ${_almStockPage===0?'disabled':''}>← Ant.</button>
+        <span style="color:var(--text);font-weight:600;font-size:.8rem">Pág. ${_almStockPage+1} / ${pags}</span>
+        <button class="btn btn-out btn-sm" style="padding:.25rem .65rem;font-size:.75rem" onclick="_almStockPage=Math.min(${pags-1},_almStockPage+1);rAlm()" ${_almStockPage===pags-1?'disabled':''}>Sig. →</button>
+      </div>`:'';
+  }
+}
+
+// Excel de la vista «Último stock»
+function _almExportStockXLS(){
+  if(!window.XLSX){toast('Librería Excel no cargada aún, intenta en unos segundos',true);return;}
+  const L=_almFilasStock();
+  const hdr=['Código','Descripción','Unidad','Stock actual','Fecha último mov.','Último mov.','Cant. último mov.','Proyecto último mov.','N° movimientos'];
+  const rows=L.map(o=>{const u=o.ult||{};return[o.codigo,o.nombre||'',o.unidad||'',o.stock,u.fecha||'',u.tipo==='E'?'Entrada':u.tipo==='S'?'Salida':'',u.cant!=null&&u.cant!==''?+u.cant:'',u.proyecto||u.codProy||'',o.nMov];});
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:14},{wch:40},{wch:9},{wch:12},{wch:14},{wch:10},{wch:12},{wch:30},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Ultimo stock');
+  XLSX.writeFile(wb,`Stock_${_almFiltProy?_almFiltProy+'_':''}${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('✓ Excel de stock descargado');
+}
 
 // ── Buscador Persona / Equipo para salidas (como en abastecimiento de combustible) ──
 function _almPESearch(q,inpId,dropId){
@@ -102,7 +351,7 @@ function _almChangeFilt(){
   _almFiltMat=(document.getElementById('almFiltMat')||{}).value||'';
   _almFiltFecha=(document.getElementById('almFiltFecha')||{}).value||'';
   _almFiltText=((document.getElementById('almFiltBuscar')||{}).value||'').trim().toLowerCase();
-  _almPage=0;
+  _almPage=0;_almStockPage=0;
   rAlm();
 }
 function editAlm(id){
@@ -329,7 +578,7 @@ function openAlmSM(){
 function addSMItem(){smItemsArr.push({cod:'',cant:1});renderSMItems();}
 function removeSMItem(i){smItemsArr.splice(i,1);renderSMItems();}
 function _getStockProy(codProy,proyNom){
-  const movs=DB.almacen.filter(r=>(codProy&&(r.codProy||'').trim()===codProy)||(proyNom&&(r.proyecto||'').trim()===proyNom));
+  const movs=_almMovsCompletos().filter(r=>(codProy&&(r.codProy||'').trim()===codProy)||(proyNom&&(r.proyecto||'').trim()===proyNom));
   const map={};
   movs.forEach(r=>{
     if(!map[r.codigo])map[r.codigo]={stock:0,nombre:r.nombre,unidad:r.unidad};
@@ -629,6 +878,7 @@ function rAlmChart(){
     +`<span style="font-size:.67rem">Máx. del mes: ${fmtN(maxV)} uds/día</span></div>`;
 }
 function rAlm(){
+  _almAsegurarHistorial();          // el stock necesita todo el historial
   _initAlmChart();
   rAlmChart();
   const st=getStock(),items=Object.entries(st);
@@ -662,20 +912,20 @@ function rAlm(){
   // Restaurar filtros
   const ftEl=document.getElementById('almFiltTipo');if(ftEl&&ftEl.value!==_almFiltTipo)ftEl.value=_almFiltTipo;
   const fdEl=document.getElementById('almFiltFecha');if(fdEl&&fdEl.value!==_almFiltFecha)fdEl.value=_almFiltFecha;
+  _almPintarControles();
+  // Vista «Último stock»: una fila por material
+  if(_almModoStock){_almRenderStock();_almRefrescarAsItem();return;}
+  const th=document.getElementById('almThead');if(th&&th.innerHTML.indexOf('RQ / VAL')<0)th.innerHTML=_ALM_TH_MOV;
   // Ordenar por fecha y luego por id para Kardex cronológico
-  const filas=[...DB.almacen].sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.id-b.id);
-  // Pre-calcular saldo acumulado por código sobre TODAS las filas (running balance correcto)
-  const saldoMap={},saldos={};
-  filas.forEach(r=>{
-    if(saldos[r.codigo]===undefined)saldos[r.codigo]=0;
-    saldos[r.codigo]+=(r.tipo==='E'?1:-1)*r.cant;
-    saldoMap[r.id]=saldos[r.codigo];
-  });
+  const filas=[...DB.almacen].sort(_almOrden);
+  // Saldo acumulado por código con TODO el historial (no solo el período cargado)
+  const saldoMap=_almSaldoMap();
   // Aplicar todos los filtros
   let filasMostrar=_almFiltTipo?filas.filter(r=>r.tipo===_almFiltTipo):filas;
   if(_almFiltProy)filasMostrar=filasMostrar.filter(r=>(r.codProy||'').trim()===_almFiltProy);
   if(_almFiltMat)filasMostrar=filasMostrar.filter(r=>r.codigo&&r.codigo.toUpperCase().startsWith(_almFiltMat.toUpperCase()+'-'));
   if(_almFiltFecha)filasMostrar=filasMostrar.filter(r=>r.fecha===_almFiltFecha);
+  if(_almMatSel.size)filasMostrar=filasMostrar.filter(r=>_almMatSel.has(r.codigo));
   if(_almFiltText)filasMostrar=filasMostrar.filter(r=>[r.codigo,r.nombre,r.proyecto,r.rqRef,r.numVale,r.para,r.tipoCosto,r.proveedor].some(v=>String(v||'').toLowerCase().includes(_almFiltText)));
   // Paginación
   const _almTotal=filasMostrar.length;
@@ -711,7 +961,10 @@ function rAlm(){
         <button class="btn btn-del btn-sm" onclick="del('almacen',${r.id})">🗑</button>
       </td></tr>`;
   }).join('');
-  // refresh salida select
+  _almRefrescarAsItem();
+}
+// refresh salida select
+function _almRefrescarAsItem(){
   const as=document.getElementById('asItem');
   if(as){const s2=getStock();as.innerHTML=Object.entries(s2).map(([cod,v])=>`<option value="${cod}">${cod} – ${v.nombre} (Stock: ${fmtN(v.stock)} ${v.unidad})</option>`).join('');}
 }
