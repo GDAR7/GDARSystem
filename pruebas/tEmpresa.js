@@ -35,7 +35,7 @@ es('Supabase se creó con la URL de empresa.js',creado.u,SUPA_URL);
 es('  y con su llave',creado.k.startsWith('sb_publishable_'),true);
 
 console.log('\n== Los usuarios siguen intactos ==');
-es('cantidad',USERS.length,20);
+es('cantidad',USERS.length,21);
 const u=c=>USERS.find(x=>x.codigo===c);
 es('el suyo existe',!!u('EIBEL25'),true);
 es('  y ve todas las áreas',u('EIBEL25').areas.length,Object.keys(AREAS).length);
@@ -98,7 +98,7 @@ es('el administrador principal sigue viendo todo',u('EIBEL25').areas.length,Obje
 es('  incluido el Parte de Turno, porque no tiene recorte',!u('EIBEL25').areaModules,true);
 
 console.log('\n== Quién entra directo a un solo módulo ==');
-// Se ejecuta la regla real de js/utils.js sobre los 20 usuarios: solo los de
+// Se ejecuta la regla real de js/utils.js sobre los 21 usuarios: solo los de
 // registro de campo deben quedar sin Panel General.
 const _uti=fs.readFileSync(R+'js/utils.js','utf8');
 const _ini=_uti.indexOf('function _cuModuloUnico()');
@@ -112,6 +112,15 @@ es('Almacén (un área sin recorte) no queda encerrado',_cuModuloUnico(u('YONMEL
 es('Contabilidad (un área sin recorte) tampoco',_cuModuloUnico(u('JON_GO')),null);
 es('BISA (dos áreas) tampoco',_cuModuloUnico(u('CP.BISA_')),null);
 es('sin sesión no rompe',_cuModuloUnico(null),null);
+// Ivan Vera: lo de Piero Sanchez y, además, el Parte de Turno con edición
+const _iv=u('IVA_VE'), _pi=u('PIE_SA');
+es('Ivan Vera existe',!!_iv&&_iv.nombre+' · '+_iv.cargo,'Ivan G. Vera Saenz · Controlador de equipos');
+es('  con las áreas de Piero Sanchez',_pi.areas.every(a=>_iv.areas.includes(a)),true);
+es('  los mismos módulos de Administración',JSON.stringify(_iv.areaModules.administracion),JSON.stringify(_pi.areaModules.administracion));
+es('  el tareaje en solo consulta, como Piero',JSON.stringify(_iv.readOnlyModules),JSON.stringify(_pi.readOnlyModules));
+es('  y de Operaciones, el Parte de Turno',JSON.stringify(_iv.areaModules.operaciones),'["parteTurno"]');
+es('  que puede editar',(_iv.readOnlyModules||[]).includes('parteTurno'),false);
+es('  no entra encerrado en un solo módulo',_cuModuloUnico(_iv),null);
 es('al entrar se va a su módulo',/setPage\(_cuModuloUnico\(\)\|\|'dashboard'\)/.test(_uti),true);
 es('el menú no le muestra Panel General',/let h = _unico\?'':/.test(_uti),true);
 es('y si algo lo manda al tablero, vuelve a su formulario',/if\(k==='dashboard'&&typeof _cuModuloUnico==='function'\)/.test(_uti),true);
