@@ -1646,16 +1646,11 @@ function rReembDetalle(){
 function _reembExportXls(){
   if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
   const all=[...(DB.reembolsables||[])].filter(r=>_fpEnRango(r.fecha)).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.id-a.id);
-  const rows=all.filter(r=>{
-    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
-    if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
-    if(_reembFiltCod&&(r.codigo||'')!==_reembFiltCod)return false;
-    return true;
-  });
+  const rows=_reembFiltrar(all);
   if(!rows.length){toast('Sin datos para exportar',true);return;}
   const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
   const aoa=[
-    ['REEMBOLSABLES / GASTOS'+(_reembFiltProv?' — Proveedor: '+_reembFiltProv:'')+(_reembFiltFact?' — Factura: '+_reembFiltFact:'')],
+    ['REEMBOLSABLES / GASTOS'+(_reembFiltEdp?' — EDP: '+_reembEdpEtq(_reembFiltEdp):'')+(_reembFiltProv?' — Proveedor: '+_reembFiltProv:'')+(_reembFiltFact?' — Factura: '+_reembFiltFact:'')],
     ['ID','PROYECTO','EDP','MONEDA','FECHA DE FACT.','OBSERVACIONES','TIPO DE CP','SERIE','CORRELATIVO','FACTURA Y FECHA','FACTURA','RUC','PROVEEDOR','CÓD. REEMB','NOMBRE CODIF.','ÍTEM FAC','DESCRIPCIÓN','CANTIDAD','UNIDAD','P. UNIT S/IGV','SUBTOTAL S/ SIN IGV','COSTO UNIT C/IGV','IGV','TOTAL S/ (INC. IGV)','TOTAL $','TC','SUBTOTAL $ (SIN IGV)'],
     ...rows.map(r=>{
       const punit=+r.precioUnit||0;
@@ -1680,12 +1675,27 @@ function _reembExportXls(){
 }
 
 // ── Render del tab Reembolsables / Gastos ──
-let _reembFiltProv='', _reembFiltFact='', _reembFiltCod='';
+let _reembFiltProv='', _reembFiltFact='', _reembFiltCod='', _reembFiltEdp='';
 function _reembSetFilt(tipo,val){
   if(tipo==='prov'){_reembFiltProv=val;_reembFiltFact='';}
   else if(tipo==='fact')_reembFiltFact=val;
+  else if(tipo==='edp')_reembFiltEdp=val;
   else _reembFiltCod=val;
   rReembolsables();
+}
+// EDP de un ítem, como texto. Los ítems sin EDP se agrupan como «sin EDP».
+const _REEMB_SIN_EDP='__sin';
+function _reembEdpDe(r){const e=String(r&&r.edp!=null?r.edp:'').trim();return e===''||e==='—'?_REEMB_SIN_EDP:e;}
+function _reembEdpEtq(v){return v===_REEMB_SIN_EDP?'Sin EDP':'EDP '+v;}
+// Los filtros de la tabla, los KPI y el Excel: siempre los mismos
+function _reembFiltrar(lista){
+  return lista.filter(r=>{
+    if(_reembFiltEdp&&_reembEdpDe(r)!==_reembFiltEdp)return false;
+    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
+    if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
+    if(_reembFiltCod&&(r.codigo||'')!==_reembFiltCod)return false;
+    return true;
+  });
 }
 function rReembolsables(){
   const pg=document.getElementById('fpTab-reemb');if(!pg)return;
@@ -1696,16 +1706,18 @@ function rReembolsables(){
   const facts=[...new Set(factsBase.map(r=>`${r.serie||''} - ${r.correlativo||''}`.trim()).filter(f=>f!=='-'))].sort();
   const codMap={};all.forEach(r=>{if(r.codigo&&!codMap[r.codigo])codMap[r.codigo]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
+  // EDP presentes en el período, en orden numérico; «Sin EDP» al final
+  const edps=[...new Set(all.map(_reembEdpDe))].sort((a,b)=>{
+    if(a===_REEMB_SIN_EDP)return 1;if(b===_REEMB_SIN_EDP)return -1;
+    const na=parseFloat(a),nb=parseFloat(b);
+    return (isFinite(na)&&isFinite(nb)&&na!==nb)?na-nb:a.localeCompare(b,'es',{numeric:true});
+  });
+  if(_reembFiltEdp&&!edps.includes(_reembFiltEdp))_reembFiltEdp='';
   if(_reembFiltProv&&!provs.includes(_reembFiltProv))_reembFiltProv='';
   if(_reembFiltFact&&!facts.includes(_reembFiltFact))_reembFiltFact='';
   if(_reembFiltCod&&!cods.includes(_reembFiltCod))_reembFiltCod='';
   // Aplicar filtros → KPIs y tabla dinámicos
-  const rows=all.filter(r=>{
-    if(_reembFiltProv&&r.proveedor!==_reembFiltProv)return false;
-    if(_reembFiltFact&&`${r.serie||''} - ${r.correlativo||''}`.trim()!==_reembFiltFact)return false;
-    if(_reembFiltCod&&(r.codigo||'')!==_reembFiltCod)return false;
-    return true;
-  });
+  const rows=_reembFiltrar(all);
   const _dmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
   const _n2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
   const _n3=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:3,maximumFractionDigits:3});
@@ -1772,6 +1784,11 @@ function rReembolsables(){
       <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
         <span class="card-title">🧾 Reembolsables / Gastos extraídos de facturas</span>
         <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">EDP</span>
+          <select id="reembFiltEdp" onchange="_reembSetFilt('edp',this.value)" style="background:var(--panel2);border:1px solid ${_reembFiltEdp?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:120px;cursor:pointer;outline:none;font-family:monospace">
+            <option value="">— Todos —</option>
+            ${edps.map(e=>`<option value="${String(e).replace(/"/g,'&quot;')}" ${e===_reembFiltEdp?'selected':''}>${_reembEdpEtq(e)}</option>`).join('')}
+          </select>
           <span style="font-size:.62rem;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase">Proveedor</span>
           <select onchange="_reembSetFilt('prov',this.value)" style="background:var(--panel2);border:1px solid ${_reembFiltProv?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:220px;cursor:pointer;outline:none">
             <option value="">— Todos —</option>
@@ -1789,7 +1806,7 @@ function rReembolsables(){
           </select>
           ${_reembFiltFact?`<button onclick="editFacturaReemb()" title="Editar la cabecera y todos los ítems de esta factura" style="background:rgba(245,158,11,.15);border:1px solid #f59e0b60;border-radius:6px;color:#f59e0b;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✏ Editar factura</button>`:''}
           ${_reembFiltFact?`<button onclick="_reembCodMasivoOpen()" title="Cambiar el código de reembolso en todos los ítems de esta factura, sin editar uno por uno" style="background:rgba(139,92,246,.15);border:1px solid #8b5cf660;border-radius:6px;color:#8b5cf6;padding:.3rem .65rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🏷 Cambiar código (todos)</button>`:''}
-          ${(_reembFiltProv||_reembFiltFact||_reembFiltCod)?`<button onclick="_reembFiltProv='';_reembFiltFact='';_reembFiltCod='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
+          ${(_reembFiltEdp||_reembFiltProv||_reembFiltFact||_reembFiltCod)?`<button onclick="_reembFiltEdp='';_reembFiltProv='';_reembFiltFact='';_reembFiltCod='';rReembolsables()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted2);padding:.3rem .55rem;font-size:.7rem;cursor:pointer">✕ Limpiar</button>`:''}
           <button onclick="_reembExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
         </div>
         <div class="card-head-right">
