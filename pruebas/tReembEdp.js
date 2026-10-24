@@ -69,7 +69,29 @@ es('el Excel usa el mismo filtro',/const rows=_reembFiltrar\(all\);/.test(xs),tr
 es('  y su título dice el EDP',/' — EDP: '\+_reembEdpEtq\(_reembFiltEdp\)/.test(xs),true);
 es('editar la factura sigue tomando todos sus ítems (no filtra por EDP)',
   !/_reembFiltEdp/.test(src.slice(src.indexOf('function editFacturaReemb'),src.indexOf('function editFacturaReemb')+1200)),true);
-es('la versión del script subió',/js\/requerimientos\.js\?v=20"/.test(fs.readFileSync(R+'index.html','utf8')),true);
+const IXr=fs.readFileSync(R+'index.html','utf8');
+es('la versión del script subió',+((IXr.match(/js\/requerimientos\.js\?v=(\d+)"/)||[])[1])>=20,true);
+
+console.log('\n== Editar ítem: la fecha de factura ==');
+const ed=src.slice(src.indexOf('function editReembolsable('),src.indexOf('function _reembEditCod('));
+const gu=src.slice(src.indexOf('function gReembEdit('),src.indexOf('\n}',src.indexOf('function gReembEdit('))+2);
+es('el formulario tiene el campo de fecha',/<label>Fecha de factura<\/label><input id="reFecha" type="date"/.test(IXr),true);
+es('al abrir, trae la fecha del ítem (sin hora)',/reFecha'\);if\(_fe\)_fe\.value=String\(r\.fecha\|\|''\)\.slice\(0,10\)/.test(ed),true);
+es('al guardar, la exige y la guarda',/Ingrese la fecha de la factura/.test(gu)&&/r\.fecha=fecha;/.test(gu),true);
+// Se ejecuta gReembEdit de verdad sobre un ítem
+{
+  const campos={reDesc:'Cuaderno',reCant:'400',rePunit:'23.73',reCod:'r12',reCodif:'Formatos',reUnd:'UND',reTc:'',reEdp:'5',reObs:'',reFecha:'2026-09-20'};
+  const guard=[];
+  const c2=vm.createContext({DB:{reembolsables:[{id:7,fecha:'2026-09-22',desc:'x'}]},console,Number,String,Math,
+    document:{getElementById:id=>({value:campos[id]!=null?campos[id]:'',textContent:''})},
+    toast:(m,e)=>guard.push((e?'✗ ':'')+m),syncSheet:(a,r)=>guard.push('sync '+r.fecha),closeM(){},rReembolsables(){}});
+  vm.runInContext('let _reembEditId=7;\n'+gu,c2);
+  vm.runInContext('gReembEdit()',c2);
+  es('  cambia la fecha y la envía a la base',guard.join(' | '),'sync 2026-09-20 | Ítem actualizado');
+  campos.reFecha='';guard.length=0;
+  vm.runInContext('gReembEdit()',c2);
+  es('  sin fecha no guarda y avisa',guard.join(' | '),'✗ Ingrese la fecha de la factura');
+}
 
 console.log('\n'+(mal?'✗ '+mal+' FALLAS':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);

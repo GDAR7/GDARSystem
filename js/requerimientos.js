@@ -1445,6 +1445,7 @@ function editReembolsable(id){
   document.getElementById('rePunit').value=+r.precioUnit||0;
   document.getElementById('reTc').value=r.tc||'';
   document.getElementById('reEdp').value=r.edp||'';
+  const _fe=document.getElementById('reFecha');if(_fe)_fe.value=String(r.fecha||'').slice(0,10);
   document.getElementById('reObs').value=r.obs||'';
   _reembEditCalc();
   openM('mReembEdit');
@@ -1473,7 +1474,11 @@ function gReembEdit(){
   const punit=+document.getElementById('rePunit').value||0;
   if(!desc){toast('Ingrese la descripción',true);return;}
   if(cant<=0||punit<=0){toast('Cantidad y P. Unit deben ser mayores a 0',true);return;}
+  const _feEl=document.getElementById('reFecha');
+  const fecha=_feEl?String(_feEl.value||'').trim():'';
+  if(_feEl&&!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){toast('Ingrese la fecha de la factura',true);return;}
   r.codigo=(document.getElementById('reCod').value||'').trim().toUpperCase();
+  if(_feEl)r.fecha=fecha;
   r.nombreCodif=document.getElementById('reCodif').value.trim();
   r.desc=desc;
   r.cantidad=cant;
