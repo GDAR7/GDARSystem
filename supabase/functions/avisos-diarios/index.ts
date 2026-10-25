@@ -1,3 +1,4 @@
+// @ts-nocheck — JavaScript simple a propósito (ver abajo): sin chequeo de tipos
 // ══ EDGE FUNCTION · avisos-diarios ═════════════════════════════════════════
 // La llama pg_cron cada mañana (sql/avisos_automaticos.sql), 5 minutos después
 // de que revisar_avisos() dejó los avisos del día. Arma UN correo-resumen por
@@ -22,8 +23,9 @@
 // Escrito en JavaScript simple (sin tipos) a propósito: Supabase lo acepta
 // igual y pruebas/tAvisos.js puede ejecutar armarCorreo() con Node.
 
-const NIVEL_ORDEN = { vencido: 0, urgente: 1, falta: 2, proximo: 3 };
-const NIVEL_MARCA = { vencido: '🔴 VENCIDO', urgente: '🟠 URGENTE', falta: '⚠ FALTA', proximo: '🟡 Próximo' };
+const NIVEL_ORDEN = { vencido: 0, inoperativo: 0, urgente: 1, falta: 2, proximo: 3, recuperado: 4, dato: 5 };
+const NIVEL_MARCA = { vencido: '🔴 VENCIDO', urgente: '🟠 URGENTE', falta: '⚠ FALTA', proximo: '🟡 Próximo',
+  inoperativo: '🔴 INOPERATIVO', recuperado: '🟢 Ya opera', dato: '⚪ Revisar dato' };
 
 // Fecha de hoy en Perú, AAAA-MM-DD
 function hoyLima(ahora) {
@@ -43,13 +45,17 @@ function armarCorreo(avisos, fecha) {
     String(a.titulo).localeCompare(String(b.titulo), 'es'));
   const eq = lista.filter(a => a.tipo === 'equipo_doc');
   const pt = lista.filter(a => a.tipo === 'parte_falta');
-  const urg = lista.filter(a => a.nivel === 'vencido' || a.nivel === 'urgente' || a.nivel === 'falta').length;
+  const inop = lista.filter(a => a.tipo === 'equipo_inop');
+  const dato = lista.filter(a => a.tipo === 'dato_inop');
+  const urg = lista.filter(a => ['vencido', 'urgente', 'falta', 'inoperativo'].includes(a.nivel)).length;
   const subject = 'GDAR · ' + lista.length + ' aviso' + (lista.length === 1 ? '' : 's') +
     ' del ' + dmy(fecha) + (urg ? ' · ' + urg + ' requiere' + (urg === 1 ? '' : 'n') + ' atención' : '');
   const linea = a => '  ' + (NIVEL_MARCA[a.nivel] || a.nivel) + '  ' + a.titulo + (a.detalle ? '\n      ' + a.detalle : '');
   const partes = ['Avisos automáticos del GDAR · ' + dmy(fecha), ''];
   if (eq.length) partes.push('DOCUMENTOS DE EQUIPOS (' + eq.length + ')', ...eq.map(linea), '');
   if (pt.length) partes.push('PARTES DE TURNO NO RECIBIDOS (' + pt.length + ')', ...pt.map(linea), '');
+  if (inop.length) partes.push('INOPERATIVIDAD · ÚLTIMOS 7 DÍAS (' + inop.length + ')', ...inop.map(linea), '');
+  if (dato.length) partes.push('PARTES DE EQUIPOS A CORREGIR (' + dato.length + ')', ...dato.map(linea), '');
   partes.push('Revíselos en el GDAR: la campana 🔔 de arriba lleva a cada módulo.',
     'https://ecosermo.gdarei.com', '', '— Correo automático. No es necesario responder.');
   return { subject, message: partes.join('\n') };

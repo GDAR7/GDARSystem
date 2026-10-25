@@ -103,6 +103,61 @@ es('sin avisos, tampoco',r.nodo('btnAvisos').style.display,'none');
 const esc=vm.runInContext('_avEsc("<b>")',r.ctx);
 es('el texto no se interpreta como código',esc,'&lt;b&gt;');
 
+console.log('\n== Inoperatividad de los últimos 7 días ==');
+es('ventana: de hace 7 días a ayer',(SQL.match(/p\.fecha between p_dia - 7 and p_dia - 1/g)||[]).length,2);
+es('inoperativo: por condición o por horas, pero el STANDBY no cuenta',
+  /ilike 'INOPERATIVO%'/.test(SQL)&&/ilike 'OPERATIVO\/INOPERATIVO%'/.test(SQL)&&/coalesce\(p\.im, 0\) > 0 and coalesce\(p\.condicion, ''\) not ilike '%STANDBY%'/.test(SQL),true);
+es('un aviso por equipo (clave inop:equipo)',/'inop:' \|\| a\.eq_id/.test(SQL),true);
+es('dice si sigue inoperativo o ya opera (según su último parte)',/case when u\.es_inop then 'inoperativo' else 'recuperado' end/.test(SQL),true);
+es('el motivo sale del último parte inoperativo con observación',/order by eq_id, fecha desc, id desc/.test(SQL)&&/'Motivo: ' \|\| motivo_inop\(m\.observaciones\)/.test(SQL),true);
+es('lleva al Reporte de Equipos',(SQL.match(/'reporteEquipos'/g)||[]).length,2);
+es('datos a corregir: standby con horas y partes sin motivo',/en STANDBY con/.test(SQL)&&/sin motivo en Observaciones/.test(SQL),true);
+es('el destinatario ya existente recibe los tipos nuevos',/set tipos = tipos \|\| array\['equipo_inop','dato_inop'\]/.test(SQL),true);
+// El clasificador: las reglas se leen del propio SQL y se aplican a textos reales
+const reglas=[...SQL.slice(SQL.indexOf('function public.motivo_inop'),SQL.indexOf('create or replace function public.revisar_avisos'))
+  .matchAll(/when t ~ '([^']+)'\s+then '([^']+)'/g)].map(m=>[new RegExp(m[1].replace(/\\m/g,'\\b')),m[2]]);
+const motivo=txt=>{const t=String(txt||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!t||/^[-. ]*$/.test(t))return 'Sin motivo registrado';const r=reglas.find(([re])=>re.test(t));return r?r[1]:'Otros';};
+es('el SQL tiene 10 categorías con regla (más «Sin motivo registrado»)',reglas.length,10);
+[['Equipo inoperativo (recalentamiento de cables).','Eléctrico'],
+ ['Equipo inoperativo por lainas en el varillaje del cucharon y pm3.','Implemento / tren de rodaje'],
+ ['-Equipo inoperativo por falla mecánica en la rotación y cambio de neumáticos.','Neumáticos'],
+ ['Volquete inoperativo por llanta baja posición 10 desde las 4:20 am.','Neumáticos'],
+ ['Equipo Inoperativo (Falla del sistema de aire).','Sistema de aire'],
+ ['- Equipo inoperativo por falla en el cinturón de seguridad, 08:20 - 14:20.','Seguridad'],
+ ['Equipo inoperativo por reparación de tanque de agua.','Estructura / cabina / tanque'],
+ ['Inoperativo por PM 2','Mantenimiento preventivo (PM)'],
+ ['fuga de aceite hidráulico en cilindro de levante','Hidráulico'],
+ ['Equipo inoperativo ubicado en mesa de plata.','Otros'],
+ ['-','Sin motivo registrado'],
+ ['','Sin motivo registrado']
+].forEach(([t,c])=>es('  «'+t.slice(0,44)+'»',motivo(t),c));
+
+console.log('\n== La campana: un aviso por equipo ==');
+{
+  const filas=[
+    {id:30,fecha:hoy,tipo:'equipo_inop',nivel:'inoperativo',clave:'inop:5',titulo:'EXC ECOP-001 · sigue INOPERATIVO · 70.0 h paradas en 7 días',modulo:'reporteEquipos'},
+    {id:20,fecha:'2026-01-01',tipo:'equipo_inop',nivel:'inoperativo',clave:'inop:5',titulo:'EXC ECOP-001 (de un día anterior)',modulo:'reporteEquipos'},
+    {id:31,fecha:hoy,tipo:'equipo_inop',nivel:'recuperado',clave:'inop:9',titulo:'VOL ECOP-002 · ya opera · 20.0 h',modulo:'reporteEquipos'},
+    {id:32,fecha:hoy,tipo:'dato_inop',nivel:'dato',clave:'dato:7',titulo:'VOL ECOP-010 · revisar partes',modulo:'reporteEquipos'},
+    {id:21,fecha:'2026-01-01',tipo:'equipo_doc',nivel:'proximo',clave:'eq:1:soat',titulo:'doc A',modulo:'masterEquipos'},
+    {id:22,fecha:'2026-01-02',tipo:'equipo_doc',nivel:'urgente',clave:'eq:1:soat',titulo:'doc B',modulo:'masterEquipos'}
+  ];
+  const r2=await campana('EIBEL25',filas);
+  const ids=r2.ctx._avLista.map(a=>a.id).join();
+  es('de cada equipo inoperativo queda solo el aviso más reciente',ids.includes('30')&&!ids.split(',').includes('20'),true);
+  es('los documentos sí se ven día por día (cada umbral es un aviso)',ids.includes('21')&&ids.includes('22'),true);
+  const P2=vm.runInContext('_avPanelHtml()',r2.ctx);
+  es('etiquetas: Inoperativo, Ya opera, Revisar dato',/>Inoperativo</.test(P2)&&/>Ya opera</.test(P2)&&/>Revisar dato</.test(P2),true);
+  es('  y llevan al Reporte de Equipos',/_avIr\('reporteEquipos'\)/.test(P2),true);
+  const rj=await campana('J_A_TA',filas);
+  es('Javier Tamara (Reporte de Equipos, sin Máster) ve los de inoperatividad, no los de documentos',
+    rj.ctx._avLista.every(a=>a.modulo==='reporteEquipos')&&rj.ctx._avLista.length===3,true);
+  const C2=fctx.armarCorreo(filas.filter(a=>a.fecha===hoy),hoy);
+  es('el correo (cuando se active) tiene su sección',/INOPERATIVIDAD · ÚLTIMOS 7 DÍAS \(2\)/.test(C2.message)&&/PARTES DE EQUIPOS A CORREGIR \(1\)/.test(C2.message),true);
+  es('  y cuenta el inoperativo como urgente',/· 1 requiere atención/.test(C2.subject),true);
+}
+
 console.log('\n== Conexión ==');
 es('botón en la cabecera, antes de Actualizar',IX.indexOf('id="btnAvisos"')>0&&IX.indexOf('id="btnAvisos"')<IX.indexOf('id="btnRefresh"'),true);
 es('script cargado',/<script src="js\/avisos\.js\?v=\d+"><\/script>/.test(IX),true);

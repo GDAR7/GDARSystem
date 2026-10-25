@@ -2,7 +2,9 @@
 //  🔔 AVISOS AUTOMÁTICOS · la campana de la cabecera
 //
 //  Muestra los avisos que la base deja cada mañana (sql/avisos_automaticos.sql):
-//  documentos de equipos por vencer o vencidos y partes de turno no recibidos.
+//  documentos de equipos por vencer o vencidos, partes de turno no recibidos,
+//  inoperatividad de equipos de los últimos 7 días (con su motivo) y partes
+//  de equipos con datos a corregir.
 //  El correo diario lo manda la Edge Function avisos-diarios; esto es lo que
 //  se ve dentro del sistema.
 //
@@ -21,8 +23,22 @@ const _AV_NIVEL={
   vencido:{c:'#ef4444',t:'Vencido'},
   urgente:{c:'#f97316',t:'Urgente'},
   falta:  {c:'#f59e0b',t:'Falta'},
-  proximo:{c:'#eab308',t:'Próximo'}
+  proximo:{c:'#eab308',t:'Próximo'},
+  inoperativo:{c:'#ef4444',t:'Inoperativo'},
+  recuperado:{c:'#10b981',t:'Ya opera'},
+  dato:{c:'#94a3b8',t:'Revisar dato'}
 };
+// Avisos que describen un estado (la semana de inoperatividad de un equipo):
+// se generan cada día, pero solo interesa el más reciente de cada equipo.
+const _AV_UNO_POR_CLAVE=['equipo_inop','dato_inop'];
+function _avSoloUltimo(lista){
+  const vistos=new Set();
+  return lista.filter(a=>{
+    if(!_AV_UNO_POR_CLAVE.includes(a.tipo))return true;
+    if(vistos.has(a.clave))return false;      // la lista viene de la más nueva a la más vieja
+    vistos.add(a.clave);return true;
+  });
+}
 let _avLista=[];
 const _avEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -63,7 +79,7 @@ async function _avCargar(){
     const{data,error}=await supa.from('avisos').select('*').gte('fecha',_avHaceDias(_AV_DIAS))
       .order('fecha',{ascending:false}).order('id',{ascending:false});
     if(error){if(btn)btn.style.display='none';return;}     // sin la tabla todavía
-    _avLista=(data||[]).filter(a=>_avPuedeVer(a.modulo));
+    _avLista=_avSoloUltimo((data||[]).filter(a=>_avPuedeVer(a.modulo)));
   }catch(e){_avLista=[];}
   _avPintarBoton();
 }
