@@ -298,20 +298,56 @@ es('_ptGuardar deja el parte disponible',/_ptUltimo=\{\.\.\.rec\};\s*\r?\n\s*_pt
   vm.runInContext(ren.replace('const ','var ')+'\n'+ts,ctx);
   ctx.__filas=[];
   ctx.SUPA_TABLES={partesTurno:'partes_turno'};
-  ctx.supa={from:t=>({upsert:async f=>{ctx.__filas.push({t,f});return {error:null};}})};
+  // Tabla simulada: ids 1..4 ya guardados por otros. insert rechaza un id
+  // repetido como Postgres (23505). __roba: ids que «otro usuario» guarda justo
+  // entre la consulta del último id y el insert.
+  ctx.__ids=new Set([1,2,3,4]);ctx.__roba=[];ctx.__caida=false;
+  ctx.supa={from:t=>({
+    select:()=>({order:()=>({limit:async()=>{
+      if(ctx.__caida)throw new TypeError('Failed to fetch');
+      const m=Math.max(0,...ctx.__ids);
+      if(ctx.__roba.length)ctx.__ids.add(ctx.__roba.shift());
+      return {data:m?[{id:m}]:[],error:null};}})}),
+    insert:async f=>{
+      if(ctx.__ids.has(+f.id))return {error:{code:'23505',message:'duplicate key value violates unique constraint "partes_turno_pkey"'}};
+      ctx.__ids.add(+f.id);ctx.__filas.push({t,f});return {error:null};},
+    upsert:async()=>{throw new Error('no debe usarse upsert');}
+  })};
 }
 es('las librerías de PDF se cargan solo al compartir',/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(fs.readFileSync(R+'index.html','utf8')),false);
 
 // ── Compartir: el celular y la computadora, simulados ──────────────────────
 (async()=>{
   // Guardado contra la tabla real: la columna es «actividades», no «act»
-  const errUp=await ev('_ptUpsert({id:9,fecha:"2026-10-13",actividades:[{frente:"X"}],climaIni:"",creadoPor:"Juan"})');
+  ctx.DB.partesTurno=[];
+  ctx.__r={fecha:"2026-10-13",actividades:[{frente:"X"}],climaIni:"",creadoPor:"Juan"};
+  const errUp=await ev('_ptInsertar(__r)');
   const fila=(ctx.__filas[0]||{}).f||{};
   es('se guarda en partes_turno',(ctx.__filas[0]||{}).t,'partes_turno');
   es('  sin error',errUp,null);
+  es('  con el id siguiente al último de la BASE (no al de la lista local vacía)',fila.id,5);
   es('  las actividades van en su columna',JSON.stringify(fila.actividades),'[{"frente":"X"}]');
   es('  y NO en «act» (la del parte diario)','act' in fila,false);
   es('  el resto se convierte como siempre',fila.creado_por+' · '+fila.clima_ini,'Juan · null');
+
+  // Dos personas guardando a la vez: otro toma el 6 justo antes de mi insert
+  ctx.__roba=[6];
+  ctx.__r={fecha:"2026-10-13",actividades:[{frente:"Y"}]};
+  const e2=await ev('_ptInsertar(__r)');
+  es('si otro tomó el id al mismo tiempo, NO lo pisa: reintenta',e2+' · id '+ev('__r.id'),'null · id 7');
+  es('  los dos partes existen',[...ctx.__ids].sort((a,b)=>a-b).join(','),'1,2,3,4,5,6,7');
+  es('  el del otro queda intacto (nunca se usa upsert)',ctx.__filas.map(x=>x.f.id).join(','),'5,7');
+  // Choques seguidos: tras 3 intentos se rinde y avisa, sin perder lo escrito
+  ctx.__roba=[8,9,10,11];
+  const e3=await ev('_ptInsertar({fecha:"2026-10-13",actividades:[]})');
+  es('tras 3 choques seguidos avisa en vez de insistir',!!e3,true);
+  // Sin conexión al consultar el último id
+  ctx.__caida=true;
+  const e4=await ev('_ptInsertar({fecha:"2026-10-13",actividades:[]})');
+  es('sin conexión devuelve error (el formulario no se limpia)',!!e4,true);
+  ctx.__caida=false;
+  es('_ptGuardar solo agrega a la lista local si se guardó',/if\(err\)return;[^\n]*\r?\n\s*DB\.partesTurno\.push/.test(srcPT),true);
+  es('ya no usa el id de la lista descargada al entrar',/nidSeguro\('ptur'/.test(srcPT),false);
 
   const llamadas={imgs:0,pags:0};
   // Con scale:2 el lienzo mide 1588 px de ancho; 1.5 hojas A4 de alto

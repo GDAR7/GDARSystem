@@ -329,15 +329,38 @@ function _ptActualizarHoras(){
 // No pasa por supaUpsert: toSnake renombra «actividades» a «act» (la columna
 // del parte diario de equipos), y en partes_turno la columna se llama
 // actividades. Se convierte lo demás igual y se repone esa clave.
-async function _ptUpsert(rec){
+function _ptFila(rec){
   const fila=toSnake(rec);
   delete fila.act;
   fila.actividades=rec.actividades;
+  return fila;
+}
+// El último id que tiene la base AHORA, no el de la lista descargada al entrar
+async function _ptUltimoIdServidor(){
+  const {data,error}=await supa.from(SUPA_TABLES.partesTurno).select('id').order('id',{ascending:false}).limit(1);
+  if(error)throw error;
+  return data&&data.length?+data[0].id||0:0;
+}
+// Guarda el parte como registro NUEVO (insert, no upsert). Dos personas que
+// guardan a la vez no pueden pisarse: si el id ya existe, la base lo rechaza
+// (23505) y se reintenta con el siguiente. Pone en rec.id el id con que quedó.
+const _PT_INTENTOS=3;
+async function _ptInsertar(rec){
+  const local=(DB.partesTurno||[]).reduce((m,r)=>Math.max(m,+r.id||0),0);
   try{
-    const {error}=await supa.from(SUPA_TABLES.partesTurno).upsert(fila);
-    if(error){console.warn('[Supabase upsert] partes_turno',error.message);toast('Error al guardar: '+error.message,true);return error;}
-    return null;
-  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase',true);return e;}
+    let base=Math.max(local,await _ptUltimoIdServidor());
+    for(let i=0;i<_PT_INTENTOS;i++){
+      rec.id=base+1;
+      const {error}=await supa.from(SUPA_TABLES.partesTurno).insert(_ptFila(rec));
+      if(!error)return null;
+      const dup=error.code==='23505'||/duplicate key/i.test(error.message||'');
+      if(!dup){console.warn('[Supabase insert] partes_turno',error.message);toast('Error al guardar: '+error.message,true);return error;}
+      // Otro parte tomó ese id en el mismo instante: se vuelve a preguntar
+      base=Math.max(rec.id,await _ptUltimoIdServidor());
+    }
+    toast('Error al guardar: otro parte se guardaba al mismo tiempo. Vuelva a presionar Guardar.',true);
+    return new Error('id ocupado');
+  }catch(e){console.warn('[Supabase]',e);toast('Error de conexión con Supabase. Lo escrito no se perdió: vuelva a presionar Guardar.',true);return e;}
 }
 
 async function _ptGuardar(){
@@ -360,7 +383,7 @@ async function _ptGuardar(){
 
   DB.partesTurno=DB.partesTurno||[];
   const rec={
-    id:nidSeguro('ptur','partesTurno'),
+    id:null,                       // lo pone _ptInsertar con el último id de la base
     fecha,turno,actividades:acts,
     clima,climaObs:v('ptClimaObs'),climaIni,climaFin,horasPerdidas,
     pendiente:v('ptPendiente'),observaciones:v('ptObs'),
@@ -368,10 +391,10 @@ async function _ptGuardar(){
     creadoPor:(typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'')||null,
     creadoEn:new Date().toISOString()
   };
-  DB.partesTurno.push({...rec});
-  const err=await _ptUpsert(rec);
+  const err=await _ptInsertar(rec);
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar parte';}
-  if(err){DB.partesTurno=DB.partesTurno.filter(x=>+x.id!==+rec.id);return;}
+  if(err)return;                 // el formulario queda como estaba, para reintentar
+  DB.partesTurno.push({...rec});
 
   try{localStorage.setItem('gdar_pt_autor',autor);}catch(e){}
   // Queda a mano para verlo y compartirlo como documento

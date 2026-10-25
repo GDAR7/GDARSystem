@@ -306,7 +306,24 @@ async function refreshData(){
 }
 
 // ══ CARGA INICIAL DESDE SUPABASE ══
+// Carga liviana: quien entra a un solo módulo (la gente de campo) trae solo
+// las tablas que ese módulo usa, no las 85 del sistema. Desde el celular, con
+// señal de obra, es la diferencia entre unos KB y ~1 MB comprimido.
+const CARGA_POR_MODULO={
+  parteTurno:['frentesTrabajo']        // el selector de frente; el id del parte se pide al guardar
+};
 async function loadSheetsData(){
+  const _unico=typeof _cuModuloUnico==='function'?_cuModuloUnico():null;
+  if(_unico&&CARGA_POR_MODULO[_unico]){
+    try{
+      for(const dbKey of CARGA_POR_MODULO[_unico]){
+        const{data,error}=await supa.from(SUPA_TABLES[dbKey]).select('*').order('id').range(0,999);
+        if(!error&&data)DB[dbKey]=data.map(toCamel);
+      }
+      renderPage(AP);
+    }catch(e){console.warn('Supabase carga liviana:',e);}
+    return;
+  }
   try{
     // Carga paginada en bloques de 1000 hasta traer todo.
     // Supabase corta CUALQUIER select en 1000 filas: si una tabla las supera y no
