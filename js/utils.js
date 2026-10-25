@@ -316,6 +316,7 @@ function launchApp(){
   // Quien tiene un solo módulo entra directo a él: el Panel General no es suyo
   setPage(_cuModuloUnico()||'dashboard');
   loadSheetsData();
+  if(typeof _avCargar==='function')_avCargar();   // 🔔 avisos automáticos
 }
 
 // ── Usuario de un solo módulo ───────────────────────────────────────────────
