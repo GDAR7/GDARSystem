@@ -56,7 +56,7 @@ const EMPRESA_USERS=A=>[
   // Del Máster de Equipos solo ve la pestaña de Vencimientos (masterTabs)
   {codigo:'SIX_GQUI',nombre:'Sixto Quisoccapa G.',cargo:'Lider Control de EQ.',areas:['controlEquipos','administracion','seguridad','controlProyecto','mantenimiento'],areaModules:{administracion:['asistencia','tareaje'],seguridad:['cursosSeguridad'],controlProyecto:['pizarra','avanceMT','dailyReport','recrecimiento'],mantenimiento:['masterEquipos']},masterTabs:['venc']},
   {codigo:'MARTONY',nombre:'Antony Martinez',cargo:'Data Enter - 02',areas:['administracion','controlEquipos','controlProyecto','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],controlProyecto:['recrecimiento','dailyReport'],seguridad:['cursosSeguridad']}},
-  {codigo:'PIE_SA',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje']},readOnlyModules:['tareaje']},
+  {codigo:'PIE_SA',nombre:'Piero Sanchez',cargo:'Control de equipos - 02',areas:['administracion','controlEquipos','seguridad','operaciones'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],operaciones:['parteTurno']},readOnlyModules:['tareaje']},
   // Lo mismo que Piero Sanchez y, además, registra el Parte de Turno (con edición)
   {codigo:'IVA_VE',nombre:'Ivan G. Vera Saenz',cargo:'Controlador de equipos',areas:['administracion','controlEquipos','seguridad','operaciones'],areaModules:{administracion:['asistencia','resumenTareaje','tareaje'],operaciones:['parteTurno']},readOnlyModules:['tareaje']},
   // Remuneraciones ve todo; de Administración, solo el tareaje y sus vistas.

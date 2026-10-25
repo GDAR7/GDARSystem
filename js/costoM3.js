@@ -13,15 +13,138 @@
 //
 // HM y HH se calculan igual que en Cost Control (reutiliza _ccMatchEq y
 // _ccMatchHH) para que los importes cuadren entre los dos módulos.
+//
+// Los porcentajes son DE CADA MES (cambian de un período a otro) y se guardan
+// en Supabase, tabla costo_m3_pct (sql/costo_m3_pct.sql), con la clave del mes
+// de cierre del período 21→20 (AAAA-MM). Un mes sin porcentajes propios usa
+// los del último mes guardado anterior; si no hay ninguno, los de por defecto.
+// Así la Tendencia calcula cada mes con sus propios porcentajes.
+//
+// En la misma fila del mes:
+//   · hm_manual / hh_manual: el importe de HM o HH corregido a mano (a veces,
+//     por temas externos, no cuadra por algunos soles). Vale SOLO para su mes:
+//     no se hereda. Vacío = se usa el calculado.
+//   · hm, hh, subtotal, total, m3, costo_m3: la foto del mes al guardarlo,
+//     para tener el costo de cada mes aunque después cambien los partes.
+//
+// Nada se guarda solo: un mes guardado se ve BLOQUEADO con «✏ Editar». Al
+// editar se trabaja sobre un borrador (el costo se recalcula al instante como
+// vista previa) y «💾 Guardar» lo graba todo junto; «Cancelar» lo descarta.
+// Un mes que nunca se guardó abre directo en edición, esperando Guardar.
 
 const _CM3_PCT_DEF={reemb:15,gg:12,util:9.35};
-const _cm3Ls=(k,def)=>{const v=localStorage.getItem('_cm3'+k);return v===null?def:(+v||0);};
+const _CM3_PCT_TABLA='costo_m3_pct';
 let _cm3Offset=0;
 let _cm3Cap  =+localStorage.getItem('_amtCapM3')||12;      // comparte capacidad con Avance MT
-let _cm3Reemb=_cm3Ls('Reemb',_CM3_PCT_DEF.reemb);
-let _cm3Gg   =_cm3Ls('Gg',   _CM3_PCT_DEF.gg);
-let _cm3Util =_cm3Ls('Util', _CM3_PCT_DEF.util);
 let _cm3Modo =localStorage.getItem('_cm3Modo')||'seca';    // tarifa seca | full
+let _cm3PctMes={};             // 'AAAA-MM' → {reemb,gg,util,hmManual,hhManual,foto}
+let _cm3Borr=null;             // borrador del mes en edición: {k,reemb,gg,util,hmManual,hhManual,sucio}
+let _cm3PctEstado='';          // '' | 'cargando' | 'ok' | 'error'
+let _cm3PctErrT=0;             // si falla, se reintenta como mucho una vez por minuto
+let _cm3Guardando=false;
+
+const _CM3_MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const _cm3Clave=per=>String(per.hasta).slice(0,7);           // mes de cierre del período
+const _cm3MesEtq=k=>{const[y,m]=String(k).split('-');return _CM3_MESES[+m-1]+' '+y;};
+
+// Los porcentajes que valen para un período, y de dónde salen. Si ese mes se
+// está editando, valen los del borrador (vista previa).
+function _cm3PctDe(per){
+  const k=_cm3Clave(per);
+  const tres=r=>({reemb:r.reemb,gg:r.gg,util:r.util});
+  const base=_cm3PctMes[k]?{origen:'guardado',de:k}
+    :(()=>{const ant=Object.keys(_cm3PctMes).filter(x=>x<k).sort().pop();return ant?{origen:'heredado',de:ant}:{origen:'defecto',de:null};})();
+  if(_cm3Borr&&_cm3Borr.k===k)return{...tres(_cm3Borr),...base,editando:true};
+  if(base.origen==='guardado')return{...tres(_cm3PctMes[k]),...base};
+  if(base.origen==='heredado')return{...tres(_cm3PctMes[base.de]),...base};
+  return{..._CM3_PCT_DEF,...base};
+}
+// Importes de HM y HH corregidos a mano: solo los del propio mes (null = calculado)
+function _cm3AjusteDe(per){
+  const k=_cm3Clave(per);
+  const r=(_cm3Borr&&_cm3Borr.k===k)?_cm3Borr:(_cm3PctMes[k]||{});
+  const n=v=>v===null||v===undefined||v===''||!isFinite(+v)?null:+v;
+  return{hm:n(r.hmManual),hh:n(r.hhManual)};
+}
+const _cm3Editando=per=>!!(_cm3Borr&&_cm3Borr.k===_cm3Clave(per));
+
+// Se piden una vez al abrir el módulo; al llegar, se redibuja
+async function _cm3PctCargar(){
+  if(_cm3PctEstado==='cargando'||_cm3PctEstado==='ok')return;
+  if(_cm3PctEstado==='error'&&Date.now()-_cm3PctErrT<60000)return;
+  _cm3PctEstado='cargando';
+  try{
+    const{data,error}=await supa.from(_CM3_PCT_TABLA).select('*');
+    if(error)throw error;
+    _cm3PctMes={};
+    (data||[]).forEach(r=>{_cm3PctMes[String(r.periodo)]=_cm3FilaAMes(r);});
+    _cm3PctEstado='ok';
+  }catch(e){console.warn('[Costo m³] porcentajes',e);_cm3PctEstado='error';_cm3PctErrT=Date.now();}
+  if(document.getElementById('page-costoM3'))rCostoM3();
+}
+
+const _cm3Num=v=>v===null||v===undefined||v===''?null:+v;
+function _cm3FilaAMes(r){
+  return{reemb:+r.reemb||0,gg:+r.gg||0,util:+r.util||0,
+    hmManual:_cm3Num(r.hm_manual),hhManual:_cm3Num(r.hh_manual),
+    foto:r.subtotal==null?null:{hm:_cm3Num(r.hm),hh:_cm3Num(r.hh),subtotal:+r.subtotal,total:_cm3Num(r.total),
+      m3:_cm3Num(r.m3),costoM3:_cm3Num(r.costo_m3),en:r.actualizado_en||null,por:r.actualizado_por||''}};
+}
+
+// ── Editar · borrador · guardar ────────────────────────────────────────────
+// Abre el borrador del mes visible con lo que hoy vale para él
+function _cm3Editar0(){
+  const per=_cm3Periodo(), k=_cm3Clave(per);
+  const pct=_cm3PctDe(per), aj=_cm3AjusteDe(per);
+  _cm3Borr={k,reemb:pct.reemb,gg:pct.gg,util:pct.util,hmManual:aj.hm,hhManual:aj.hh,sucio:false};
+}
+function _cm3Editar(){_cm3Editar0();rCostoM3();}
+function _cm3Cancelar(){_cm3Borr=null;rCostoM3();}
+// Cambia un valor del borrador (no guarda nada todavía)
+function _cm3BorrSet(campo,v){
+  if(!_cm3Borr)return;
+  const per=_cm3Periodo();if(_cm3Borr.k!==_cm3Clave(per))return;
+  const txt=String(v==null?'':v).trim();
+  if(campo==='hm'||campo==='hh'){
+    const D=_cm3Datos();
+    const calc=campo==='hm'?D.hmCalc:D.hhCalc;
+    let val=txt===''?null:Math.max(0,Math.round((+txt||0)*100)/100);
+    if(val!=null&&Math.abs(val-calc)<0.005)val=null;          // igual al calculado: no es corrección
+    _cm3Borr[campo==='hm'?'hmManual':'hhManual']=val;
+  }else if(['reemb','gg','util'].includes(campo)){
+    _cm3Borr[campo]=Math.max(0,Math.round((+txt||0)*100)/100);
+  }else return;
+  _cm3Borr.sucio=true;
+  rCostoM3();
+}
+function _cm3Restaurar(){
+  if(!_cm3Borr)return;
+  Object.assign(_cm3Borr,_CM3_PCT_DEF,{sucio:true});
+  rCostoM3();
+}
+// Graba el mes visible: porcentajes, importes corregidos y la foto del costo
+async function _cm3Guardar(){
+  const per=_cm3Periodo(), k=_cm3Clave(per);
+  if(!_cm3Borr||_cm3Borr.k!==k||_cm3Guardando)return;
+  const D=_cm3Datos();                        // con el borrador: es la foto que se guarda
+  const r2=v=>Math.round((+v||0)*100)/100;
+  const quien=(typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'')||null;
+  const ahora=new Date().toISOString();
+  const b=_cm3Borr;
+  const fila={periodo:k,reemb:b.reemb,gg:b.gg,util:b.util,hm_manual:b.hmManual,hh_manual:b.hhManual,
+    hm:r2(D.hm),hh:r2(D.hh),subtotal:r2(D.base),total:r2(D.total),m3:r2(D.vol.m3),
+    costo_m3:Math.round(D.costoM3*10000)/10000,actualizado_en:ahora,actualizado_por:quien};
+  _cm3Guardando=true;rCostoM3();
+  try{
+    const{error}=await supa.from(_CM3_PCT_TABLA).upsert(fila);
+    if(error)throw error;
+    _cm3PctMes[k]=_cm3FilaAMes(fila);
+    _cm3Borr=null;                                // queda guardado y bloqueado
+    toast('✓ '+_cm3MesEtq(k)+' guardado');
+  }catch(e){
+    toast('No se guardó '+_cm3MesEtq(k)+': '+((e&&e.message)||e),true);   // el borrador sigue abierto
+  }finally{_cm3Guardando=false;rCostoM3();}
+}
 
 const _cm3N=(v,d)=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d});
 const _cm3S=v=>'S/ '+_cm3N(v);
@@ -31,19 +154,15 @@ const _cm3Esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 const _cm3MatOk=m=>{const s=String(m||'').trim();return !!s&&!/^sin\s*material/i.test(s);};
 
 function _cm3Set(k,v){
-  if(k==='cap'){_cm3Cap=Math.max(1,+v||12);localStorage.setItem('_amtCapM3',_cm3Cap);if(typeof _amtCapM3!=='undefined')_amtCapM3=_cm3Cap;}
-  else if(k==='reemb'){_cm3Reemb=Math.max(0,+v||0);localStorage.setItem('_cm3Reemb',_cm3Reemb);}
-  else if(k==='gg'){_cm3Gg=Math.max(0,+v||0);localStorage.setItem('_cm3Gg',_cm3Gg);}
-  else if(k==='util'){_cm3Util=Math.max(0,+v||0);localStorage.setItem('_cm3Util',_cm3Util);}
-  rCostoM3();
+  if(k==='cap'){_cm3Cap=Math.max(1,+v||12);localStorage.setItem('_amtCapM3',_cm3Cap);if(typeof _amtCapM3!=='undefined')_amtCapM3=_cm3Cap;rCostoM3();return;}
+  _cm3BorrSet(k,v);
 }
 function _cm3SetModo(m){_cm3Modo=m;localStorage.setItem('_cm3Modo',m);rCostoM3();}
-function _cm3Restaurar(){
-  _cm3Reemb=_CM3_PCT_DEF.reemb;_cm3Gg=_CM3_PCT_DEF.gg;_cm3Util=_CM3_PCT_DEF.util;
-  localStorage.setItem('_cm3Reemb',_cm3Reemb);localStorage.setItem('_cm3Gg',_cm3Gg);localStorage.setItem('_cm3Util',_cm3Util);
-  rCostoM3();
+// Cambiar de mes con cambios sin guardar: se pregunta antes de perderlos
+function _cm3Nav(d){
+  if(_cm3Borr&&_cm3Borr.sucio&&typeof confirm==='function'&&!confirm('Hay cambios sin guardar en '+_cm3MesEtq(_cm3Borr.k)+'. ¿Descartarlos?'))return;
+  _cm3Borr=null;_cm3Offset+=d;rCostoM3();
 }
-function _cm3Nav(d){_cm3Offset+=d;rCostoM3();}
 
 // Período 21→20 con desplazamiento propio
 function _cm3Periodo(){
@@ -115,6 +234,45 @@ function _cm3Volumen(per){
     areas:Object.values(byArea).sort((a,b)=>b.m3-a.m3)};
 }
 
+// Estado del mes visible: guardado, en edición, de dónde salen los porcentajes
+function _cm3PctChip(D){
+  const p=D.pct, mes=D.per.label;
+  let c,t,tit='';
+  if(_cm3PctEstado==='cargando'||_cm3PctEstado===''){c='#94a3b8';t='⏳ cargando…';}
+  else if(_cm3PctEstado==='error'){c='#ef4444';t='⚠ sin conexión con lo guardado';tit='¿Ya se corrió sql/costo_m3_pct.sql?';}
+  else if(p.editando){c='#f59e0b';t='✏ Editando '+mes+' · sin guardar';
+    tit=p.origen==='guardado'?'Cambios sobre lo guardado':p.origen==='heredado'?'Porcentajes de partida: los de '+_cm3MesEtq(p.de):'Porcentajes de partida: los de por defecto';}
+  else{c='#10b981';t='✓ '+mes+' guardado';tit='Para cambiarlo, presione Editar';}
+  return `<span title="${_cm3Esc(tit)}" style="margin-left:auto;font-size:.68rem;font-weight:700;padding:.2rem .55rem;border-radius:999px;border:1px solid ${c};color:${c};white-space:nowrap">${_cm3Esc(t)}</span>`;
+}
+
+// Botones del mes: bloqueado → Editar; en edición → Guardar / Cancelar / Por defecto
+function _cm3Botones(D){
+  const b=(txt,fn,c,lleno,tit)=>`<button onclick="${fn}" ${_cm3Guardando?'disabled':''} title="${_cm3Esc(tit||'')}" style="font-size:.72rem;padding:.26rem .8rem;border-radius:6px;border:1px solid ${c};background:${lleno?c:'transparent'};color:${lleno?'#fff':c};cursor:pointer;font-weight:800">${txt}</button>`;
+  if(_cm3PctEstado!=='ok')return '';
+  const mes=D.per.label;
+  if(!_cm3Editando(D.per))return b('✏ Editar','_cm3Editar()','#3b82f6',false,'Cambiar porcentajes o importes de '+mes);
+  const guardado=!!_cm3PctMes[_cm3Clave(D.per)];
+  return b(_cm3Guardando?'Guardando…':'💾 Guardar','_cm3Guardar()','#059669',true,'Grabar '+mes+': porcentajes, HM, HH, Sub Total, total y costo por m³')
+    +(guardado?b('Cancelar','_cm3Cancelar()','#94a3b8',false,'Descartar los cambios'):'')
+    +b('↺ Por defecto','_cm3Restaurar()','#94a3b8',false,'Poner 15 % · 12 % · 9.35 % (se graban al Guardar)');
+}
+// Lo último que se guardó del mes, y si los partes cambiaron desde entonces
+function _cm3FotoHtml(D){
+  const r=_cm3PctMes[_cm3Clave(D.per)];
+  if(!r||!r.foto)return '';
+  const f=r.foto;
+  const fecha=f.en?new Date(f.en).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const cambio=!_cm3Editando(D.per)&&Math.abs((+f.subtotal||0)-D.base)>0.01;
+  return `<div style="padding:.6rem .8rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--muted2);line-height:1.6">
+    💾 Guardado${fecha?' el '+_cm3Esc(fecha):''}${f.por?' por '+_cm3Esc(f.por):''} ·
+    Sub Total <b style="color:var(--text);font-family:monospace">${_cm3S(f.subtotal)}</b> ·
+    Total <b style="color:var(--text);font-family:monospace">${_cm3S(f.total)}</b> ·
+    Costo por m³ <b style="color:#10b981;font-family:monospace">${_cm3S(f.costoM3)}</b>
+    ${cambio?`<div style="margin-top:.35rem;color:#f59e0b">⚠ Los partes cambiaron desde que se guardó (Sub Total actual ${_cm3S(D.base)}). Para actualizar lo guardado: ✏ Editar → 💾 Guardar.</div>`:''}
+  </div>`;
+}
+
 // ── Consolidado ────────────────────────────────────────────────────────────
 function _cm3Datos(){
   const per=_cm3Periodo();
@@ -123,23 +281,32 @@ function _cm3Datos(){
   const{filas:hhRows,sinTarifa}=_cm3Personal(per);
   const vol=_cm3Volumen(per);
 
-  const hm=eqRows.reduce((s,r)=>s+r.venta,0);
-  const hh=hhRows.reduce((s,r)=>s+r.venta,0);
+  const hmCalc=eqRows.reduce((s,r)=>s+r.venta,0);
+  const hhCalc=hhRows.reduce((s,r)=>s+r.venta,0);
+  const aj=_cm3AjusteDe(per);                // importes corregidos a mano, si hay
+  const hm=aj.hm!=null?aj.hm:hmCalc;
+  const hh=aj.hh!=null?aj.hh:hhCalc;
   const base=hm+hh;
-  const reemb=base*_cm3Reemb/100;
-  const gg=base*_cm3Gg/100;
-  const util=base*_cm3Util/100;
+  const pct=_cm3PctDe(per);                 // los porcentajes de ESTE mes
+  const reemb=base*pct.reemb/100;
+  const gg=base*pct.gg/100;
+  const util=base*pct.util/100;
   const total=base+reemb+gg+util;
   const costoM3=vol.m3>0?total/vol.m3:0;
   const costoViaje=vol.viajes>0?total/vol.viajes:0;
 
-  return{per,KEY,eqRows,hhRows,sinTarifa,vol,hm,hh,base,reemb,gg,util,total,costoM3,costoViaje};
+  return{per,KEY,eqRows,hhRows,sinTarifa,vol,hm,hh,hmCalc,hhCalc,hmManual:aj.hm!=null,hhManual:aj.hh!=null,
+    base,pct,reemb,gg,util,total,costoM3,costoViaje};
 }
 
 // ── Pantalla ───────────────────────────────────────────────────────────────
 function rCostoM3(){
   const pg=document.getElementById('page-costoM3');if(!pg)return;
+  _cm3PctCargar();                          // porcentajes por mes, una vez
+  {const k=_cm3Clave(_cm3Periodo());
+   if(_cm3PctEstado==='ok'&&!_cm3PctMes[k]&&!(_cm3Borr&&_cm3Borr.k===k))_cm3Editar0();}
   const D=_cm3Datos();
+  const ED=_cm3Editando(D.per);
   const per=D.per;
   const AC='#059669';
 
@@ -160,10 +327,23 @@ function rCostoM3(){
     <td style="${TD};color:var(--muted2);font-size:.72rem">${det||''}</td>
     <td style="${TD};text-align:right;font-family:monospace;font-weight:${fuerte?'900':'700'};color:${color||'var(--text)'}">${_cm3S(val)}</td>
   </tr>`;
+  // HM y HH: importe calculado; en edición se puede corregir a mano para este mes
+  const btnMini='font-size:.66rem;padding:.12rem .4rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer';
+  const montoFila=(lbl,campo,det,val,calc,manual,color)=>{
+    const importe=ED
+      ?`<input type="number" step="0.01" min="0" value="${(Math.round(val*100)/100).toFixed(2)}" onchange="_cm3BorrSet('${campo}',this.value)" style="${inp};width:130px" title="Importe de este mes">`
+      :_cm3S(val);
+    return `<tr>
+      <td style="${TD};color:${color}">${lbl}${manual?' <span style="font-size:.58rem;font-weight:800;padding:.05rem .35rem;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b">EDITADO</span>':''}</td>
+      <td style="${TD};color:var(--muted2);font-size:.72rem">${det}${manual?`<br><span style="color:#f59e0b">calculado ${_cm3S(calc)} · diferencia ${(val-calc>=0?'+':'−')+_cm3S(Math.abs(val-calc))}</span>${ED?`
+        <button onclick="_cm3BorrSet('${campo}','')" title="Volver al importe calculado" style="${btnMini};margin-left:.3rem">↺ usar calculado</button>`:''}`:''}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${color};white-space:nowrap">${importe}</td>
+    </tr>`;
+  };
   const pctFila=(lbl,campo,valPct,val,color)=>`<tr>
     <td style="${TD};color:${color}">${lbl}</td>
     <td style="${TD};color:var(--muted2);font-size:.72rem">
-      <input type="number" step="0.01" min="0" value="${valPct}" onchange="_cm3Set('${campo}',this.value)" style="${inp}"> %
+      ${ED?`<input type="number" step="0.01" min="0" value="${valPct}" onchange="_cm3BorrSet('${campo}',this.value)" style="${inp}">`:`<b style="color:var(--text);font-family:monospace">${_cm3N(valPct,2)}</b>`} %
       <span style="opacity:.7">de ${_cm3S(D.base)}</span>
     </td>
     <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${color}">${_cm3S(val)}</td>
@@ -217,7 +397,8 @@ function rCostoM3(){
       ${btnModo('seca','Seca')}${btnModo('full','Full')}
       <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-left:.5rem">Cap. m³/viaje</span>
       <input type="number" step="0.5" min="1" value="${_cm3Cap}" onchange="_cm3Set('cap',this.value)" style="${inp}">
-      <button onclick="_cm3Restaurar()" style="margin-left:auto;font-size:.7rem;padding:.24rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer" title="Volver a 15 % · 12 % · 9.35 %">↺ Porcentajes por defecto</button>
+      ${_cm3PctChip(D)}
+      ${_cm3Botones(D)}
     </div>
 
     <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>12?'1.15rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>
@@ -233,15 +414,15 @@ function rCostoM3(){
         <div class="card-body" style="padding:0"><table style="width:100%;border-collapse:collapse">
           <thead><tr><th style="${TH};text-align:left">Concepto</th><th style="${TH};text-align:left">Detalle</th><th style="${TH};text-align:right">Importe</th></tr></thead>
           <tbody>
-            ${linea('Horas Máquina (HM)',`${D.eqRows.length} equipo(s) · tarifa ${D.KEY==='full'?'full':'seca'}`,D.hm,'#f59e0b')}
-            ${linea('Horas Hombre (HH)',`${D.hhRows.length} persona(s) · ${per.dias} días`,D.hh,'#8b5cf6')}
+            ${montoFila('Horas Máquina (HM)','hm',`${D.eqRows.length} equipo(s) · tarifa ${D.KEY==='full'?'full':'seca'}`,D.hm,D.hmCalc,D.hmManual,'#f59e0b')}
+            ${montoFila('Horas Hombre (HH)','hh',`${D.hhRows.length} persona(s) · ${per.dias} días`,D.hh,D.hhCalc,D.hhManual,'#8b5cf6')}
             ${linea('Sub Total (HM + HH)','base de los porcentajes',D.base,'var(--text)',true)}
-            ${pctFila('Reembolsables','reemb',_cm3Reemb,D.reemb,'#06b6d4')}
-            ${pctFila('Gastos Generales','gg',_cm3Gg,D.gg,'#ef4444')}
-            ${pctFila('Utilidad','util',_cm3Util,D.util,'#10b981')}
+            ${pctFila('Reembolsables','reemb',D.pct.reemb,D.reemb,'#06b6d4')}
+            ${pctFila('Gastos Generales','gg',D.pct.gg,D.gg,'#ef4444')}
+            ${pctFila('Utilidad','util',D.pct.util,D.util,'#10b981')}
             <tr style="background:rgba(5,150,105,.10)">
               <td style="${TD};font-weight:900;color:${AC}">TOTAL DEL PERÍODO</td>
-              <td style="${TD};color:var(--muted2);font-size:.72rem">${_cm3N(_cm3Reemb+_cm3Gg+_cm3Util,2)} % sobre la base</td>
+              <td style="${TD};color:var(--muted2);font-size:.72rem">${_cm3N(D.pct.reemb+D.pct.gg+D.pct.util,2)} % sobre la base</td>
               <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${AC};font-size:.95rem">${_cm3S(D.total)}</td>
             </tr>
             <tr>
@@ -256,6 +437,7 @@ function rCostoM3(){
             </tr>
           </tbody>
         </table></div>
+        ${_cm3FotoHtml(D)}
       </div>
 
       <div class="card">
@@ -351,7 +533,14 @@ function _cm3Diario(){
     });
   });
 
-  const f=1+(_cm3Reemb+_cm3Gg+_cm3Util)/100;
+  const pct=_cm3PctDe(per);
+  const f=1+(pct.reemb+pct.gg+pct.util)/100;
+  // Importes corregidos a mano: los días se escalan en la misma proporción,
+  // para que la suma de los días siga dando el total del período
+  const aj=_cm3AjusteDe(per);
+  const sHm=fechas.reduce((a,fe)=>a+dia[fe].hm,0), sHh=fechas.reduce((a,fe)=>a+dia[fe].hh,0);
+  const kHm=aj.hm!=null?(sHm>0?aj.hm/sHm:0):1, kHh=aj.hh!=null?(sHh>0?aj.hh/sHh:0):1;
+  if(kHm!==1||kHh!==1)fechas.forEach(fe=>{dia[fe].hm*=kHm;dia[fe].hh*=kHh;});
   const filas=fechas.map(fe=>{
     const d=dia[fe];
     const base=d.hm+d.hh;
