@@ -218,6 +218,7 @@ function _almRenderStock(){
   if(_almStockPage>=pags)_almStockPage=pags-1;
   const desde=_almStockPage*ALM_STOCK_PAGE, hasta=Math.min(desde+ALM_STOCK_PAGE,total);
   const conStock=L.filter(o=>o.stock>1e-9).length, cero=L.filter(o=>Math.abs(o.stock)<=1e-9).length, neg=L.filter(o=>o.stock<-1e-9).length;
+  _almTfootStock(L);
   const tb=document.getElementById('tbAlm');
   if(tb)tb.innerHTML=total?L.slice(desde,hasta).map(o=>{
     const u=o.ult||{};
@@ -243,6 +244,49 @@ function _almRenderStock(){
         <button class="btn btn-out btn-sm" style="padding:.25rem .65rem;font-size:.75rem" onclick="_almStockPage=Math.min(${pags-1},_almStockPage+1);rAlm()" ${_almStockPage===pags-1?'disabled':''}>Sig. →</button>
       </div>`:'';
   }
+}
+
+// ── Subtotal de TODO lo filtrado (no solo la página visible) ─────────────
+// Si todo lo filtrado tiene la misma unidad, se suma y se dice cuál; si mezcla
+// unidades, se suma igual pero se avisa que la cifra junta unidades distintas.
+function _almUnidadTxt(lista){
+  const u=new Set(lista.map(r=>String(r.unidad||'').trim().toLowerCase()).filter(Boolean));
+  return u.size===1?{und:[...u][0],mezcla:false}:{und:'uds',mezcla:u.size>1};
+}
+function _almSubtotalMovs(filas){
+  let e=0,s=0;
+  filas.forEach(r=>{if(r.tipo==='E')e+=+r.cant||0;else s+=+r.cant||0;});
+  return{n:filas.length,e,s,neto:e-s,..._almUnidadTxt(filas)};
+}
+function _almTfootMovs(filas){
+  const el=document.getElementById('almTfoot');if(!el)return;
+  if(!filas.length){el.innerHTML='';return;}
+  const t=_almSubtotalMovs(filas);
+  const TD='padding:.55rem .6rem;border-top:2px solid var(--border);background:var(--panel2);font-size:.78rem;vertical-align:middle';
+  el.innerHTML=`<tr>
+    <td colspan="7" style="${TD};font-weight:800;color:var(--text)">SUBTOTAL
+      <span style="font-weight:400;color:var(--muted2);font-size:.72rem">· ${t.n} registro${t.n===1?'':'s'} filtrado${t.n===1?'':'s'} · en ${_almEscH(t.und)}</span>
+      ${t.mezcla?'<div style="font-weight:400;color:#f59e0b;font-size:.68rem">⚠ Lo filtrado tiene varias unidades: la suma las mezcla. Filtre un material para un total exacto.</div>':''}</td>
+    <td class="tr mono" style="${TD};white-space:nowrap;line-height:1.5">
+      <div style="color:#10b981;font-weight:800" title="Entradas">⬆ ${fmtN(t.e)}</div>
+      <div style="color:#ef4444;font-weight:800" title="Salidas">⬇ ${fmtN(t.s)}</div></td>
+    <td class="tr mono" style="${TD};white-space:nowrap;font-weight:900;color:${t.neto<0?'#ef4444':'#10b981'}" title="Entradas − salidas de lo filtrado">${fmtN(t.neto)}<div style="font-size:.6rem;font-weight:600;color:var(--muted2)">neto</div></td>
+    <td colspan="4" style="${TD}"></td>
+  </tr>`;
+}
+function _almTfootStock(L){
+  const el=document.getElementById('almTfoot');if(!el)return;
+  if(!L.length){el.innerHTML='';return;}
+  const u=_almUnidadTxt(L);
+  const tot=L.reduce((a,o)=>a+(+o.stock||0),0);
+  const TD='padding:.55rem .6rem;border-top:2px solid var(--border);background:var(--panel2);font-size:.78rem';
+  el.innerHTML=`<tr>
+    <td colspan="3" style="${TD};font-weight:800;color:var(--text)">TOTAL
+      <span style="font-weight:400;color:var(--muted2);font-size:.72rem">· ${L.length} material${L.length===1?'':'es'} filtrado${L.length===1?'':'s'} · en ${_almEscH(u.und)}</span>
+      ${u.mezcla?'<div style="font-weight:400;color:#f59e0b;font-size:.68rem">⚠ Varias unidades: la suma las mezcla.</div>':''}</td>
+    <td class="tr mono" style="${TD};font-weight:900;font-size:.9rem;color:${tot>0?'#10b981':'#ef4444'}">${fmtN(tot)}</td>
+    <td colspan="4" style="${TD}"></td>
+  </tr>`;
 }
 
 // Excel de la vista «Último stock»
@@ -881,7 +925,11 @@ function rAlmChart(){
   // Un solo material (o todos con la misma unidad): se muestra su unidad
   const und=unidades.size===1&&[...unidades][0]?[...unidades][0]:'uds';
   const maxV=Math.max(1,...data.flatMap(d=>[d.e,d.s]));
-  const CH=150;
+  const CH=150, ETQ=34;             // alto de las barras + espacio para el valor
+  // El valor de cada barra, vertical para que no choque con el día vecino
+  const etq=(v,c)=>v>0?`<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:.55rem;font-weight:700;color:${c};white-space:nowrap;line-height:1;margin-bottom:2px">${fmtN(v)}</span>`:'';
+  const col=(v,h,c,tit)=>`<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${CH+ETQ}px">
+      ${etq(v,c)}<div title="${tit}" style="width:9px;background:${c};border-radius:2px 2px 0 0;height:${h}px;min-height:${v>0?2:0}px;cursor:default"></div></div>`;
   let bars='';
   data.forEach(({d,e,s})=>{
     const he=Math.round((e/maxV)*CH);
@@ -889,9 +937,9 @@ function rAlmChart(){
     const today_d=new Date().getDate(),today_m=new Date().getMonth()+1,today_y=new Date().getFullYear();
     const isToday=d===today_d&&mes===today_m&&anio===today_y;
     bars+=`<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:20px;${isToday?'background:var(--panel2);border-radius:4px;':''}">
-      <div style="display:flex;align-items:flex-end;gap:2px;height:${CH}px">
-        <div title="Entradas día ${d}: ${fmtN(e)} ${und}" style="width:9px;background:#10b981;border-radius:2px 2px 0 0;height:${he}px;min-height:${e>0?2:0}px;cursor:default"></div>
-        <div title="Salidas día ${d}: ${fmtN(s)} ${und}" style="width:9px;background:#ef4444;border-radius:2px 2px 0 0;height:${hs}px;min-height:${s>0?2:0}px;cursor:default"></div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:${CH+ETQ}px">
+        ${col(e,he,'#10b981','Entradas día '+d+': '+fmtN(e)+' '+und)}
+        ${col(s,hs,'#ef4444','Salidas día '+d+': '+fmtN(s)+' '+und)}
       </div>
       <div style="font-size:.58rem;color:${isToday?'var(--alm)':'var(--muted2)'};font-weight:${isToday?700:400};margin-top:3px">${d}</div>
     </div>`;
@@ -953,6 +1001,7 @@ function rAlm(){
   const saldoMap=_almSaldoMap();
   // Aplicar todos los filtros
   let filasMostrar=_almFiltrarMovs(filas,true);
+  _almTfootMovs(filasMostrar);          // suma de TODO lo filtrado, no solo la página
   // Paginación
   const _almTotal=filasMostrar.length;
   const _almTotalPags=Math.max(1,Math.ceil(_almTotal/ALM_PAGE_SIZE));

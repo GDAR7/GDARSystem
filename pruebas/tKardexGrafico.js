@@ -68,6 +68,37 @@ nodo('almChartMes').value='11';
 filtrar('_almFiltText="cemento"');
 es('un mes sin movimientos de lo filtrado lo dice',/Sin movimientos de lo filtrado en este mes/.test(nodo('almChartBody').innerHTML),true);
 
+console.log('\n== Subtotal de todo lo filtrado ==');
+nodo('almChartMes').value='10';
+const pie=()=>nodo('almTfoot').innerHTML;
+filtrar('_almFiltText="cemento"');
+es('aparece al pie de la tabla',/SUBTOTAL/.test(pie()),true);
+es('  cuenta todos los registros filtrados (no solo la página)',/· 4 registros filtrados · en bls/.test(pie()),true);
+es('  entradas: 150 + 658 + 100',/⬆ 908</.test(pie()),true);
+es('  salidas: 120',/⬇ 120</.test(pie()),true);
+es('  neto: 788',/>788<div/.test(pie()),true);
+es('  una sola unidad: sin aviso',/varias unidades/.test(pie()),false);
+filtrar('_almFiltMat="EPP"');
+es('varias unidades: lo avisa',/varias unidades: la suma las mezcla/.test(pie()),true);
+filtrar('_almFiltText="zzz"');
+es('sin resultados: sin subtotal',pie(),'');
+// Más de una página: el subtotal suma todo
+for(let i=0;i<30;i++)DB.almacen.push(m(100+i,'2026-10-20','INS-0099','ARENA','m3','E',2,'EPY-004-26'));
+filtrar('_almFiltText="arena"');
+es('con 30 registros (2 páginas) suma los 30: 60 m3',/· 30 registros filtrados · en m3/.test(pie())&&/⬆ 60</.test(pie()),true);
+es('  aunque la tabla muestre 20',(nodo('tbAlm').innerHTML.match(/<tr>/g)||[]).length,20);
+DB.almacen.splice(-30);
+filtrar('_almFiltText="cemento";_almModoStock=true');
+es('en «Último stock»: total de stock de lo filtrado',/TOTAL[\s\S]*1 material filtrado[\s\S]*>788</.test(pie()),true);
+ev('_almModoStock=false');
+
+console.log('\n== El valor encima de cada barra ==');
+filtrar('_almFiltText="cemento"');
+const G=nodo('almChartBody').innerHTML;
+es('la entrada del día 7 muestra 658',/writing-mode:vertical-rl[^>]*color:#10b981[^>]*>658</.test(G),true);
+es('la salida del día 7 muestra 120',/writing-mode:vertical-rl[^>]*color:#ef4444[^>]*>120</.test(G),true);
+es('los días sin movimiento no muestran «0»',(G.match(/writing-mode:vertical-rl/g)||[]).length,3);
+
 console.log('\n== Una sola regla de filtros ==');
 const SRC=fs.readFileSync(R+'js/almacen.js','utf8');
 es('la tabla usa _almFiltrarMovs',/let filasMostrar=_almFiltrarMovs\(filas,true\);/.test(SRC),true);
