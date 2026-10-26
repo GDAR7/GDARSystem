@@ -1539,12 +1539,18 @@ function gReembCodMasivo(){
 
 // ══ TAB: DETALLE POR CÓDIGO (segmentado por Cód. Reemb · vista A4 horizontal para imprimir/guardar PDF) ══
 let _reembDetCod='';
+let _reembDetEdp='';        // filtro EDP de esta pestaña ('' = todos; _REEMB_SIN_EDP = sin EDP)
 const _rdN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _rdDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
 function _reembDetSetCod(c){_reembDetCod=c;rReembDetalle();}
+function _reembDetSetEdp(v){_reembDetEdp=v;rReembDetalle();}
+// Ítems del período y del EDP elegido: la base de los códigos y del detalle
+function _reembDetBase(){
+  return (DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha)&&(!_reembDetEdp||_reembEdpDe(r)===_reembDetEdp));
+}
 // Agrupa código → proveedor → factura → ítems (igual estructura que se imprime)
 function _reembDetGrupos(){
-  const all=(DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha));
+  const all=_reembDetBase();
   const rows=_reembDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_reembDetCod):all;
   const byCod={};
   rows.forEach(r=>{
@@ -1611,7 +1617,7 @@ function _reembDetDocHtml(){
       <img src="${_logoUrl}" style="height:44px;object-fit:contain">
       <div style="text-align:center;flex:1">
         <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES</div>
-        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
+        <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}${_reembDetEdp?' · '+_reembEdpEtq(_reembDetEdp).toUpperCase():''}</div>
       </div>
       <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
     </div>
@@ -1621,7 +1627,7 @@ function _reembDetDocHtml(){
 }
 function _reembDetPrint(){
   const{rows}=_reembDetGrupos();
-  if(!rows.length){toast('No hay registros para imprimir con este código',true);return;}
+  if(!rows.length){toast('No hay registros para imprimir con este código'+(_reembDetEdp?' y '+_reembEdpEtq(_reembDetEdp):''),true);return;}
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables</title>
   <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
@@ -1633,12 +1639,27 @@ function _reembDetPrint(){
 }
 function rReembDetalle(){
   const pg=document.getElementById('fpTab-detalle');if(!pg)return;
-  const all=(DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha));
+  // EDP presentes en el período (orden numérico, «Sin EDP» al final)
+  const delPeriodo=(DB.reembolsables||[]).filter(r=>_fpEnRango(r.fecha));
+  const edps=[...new Set(delPeriodo.map(_reembEdpDe))].sort((a,b)=>{
+    if(a===_REEMB_SIN_EDP)return 1;if(b===_REEMB_SIN_EDP)return -1;
+    const na=parseFloat(a),nb=parseFloat(b);
+    return (isFinite(na)&&isFinite(nb)&&na!==nb)?na-nb:a.localeCompare(b,'es',{numeric:true});
+  });
+  if(_reembDetEdp&&!edps.includes(_reembDetEdp))_reembDetEdp='';
+  // Los códigos que se ofrecen son los del EDP elegido
+  const all=_reembDetBase();
   const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
+  if(_reembDetCod&&!cods.includes(_reembDetCod))_reembDetCod='';
   const chip=(val,lbl)=>{const sel=_reembDetCod===val;return`<button onclick="_reembDetSetCod('${val.replace(/'/g,"\\'")}')" style="font-size:.72rem;padding:.32rem .8rem;border-radius:20px;border:1px solid ${sel?'var(--alm)':'var(--border)'};background:${sel?'var(--alm)':'var(--panel2)'};color:${sel?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'};white-space:nowrap">${lbl}</button>`;};
   pg.innerHTML=`
     <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+      <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">EDP</span>
+      <select id="reembDetEdp" onchange="_reembDetSetEdp(this.value)" style="background:var(--panel);border:1px solid ${_reembDetEdp?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;cursor:pointer;outline:none;font-family:monospace;margin-right:.6rem">
+        <option value="">— Todos —</option>
+        ${edps.map(e=>`<option value="${String(e).replace(/"/g,'&quot;')}" ${e===_reembDetEdp?'selected':''}>${_reembEdpEtq(e)}</option>`).join('')}
+      </select>
       <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Código</span>
       ${chip('','Todos')}
       ${cods.map(c=>chip(c,c+(codMap[c]?' — '+codMap[c]:''))).join('')}

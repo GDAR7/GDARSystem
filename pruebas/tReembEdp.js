@@ -93,5 +93,37 @@ es('al guardar, la exige y la guarda',/Ingrese la fecha de la factura/.test(gu)&
   es('  sin fecha no guarda y avisa',guard.join(' | '),'✗ Ingrese la fecha de la factura');
 }
 
+console.log('\n== Detalle por Código: filtro EDP ==');
+{
+  const ini=src.indexOf('// ══ TAB: DETALLE POR CÓDIGO');
+  const fin=src.indexOf('\n}',src.indexOf('function rReembDetalle(){'))+2;
+  const nd={};const nodo3=id=>nd[id]||(nd[id]={id,innerHTML:'',value:''});
+  const c3=vm.createContext({DB,console,Math,Number,String,Object,Array,JSON,Set,Map,isFinite,parseFloat,Date,
+    document:{getElementById:nodo3},window:{location:{href:'https://ecosermo.gdarei.com/index.html'}},EMPRESA:{logo:'img/logo.png'},
+    toast(){},_fpFechaDesde:'',_fpFechaHasta:''});
+  vm.runInContext('function _fpEnRango(){return true;}\n'+src.slice(src.indexOf("const _REEMB_SIN_EDP="),src.indexOf('// Los filtros de la tabla, los KPI y el Excel'))
+    +'\n'+src.slice(ini,fin),c3,{filename:'detalle.js'});
+  const e3=x=>vm.runInContext(x,c3);
+  const P=()=>nodo3('fpTab-detalle').innerHTML;
+  e3('rReembDetalle()');
+  es('aparece el selector EDP antes de los códigos',/<select id="reembDetEdp"/.test(P())&&P().indexOf('reembDetEdp')<P().indexOf('>Código<'),true);
+  const ops=[...P().match(/<select id="reembDetEdp"[\s\S]*?<\/select>/)[0].matchAll(/<option value="([^"]*)"[^>]*>([^<]*)</g)].map(m=>m[2]);
+  es('  EDP en orden, «Sin EDP» al final',ops.join(' | '),'— Todos — | EDP 4 | EDP 5 | EDP 6 | EDP 10 | Sin EDP');
+  es('sin filtro: todos los ítems',e3('_reembDetGrupos().rows.length'),6);
+  e3('_reembDetSetEdp("5")');
+  es('EDP 5: solo sus ítems',e3('_reembDetGrupos().rows.map(r=>r.id).join()'),'1,2');
+  es('  y el total general es el del EDP',e3('_reembDetGrupos().totGen'),150);
+  es('  los chips de código son los del EDP 5 (R03 y R14)',(P().match(/onclick="_reembDetSetCod\('R/g)||[]).length,2);
+  es('  el título del documento lo dice',/· EDP 5</.test(P()),true);
+  e3('_reembDetSetCod("R14")');
+  es('EDP 5 + código R14',e3('_reembDetGrupos().rows.map(r=>r.id).join()'),'1');
+  e3('_reembDetSetEdp("6")');
+  es('al cambiar a un EDP sin ese código, el código vuelve a «Todos»',e3('_reembDetCod')+' · '+e3('_reembDetGrupos().rows.map(r=>r.id).join()'),' · 6');
+  e3('_reembDetSetEdp("__sin")');
+  es('«Sin EDP» trae los que no tienen',e3('_reembDetGrupos().rows.map(r=>r.id).join()'),'5');
+  e3('_reembDetSetEdp("")');
+  es('«Todos» vuelve a todo',e3('_reembDetGrupos().rows.length'),6);
+}
+
 console.log('\n'+(mal?'✗ '+mal+' FALLAS':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);
