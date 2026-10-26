@@ -28,6 +28,9 @@ const _GD_ORDEN=['ING. RESIDENTE','ING. SUPERVISOR DE CAMPO','SUP. TECNICO',
 
 let _gdAusentes=true;   // mostrar a quienes tienen falta, DM, permiso, etc.
 let _gdLibres=true;     // mostrar a quienes están de día libre
+// Columna DNI en los cuadros (pantalla, PDF y Excel). Se recuerda en el navegador.
+let _gdDni=(()=>{try{return localStorage.getItem('gdar_gd_dni')==='1';}catch(e){return false;}})();
+function _gdDniDe(p){return String(p&&p.dni!=null?p.dni:'').trim();}
 let _tarPgTabAct='resumen';
 
 // Tabs de la página de Resumen Diario: Resumen ↔ Guardias FBNV ↔ Histograma
@@ -59,6 +62,7 @@ function _gdDMY(f){const p=String(f||'').split('-');return p.length===3?`${p[2]}
 function _gdRepintar(){if(_gdModo==='roster')rGuardiasRoster();else rGuardiasFbnv();}
 function _gdToggleAusentes(v){_gdAusentes=v;_gdRepintar();}
 function _gdToggleLibres(v){_gdLibres=v;_gdRepintar();}
+function _gdToggleDni(v){_gdDni=!!v;try{localStorage.setItem('gdar_gd_dni',_gdDni?'1':'0');}catch(e){}_gdRepintar();}
 
 // ── Origen de los datos ──────────────────────────────────────────────────
 //  'tareaje' → asistencia realmente marcada ese día (lo que pasó)
@@ -183,23 +187,26 @@ function _gdRender(contId){
           <td class="gd-n">${fila}</td>
           ${i===0?`<td class="gd-c" rowspan="${b.n}">${_gdEsc(b.cargo)}</td>`:''}
           <td class="gd-p" style="color:${col}">${_gdEsc(txt)}</td>
+          ${_gdDni?`<td class="gd-d" style="color:${col}">${it?_gdEsc(_gdDniDe(it.p)):''}</td>`:''}
           <td class="gd-tu" style="color:${col}">${it?_gdEsc(it.tipo):''}</td>
         </tr>`;
       }).join('');
     }).join('');
     const c=_GD_COL[g]||{bg:'#eee'};
+    const nc=_gdDni?5:4;
     return`<div class="gd-blk">
       <table class="gd-t">
         <thead>
-          <tr><th colspan="4" class="gd-g" style="background:${c.bg}">GUARDIA ${g}</th></tr>
+          <tr><th colspan="${nc}" class="gd-g" style="background:${c.bg}">GUARDIA ${g}</th></tr>
           <tr><th class="gd-h" style="background:${c.bg};width:52px">ITEM</th>
               <th class="gd-h" style="background:${c.bg};width:150px">CARGO</th>
               <th class="gd-h" style="background:${c.bg}">APELLIDOS Y NOMBRES</th>
+              ${_gdDni?`<th class="gd-h" style="background:${c.bg};width:62px">DNI</th>`:''}
               <th class="gd-h" style="background:${c.bg};width:46px">TURNO</th></tr>
         </thead>
-        <tbody>${filas||'<tr><td colspan="4" class="gd-vacio">Sin personal registrado</td></tr>'}</tbody>
+        <tbody>${filas||`<tr><td colspan="${nc}" class="gd-vacio">Sin personal registrado</td></tr>`}</tbody>
         <tfoot><tr><td colspan="2" class="gd-tot">EN OBRA ${d.conteo[g].obra}</td>
-          <td colspan="2" class="gd-tot" style="text-align:left">${_gdResumenTxt(d.conteo[g])}</td></tr></tfoot>
+          <td colspan="${nc-2}" class="gd-tot" style="text-align:left">${_gdResumenTxt(d.conteo[g])}</td></tr></tfoot>
       </table>
     </div>`;
   };
@@ -237,6 +244,9 @@ function _gdRender(contId){
       </label>
       <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer">
         <input type="checkbox" ${_gdAusentes?'checked':''} onchange="_gdToggleAusentes(this.checked)" style="width:auto;margin:0;cursor:pointer"> Ausentes (F, DM, P, V…)
+      </label>
+      <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.73rem;color:var(--muted2);cursor:pointer" title="Agrega la columna DNI a los cuadros, al PDF y al Excel">
+        <input type="checkbox" id="gdDniChk" ${_gdDni?'checked':''} onchange="_gdToggleDni(this.checked)" style="width:auto;margin:0;cursor:pointer"> DNI
       </label>
       <span style="font-size:.68rem;color:var(--muted)">${esRos?'Programado · no es la asistencia real':'Fecha y proyecto seleccionado'}</span>
       <button onclick="_gdExcel()" style="margin-left:auto;background:#166534;color:#fff;border:none;border-radius:7px;padding:.32rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">📊 Exportar Excel</button>
@@ -288,6 +298,7 @@ const _GD_CSS=`
   .gd-c{font-size:8px;text-align:center;font-weight:600;vertical-align:middle;line-height:1.2}
   .gd-p{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
   .gd-tu{font-size:8px;text-align:center;font-weight:800;width:46px;white-space:nowrap}
+  .gd-d{font-size:8.5px;text-align:center;font-family:'Courier New',monospace;width:62px;white-space:nowrap}
   .gd-res{margin:12px auto 0;border-collapse:collapse;max-width:640px}
   .gd-res th,.gd-res td{border:1px solid #000;padding:2px 8px;font-size:8.5px;text-align:center}
   .gd-res th{background:#1F4E79;color:#fff;font-weight:800;font-size:8px;letter-spacing:.03em}
@@ -340,18 +351,23 @@ function _gdExcel(){
   if(!d.totalFilas){toast(esRos?'No hay guardias programadas para ese día':'No hay personal con asistencia ese día',true);return;}
   const proyNom=esRos?'Programación del ciclo de guardias'
     :(d.proy?((DB.proyectos||[]).find(p=>p.codigo===d.proy)?.nombre||d.proy):'Todos los proyectos');
-  const COLS=[0,5,10];         // columna inicial de cada bloque (4 y 9 quedan de separación)
-  const NC=14;                 // 3 bloques de 4 columnas + 2 separadoras
+  // Cada bloque: ITEM · CARGO · APELLIDOS Y NOMBRES · [DNI] · TURNO, y una
+  // columna angosta de separación entre bloques
+  const W=_gdDni?5:4;
+  const COLS=[0,W+1,2*(W+1)];  // columna inicial de cada bloque
+  const NC=3*W+2;
+  const cDni=_gdDni?3:-1;      // desplazamientos dentro del bloque
+  const cTu=W-1;
   const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
   const vacia=()=>Array(NC).fill('');
 
   const aoa=[];
   const f0=vacia();f0[0]=`GUARDIAS FBNV — ${esRos?'PROGRAMACIÓN DEL ROSTER':'PERSONAL DIRECTO'} · ${_gdDMY(d.fecha)} · ${proyNom}`;aoa.push(f0);
   const f1=vacia();_GD_GUARDIAS.forEach((g,i)=>{f1[COLS[i]]='GUARDIA '+g;});aoa.push(f1);
-  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES';f2[COLS[i]+3]='TURNO';});aoa.push(f2);
+  const f2=vacia();_GD_GUARDIAS.forEach((_,i)=>{f2[COLS[i]]='ITEM';f2[COLS[i]+1]='CARGO';f2[COLS[i]+2]='APELLIDOS Y NOMBRES';if(_gdDni)f2[COLS[i]+cDni]='DNI';f2[COLS[i]+cTu]='TURNO';});aoa.push(f2);
 
   const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}},
-    ..._GD_GUARDIAS.map((_,i)=>({s:{r:1,c:COLS[i]},e:{r:1,c:COLS[i]+3}}))];
+    ..._GD_GUARDIAS.map((_,i)=>({s:{r:1,c:COLS[i]},e:{r:1,c:COLS[i]+cTu}}))];
 
   const R0=3;                  // primera fila de datos
   const tipoFila=[];           // tipo de cada persona por fila y guardia, para pintar el texto
@@ -366,7 +382,8 @@ function _gdExcel(){
         row[COLS[gi]]=fila+1;
         if(i===0)row[COLS[gi]+1]=b.cargo;
         row[COLS[gi]+2]=it?`${it.p.ape}, ${it.p.nom}`.toUpperCase():'';
-        row[COLS[gi]+3]=it?it.tipo:'';
+        if(_gdDni)row[COLS[gi]+cDni]=it?_gdDniDe(it.p):'';   // texto: conserva el 0 inicial
+        row[COLS[gi]+cTu]=it?it.tipo:'';
         tf[gi]=it?it.tipo:'';
       });
       aoa.push(row);
@@ -407,16 +424,19 @@ function _gdExcel(){
 
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
-  ws['!cols']=[{wch:9},{wch:26},{wch:32},{wch:8},{wch:2},
-               {wch:9},{wch:26},{wch:32},{wch:8},{wch:2},
-               {wch:9},{wch:26},{wch:32},{wch:8}];
+  const anchoBloque=_gdDni?[{wch:9},{wch:26},{wch:32},{wch:11},{wch:8}]:[{wch:9},{wch:26},{wch:32},{wch:8}];
+  ws['!cols']=[...anchoBloque,{wch:2},...anchoBloque,{wch:2},...anchoBloque];
+  // DNI como texto (sin que Excel le quite el 0 inicial)
+  if(_gdDni)for(let r=R0;r<R0+d.totalFilas;r++)_GD_GUARDIAS.forEach((_,gi)=>{
+    const c=ws[addr(r,COLS[gi]+cDni)];if(c&&c.v!==''){c.t='s';c.v=String(c.v);c.z='@';}
+  });
 
   const BOR={top:{style:'thin',color:{rgb:'000000'}},bottom:{style:'thin',color:{rgb:'000000'}},left:{style:'thin',color:{rgb:'000000'}},right:{style:'thin',color:{rgb:'000000'}}};
   const stTit={font:{bold:true,sz:12,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'center'}};
   const t0=ws[addr(0,0)];if(t0)t0.s=stTit;
   _GD_GUARDIAS.forEach((g,gi)=>{
     const bg=_GD_COL[g].xls;
-    for(let c=COLS[gi];c<=COLS[gi]+3;c++){
+    for(let c=COLS[gi];c<=COLS[gi]+cTu;c++){
       const cg=ws[addr(1,c)];
       if(cg)cg.s={fill:{patternType:'solid',fgColor:{rgb:bg}},font:{bold:true,sz:10},alignment:{horizontal:'center',vertical:'center'},border:BOR};
       const ch=ws[addr(2,c)];
@@ -436,16 +456,21 @@ function _gdExcel(){
       const grupo=_gdGrupo(tipo)||'obra';
       const fnt={sz:9,color:{rgb:_gdColor(tipo,grupo)}};
       cp.s={font:fnt,alignment:{vertical:'center'},border:BOR};
-      let ct=ws[addr(r,COLS[gi]+3)];
-      if(!ct){ws[addr(r,COLS[gi]+3)]=ct={t:'s',v:''};}
+      let ct=ws[addr(r,COLS[gi]+cTu)];
+      if(!ct){ws[addr(r,COLS[gi]+cTu)]=ct={t:'s',v:''};}
       ct.s={font:{...fnt,bold:true,sz:8},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+      if(_gdDni){
+        let cd=ws[addr(r,COLS[gi]+cDni)];
+        if(!cd){ws[addr(r,COLS[gi]+cDni)]=cd={t:'s',v:''};}
+        cd.s={font:{...fnt,sz:9,name:'Courier New'},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+      }
     });
   }
   const rT=R0+d.totalFilas;
   // El desglose del pie ocupa las dos últimas columnas del bloque
-  _GD_GUARDIAS.forEach((_,gi)=>merges.push({s:{r:rT,c:COLS[gi]+2},e:{r:rT,c:COLS[gi]+3}}));
+  _GD_GUARDIAS.forEach((_,gi)=>merges.push({s:{r:rT,c:COLS[gi]+2},e:{r:rT,c:COLS[gi]+cTu}}));
   _GD_GUARDIAS.forEach((_,gi)=>{
-    for(let c=COLS[gi]+1;c<=COLS[gi]+3;c++){
+    for(let c=COLS[gi]+1;c<=COLS[gi]+cTu;c++){
       const cel=ws[addr(rT,c)];
       if(cel)cel.s={fill:{patternType:'solid',fgColor:{rgb:'F1F5F9'}},font:{bold:true,sz:9},alignment:{horizontal:c===COLS[gi]+1?'right':'center'},border:BOR};
     }
