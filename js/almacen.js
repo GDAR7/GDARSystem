@@ -834,6 +834,29 @@ function _initAlmChart(){
   const y=now.getFullYear();
   anioEl.innerHTML=[y-1,y,y+1].map(a=>`<option value="${a}"${a===y?' selected':''}>${a}</option>`).join('');
 }
+// Los filtros del Kardex, en un solo lugar: la tabla y el gráfico diario usan
+// exactamente los mismos. La fecha exacta solo aplica a la tabla (el gráfico
+// muestra el mes completo).
+function _almFiltrarMovs(lista,conFecha){
+  let L=_almFiltTipo?lista.filter(r=>r.tipo===_almFiltTipo):lista;
+  if(_almFiltProy)L=L.filter(r=>(r.codProy||'').trim()===_almFiltProy);
+  if(_almFiltMat)L=L.filter(r=>r.codigo&&r.codigo.toUpperCase().startsWith(_almFiltMat.toUpperCase()+'-'));
+  if(conFecha&&_almFiltFecha)L=L.filter(r=>r.fecha===_almFiltFecha);
+  if(_almMatSel.size)L=L.filter(r=>_almMatSel.has(r.codigo));
+  if(_almFiltText)L=L.filter(r=>[r.codigo,r.nombre,r.proyecto,r.rqRef,r.numVale,r.para,r.tipoCosto,r.proveedor].some(v=>String(v||'').toLowerCase().includes(_almFiltText)));
+  return L;
+}
+// Qué filtros afectan al gráfico, en palabras
+function _almFiltrosTxt(){
+  const t=[];
+  if(_almFiltTipo)t.push(_almFiltTipo==='E'?'solo entradas':'solo salidas');
+  if(_almFiltProy)t.push(_almFiltProy);
+  if(_almFiltMat)t.push('tipo '+_almFiltMat);
+  if(_almMatSel.size)t.push(_almMatSel.size===1?[..._almMatSel][0]:_almMatSel.size+' materiales');
+  if(_almFiltText)t.push('«'+_almFiltText+'»');
+  return t.join(' · ');
+}
+
 function rAlmChart(){
   const mesEl=document.getElementById('almChartMes');
   const anioEl=document.getElementById('almChartAnio');
@@ -843,7 +866,10 @@ function rAlmChart(){
   const dias=new Date(anio,mes,0).getDate();
   const mesStr=String(mes).padStart(2,'0'),anioStr=String(anio);
   const data=Array.from({length:dias},(_,i)=>({d:i+1,e:0,s:0}));
-  DB.almacen.forEach(r=>{
+  const movs=_almFiltrarMovs(_almMovsCompletos(),false);
+  const unidades=new Set();
+  movs.forEach(r=>{
+    if(r.fecha&&r.fecha.startsWith(anioStr+'-'+mesStr+'-'))unidades.add(String(r.unidad||'').trim().toLowerCase());
     if(!r.fecha)return;
     const p=r.fecha.split('-');
     if(p[0]!==anioStr||p[1]!==mesStr)return;
@@ -852,6 +878,8 @@ function rAlmChart(){
     if(r.tipo==='E')data[idx].e+=+(r.cant||0);
     else data[idx].s+=+(r.cant||0);
   });
+  // Un solo material (o todos con la misma unidad): se muestra su unidad
+  const und=unidades.size===1&&[...unidades][0]?[...unidades][0]:'uds';
   const maxV=Math.max(1,...data.flatMap(d=>[d.e,d.s]));
   const CH=150;
   let bars='';
@@ -862,20 +890,23 @@ function rAlmChart(){
     const isToday=d===today_d&&mes===today_m&&anio===today_y;
     bars+=`<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:20px;${isToday?'background:var(--panel2);border-radius:4px;':''}">
       <div style="display:flex;align-items:flex-end;gap:2px;height:${CH}px">
-        <div title="Entradas día ${d}: ${fmtN(e)} uds" style="width:9px;background:#10b981;border-radius:2px 2px 0 0;height:${he}px;min-height:${e>0?2:0}px;cursor:default"></div>
-        <div title="Salidas día ${d}: ${fmtN(s)} uds" style="width:9px;background:#ef4444;border-radius:2px 2px 0 0;height:${hs}px;min-height:${s>0?2:0}px;cursor:default"></div>
+        <div title="Entradas día ${d}: ${fmtN(e)} ${und}" style="width:9px;background:#10b981;border-radius:2px 2px 0 0;height:${he}px;min-height:${e>0?2:0}px;cursor:default"></div>
+        <div title="Salidas día ${d}: ${fmtN(s)} ${und}" style="width:9px;background:#ef4444;border-radius:2px 2px 0 0;height:${hs}px;min-height:${s>0?2:0}px;cursor:default"></div>
       </div>
       <div style="font-size:.58rem;color:${isToday?'var(--alm)':'var(--muted2)'};font-weight:${isToday?700:400};margin-top:3px">${d}</div>
     </div>`;
   });
   const totE=data.reduce((a,d)=>a+d.e,0),totS=data.reduce((a,d)=>a+d.s,0);
   const totEl=document.getElementById('almChartTotals');
-  if(totEl)totEl.innerHTML=`<span style="color:#10b981;font-weight:600">⬆ ${fmtN(totE)} uds</span><span style="color:#ef4444;font-weight:600">⬇ ${fmtN(totS)} uds</span>`;
+  const filtro=_almFiltrosTxt();
+  if(totEl)totEl.innerHTML=(filtro?`<span title="El gráfico sigue los filtros de la tabla" style="color:#f59e0b;font-weight:600;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔍 ${_almEscH(filtro)}</span>`:'')
+    +`<span style="color:#10b981;font-weight:600">⬆ ${fmtN(totE)} ${_almEscH(und)}</span><span style="color:#ef4444;font-weight:600">⬇ ${fmtN(totS)} ${_almEscH(und)}</span>`;
   body.innerHTML=`<div style="display:flex;align-items:flex-end;gap:1px;overflow-x:auto;padding-bottom:2px">${bars}</div>`
     +`<div style="display:flex;gap:1.2rem;margin-top:.6rem;font-size:.72rem;color:var(--muted2)">`
     +`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#10b981;border-radius:1px;display:inline-block"></span>Entradas</span>`
     +`<span style="display:flex;align-items:center;gap:.3rem"><span style="width:9px;height:9px;background:#ef4444;border-radius:1px;display:inline-block"></span>Salidas</span>`
-    +`<span style="font-size:.67rem">Máx. del mes: ${fmtN(maxV)} uds/día</span></div>`;
+    +`<span style="font-size:.67rem">Máx. del mes: ${fmtN(maxV)} ${_almEscH(und)}/día</span>`
+    +(movs.length&&!totE&&!totS?`<span style="font-size:.67rem;color:#f59e0b">Sin movimientos de lo filtrado en este mes</span>`:'')+`</div>`;
 }
 function rAlm(){
   _almAsegurarHistorial();          // el stock necesita todo el historial
@@ -921,12 +952,7 @@ function rAlm(){
   // Saldo acumulado por código con TODO el historial (no solo el período cargado)
   const saldoMap=_almSaldoMap();
   // Aplicar todos los filtros
-  let filasMostrar=_almFiltTipo?filas.filter(r=>r.tipo===_almFiltTipo):filas;
-  if(_almFiltProy)filasMostrar=filasMostrar.filter(r=>(r.codProy||'').trim()===_almFiltProy);
-  if(_almFiltMat)filasMostrar=filasMostrar.filter(r=>r.codigo&&r.codigo.toUpperCase().startsWith(_almFiltMat.toUpperCase()+'-'));
-  if(_almFiltFecha)filasMostrar=filasMostrar.filter(r=>r.fecha===_almFiltFecha);
-  if(_almMatSel.size)filasMostrar=filasMostrar.filter(r=>_almMatSel.has(r.codigo));
-  if(_almFiltText)filasMostrar=filasMostrar.filter(r=>[r.codigo,r.nombre,r.proyecto,r.rqRef,r.numVale,r.para,r.tipoCosto,r.proveedor].some(v=>String(v||'').toLowerCase().includes(_almFiltText)));
+  let filasMostrar=_almFiltrarMovs(filas,true);
   // Paginación
   const _almTotal=filasMostrar.length;
   const _almTotalPags=Math.max(1,Math.ceil(_almTotal/ALM_PAGE_SIZE));
