@@ -12,35 +12,50 @@ function _cbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 // tienen creadoEn; para ellos se usa su fecha, que es lo único que hay.
 const _CB_HORAS_LIBRE=48;
 
-// ── Ventana de corrección excepcional ───────────────────────────────────────
-// Abierta a pedido para poner al día el kardex. Mientras dure, los movimientos
-// del 21/09/2026 en adelante vuelven a tener ✏️ y 🗑, y se corrige o elimina
-// uno por uno los que haga falta. Lo anterior a esa fecha sigue con candado.
-//
-// VENCE SOLA: pasada la fecha de abajo el kardex vuelve al límite de 48 horas,
-// sin que nadie tenga que acordarse de cerrarla. Para extenderla o cerrarla
-// antes se cambia esta fecha (hora de Perú); en '' queda cerrada.
-const _CB_VENTANA_LIBRE='2026-10-03T23:59:59-05:00';
-const _CB_VENTANA_DESDE='2026-09-21';
-function _cbVentanaAbierta(){
-  if(!_CB_VENTANA_LIBRE)return false;
-  const t=new Date(_CB_VENTANA_LIBRE).getTime();
-  return isFinite(t)&&Date.now()<t;
-}
-function _cbVentanaRestante(){
-  const t=new Date(_CB_VENTANA_LIBRE).getTime();
-  return Math.max(0,Math.ceil((t-Date.now())/3600000));
-}
-// ¿Este movimiento entra en la ventana? Solo los del 21/09 en adelante
+// ── Edición abierta por administración ──────────────────────────────────────
+// Desde ⚙️ Configuración → 🔓 Control de edición (js/controlEdicion.js, guardado
+// en Supabase) el administrador abre la corrección del kardex. Mientras esté
+// abierta, los movimientos con fecha desde la elegida vuelven a tener ✏️ y 🗑
+// aunque ya pasaron sus 48 h. Se cierra a mano o sola, a la hora que se fijó.
+// Sin ese módulo o sin la tabla, todo sigue con la regla de 48 h.
+const _CB_MOD='combustible';
+function _cbVentanaAbierta(){return typeof _cedAbierta==='function'&&_cedAbierta(_CB_MOD);}
+function _cbVentanaDesde(){return typeof _cedDesde==='function'?_cedDesde(_CB_MOD):'';}
+// ¿Este movimiento entra en la edición abierta? Solo los desde la fecha elegida
 function _cbEnVentana(r){
-  return _cbVentanaAbierta()&&String((r&&r.fecha)||'')>=_CB_VENTANA_DESDE;
+  const d=_cbVentanaDesde();
+  return _cbVentanaAbierta()&&!!d&&String((r&&r.fecha)||'')>=d;
 }
 
-function _cbBloqueado(r){
+// Pasaron sus 48 h (sin contar la edición abierta)
+function _cb48Vencido(r){
   if(!r)return false;
-  if(_cbEnVentana(r))return false;          // corrección excepcional abierta
   const t=_cbNacimiento(r);
   return t!=null&&(Date.now()-t)>_CB_HORAS_LIBRE*3600000;
+}
+function _cbBloqueado(r){
+  if(!r)return false;
+  if(_cbEnVentana(r))return false;          // edición abierta por administración
+  return _cb48Vencido(r);
+}
+// Un movimiento que solo se puede tocar porque la edición está abierta: antes
+// de editarlo, guardarlo o eliminarlo se pregunta de nuevo a la base, porque
+// pudo cerrarse con la pantalla abierta. Los de menos de 48 h siguen directo.
+function _cbConVentana(r,seguir,alCerrada){
+  if(!r||!_cb48Vencido(r)||typeof _cedVerificar!=='function'){seguir();return;}
+  _cedVerificar(_CB_MOD).then(abierta=>{
+    if(abierta&&!_cbBloqueado(r)){seguir();return;}
+    if(typeof _cedCarga!=='undefined'&&_cedCarga==='error'){
+      toast('No se pudo confirmar que la edición siga abierta. Revise la conexión e intente de nuevo.',true);return;
+    }
+    toast('La edición del kardex fue cerrada por administración',true);
+    if(alCerrada)alCerrada();
+    rComb();
+  });
+}
+function delComb(id){
+  const r=DB.combustible.find(x=>x.id===id);
+  _cbConVentana(r,()=>del('combustible',id));
 }
 function _cbNacimiento(r){
   if(r.creadoEn){
@@ -90,6 +105,8 @@ const _cbDMY=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.s
 function _cbEnPeriodo(f){return(!_cbDesde||f>=_cbDesde)&&(!_cbHasta||f<=_cbHasta);}
 
 function rComb(){
+  // Si la administración abrió la edición (a lo más una lectura por minuto)
+  if(typeof _cedCargar==='function')_cedCargar();
   // Al entrar por primera vez se posiciona en el período en curso
   if(!_cbPerInit){
     const p=_cbPeriodoDe();_cbDesde=p.desde;_cbHasta=p.hasta;_cbPerInit=true;
@@ -150,7 +167,9 @@ function rComb(){
       <button onclick="_cbPerHoy()" title="Ir al período en curso (21 al 20)" style="${btn};background:rgba(249,115,22,.14);border-color:rgba(249,115,22,.4);color:#f97316;font-weight:700">Actual</button>
       <button onclick="_cbPerTodo()" title="Quitar el filtro de fechas" style="${btn};${!_hayPer?'border-color:#f97316;color:#f97316;font-weight:700':''}">Todo</button>
       <span style="font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${_hayPer?`${listaFilt.length} mov.`:`Sin filtro · ${listaFilt.length} mov.`}</span>
-      ${_cbVentanaAbierta()?`<span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;margin-left:auto;padding:.14rem .5rem;border-radius:5px;border:1px solid #f59e0b;background:rgba(245,158,11,.14);color:#f59e0b;font-size:.62rem;font-weight:700;white-space:nowrap" title="Los movimientos del ${_CB_VENTANA_DESDE} en adelante se pueden corregir y eliminar sin el límite de 48 horas. Vence sola y el kardex vuelve a su regla.">🔓 Corrección abierta desde el ${_CB_VENTANA_DESDE} · quedan ${_cbVentanaRestante()} h</span>`:''}`;
+      ${_cbVentanaAbierta()?(()=>{const d=_cbVentanaDesde().split('-').reverse().join('/'),
+        q=typeof _cedRestanteTxt==='function'?_cedRestanteTxt(_CB_MOD):'';
+        return`<span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;margin-left:auto;padding:.14rem .5rem;border-radius:5px;border:1px solid #f59e0b;background:rgba(245,158,11,.14);color:#f59e0b;font-size:.62rem;font-weight:700;white-space:nowrap" title="La administración abrió la edición: los movimientos del ${d} en adelante se pueden corregir y eliminar sin el límite de 48 horas. ${q?'Se cierra sola.':'Queda abierta hasta que la administración la cierre.'}">🔓 Edición abierta por administración desde el ${d} · ${q?'quedan '+q:'sin cierre automático'}</span>`;})():''}`;
   }
 
   // Saldo acumulado GLOBAL (todos los registros en orden cronológico)
@@ -184,7 +203,7 @@ function rComb(){
       ?`<button class="btn btn-out btn-sm" onclick="verComb(${r.id})" style="color:#3b82f6;border-color:#3b82f640">👁 Ver</button>
          ${cerrado?'':`<button class="btn btn-del btn-sm" disabled title="${_cbMotivoBloqueo(r)}" style="opacity:.3;cursor:not-allowed;pointer-events:none">🔒</button>`}`
       :`<button class="btn btn-out btn-sm" onclick="editComb(${r.id})" style="color:#f59e0b;border-color:#f59e0b40">✏️</button>
-        <button class="btn btn-del btn-sm" onclick="del('combustible',${r.id})">🗑</button>`;
+        <button class="btn btn-del btn-sm" onclick="delComb(${r.id})">🗑</button>`;
     // Notas: en registros viejos el texto quedó guardado en placaSerie, igual que
     // en el modal de ver. Se recorta en la celda y el texto completo va en el title.
     const _nota=(r.notas||r.placaSerie||'').trim();
@@ -401,7 +420,7 @@ function openCombModal(mode){
   }
   openM('mComb');
 }
-function gComb(){
+function gComb(_verificado){
   const gal=+document.getElementById('cbGal').value||0;
   if(!gal){toast('Ingrese la cantidad de galones',true);return;}
   const ing=_combMode==='ingreso';
@@ -429,6 +448,11 @@ function gComb(){
   };
   if(_combEditId!==null){
     const idx=DB.combustible.findIndex(x=>x.id===_combEditId);
+    // Si solo se puede corregir por la edición abierta, se confirma que siga abierta
+    if(idx>-1&&!_verificado&&_cb48Vencido(DB.combustible[idx])){
+      _cbConVentana(DB.combustible[idx],()=>gComb(true),()=>{_combEditId=null;closeM('mComb');});
+      return;
+    }
     // El registro pudo cumplir sus 48 h con el formulario abierto
     if(idx>-1&&_cbBloqueado(DB.combustible[idx])){
       toast(_cbMotivoBloqueo(DB.combustible[idx]),true);
@@ -444,10 +468,11 @@ function gComb(){
     closeM('mComb');rComb();toast(ing?'Ingreso registrado':'Atención registrada');
   }
 }
-function editComb(id){
+function editComb(id,_verificado){
   const r=DB.combustible.find(x=>x.id===id);if(!r)return;
   // Pasadas las 48 h solo se puede mirar
   if(_cbBloqueado(r)){toast(_cbMotivoBloqueo(r),true);verComb(id);return;}
+  if(!_verificado){_cbConVentana(r,()=>editComb(id,true));return;}
   _combEditId=id;
   _combMode=r.tipoMov==='Ingreso'?'ingreso':'despacho';
   _combSetFormMode(_combMode);

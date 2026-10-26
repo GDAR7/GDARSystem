@@ -37,7 +37,7 @@ const AREAS={
   costControl:{label:'Cost Control',icon:'📈',color:'#059669',prefix:'ECOCC',
     modules:[{key:'costControl',label:'Cost Control',icon:'📊'},{key:'tarifas',label:'Tarifas',icon:'🏷️'},{key:'venta',label:'Venta',icon:'💼'},{key:'costos',label:'Costos',icon:'💰'},{key:'proveedores',label:'Proveedores',icon:'🧾'},{key:'resultadoOperativo',label:'Resultado Operativo',icon:'⚖️'},{key:'hhVenta',label:'HH Venta',icon:'👷'},{key:'corteEquipos',label:'Corte Equipos',icon:'✂️'},{key:'costoM3',label:'Costo por m³',icon:'🧱'}]},
   configuracion:{label:'Configuración',icon:'⚙️',color:'#6366f1',prefix:'ECOCFG',
-    modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'}]}
+    modules:[{key:'notificaciones',label:'Notificaciones',icon:'🔔'},{key:'controlEdicion',label:'Control de edición',icon:'🔓'}]}
 };
 
 // ══ USERS ══

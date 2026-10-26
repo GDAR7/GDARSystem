@@ -34,13 +34,17 @@ const ctx=vm.createContext({
   toast(){},confirm:()=>true,fmt:v=>String(v),today:()=>hoy(),
   EMPRESA:{nombre:'ECOSERMO',logo:'img/logo.png'},CU:{nombre:'Prueba'}
 });
+vm.runInContext(fs.readFileSync(R+'js/controlEdicion.js','utf8').replace(/^const /gm,'var ').replace(/^let /gm,'var '),ctx,{filename:'controlEdicion.js'});
 vm.runInContext(fs.readFileSync(R+'js/combustible.js','utf8'),ctx,{filename:'combustible.js'});
 const bloq=r=>{ctx.__r=r;return vm.runInContext('_cbBloqueado(__r)',ctx);};
 const ev=x=>vm.runInContext(x,ctx);
-// La ventana de corrección está vigente hasta esta fecha; para probar la regla
-// de 48 h se viaja a después de que venza.
-const FIN=Date.parse(ev('_CB_VENTANA_LIBRE'));
-const DESDE=ev('_CB_VENTANA_DESDE');
+// La edición abierta por administración (Configuración → Control de edición)
+// se simula poniendo el estado que llegaría de Supabase.
+const DESDE='2026-09-21';
+const FIN=Date.parse('2026-10-28T23:59:00-05:00');
+const abrir=hasta=>{ctx.__h=hasta;ev("_cedEstado={combustible:{activo:true,desde:'"+DESDE+"',hasta:__h||''}}");};
+const cerrar=()=>ev("_cedEstado={combustible:{activo:false,desde:'"+DESDE+"',hasta:''}}");
+cerrar();
 const DESPUES=FIN+24*HORA;
 AHORA=DESPUES;
 
@@ -66,11 +70,13 @@ es('  uno de hoy sigue abierto',bloq({fecha:hoy()}),false);
 es('sin fecha ni hora no se bloquea nada',bloq({}),false);
 es('una fecha inválida tampoco rompe',bloq({fecha:'no-es-fecha'}),false);
 
-console.log('\n== La ventana de corrección excepcional ==');
-// Estando dentro del plazo, los movimientos del 21/09 en adelante se sueltan
+console.log('\n== Edición abierta por administración ==');
+// Abierta con cierre automático: los movimientos del 21/09 en adelante se sueltan
 AHORA=FIN-2*HORA;
-es('la ventana está abierta',ev('_cbVentanaAbierta()'),true);
-es('  y avisa cuántas horas quedan',ev('_cbVentanaRestante()'),2);
+es('cerrada: el del 21/09 tiene candado',bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'}),true);
+abrir(new Date(FIN).toISOString());
+es('la edición está abierta',ev('_cbVentanaAbierta()'),true);
+es('  y avisa cuánto queda',ev("_cedRestanteTxt('combustible')"),'2 h');
 es('un movimiento viejo del 21/09 se puede corregir',
   bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'}),false);
 es('  y uno posterior también',
@@ -80,13 +86,21 @@ es('lo anterior al 21/09 sigue con candado',
 es('  y lo de meses atrás también',
   bloq({fecha:'2026-07-15',creadoEn:'2026-07-15T08:00:00-05:00'}),true);
 
-// Vencida la ventana, el kardex vuelve a su regla sin que nadie la cierre
+// Vencido el cierre automático, el kardex vuelve a su regla sin que nadie la cierre
 AHORA=FIN+1000;
 es('al vencer se cierra sola',ev('_cbVentanaAbierta()'),false);
 es('  y el del 21/09 vuelve a quedar bloqueado',
   bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'}),true);
 es('  pero lo registrado hace una hora sigue abierto',
   bloq({fecha:'2026-10-04',creadoEn:new Date(AHORA-HORA).toISOString()}),false);
+// Sin cierre automático: abierta hasta que se desactive a mano
+abrir('');AHORA=FIN+400*HORA;
+es('sin cierre automático sigue abierta días después',ev('_cbVentanaAbierta()'),true);
+es('  y suelta el del 21/09',bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'}),false);
+cerrar();
+es('al desactivarla vuelve el candado',bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'}),true);
+ev("_cedEstado={}");
+es('sin la tabla (estado vacío) rige la regla de 48 h',bloq({fecha:DESDE,creadoEn:'2026-09-21T08:00:00-05:00'})+' · '+bloq({fecha:hoy(),creadoEn:hace(1)}),'true · false');
 AHORA=DESPUES;
 
 console.log('\n== El motivo que se le muestra al usuario ==');
@@ -100,7 +114,7 @@ const src=fs.readFileSync(R+'js/combustible.js','utf8');
 es('el bloqueado muestra Ver, no editar',/\(cerrado\|\|_bloq48\)/.test(src),true);
 es('  con el candado deshabilitado',/disabled title="\$\{_cbMotivoBloqueo\(r\)\}"/.test(src),true);
 es('el abierto conserva editar y eliminar',
-  /onclick="editComb\(\$\{r\.id\}\)"[\s\S]{0,200}onclick="del\('combustible',\$\{r\.id\}\)"/.test(src),true);
+  /onclick="editComb\(\$\{r\.id\}\)"[\s\S]{0,200}onclick="delComb\(\$\{r\.id\}\)"/.test(src),true);
 es('la ventana son 48 horas',/_CB_HORAS_LIBRE=48/.test(src),true);
 
 console.log('\n== No se confía en la pantalla ==');
