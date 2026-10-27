@@ -140,42 +140,83 @@ function amGetInsumos(){
 
 // ── Evidencia fotográfica (Antes / Después) ──
 function _amFotosArr(v){return Array.isArray(v)?v:(typeof v==='string'&&v?JSON.parse(v):[]);}
+// En un auxilio NUEVO las fotos quedan «en espera»: se ven en miniatura pero
+// no se suben hasta presionar Guardar Auxilio, porque se guardan en la carpeta
+// del auxilio (auxmec/<id>/…) y su lista va dentro del propio registro, que
+// todavía no existe. Al guardar se crea el auxilio y enseguida se suben.
+// Cancelar las descarta sin dejar nada subido a medias.
+let _amPend={antes:[],despues:[]};     // {file,url (vista previa local),nombre}
+function _amPendLimpiar(){
+  ['antes','despues'].forEach(t=>_amPend[t].forEach(p=>{try{URL.revokeObjectURL(p.url);}catch(e){}}));
+  _amPend={antes:[],despues:[]};
+}
 function _renderAmMedia(fotosAntes,fotosDespues){
   const lock=document.getElementById('amMediaLock'),content=document.getElementById('amMediaContent');
-  if(!_amEditId){if(lock)lock.style.display='block';if(content)content.style.display='none';return;}
   if(lock)lock.style.display='none';if(content)content.style.display='block';
-  const gal=(id,fotos)=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.innerHTML=fotos.length?fotos.map((f,i)=>`
+  const cuadro=(url,nombre,quitar,pend)=>`
       <div style="position:relative;width:84px;height:84px">
-        <img src="${f.url}" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${f.url}','_blank')" title="${f.nombre||''}">
-        <button onclick="amDelFoto('${id.includes('Antes')?'antes':'despues'}',${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
-      </div>`).join(''):'<span style="font-size:.7rem;color:var(--muted2);opacity:.6">Sin fotos</span>';
+        <img src="${url}" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid ${pend?'#f59e0b':'var(--border)'};cursor:pointer;${pend?'opacity:.8':''}" onclick="window.open(this.src,'_blank')" title="${String(nombre||'').replace(/"/g,'&quot;')}">
+        ${pend?'<span style="position:absolute;left:2px;bottom:2px;background:rgba(245,158,11,.92);color:#111;border-radius:3px;font-size:.52rem;font-weight:800;padding:1px 4px;letter-spacing:.03em">PENDIENTE</span>':''}
+        <button onclick="${quitar}" title="Quitar" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
+      </div>`;
+  const gal=(id,tipo,fotos)=>{
+    const el=document.getElementById(id);if(!el)return;
+    const pend=_amPend[tipo];
+    el.innerHTML=(fotos.length||pend.length)
+      ?fotos.map((f,i)=>cuadro(f.url,f.nombre,`amDelFoto('${tipo}',${i})`,false)).join('')
+        +pend.map((p,i)=>cuadro(p.url,p.nombre,`_amQuitarPend('${tipo}',${i})`,true)).join('')
+      :'<span style="font-size:.7rem;color:var(--muted2);opacity:.6">Sin fotos</span>';
   };
-  gal('amFotoAntesGallery',_amFotosArr(fotosAntes));
-  gal('amFotoDespuesGallery',_amFotosArr(fotosDespues));
+  gal('amFotoAntesGallery','antes',_amEditId?_amFotosArr(fotosAntes):[]);
+  gal('amFotoDespuesGallery','despues',_amEditId?_amFotosArr(fotosDespues):[]);
 }
-async function amUploadFoto(input,tipo){
-  if(!_amEditId){toast('Guarda el auxilio primero',true);input.value='';return;}
-  const files=[...input.files];if(!files.length)return;
-  const stEl=document.getElementById(tipo==='antes'?'amFotoAntesStatus':'amFotoDespuesStatus');
-  if(stEl)stEl.textContent='Subiendo...';
-  const r=DB.auxiliosMecanicos.find(x=>x.id===_amEditId);if(!r)return;
+function _amQuitarPend(tipo,i){
+  const p=_amPend[tipo][i];if(!p)return;
+  try{URL.revokeObjectURL(p.url);}catch(e){}
+  _amPend[tipo].splice(i,1);
+  _renderAmMedia(null,null);
+}
+// Sube archivos a la carpeta del auxilio y los suma a su lista. Devuelve los que fallaron.
+async function _amSubirArchivos(r,tipo,files,avance){
   const campo=tipo==='antes'?'fotosAntes':'fotosDespues';
   const fotos=_amFotosArr(r[campo]);
-  for(const file of files){
-    const ext=(file.name.split('.').pop()||'jpg');
-    const path=`auxmec/${_amEditId}/${tipo}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const{error}=await supa.storage.from(_AM_BUCKET).upload(path,file,{upsert:false});
-    if(error){toast('Error: '+error.message,true);continue;}
-    const{data:{publicUrl}}=supa.storage.from(_AM_BUCKET).getPublicUrl(path);
-    fotos.push({url:publicUrl,path,nombre:file.name});
+  const fallas=[];
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if(avance)avance(i+1,files.length);
+    try{
+      // Achicada antes de subir (lado mayor 1600 px), como las fotos de las OT
+      const blob=typeof _otReducir==='function'?await _otReducir(file):file;
+      const ext=blob===file?((file.name.split('.').pop()||'jpg').toLowerCase()):'jpg';
+      const path=`auxmec/${r.id}/${tipo}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const{error}=await supa.storage.from(_AM_BUCKET).upload(path,blob,{upsert:false,contentType:blob.type||file.type||'image/jpeg'});
+      if(error)throw error;
+      const{data:{publicUrl}}=supa.storage.from(_AM_BUCKET).getPublicUrl(path);
+      fotos.push({url:publicUrl,path,nombre:file.name});
+    }catch(e){console.warn('[AuxMec fotos]',e);fallas.push(file.name);}
   }
   r[campo]=JSON.stringify(fotos);
+  return fallas;
+}
+async function amUploadFoto(input,tipo){
+  const files=[...input.files];input.value='';
+  if(!files.length)return;
+  // Auxilio nuevo: quedan en espera hasta Guardar
+  if(!_amEditId){
+    files.forEach(f=>_amPend[tipo].push({file:f,url:URL.createObjectURL(f),nombre:f.name}));
+    _renderAmMedia(null,null);
+    toast(`${files.length} foto(s) en espera · se suben al guardar el auxilio`);
+    return;
+  }
+  const stEl=document.getElementById(tipo==='antes'?'amFotoAntesStatus':'amFotoDespuesStatus');
+  const r=DB.auxiliosMecanicos.find(x=>x.id===_amEditId);if(!r)return;
+  const fallas=await _amSubirArchivos(r,tipo,files,(i,n)=>{if(stEl)stEl.textContent=`Subiendo ${i} de ${n}…`;});
   syncSheet('saveAuxMec',r);
   _renderAmMedia(r.fotosAntes,r.fotosDespues);
-  if(stEl)stEl.textContent='';input.value='';
-  toast(`${files.length} foto(s) subida(s)`);
+  if(stEl)stEl.textContent='';
+  const n=files.length-fallas.length;
+  if(n)toast(`${n} foto(s) subida(s)`);
+  if(fallas.length)toast('No se pudo subir: '+fallas.join(', '),true);
 }
 async function amDelFoto(tipo,idx){
   if(!_amEditId)return;
@@ -468,11 +509,19 @@ function openAuxMec(){
   document.getElementById('amEst').value='Pendiente';
   document.getElementById('amConforme').checked=false;
   document.getElementById('amInsumosBody').innerHTML='';
+  _amPendLimpiar();                       // lo que quedó en espera de un formulario cancelado
   _renderAmMedia(null,null);
   _amPopulateMatDatalist();
   openM('mAuxMec');
 }
+let _amGuardando=false;
 async function gAuxMec(){
+  // Mientras se suben las fotos de un auxilio nuevo, un segundo clic lo duplicaría
+  if(_amGuardando){toast('Espere: se está guardando el auxilio',true);return;}
+  _amGuardando=true;
+  try{await _gAuxMec();}finally{_amGuardando=false;}
+}
+async function _gAuxMec(){
   const eqId=+document.getElementById('amEq').value||null;
   const horometro=parseFloat(document.getElementById('amHorometro').value)||null;
   if(!eqId){toast('Seleccione un equipo (Tab Identificación)',true);amGoTab(0);return;}
@@ -536,7 +585,24 @@ async function gAuxMec(){
     await _saveInsumos(rec.id);
     // Guardar timestamp de creación para la ventana de 48h del botón eliminar
     try{const d=JSON.parse(localStorage.getItem('ecosermo_auxmec_ts')||'{}');d[rec.id]=Date.now();localStorage.setItem('ecosermo_auxmec_ts',JSON.stringify(d));}catch(e){}
-    closeM('mAuxMec');rAuxMec();toast('Auxilio registrado: '+rec.cod);
+    // Fotos en espera: el auxilio ya existe, se suben a su carpeta
+    const nPend=_amPend.antes.length+_amPend.despues.length;
+    let fallas=[];
+    if(nPend){
+      let hechas=0;
+      const st=document.getElementById('amFotoDespuesStatus')||document.getElementById('amFotoAntesStatus');
+      for(const tipo of ['antes','despues']){
+        const files=_amPend[tipo].map(p=>p.file);
+        if(!files.length)continue;
+        fallas=fallas.concat(await _amSubirArchivos(rec,tipo,files,()=>{hechas++;if(st)st.textContent=`Subiendo fotos ${hechas} de ${nPend}…`;}));
+      }
+      if(st)st.textContent='';
+      await supaUpsert('auxiliosMecanicos',rec);
+      _amPendLimpiar();
+    }
+    closeM('mAuxMec');rAuxMec();
+    toast('Auxilio registrado: '+rec.cod+(nPend?` · ${nPend-fallas.length} de ${nPend} foto(s) subida(s)`:''));
+    if(fallas.length)toast('No se pudo subir: '+fallas.join(', ')+'. Ábralo con ✏️ y vuelva a agregarla(s).',true);
   }
 }
 
