@@ -50,15 +50,18 @@ function _tacDias(a,b){
 const _tacNorm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
 // ── El cálculo ─────────────────────────────────────────────────────────────
-function _tacDatos(){
-  const hasta=_tacHasta||_tacHoy();
-  const proy=_tacProy||'';
-  const q=_tacNorm(_tacBusca||'');
-  const pers=DB.personal||[];
+// Lo caro es recorrer todo el tareaje (más de 20 mil marcas): se hace una vez
+// por proyecto + corte y se guarda. Buscar solo filtra filas, no lo repite.
+// Se rehace solo si cambian el proyecto, el corte o los datos cargados.
+let _tacIdx=null;
+function _tacIndice(hasta,proy){
+  const tar=DB.tareaje||[], pers=DB.personal||[];
+  const clave=[hasta,proy,tar.length,pers.length,tar.length?tar[tar.length-1].id:0].join('|');
+  if(_tacIdx&&_tacIdx.clave===clave&&_tacIdx.tar===tar&&_tacIdx.pers===pers)return _tacIdx.dias;
   const porId={};pers.forEach(p=>{porId[p.id]=p;});
   // Un tipo por persona y día (si hay dos marcas, la de id mayor), hasta el corte
   const dias={}, idDe={};
-  (DB.tareaje||[]).forEach(r=>{
+  tar.forEach(r=>{
     const f=String(r.fecha||'').slice(0,10);
     if(!f||f>hasta||!r.tipo)return;
     const p=porId[r.personalId];if(!p)return;
@@ -66,6 +69,15 @@ function _tacDatos(){
     const m=dias[r.personalId]||(dias[r.personalId]={}), ids=idDe[r.personalId]||(idDe[r.personalId]={});
     if(m[f]===undefined||(+r.id||0)>(ids[f]||0)){m[f]=r.tipo;ids[f]=+r.id||0;}
   });
+  _tacIdx={clave,tar,pers,dias};
+  return dias;
+}
+function _tacDatos(){
+  const hasta=_tacHasta||_tacHoy();
+  const proy=_tacProy||'';
+  const q=_tacNorm(_tacBusca||'');
+  const pers=DB.personal||[];
+  const dias=_tacIndice(hasta,proy);
   let sinMarcas=0;
   const filas=[];
   pers.forEach(p=>{
@@ -113,6 +125,7 @@ function abrirTarAcum(){
   // Arranca con el proyecto y la búsqueda que ya están en la barra del tareaje
   _tacProy=(document.getElementById('tareProy')||{}).value||'';
   _tacBusca=(document.getElementById('tareBuscar')||{}).value||'';
+  _tacIdx=null;                  // el tareaje pudo cambiar desde la última vez
   openM('mTarAcum');
   rTarAcum();
 }
@@ -120,14 +133,19 @@ function _tacSet(campo,v){
   if(campo==='hasta')_tacHasta=v&&v<_tacHoy()?v:'';
   else if(campo==='inact')_tacInact=!!v;
   else if(campo==='proy')_tacProy=v;
-  else if(campo==='busca'){_tacBusca=v;clearTimeout(_tacSet._t);_tacSet._t=setTimeout(rTarAcum,200);return;}
+  else if(campo==='busca'){
+    // Al escribir se redibujan solo los resultados: la caja de búsqueda no se
+    // toca, así no pierde el foco ni el cursor
+    _tacBusca=v;clearTimeout(_tacSet._t);_tacSet._t=setTimeout(()=>rTarAcum(true),150);return;
+  }
   rTarAcum();
 }
 function _tacOrdenar(k){
   _tacOrden=_tacOrden.k===k?{k,asc:!_tacOrden.asc}:{k,asc:k==='nombre'||k==='cargo'||k==='dni'||k==='inicio'||k==='ultima'};
-  rTarAcum();
+  rTarAcum(true);
 }
-function rTarAcum(){
+// soloRes: redibuja tarjetas y tabla, dejando los controles como están
+function rTarAcum(soloRes){
   const el=document.getElementById('mTarAcumBody');if(!el)return;
   const D=_tacDatos();
   const hoy=_tacHoy();
@@ -161,7 +179,7 @@ function rTarAcum(){
       <td style="${TD};text-align:right;font-variant-numeric:tabular-nums">${_tacN(f.hh)}</td>
     </tr>`).join('');
   const TF='position:sticky;bottom:0;background:var(--panel2);padding:.45rem .4rem;border-top:2px solid var(--border);font-size:.74rem;font-weight:800;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums';
-  el.innerHTML=`
+  const controles=`
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
       <select onchange="_tacSet('proy',this.value)" style="${ctl};max-width:220px">${proyOpts}</select>
       <input type="text" value="${_tacEsc(D.q)}" oninput="_tacSet('busca',this.value)" placeholder="🔍 Nombre, cargo o DNI" style="${ctl};width:200px">
@@ -174,7 +192,8 @@ function rTarAcum(){
         <button class="btn btn-out btn-sm" onclick="_tacExcel()" style="color:#10b981;border-color:#10b98160">📊 Excel</button>
         <button class="btn btn-out btn-sm" onclick="_tacPdf()" style="color:#ef4444;border-color:#ef444460">🖨 PDF</button>
       </div>
-    </div>
+    </div>`;
+  const res=`
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.75rem">
       ${kpi('Trabajadores',_tacN(D.filas.length),'#6366f1',D.inicioGen?'tareaje desde el '+_tacF(D.inicioGen):'')}
       ${kpi('Días trabajados',_tacN(D.tot.trab),'#10b981','TD + TN + DLT + A5')}
@@ -205,6 +224,9 @@ function rTarAcum(){
           <td style="${TF}">${_tacN(D.tot.hh)}</td></tr></tfoot>`:''}
       </table>
     </div>`;
+  const caja=document.getElementById('tacRes');
+  if(soloRes&&caja){caja.innerHTML=res;return;}
+  el.innerHTML=controles+`<div id="tacRes">${res}</div>`;
 }
 
 // ── Exportar ───────────────────────────────────────────────────────────────
