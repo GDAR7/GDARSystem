@@ -913,15 +913,141 @@ function _genOT(){
   return`OT-${seq}-${yy}`;
 }
 const _OT_TIPOS_STD=['PM1 – 250 horas','PM2 – 500 horas','PM3 – 1,000 horas','PM4 – 2,000 horas','Correctivo','Predictivo','Reparación Mayor'];
-// Sugiere descripciones de trabajos ya registrados, para no volver a escribir lo mismo
+// Sugiere descripciones de trabajos ya registrados, para no volver a escribir lo mismo.
+// La descripción es de varias líneas (un <textarea> no admite datalist), así que
+// las anteriores se ofrecen en el combo «📋 Anteriores…»; al elegir una se copia.
+let _otDescAnt=[];
 function _otPopulateDescDatalist(){
-  const dl=document.getElementById('dlOtDesc');if(!dl)return;
+  const sel=document.getElementById('otDeAnt');if(!sel)return;
   const vistos=new Set();
-  const descs=(DB.mantenimientos||[]).map(m=>(m.desc||'').trim()).filter(d=>{
+  _otDescAnt=(DB.mantenimientos||[]).map(m=>(m.desc||'').trim()).filter(d=>{
     if(!d||vistos.has(d.toLowerCase()))return false;
     vistos.add(d.toLowerCase());return true;
   });
-  dl.innerHTML=descs.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">`).join('');
+  const corto=d=>{const t=d.replace(/\s*(\r?\n|\/\/)\s*/g,' · ');return t.length>90?t.slice(0,88)+'…':t;};
+  sel.innerHTML='<option value="">📋 Anteriores…</option>'
+    +_otDescAnt.map((d,i)=>`<option value="${i}">${_otEsc(corto(d))}</option>`).join('');
+}
+function _otUsarAnterior(sel){
+  if(sel.value==='')return;
+  const d=_otDescAnt[+sel.value];sel.value='';
+  if(d==null)return;
+  const ta=document.getElementById('otDe');if(ta){ta.value=d;ta.focus();}
+}
+
+// ── Informe técnico de la OT ────────────────────────────────────────────────
+// Una OT «Completado» tiene lugar, conclusiones, fotos e informe PDF. Las
+// columnas salen de sql/mantenimientos_informe.sql; hasta que se corra, la OT
+// se guarda igual pero sin esos tres datos (si se mandaran, Supabase
+// rechazaría todo el guardado por una columna desconocida).
+const _OT_BUCKET='AuxMec_Evidencias';          // mismo depósito que Auxilios
+const _OT_EXTRAS=['lugar','conclusiones','fotos'];
+let _otExtras=null, _otExtrasT=0;               // null = no se sabe todavía
+const _otEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// Texto con saltos: Enter o «//» (lo que ya se escribía así) bajan de renglón.
+// «://» no cuenta, para no partir una dirección web.
+function _otLineas(s){
+  return String(s==null?'':s).split(/\r?\n|(?<!:)\/\//).map(x=>x.trim()).filter(Boolean);
+}
+const _otTxtHtml=s=>_otLineas(s).map(_otEsc).join('<br>');
+function _otFotos(r){
+  const v=r&&r.fotos;
+  if(Array.isArray(v))return v;
+  try{const a=typeof v==='string'&&v?JSON.parse(v):[];return Array.isArray(a)?a:[];}catch(e){return[];}
+}
+const _otFmtF=f=>f?String(f).slice(0,10).split('-').reverse().join('/'):'—';
+async function _otExtrasOk(){
+  if(_otExtras===true)return true;
+  if(_otExtras===false&&Date.now()-_otExtrasT<60000)return false;
+  try{
+    const{error}=await supa.from('mantenimientos').select(_OT_EXTRAS.join(',')).limit(1);
+    _otExtras=!error;
+  }catch(e){_otExtras=false;}
+  _otExtrasT=Date.now();
+  return _otExtras;
+}
+// Guarda la OT en Supabase. Sin las columnas nuevas, las quita y avisa si se perdía algo.
+async function _otGuardarFila(rec){
+  const ok=await _otExtrasOk();
+  let fila=rec;
+  if(!ok){
+    fila={...rec};_OT_EXTRAS.forEach(k=>delete fila[k]);
+    if(rec.lugar||rec.conclusiones||_otFotos(rec).length)
+      toast('La OT se guardó, pero el lugar, las conclusiones y las fotos necesitan correr sql/mantenimientos_informe.sql',true);
+  }
+  return supaUpsert('mantenimientos',fila);
+}
+// La sección del informe se ve solo con estado «Completado»
+function _otEstToggle(){
+  const es=document.getElementById('otEs'),w=document.getElementById('otInformeWrap');
+  if(w)w.style.display=es&&es.value==='Completado'?'':'none';
+}
+function _otPintarFotos(fotos){
+  const el=document.getElementById('otFotosGal');if(!el)return;
+  el.innerHTML=fotos.length?fotos.map((f,i)=>`
+    <div style="position:relative">
+      <img src="${_otEsc(f.url)}" title="${_otEsc(f.nombre||'')}" onclick="window.open(this.src,'_blank')" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid var(--border);cursor:pointer">
+      <button onclick="_otQuitarFoto(${i})" title="Quitar foto" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#ef4444;border-radius:4px;width:20px;height:20px;font-size:.65rem;cursor:pointer;line-height:1">✕</button>
+    </div>`).join(''):'<span style="font-size:.7rem;color:var(--muted2);opacity:.6">Sin fotos</span>';
+}
+// Achica la foto antes de subirla (lado mayor 1600 px, JPG): el informe carga
+// rápido y el almacenamiento no se llena con fotos de 5 MB del celular.
+async function _otReducir(file){
+  try{
+    if(typeof createImageBitmap!=='function')return file;
+    const bmp=await createImageBitmap(file);
+    const k=Math.min(1,1600/Math.max(bmp.width,bmp.height));
+    if(k===1&&file.size<700000)return file;
+    const cv=document.createElement('canvas');
+    cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+    cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',.82));
+    return blob&&blob.size<file.size?blob:file;
+  }catch(e){return file;}
+}
+async function _otSubirFotos(input){
+  const files=[...(input.files||[])];input.value='';
+  if(!files.length)return;
+  const st=document.getElementById('otFotosStatus');
+  if(!(await _otExtrasOk())){toast('Para guardar fotos primero corra sql/mantenimientos_informe.sql en Supabase',true);return;}
+  // Una OT nueva se guarda primero: las fotos se cuelgan de su número
+  if(_mantEditId===null){
+    const id=await gMant(true);
+    if(id==null)return;
+  }
+  const r=DB.mantenimientos.find(x=>x.id===_mantEditId);if(!r)return;
+  const fotos=_otFotos(r);
+  const por=typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'';
+  let n=0;
+  for(const f of files){
+    if(st)st.textContent=`Subiendo ${n+1} de ${files.length}…`;
+    try{
+      const blob=await _otReducir(f);
+      const ext=blob===f?((f.name.split('.').pop()||'jpg').toLowerCase()):'jpg';
+      const path=`mantenimientos/${r.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const{error}=await supa.storage.from(_OT_BUCKET).upload(path,blob,{upsert:false,contentType:blob.type||f.type||'image/jpeg'});
+      if(error)throw error;
+      const{data:{publicUrl}}=supa.storage.from(_OT_BUCKET).getPublicUrl(path);
+      fotos.push({url:publicUrl,path,nombre:f.name,fecha:today(),por});n++;
+    }catch(e){console.warn('[OT fotos]',e);toast('No se pudo subir '+f.name+': '+((e&&e.message)||e),true);}
+  }
+  if(st)st.textContent='';
+  if(!n)return;
+  r.fotos=JSON.stringify(fotos);
+  await _otGuardarFila(r);
+  _otPintarFotos(fotos);rProg();
+  toast(`${n} foto(s) agregada(s)`);
+}
+async function _otQuitarFoto(i){
+  const r=DB.mantenimientos.find(x=>x.id===_mantEditId);if(!r)return;
+  const fotos=_otFotos(r);const f=fotos[i];if(!f)return;
+  if(!confirm('¿Quitar esta foto del informe?'))return;
+  try{if(f.path)await supa.storage.from(_OT_BUCKET).remove([f.path]);}catch(e){console.warn('[OT fotos] borrar',e);}
+  fotos.splice(i,1);
+  r.fotos=JSON.stringify(fotos);
+  await _otGuardarFila(r);
+  _otPintarFotos(fotos);
+  toast('Foto quitada');
 }
 function _otTiToggle(){
   const ti=document.getElementById('otTi'),wrap=document.getElementById('otTiOtroWrap');
@@ -931,14 +1057,15 @@ function _otTiToggle(){
 function openMant(){
   _mantEditId=null;
   document.getElementById('mMantTtl').textContent='Programar Mantenimiento';
-  ['otDe','otFp','otFe','otTiOtro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['otDe','otFp','otFe','otTiOtro','otLugar','otConcl'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  _otPintarFotos([]);
   document.getElementById('otN').value=_genOT();
   document.getElementById('otHs').value=0;
   const eq=document.getElementById('otEq');if(eq)eq.selectedIndex=0;
   const ti=document.getElementById('otTi');if(ti)ti.selectedIndex=0;
   const mc=document.getElementById('otMec');if(mc)mc.selectedIndex=0;
   const es=document.getElementById('otEs');if(es)es.value='Programado';
-  _otTiToggle();
+  _otTiToggle();_otEstToggle();
   _otPopulateDescDatalist();
   openM('mMant');
 }
@@ -965,7 +1092,7 @@ function rProg(){
       <td class="mono" style="color:var(--mec)">${r.ot}</td>
       <td>${eq?eq.codigo+' '+eq.nombre.split(' ').slice(0,2).join(' '):''}</td>
       <td><span class="badge b-purple" style="font-size:.65rem">${r.tipo}</span></td>
-      <td style="font-size:.8rem">${r.desc}</td>
+      <td style="font-size:.8rem;line-height:1.4">${_otTxtHtml(r.desc)}${_otFotos(r).length?`<div style="font-size:.65rem;color:#10b981;margin-top:.2rem">📷 ${_otFotos(r).length} foto(s)</div>`:''}</td>
       <td style="font-size:.8rem">${r.mec}</td>
       <td class="mono">${r.fp}</td>
       <td class="mono">${r.fe||'—'}</td>
@@ -974,14 +1101,19 @@ function rProg(){
       <td><span class="mono" style="font-size:.72rem;color:#a78bfa">${proy}</span></td>
       <td style="display:flex;gap:.3rem">
         <button class="btn btn-out btn-sm" title="Ver detalle" onclick="verMant(${r.id})" style="color:#3b82f6;border-color:#3b82f660">👁</button>
+        ${r.est==='Completado'?`<button class="btn btn-out btn-sm" title="Informe técnico PDF" onclick="imprimirMant(${r.id})" style="color:#8b5cf6;border-color:#8b5cf660">🖨</button>`:''}
         <button class="btn btn-out btn-sm" title="Editar" onclick="editMant(${r.id})" style="color:#f59e0b;border-color:#f59e0b60">✏️</button>
         <button class="btn btn-del btn-sm" onclick="del('mantenimientos',${r.id})">🗑</button>
       </td>
     </tr>`;
   }).join('');
 }
+let _mantVerId=null;
 function verMant(id){
   const r=DB.mantenimientos.find(x=>x.id===id);if(!r)return;
+  _mantVerId=id;
+  const comp=r.est==='Completado', fotos=_otFotos(r);
+  const pb=document.getElementById('mantVerPrint');if(pb)pb.style.display=comp?'':'none';
   const eq=DB.equipos.find(e=>e.id===r.eqId);
   const proy=eq?eq.proyecto||'—':'—';
   document.getElementById('mantVerTtl').textContent=`🔍 ${r.ot}`;
@@ -993,10 +1125,16 @@ function verMant(id){
       <div><span style="color:var(--muted2);font-size:.72rem">Proyecto</span><div class="mono" style="color:#a78bfa">${proy}</div></div>
       <div><span style="color:var(--muted2);font-size:.72rem">Tipo Mantenimiento</span><div><span class="badge b-purple" style="font-size:.65rem">${r.tipo}</span></div></div>
       <div><span style="color:var(--muted2);font-size:.72rem">Mecánico Responsable</span><div>${r.mec||'—'}</div></div>
-      <div style="grid-column:1/-1"><span style="color:var(--muted2);font-size:.72rem">Descripción del Trabajo</span><div style="margin-top:.2rem;padding:.5rem .7rem;background:var(--panel2);border-radius:6px;line-height:1.5">${r.desc||'—'}</div></div>
+      <div style="grid-column:1/-1"><span style="color:var(--muted2);font-size:.72rem">Descripción del Trabajo</span><div style="margin-top:.2rem;padding:.5rem .7rem;background:var(--panel2);border-radius:6px;line-height:1.5">${_otTxtHtml(r.desc)||'—'}</div></div>
       <div><span style="color:var(--muted2);font-size:.72rem">F. Programada</span><div class="mono">${r.fp||'—'}</div></div>
       <div><span style="color:var(--muted2);font-size:.72rem">F. Ejecución Real</span><div class="mono">${r.fe||'—'}</div></div>
       <div><span style="color:var(--muted2);font-size:.72rem">Hs / Km Programado</span><div class="mono">${fmtN(r.hs)} h</div></div>
+      ${comp?`
+      <div><span style="color:var(--muted2);font-size:.72rem">Lugar</span><div>${_otEsc(r.lugar)||'—'}</div></div>
+      <div style="grid-column:1/-1"><span style="color:var(--muted2);font-size:.72rem">Conclusiones y recomendaciones</span><div style="margin-top:.2rem;padding:.5rem .7rem;background:var(--panel2);border-radius:6px;line-height:1.5">${_otTxtHtml(r.conclusiones)||'—'}</div></div>
+      <div style="grid-column:1/-1"><span style="color:var(--muted2);font-size:.72rem">Referencia fotográfica</span>
+        ${fotos.length?`<div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.3rem">${fotos.map(f=>`<img src="${_otEsc(f.url)}" onclick="window.open(this.src,'_blank')" style="width:78px;height:78px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer">`).join('')}</div>`
+          :'<div style="color:var(--muted);font-size:.78rem">Sin fotos</div>'}</div>`:''}
     </div>`;
   openM('mMantVer');
 }
@@ -1024,27 +1162,100 @@ function editMant(id){
   document.getElementById('otFe').value=r.fe||'';
   document.getElementById('otHs').value=r.hs||0;
   const es=document.getElementById('otEs');if(es)es.value=r.est||'Programado';
+  const lu=document.getElementById('otLugar');if(lu)lu.value=r.lugar||'';
+  const cc=document.getElementById('otConcl');if(cc)cc.value=r.conclusiones||'';
+  _otPintarFotos(_otFotos(r));
+  _otEstToggle();
   _otPopulateDescDatalist();
   openM('mMant');
 }
-function gMant(){
+// seguirAbierto: lo usa la subida de fotos de una OT nueva; la guarda, deja el
+// formulario abierto en modo edición y devuelve su id (null si no se guardó).
+async function gMant(seguirAbierto){
   const eqId=+document.getElementById('otEq').value;
-  if(!eqId){toast('Seleccione equipo',true);return;}
+  if(!eqId){toast('Seleccione equipo',true);return null;}
   const _tiSel=document.getElementById('otTi').value;
   const tipo=_tiSel==='Otros'?(document.getElementById('otTiOtro').value.trim()||'Otros'):_tiSel;
-  const data={ot:document.getElementById('otN').value||_genOT(),eqId,tipo,desc:document.getElementById('otDe').value,mec:document.getElementById('otMec').value,fp:document.getElementById('otFp').value||today(),fe:document.getElementById('otFe').value||null,hs:+document.getElementById('otHs').value||0,est:document.getElementById('otEs').value};
+  const val=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const data={ot:document.getElementById('otN').value||_genOT(),eqId,tipo,desc:document.getElementById('otDe').value,mec:document.getElementById('otMec').value,fp:document.getElementById('otFp').value||today(),fe:document.getElementById('otFe').value||null,hs:+document.getElementById('otHs').value||0,est:document.getElementById('otEs').value,
+    lugar:val('otLugar').trim(),conclusiones:val('otConcl').trim()};
   if(_mantEditId!==null){
     const idx=DB.mantenimientos.findIndex(x=>x.id===_mantEditId);
-    if(idx>-1){DB.mantenimientos[idx]={...DB.mantenimientos[idx],...data,id:_mantEditId};syncSheet('saveMantenimiento',DB.mantenimientos[idx]);}
+    // Las fotos ya se guardaron al subirlas: se conservan las del registro
+    if(idx>-1){DB.mantenimientos[idx]={...DB.mantenimientos[idx],...data,id:_mantEditId};_otGuardarFila(DB.mantenimientos[idx]);}
     _mantEditId=null;
     document.getElementById('mMantTtl').textContent='Programar Mantenimiento';
     closeM('mMant');rProg();toast('OT actualizada');
-  }else{
-    const rec={id:nid('mant'),...data};
-    DB.mantenimientos.push(rec);
-    syncSheet('saveMantenimiento',rec);
-    closeM('mMant');rProg();toast('Mantenimiento programado');
+    return null;
   }
+  const rec={id:nid('mant'),...data};
+  DB.mantenimientos.push(rec);
+  if(seguirAbierto){
+    const err=await _otGuardarFila(rec);
+    if(err){DB.mantenimientos=DB.mantenimientos.filter(x=>x!==rec);return null;}
+    _mantEditId=rec.id;
+    document.getElementById('mMantTtl').textContent='Editar OT';
+    rProg();toast('OT guardada · subiendo fotos…');
+    return rec.id;
+  }
+  _otGuardarFila(rec);
+  closeM('mMant');rProg();toast('Mantenimiento programado');
+  return null;
+}
+// ── Informe técnico PDF de la OT (solo Completado) ──────────────────────────
+// Encabezado igual al del informe de Auxilios Mecánicos; el cuerpo sigue el
+// orden del informe de taller: datos generales, trabajo realizado, fotos y
+// conclusiones.
+function imprimirMant(id){
+  const r=DB.mantenimientos.find(x=>x.id===id);if(!r){toast('OT no encontrada',true);return;}
+  if(r.est!=='Completado'){toast('El informe se emite cuando la OT está Completada',true);return;}
+  const eq=DB.equipos.find(e=>e.id===r.eqId);
+  const fotos=_otFotos(r);
+  const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
+  const row=(l,v)=>`<tr><td style="padding:3px 8px;color:#64748b;font-size:10px;font-weight:700;width:150px;vertical-align:top;white-space:nowrap">${l}</td><td style="padding:3px 8px;font-size:11px;color:#111">${v||'—'}</td></tr>`;
+  const sec=t=>`<div style="background:#1e293b;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;margin:10px 0 4px;letter-spacing:.05em">${t}</div>`;
+  const lista=s=>{const l=_otLineas(s);return l.length?`<div style="font-size:11px;line-height:1.6;padding:2px 8px">${l.map(_otEsc).join('<br>')}</div>`:'<div style="font-size:10px;color:#94a3b8;padding:4px 8px">—</div>';};
+  const marca=eq?[eq.marca,eq.modelo].filter(Boolean).join(' / '):'';
+  const codigo=eq?[eq.codigo,eq.placa].filter(Boolean).join(' · '):'';
+  const unidad=eq&&/km|veh/i.test(String(eq.tipo||''))?' km':' h';
+  // Fotos: 3 por fila, del mismo alto, en cuadrícula con borde
+  const galeria=fotos.length?`<table style="border:1px solid #333;table-layout:fixed">${
+    Array.from({length:Math.ceil(fotos.length/3)},(_,i)=>fotos.slice(i*3,i*3+3)).map(f3=>`<tr>${
+      [0,1,2].map(j=>`<td style="width:33.33%;border:1px solid #333;padding:5px;text-align:center;vertical-align:middle;height:250px">${
+        f3[j]?`<img src="${_otEsc(f3[j].url)}" style="max-width:100%;max-height:238px;object-fit:contain">`:''}</td>`).join('')}</tr>`).join('')}</table>`
+    :'<div style="font-size:10px;color:#94a3b8;padding:4px 8px">Sin fotos registradas</div>';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ${_otEsc(r.ot)}</title>
+  <style>@page{size:A4 portrait;margin:1.2cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{font-family:Arial,sans-serif;color:#111;margin:0}
+  table{width:100%;border-collapse:collapse}
+  tr{page-break-inside:avoid}</style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e293b;padding-bottom:8px;margin-bottom:4px">
+    <img src="${_logoUrl}" style="height:44px;object-fit:contain">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:15px;font-weight:900;color:#1e293b">INFORME TÉCNICO DE MANTENIMIENTO</div>
+      <div style="font-size:10px;color:#64748b">ECOSERMO – Sistema de Control de Mantenimiento – GDAR</div>
+    </div>
+    <div style="font-size:18px;font-weight:900;color:#ef4444;font-family:monospace;background:#fef2f2;border:2px solid #ef4444;padding:4px 10px;border-radius:6px">${_otEsc(r.ot)}</div>
+  </div>
+  ${sec('1. DATOS GENERALES')}
+  <table><tr>
+    <td style="width:50%;vertical-align:top"><table>${row('Tipo',_otEsc(eq?(eq.sub||eq.tipo):''))}${row('Marca / Modelo',_otEsc(marca))}${row('Código / Placa',_otEsc(codigo))}${row('Horómetro / Km',r.hs?fmtN(r.hs)+unidad:'—')}${row('Proyecto',_otEsc(eq?eq.proyecto:''))}</table></td>
+    <td style="width:50%;vertical-align:top"><table>${row('Responsable',_otEsc(r.mec))}${row('Fecha de atención',_otFmtF(r.fe||r.fp))}${row('Lugar',_otEsc(r.lugar))}${row('Tipo de Mantenimiento',_otEsc(r.tipo))}${row('Estado',_otEsc(r.est))}</table></td>
+  </tr></table>
+  ${sec('2. TRABAJO REALIZADO')}
+  ${lista(r.desc)}
+  ${sec('3. REFERENCIA FOTOGRÁFICA')}
+  ${galeria}
+  ${sec('4. CONCLUSIONES Y RECOMENDACIONES')}
+  ${lista(r.conclusiones)}
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:2rem;margin-top:2.2rem;border-top:1px solid #ddd;padding-top:1rem;page-break-inside:avoid">
+    <div style="text-align:center"><div style="height:38px"></div><div style="border-top:1.5px solid #333;margin:0 8px 5px"></div><div style="font-size:9.5px;text-transform:uppercase;font-weight:700;color:#1e293b;letter-spacing:.06em">Mecánico: ${_otEsc(r.mec||'')}</div></div>
+    <div style="text-align:center"><div style="height:38px"></div><div style="border-top:1.5px solid #333;margin:0 8px 5px"></div><div style="font-size:9.5px;text-transform:uppercase;font-weight:700;color:#1e293b;letter-spacing:.06em">Supervisor</div></div>
+  </div>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){toast('Active ventanas emergentes para imprimir',true);return;}
+  w.document.write(html);w.document.close();
 }
 function printProgGantt(){
   const fdEl=document.getElementById('progFDesde'),fhEl=document.getElementById('progFHasta');

@@ -2764,22 +2764,39 @@
 <div class="mo" id="mMantVer"><div class="modal" style="max-width:660px">
   <div class="mh"><span class="mttl" id="mantVerTtl">🔍 Detalle OT</span><button class="mx" onclick="closeM('mMantVer')">✕</button></div>
   <div class="mb" id="mantVerBody" style="font-size:.83rem"></div>
-  <div class="mf"><button class="btn btn-out" onclick="closeM('mMantVer')">Cerrar</button></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mMantVer')">Cerrar</button><button class="btn btn-a" id="mantVerPrint" style="--ba:#8b5cf6;display:none" onclick="imprimirMant(_mantVerId)">🖨 Imprimir Informe</button></div>
 </div></div>
 
-<div class="mo" id="mMant"><div class="modal">
+<div class="mo" id="mMant"><div class="modal" style="max-width:720px">
   <div class="mh"><span class="mttl" id="mMantTtl">Programar Mantenimiento</span><button class="mx" onclick="closeM('mMant')">✕</button></div>
   <div class="mb"><div class="fg-grid">
     <div class="fg"><label>OT N°</label><input id="otN" readonly style="opacity:.7;cursor:default;background:var(--panel2)"></div>
     <div class="fg"><label>Equipo</label><select id="otEq"></select></div>
     <div class="fg"><label>Tipo Mantenimiento</label><select id="otTi" onchange="_otTiToggle()"><option>PM1 – 250 horas</option><option>PM2 – 500 horas</option><option>PM3 – 1,000 horas</option><option>PM4 – 2,000 horas</option><option>Correctivo</option><option>Predictivo</option><option>Reparación Mayor</option><option value="Otros">Otros (especificar)...</option></select></div>
     <div class="fg" id="otTiOtroWrap" style="display:none"><label>Especificar Tipo</label><input id="otTiOtro" placeholder="Escriba el tipo de mantenimiento..."></div>
-    <div class="fg" style="grid-column:1/-1"><label>Descripción del Trabajo</label><input id="otDe" list="dlOtDesc" autocomplete="off" placeholder="Cambio de aceite, filtros, revisión general..."><datalist id="dlOtDesc"></datalist></div>
+    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:.5rem">Descripción del Trabajo <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted2);font-size:.65rem">(Enter o // = salto de línea)</span>
+      <select id="otDeAnt" onchange="_otUsarAnterior(this)" style="margin-left:auto;width:auto;max-width:55%;font-size:.7rem;padding:.15rem .4rem"><option value="">📋 Anteriores…</option></select></label>
+      <textarea id="otDe" rows="4" placeholder="Cambio de filtro de combustible.&#10;Cambio de filtro separador de agua.&#10;Cambio de aceite de motor." style="resize:vertical;min-height:84px;line-height:1.45;font-family:inherit"></textarea></div>
     <div class="fg"><label>Mecánico Responsable</label><select id="otMec"></select></div>
     <div class="fg"><label>F. Programada</label><input id="otFp" type="date"></div>
     <div class="fg"><label>F. Ejecución Real</label><input id="otFe" type="date"></div>
     <div class="fg"><label>Hs / Km Programado</label><input id="otHs" type="number" placeholder="0"></div>
-    <div class="fg"><label>Estado</label><select id="otEs"><option>Programado</option><option>En Proceso</option><option>Completado</option><option>Postergado</option></select></div>
+    <div class="fg"><label>Estado</label><select id="otEs" onchange="_otEstToggle()"><option>Programado</option><option>En Proceso</option><option>Completado</option><option>Postergado</option></select></div>
+  </div>
+  <!-- Solo con estado «Completado»: datos del informe técnico y fotos -->
+  <div id="otInformeWrap" style="display:none;margin-top:1rem;padding:.85rem;border:1px solid #10b981;border-radius:8px;background:rgba(16,185,129,.05)">
+    <div style="font-size:.7rem;font-weight:800;color:#10b981;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.6rem">📄 Informe técnico</div>
+    <div class="fg-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Lugar</label><input id="otLugar" placeholder="TALLER ECOSERMO R3"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Conclusiones y recomendaciones <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted2);font-size:.65rem">(Enter o // = salto de línea)</span></label>
+        <textarea id="otConcl" rows="2" placeholder="EQUIPO OPERATIVO" style="resize:vertical;min-height:52px;line-height:1.45;font-family:inherit"></textarea></div>
+      <div class="fg" style="grid-column:1/-1"><label>📷 Referencia fotográfica</label>
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+          <label class="btn btn-out btn-sm" style="cursor:pointer;color:#10b981;border-color:#10b98160;text-transform:none;letter-spacing:0">➕ Agregar fotos<input type="file" accept="image/*" multiple onchange="_otSubirFotos(this)" style="display:none"></label>
+          <span id="otFotosStatus" style="font-size:.7rem;color:var(--muted2)"></span>
+        </div>
+        <div id="otFotosGal" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem"></div></div>
+    </div>
   </div></div>
   <div class="mf"><button class="btn btn-out" onclick="closeM('mMant')">Cancelar</button><button class="btn btn-a" style="--ba:var(--mec)" onclick="gMant()">Guardar</button></div>
 </div></div>
@@ -3403,7 +3420,7 @@
 <script src="js/reembolsables_otros.js?v=13"></script>
 <script src="js/importCsv.js?v=2"></script>
 <script src="js/importPlanilla.js?v=6"></script>
-<script src="js/mantenimiento.js?v=19"></script>
+<script src="js/mantenimiento.js?v=20"></script>
 <script src="js/masterResumen.js?v=5"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
 <script src="js/tareaje.js?v=29"></script>
