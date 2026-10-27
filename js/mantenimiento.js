@@ -1212,8 +1212,9 @@ function imprimirMant(id){
   const eq=DB.equipos.find(e=>e.id===r.eqId);
   const fotos=_otFotos(r);
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
-  const row=(l,v)=>`<tr><td style="padding:3px 8px;color:#64748b;font-size:10px;font-weight:700;width:150px;vertical-align:top;white-space:nowrap">${l}</td><td style="padding:3px 8px;font-size:11px;color:#111">${v||'—'}</td></tr>`;
-  const sec=t=>`<div style="background:#1e293b;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;margin:10px 0 4px;letter-spacing:.05em">${t}</div>`;
+  // Colores del informe: títulos de sección rgb(0,112,192) y etiquetas rgb(14,52,190)
+  const row=(l,v)=>`<tr><td style="padding:3px 8px;color:rgb(14,52,190);font-size:10px;font-weight:700;width:150px;vertical-align:top;white-space:nowrap">${l}</td><td style="padding:3px 8px;font-size:11px;color:#111">${v||'—'}</td></tr>`;
+  const sec=t=>`<div style="background:rgb(0,112,192);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;margin:10px 0 4px;letter-spacing:.05em">${t}</div>`;
   const lista=s=>{const l=_otLineas(s);return l.length?`<div style="font-size:11px;line-height:1.6;padding:2px 8px">${l.map(_otEsc).join('<br>')}</div>`:'<div style="font-size:10px;color:#94a3b8;padding:4px 8px">—</div>';};
   const marca=eq?[eq.marca,eq.modelo].filter(Boolean).join(' / '):'';
   const codigo=eq?[eq.codigo,eq.placa].filter(Boolean).join(' · '):'';
