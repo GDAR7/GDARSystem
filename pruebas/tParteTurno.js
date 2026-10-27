@@ -268,7 +268,7 @@ es('  sin columna de equipos (aunque el parte antiguo los traiga)',
 es('  la que no tiene cantidad dice —',/Perfilado &lt;de&gt; talud/.test(DOC),true);
 es('el texto escrito no se interpreta como código',/<de>/.test(DOC),false);
 es('el plano aparece porque hay una actividad ubicada',/Ubicación de los trabajos/.test(DOC),true);
-es('  con su punto numerado en el lugar marcado',/left:40%;top:55%/.test(DOC),true);
+es('  con su punto numerado en el lugar marcado',/left:40(\.0+)?%;top:55(\.0+)?%/.test(DOC),true);
 es('la paralización por lluvia, con sus horas',/Paralización: <b>2\.5 h<\/b> \(02:00 a 04:30\)/.test(DOC),true);
 es('el pendiente para el siguiente turno',/Material inadecuado en Acceso Este/.test(DOC),true);
 es('las observaciones',/Sin incidentes/.test(DOC),true);

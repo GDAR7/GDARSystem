@@ -25,6 +25,14 @@ const _PT_CLIMA_PARA=/lluvia|granizo|nevada|neblina/i;
 
 let _ptNAct=0;                    // cuántas filas de actividad lleva el formulario
 
+// Panel fotográfico: las fotos van ligadas a su actividad y se guardan dentro
+// de ella (actividades[i].fotos, en la misma columna jsonb: no hace falta SQL).
+// Mientras se llena el parte quedan en espera; se suben al Guardar.
+const _PT_FOTOS_MAX=12;
+const _PT_BUCKET='AuxMec_Evidencias';     // mismo depósito que Auxilios y las OT
+let _ptFotos={};                  // data-n de la actividad → [{file,url,nombre,hora,nota,subida}]
+let _ptClave=null;                // carpeta de este parte en Storage (partes/<clave>/)
+
 const _ptEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _ptHoy=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);};
@@ -78,6 +86,11 @@ function _ptFilaActividad(){
         <select class="pt-unid">${_PT_UNIDADES.map(u=>`<option>${_ptEsc(u)}</option>`).join('')}</select>
       </label>
     </div>
+    <div class="pt-ubic-row">
+      <label class="pt-btn-foto">📷 Fotos<input type="file" accept="image/*" multiple onchange="_ptFotosAgregar(this)" style="display:none"></label>
+      <span class="pt-fotos-cuenta pt-ubic">Opcional · máx. ${_PT_FOTOS_MAX} por parte</span>
+    </div>
+    <div class="pt-fotos"></div>
   </div>`;
 }
 // Resumen de una actividad para su cabecera contraída
@@ -90,6 +103,8 @@ function _ptResumenAct(act){
   partes.push(desc?(desc.length>60?desc.slice(0,60)+'…':desc):'⚠ sin descripción');
   if(cant!=='')partes.push(cant+' '+un);
   if(v('.pt-x')!=='')partes.push('📍');
+  const nf=(_ptFotos[act.dataset&&act.dataset.n]||[]).length;
+  if(nf)partes.push('📷 '+nf);
   return partes.join(' · ');
 }
 
@@ -287,7 +302,11 @@ function _ptQuitarActividad(btn){
   const c=document.getElementById('ptActs');if(!c)return;
   if(c.children.length<=1){toast('Debe quedar al menos una actividad',true);return;}
   const fila=btn.closest('.pt-act');
-  if(fila)fila.remove();
+  if(!fila)return;
+  const n=fila.dataset&&fila.dataset.n, nf=(_ptFotos[n]||[]).length;
+  if(nf&&!confirm(`Esta actividad tiene ${nf} foto(s). ¿Quitarla junto con sus fotos?`))return;
+  _ptFotosSoltar(n);
+  fila.remove();
 }
 function _ptLeerActividades(){
   return [...document.querySelectorAll('#ptActs .pt-act')].map(a=>{
@@ -304,6 +323,83 @@ function _ptLeerActividades(){
       ubicacion:(x!==''&&y!=='')?{x:+x,y:+y}:null
     };
   }).filter(a=>a.descripcion!=='');
+}
+
+// ── Fotos de cada actividad ─────────────────────────────────────────────────
+const _ptFotosTotal=()=>Object.values(_ptFotos).reduce((s,l)=>s+l.length,0);
+// Hora de la foto: la de la cámara (lastModified); si no hay, la de ahora
+function _ptHoraDe(file){
+  const d=new Date(file&&file.lastModified?file.lastModified:Date.now());
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function _ptFotosAgregar(input){
+  const act=input.closest('.pt-act');
+  const files=[...(input.files||[])];input.value='';
+  if(!act||!files.length)return;
+  const n=act.dataset.n;
+  const libres=_PT_FOTOS_MAX-_ptFotosTotal();
+  if(libres<=0){toast(`Ya hay ${_PT_FOTOS_MAX} fotos en este parte: es el máximo`,true);return;}
+  const toma=files.slice(0,libres);
+  _ptFotos[n]=_ptFotos[n]||[];
+  toma.forEach(f=>_ptFotos[n].push({file:f,url:URL.createObjectURL(f),nombre:f.name,hora:_ptHoraDe(f),nota:'',subida:null}));
+  if(toma.length<files.length)toast(`Solo entraron ${toma.length} de ${files.length}: el máximo es ${_PT_FOTOS_MAX} fotos por parte`,true);
+  _ptFotosPintar(act);
+}
+function _ptFotosPintar(act){
+  if(!act)return;
+  const n=act.dataset.n, l=_ptFotos[n]||[];
+  const gal=act.querySelector('.pt-fotos'), cu=act.querySelector('.pt-fotos-cuenta');
+  if(cu)cu.textContent=l.length?`${l.length} foto(s) · se suben al guardar · ${_ptFotosTotal()}/${_PT_FOTOS_MAX} en el parte`:`Opcional · máx. ${_PT_FOTOS_MAX} por parte`;
+  if(gal)gal.innerHTML=l.map((f,i)=>`<div class="pt-foto">
+      <div style="position:relative">
+        <img src="${_ptEsc(f.url)}" alt="">
+        <span class="pt-foto-h">${_ptEsc(f.hora)}</span>
+        <button type="button" onclick="_ptFotoQuitar('${n}',${i})" title="Quitar foto">✕</button>
+      </div>
+      <input type="text" maxlength="80" placeholder="Comentario (opcional)" value="${_ptEsc(f.nota)}" oninput="_ptFotoNota('${n}',${i},this.value)">
+    </div>`).join('');
+  // Las otras actividades actualizan su total del parte
+  document.querySelectorAll('#ptActs .pt-act').forEach(a=>{
+    if(a===act)return;
+    const c=a.querySelector('.pt-fotos-cuenta'), k=(_ptFotos[a.dataset.n]||[]).length;
+    if(c&&k)c.textContent=`${k} foto(s) · se suben al guardar · ${_ptFotosTotal()}/${_PT_FOTOS_MAX} en el parte`;
+  });
+}
+function _ptFotoNota(n,i,v){const f=(_ptFotos[n]||[])[i];if(f)f.nota=String(v||'').slice(0,80);}
+function _ptFotoQuitar(n,i){
+  const l=_ptFotos[n]||[];const f=l[i];if(!f)return;
+  try{URL.revokeObjectURL(f.url);}catch(e){}
+  l.splice(i,1);
+  _ptFotosPintar(document.querySelector(`#ptActs .pt-act[data-n="${n}"]`));
+}
+function _ptFotosSoltar(n){
+  (_ptFotos[n]||[]).forEach(f=>{try{URL.revokeObjectURL(f.url);}catch(e){}});
+  delete _ptFotos[n];
+}
+// Sube las fotos que falten (las ya subidas en un intento anterior no se
+// repiten) y devuelve, por actividad, la lista que se guarda + las que fallaron.
+async function _ptSubirFotos(nums,fecha,avance){
+  const total=nums.reduce((s,n)=>s+(_ptFotos[n]||[]).filter(f=>!f.subida).length,0);
+  _ptClave=_ptClave||(String(fecha||_ptHoy())+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  let hechas=0;const fallas=[];
+  for(const n of nums){
+    for(const f of (_ptFotos[n]||[])){
+      if(f.subida)continue;
+      if(avance)avance(++hechas,total);
+      try{
+        const blob=typeof _otReducir==='function'?await _otReducir(f.file):f.file;
+        const ext=blob===f.file?((String(f.nombre).split('.').pop()||'jpg').toLowerCase()):'jpg';
+        const path=`partes/${_ptClave}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const{error}=await supa.storage.from(_PT_BUCKET).upload(path,blob,{upsert:false,contentType:blob.type||f.file.type||'image/jpeg'});
+        if(error)throw error;
+        const{data:{publicUrl}}=supa.storage.from(_PT_BUCKET).getPublicUrl(path);
+        f.subida={url:publicUrl,path};
+      }catch(e){console.warn('[Parte fotos]',e);fallas.push(f.nombre);}
+    }
+  }
+  const porAct=nums.map(n=>(_ptFotos[n]||[]).filter(f=>f.subida)
+    .map(f=>({url:f.subida.url,path:f.subida.path,nombre:f.nombre,hora:f.hora,nota:f.nota})));
+  return{porAct,fallas};
 }
 
 // ── Horas perdidas por clima ────────────────────────────────────────────────
@@ -370,6 +466,11 @@ async function _ptGuardar(){
   if(!autor){toast('Escriba quién registra el parte',true);return;}
   const acts=_ptLeerActividades();
   if(!acts.length){toast('Describa al menos una actividad',true);return;}
+  // Las actividades que se guardan, en el mismo orden: de ahí salen sus fotos
+  const conDesc=[...document.querySelectorAll('#ptActs .pt-act')]
+    .filter(a=>String((a.querySelector('.pt-desc')||{}).value||'').trim()!=='');
+  const sinDesc=[...document.querySelectorAll('#ptActs .pt-act')].find(a=>!conDesc.includes(a)&&(_ptFotos[a.dataset.n]||[]).length);
+  if(sinDesc){toast(`La actividad ${sinDesc.dataset.n} tiene fotos pero no tiene descripción`,true);_ptColapsar(sinDesc,false);return;}
 
   const turnoEl=document.querySelector('input[name="ptTurno"]:checked');
   const turno=turnoEl?turnoEl.value:'Día';
@@ -380,6 +481,16 @@ async function _ptGuardar(){
 
   const btn=document.getElementById('ptGuardar');
   if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+
+  // Primero las fotos (a la carpeta de este parte); van dentro de su actividad
+  let fallasFoto=[];
+  if(_ptFotosTotal()){
+    const nums=conDesc.map(a=>a.dataset.n);
+    const sub=await _ptSubirFotos(nums,fecha,(i,t)=>{if(btn)btn.textContent=`Subiendo fotos ${i} de ${t}…`;});
+    sub.porAct.forEach((l,i)=>{if(l.length&&acts[i])acts[i].fotos=l;});
+    fallasFoto=sub.fallas;
+    if(btn)btn.textContent='Guardando…';
+  }
 
   DB.partesTurno=DB.partesTurno||[];
   const rec={
@@ -402,13 +513,17 @@ async function _ptGuardar(){
   _ptPintarUltimo();
   // Listo para el siguiente: se conservan fecha, turno y quién registra
   _ptLimpiar(false);
-  toast('✓ Parte de turno guardado'+(horasPerdidas?' · '+horasPerdidas+' h perdidas':''));
+  const nFotos=acts.reduce((s,a)=>s+((a.fotos||[]).length),0);
+  toast('✓ Parte de turno guardado'+(horasPerdidas?' · '+horasPerdidas+' h perdidas':'')+(nFotos?' · '+nFotos+' foto(s)':''));
+  if(fallasFoto.length)toast('No se pudo subir: '+fallasFoto.join(', ')+'. El parte se guardó sin esa(s) foto(s).',true);
 }
 
 // Limpia el formulario. Con todo=true borra también fecha, turno y autor.
 function _ptLimpiar(todo){
   const set=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
   _ptNAct=0;
+  Object.keys(_ptFotos).forEach(_ptFotosSoltar);
+  _ptFotos={};_ptClave=null;
   const c=document.getElementById('ptActs');
   if(c)c.innerHTML=_ptFilaActividad();
   set('ptClima','Despejado');set('ptClimaObs','');set('ptClimaIni','');set('ptClimaFin','');
@@ -428,6 +543,8 @@ function rParteTurno(){
   try{autor=localStorage.getItem('gdar_pt_autor')||'';}catch(e){}
   if(!autor&&typeof CU!=='undefined'&&CU)autor=String(CU.nombre||'');
   _ptNAct=0;
+  Object.keys(_ptFotos).forEach(_ptFotosSoltar);   // el formulario se arma de nuevo
+  _ptFotos={};_ptClave=null;
 
   pg.innerHTML=`
     <div class="ph">
@@ -531,8 +648,153 @@ function _ptNombreArchivo(r){
   return 'Parte de Turno '+String(r.fecha||'')+' '+String(r.turno||'')+(quien?' - '+quien:'')+'.pdf';
 }
 
-// El documento, en hoja blanca de 794 px (el ancho de un A4)
-function _ptDocHtml(r){
+// ── Números del plano sin encimarse ─────────────────────────────────────────
+// Varias actividades del mismo dique caen a pocos píxeles y sus números se
+// tapaban. Dos arreglos, solo al dibujar (lo guardado no cambia):
+//  A · los números que se tocan se abren en abanico alrededor del punto real,
+//      con una línea fina hasta un puntito en el lugar exacto;
+//  B · si los puntos se juntan en una parte chica del plano, debajo va un
+//      «Detalle de la zona» ampliado, y en el plano general un recuadro rojo
+//      marca qué parte se amplió.
+const _PT_MAPA_PROP=1339/2208;    // alto / ancho de la imagen del plano
+const _PT_MAPA_W=712;             // ancho del plano en la hoja (794 − márgenes − borde)
+const _PT_NUM_D=25;               // diámetro de un número (22 px) + aire
+// Grupos de puntos encadenados a menos de «dist» píxeles
+function _ptGrupos(pts,dist){
+  const pa=pts.map((_,i)=>i);
+  const raiz=i=>pa[i]===i?i:(pa[i]=raiz(pa[i]));
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++)
+    if(Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y)<dist)pa[raiz(i)]=raiz(j);
+  const g={};pts.forEach((_,i)=>{(g[raiz(i)]=g[raiz(i)]||[]).push(i);});
+  return Object.values(g);
+}
+// Dónde va cada número: los de un grupo, en círculo alrededor de su centro;
+// después se empujan los que aún se tocan y se mantienen dentro del plano.
+function _ptRepartir(pts,W,H,D){
+  const L=pts.map(p=>({x:p.x,y:p.y}));
+  _ptGrupos(pts,D).filter(g=>g.length>1).forEach(g=>{
+    const cx=g.reduce((s,i)=>s+pts[i].x,0)/g.length, cy=g.reduce((s,i)=>s+pts[i].y,0)/g.length;
+    const r=Math.max(D*1.05,g.length*D*1.15/(2*Math.PI));
+    g.forEach((i,k)=>{const a=-Math.PI/2+2*Math.PI*k/g.length;L[i]={x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};});
+  });
+  const m=D/2+1, dentro=p=>{p.x=Math.min(W-m,Math.max(m,p.x));p.y=Math.min(H-m,Math.max(m,p.y));};
+  L.forEach(dentro);
+  for(let it=0;it<120;it++){
+    let movio=false;
+    for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
+      let dx=L[j].x-L[i].x,dy=L[j].y-L[i].y,d=Math.hypot(dx,dy);
+      if(d>=D)continue;
+      if(d<0.01){const a=(i+j)*2.4;dx=Math.cos(a);dy=Math.sin(a);d=1;}
+      const e=(D-d)/2+0.2;
+      L[i].x-=dx/d*e;L[i].y-=dy/d*e;L[j].x+=dx/d*e;L[j].y+=dy/d*e;
+      dentro(L[i]);dentro(L[j]);movio=true;
+    }
+    if(!movio)break;
+  }
+  return L;
+}
+// Zona a ampliar: el grupo más grande con números que se enciman, si entra
+// en una parte chica del plano (aumento de 1,8× o más). null = no hace falta.
+function _ptDetalleZona(pts,W,H,D){
+  if(pts.length<2)return null;
+  const tocan=g=>g.some((i,a)=>g.slice(a+1).some(j=>Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y)<D*1.3));
+  const g=_ptGrupos(pts,D*3).filter(x=>x.length>1&&tocan(x)).sort((a,b)=>b.length-a.length)[0];
+  if(!g)return null;
+  const xs=g.map(i=>pts[i].x), ys=g.map(i=>pts[i].y), mg=D*1.6;
+  const FW=W, FH=Math.round(W*0.5);
+  const z=Math.min(FW/Math.max(Math.max(...xs)-Math.min(...xs)+2*mg,FW/5),
+                   FH/Math.max(Math.max(...ys)-Math.min(...ys)+2*mg,FH/5),5);
+  if(z<1.8)return null;
+  const cw=FW/z, ch=FH/z;
+  const x=Math.min(W-cw,Math.max(0,(Math.min(...xs)+Math.max(...xs))/2-cw/2));
+  const y=Math.min(H-ch,Math.max(0,(Math.min(...ys)+Math.max(...ys))/2-ch/2));
+  return{x,y,w:cw,h:ch,z,FW,FH};
+}
+// Los números (y, si se movieron, su línea y su puntito), en % del cuadro
+function _ptMarcasHtml(pts,nums,W,H,AC){
+  const L=_ptRepartir(pts,W,H,_PT_NUM_D);
+  const px=(v,t)=>(v/t*100).toFixed(3)+'%';
+  let guias='',numeros='';
+  pts.forEach((p,i)=>{
+    const q=L[i], dx=q.x-p.x, dy=q.y-p.y, d=Math.hypot(dx,dy);
+    if(d>3){
+      guias+=`<div style="position:absolute;left:${px(p.x,W)};top:${px(p.y,H)};width:${d.toFixed(1)}px;height:2px;margin-top:-1px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.55);transform-origin:0 50%;transform:rotate(${Math.atan2(dy,dx).toFixed(4)}rad)"></div>`
+        +`<div style="position:absolute;left:${px(p.x,W)};top:${px(p.y,H)};transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:${AC};border:2px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.7)"></div>`;
+    }
+    numeros+=`<div style="position:absolute;left:${px(q.x,W)};top:${px(q.y,H)};transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${AC};border:2px solid #fff;color:#fff;font:800 11px Arial;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${nums[i]}</div>`;
+  });
+  return guias+numeros;
+}
+// Plano general + (si hace falta) detalle ampliado
+function _ptMapaDocHtml(acts,conUbic,AZ,AC){
+  const W=_PT_MAPA_W, H=W*_PT_MAPA_PROP, D=_PT_NUM_D;
+  const pts=conUbic.map(a=>({x:+a.ubicacion.x/100*W,y:+a.ubicacion.y/100*H}));
+  const nums=conUbic.map(a=>acts.indexOf(a)+1);
+  const zona=_ptDetalleZona(pts,W,H,D);
+  const pc=(v,t)=>(v/t*100).toFixed(3)+'%';
+  const titulo=t=>`<div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">${t}</div>`;
+  let html=`${titulo('Ubicación de los trabajos')}
+    <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
+      <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%;max-width:none">
+      ${zona?`<div style="position:absolute;left:${pc(zona.x,W)};top:${pc(zona.y,H)};width:${pc(zona.w,W)};height:${pc(zona.h,H)};border:2px solid #dc2626;box-sizing:border-box"></div>`:''}
+      ${_ptMarcasHtml(pts,nums,W,H,AC)}
+    </div>`;
+  if(zona){
+    // Lo que cae dentro del recuadro, en las coordenadas del detalle
+    const dentro=pts.map((p,i)=>({p,i})).filter(o=>o.p.x>=zona.x&&o.p.x<=zona.x+zona.w&&o.p.y>=zona.y&&o.p.y<=zona.y+zona.h);
+    const dp=dentro.map(o=>({x:(o.p.x-zona.x)*zona.z,y:(o.p.y-zona.y)*zona.z}));
+    html+=`${titulo('Detalle de la zona <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· ampliado '+zona.z.toFixed(1).replace('.',',')+'× · recuadro rojo del plano</span>')}
+    <div style="position:relative;margin-top:6px;height:${zona.FH}px;border:2px solid #dc2626;border-radius:6px;overflow:hidden">
+      <img src="${_PT_MAPA_IMG}" alt="" style="position:absolute;left:${(-zona.x*zona.z).toFixed(1)}px;top:${(-zona.y*zona.z).toFixed(1)}px;width:${(W*zona.z).toFixed(1)}px;height:${(H*zona.z).toFixed(1)}px;max-width:none">
+      ${_ptMarcasHtml(dp,dentro.map(o=>nums[o.i]),zona.FW,zona.FH,AC)}
+    </div>`;
+  }
+  return html;
+}
+
+// ── Panel fotográfico ───────────────────────────────────────────────────────
+// Todas las fotos del parte, en el orden de las actividades, numeradas.
+function _ptFotosDe(r){
+  const out=[];
+  (r&&r.actividades||[]).forEach((a,i)=>(Array.isArray(a&&a.fotos)?a.fotos:[]).forEach(f=>{
+    if(f&&f.url)out.push({...f,act:i+1,frente:a.frente||''});
+  }));
+  return out.map((f,k)=>({...f,k:k+1}));
+}
+// Filas de 2 fotos; cada foto entra entera (sin recortar) en su recuadro
+function _ptPanelFilas(fotos,AC){
+  const celda=f=>f?`<td style="width:50%;border:1px solid #d6dbe3;padding:6px;vertical-align:top">
+      <div style="height:255px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:4px;overflow:hidden">
+        <img src="${_ptEsc(f.url)}" alt="" crossorigin="anonymous" style="max-width:100%;max-height:255px;display:block">
+      </div>
+      <div style="font-size:11px;margin-top:5px;color:#111"><b style="color:${AC}">Foto ${f.k}</b> · Act. ${f.act} · ${_ptEsc(f.frente||'—')}${f.hora?` · <span style="color:#64748b">${_ptEsc(f.hora)}</span>`:''}</div>
+      ${f.nota?`<div style="font-size:11px;color:#475569;margin-top:2px">${_ptEsc(f.nota)}</div>`:''}
+    </td>`:'<td style="width:50%;border:1px solid #d6dbe3"></td>';
+  let h='';
+  for(let i=0;i<fotos.length;i+=2)h+=`<tr style="page-break-inside:avoid">${celda(fotos[i])}${celda(fotos[i+1])}</tr>`;
+  return`<table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">${h}</table>`;
+}
+const _PT_AZ='#1e3a5f', _PT_AC='#b45309';
+const _ptTituloDoc=t=>`<div style="margin-top:14px;font-size:11px;font-weight:800;color:${_PT_AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${_PT_AZ};padding-bottom:3px">${t}</div>`;
+// Para el PDF: el panel en hojas A4 propias (794×1123 px), 6 fotos por hoja,
+// así ninguna foto queda partida entre dos páginas.
+const _PT_FOTOS_HOJA=6;
+function _ptPanelHojas(r){
+  const fotos=_ptFotosDe(r);if(!fotos.length)return[];
+  const hojas=[];
+  for(let i=0;i<fotos.length;i+=_PT_FOTOS_HOJA)hojas.push(fotos.slice(i,i+_PT_FOTOS_HOJA));
+  return hojas.map((l,h)=>`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${_PT_AZ};padding-bottom:8px">
+      <div style="font-size:18px;font-weight:900;color:${_PT_AZ}">PANEL FOTOGRÁFICO</div>
+      <div style="font-size:11px;color:#334155;text-align:right"><span style="text-transform:capitalize">${_ptEsc(_ptFechaLarga(r.fecha))}</span> · Turno ${_ptEsc(r.turno||'')}<br>Hoja ${h+1} de ${hojas.length} · ${fotos.length} foto(s)</div>
+    </div>
+    ${_ptPanelFilas(l,_PT_AC)}
+  </div>`);
+}
+
+// El documento, en hoja blanca de 794 px (el ancho de un A4).
+// opc.sinPanel: sin el panel fotográfico (el PDF lo pone en hojas aparte).
+function _ptDocHtml(r,opc){
   const AZ='#1e3a5f', AC='#b45309';
   const logo=(typeof EMPRESA!=='undefined'&&EMPRESA.logo)?EMPRESA.logo:'';
   const acts=r.actividades||[];
@@ -541,18 +803,13 @@ function _ptDocHtml(r){
   const TH=`padding:7px 9px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;text-align:left`;
   const filas=acts.map((a,i)=>`<tr>
     <td style="${TD};text-align:center;font-weight:800;color:${AC}">${i+1}</td>
-    <td style="${TD};font-weight:700">${_ptEsc(a.frente||'—')}${a.ubicacion?` <span style="color:#10b981">📍</span>`:''}</td>
+    <td style="${TD};font-weight:700">${_ptEsc(a.frente||'—')}${a.ubicacion?` <span style="color:#10b981">📍</span>`:''}${(a.fotos||[]).length?` <span style="color:#64748b;font-weight:400;font-size:11px;white-space:nowrap">📷 ${a.fotos.length}</span>`:''}</td>
     <td style="${TD};white-space:pre-wrap">${_ptEsc(a.descripcion||'')}</td>
     <td style="${TD};text-align:right;white-space:nowrap;font-weight:700">${a.cantidad!=null&&a.cantidad!==''?_ptEsc(a.cantidad)+' '+_ptEsc(a.unidad||''):'—'}</td>
   </tr>`).join('');
   const paraliza=+r.horasPerdidas>0;
   // Plano con los puntos marcados, si se ubicó alguna actividad
-  const mapa=conUbic.length?`
-    <div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">Ubicación de los trabajos</div>
-    <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
-      <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%">
-      ${conUbic.map(a=>{const n=acts.indexOf(a)+1;return`<div style="position:absolute;left:${+a.ubicacion.x}%;top:${+a.ubicacion.y}%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${AC};border:2px solid #fff;color:#fff;font:800 11px Arial;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${n}</div>`;}).join('')}
-    </div>`:'';
+  const mapa=conUbic.length?_ptMapaDocHtml(acts,conUbic,AZ,AC):'';
   return`<div style="width:794px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid ${AZ};padding-bottom:10px">
       <div>
@@ -584,6 +841,9 @@ function _ptDocHtml(r){
     ${r.observaciones?`<div style="margin-top:12px;border-left:4px solid #64748b;background:#f8fafc;padding:9px 12px;border-radius:0 6px 6px 0">
       <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em">Observaciones</div>
       <div style="font-size:12.5px;margin-top:3px;white-space:pre-wrap">${_ptEsc(r.observaciones)}</div></div>`:''}
+    ${_ptFotosDe(r).length?(opc&&opc.sinPanel
+      ?`<div style="margin-top:12px;font-size:11.5px;color:#475569">📷 <b>Panel fotográfico:</b> ${_ptFotosDe(r).length} foto(s) en las hojas siguientes.</div>`
+      :_ptTituloDoc('Panel fotográfico · '+_ptFotosDe(r).length+' foto(s)')+_ptPanelFilas(_ptFotosDe(r),AC)):''}
     <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #d6dbe3;padding-top:9px;font-size:11px;color:#475569">
       <span>Registró: <b style="color:#111">${_ptEsc(r.autor||'—')}</b></span>
       <span>Generado ${_ptEsc(new Date(r.creadoEn||Date.now()).toLocaleString('es-PE'))}</span>
@@ -640,18 +900,29 @@ async function _ptGenerarPdf(r){
   await _ptCargarLib(_PT_LIB_PDF,()=>!!(window.jspdf&&window.jspdf.jsPDF));
   const caja=document.createElement('div');
   caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
-  caja.innerHTML=_ptDocHtml(r);
   document.body.appendChild(caja);
+  // Dibuja un bloque de HTML y espera a que carguen sus imágenes (las fotos vienen de Storage)
+  const dibujar=async html=>{
+    caja.innerHTML=html;
+    await Promise.all([...caja.querySelectorAll('img')].map(im=>im.complete?null:new Promise(ok=>{im.onload=im.onerror=ok;})));
+    return window.html2canvas(caja.firstElementChild,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+  };
   try{
-    const cv=await window.html2canvas(caja.firstElementChild,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
     const W=210, H=297;
+    const cv=await dibujar(_ptDocHtml(r,{sinPanel:true}));
     const alto=cv.height*W/cv.width;
     const img=cv.toDataURL('image/jpeg',0.92);
     // Si el parte es más largo que una hoja, sigue en las siguientes
     let y=0;
     pdf.addImage(img,'JPEG',0,0,W,alto);
     while(alto-y>H){y+=H;pdf.addPage();pdf.addImage(img,'JPEG',0,-y,W,alto);}
+    // Panel fotográfico: cada hoja, entera en su página
+    for(const hoja of _ptPanelHojas(r)){
+      const c2=await dibujar(hoja);
+      pdf.addPage();
+      pdf.addImage(c2.toDataURL('image/jpeg',0.85),'JPEG',0,0,W,Math.min(H,c2.height*W/c2.width));
+    }
     return pdf.output('blob');
   }finally{caja.remove();}
 }
@@ -718,6 +989,19 @@ function _ptEstilos(){
   .pt-btn-mapa{font-size:.78rem;padding:.5rem .8rem;border-radius:7px;border:1px solid #10b98170;
     background:rgba(16,185,129,.12);color:#10b981;cursor:pointer;font-weight:700;white-space:nowrap}
   .pt-ubic{font-size:.74rem;color:var(--muted2);min-width:0}
+  .pt-btn-foto{font-size:.78rem;padding:.5rem .8rem;border-radius:7px;border:1px solid #3b82f670;
+    background:rgba(59,130,246,.12);color:#60a5fa;cursor:pointer;font-weight:700;white-space:nowrap;
+    text-transform:none;letter-spacing:0}
+  .pt-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem}
+  .pt-fotos:empty{display:none}
+  .pt-foto{display:flex;flex-direction:column;gap:.25rem}
+  .pt-foto img{width:100%;height:86px;object-fit:cover;border-radius:7px;border:1px solid #f59e0b;display:block}
+  .pt-foto button{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.72);border:none;color:#f87171;
+    border-radius:4px;width:22px;height:22px;font-size:.7rem;cursor:pointer;line-height:1}
+  .pt-foto-h{position:absolute;left:3px;bottom:3px;background:rgba(0,0,0,.65);color:#fff;font-size:.6rem;
+    font-weight:700;padding:1px 4px;border-radius:3px}
+  .pt-foto input{font-size:.7rem;padding:.3rem .4rem;border-radius:5px;border:1px solid var(--border);
+    background:var(--panel);color:var(--text);width:100%;box-sizing:border-box}
   .pt-link{background:none;border:0;color:var(--muted2);font-size:.68rem;font-weight:700;
     cursor:pointer;text-decoration:underline;padding:.2rem}
   .pt-link:hover{color:#f87171}

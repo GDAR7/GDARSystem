@@ -116,7 +116,7 @@ function _stTarjeta(p){
   const filas=acts.map((a,i)=>`<div class="st-act">
       <span class="st-act-n">${i+1}</span>
       <div class="st-act-c">
-        <div class="st-act-fr">${_ptEsc(a&&a.frente||'—')}${a&&a.ubicacion?' <span title="Ubicado en el plano" style="color:#10b981">📍</span>':''}</div>
+        <div class="st-act-fr">${_ptEsc(a&&a.frente||'—')}${a&&a.ubicacion?' <span title="Ubicado en el plano" style="color:#10b981">📍</span>':''}${a&&Array.isArray(a.fotos)&&a.fotos.length?` <span title="Fotos de esta actividad" style="color:#60a5fa;font-weight:600">📷 ${a.fotos.length}</span>`:''}</div>
         <div class="st-act-d">${_ptEsc(a&&a.descripcion||'')}</div>
       </div>
       <span class="st-act-q">${a&&a.cantidad!=null&&a.cantidad!==''?_ptEsc(a.cantidad)+' '+_ptEsc(a.unidad||''):'—'}</span>
@@ -126,7 +126,7 @@ function _stTarjeta(p){
       <span class="st-turno" style="background:${color};color:${noche?'#fff':'#111'}">${noche?'🌙':'☀'} Turno ${_ptEsc(p.turno||'')}</span>
       <div class="st-quien">
         <b>${_ptEsc(p.autor||'—')}</b>
-        <span>${_stHora(p.creadoEn)?'registrado '+_stHora(p.creadoEn)+' · ':''}${acts.length} actividad${acts.length===1?'':'es'}</span>
+        <span>${_stHora(p.creadoEn)?'registrado '+_stHora(p.creadoEn)+' · ':''}${acts.length} actividad${acts.length===1?'':'es'}${(()=>{const nf=acts.reduce((s,a)=>s+(a&&Array.isArray(a.fotos)?a.fotos.length:0),0);return nf?' · 📷 '+nf:'';})()}</span>
       </div>
       <div class="st-btns">
         <button type="button" class="st-b st-b-v" onclick="_stVer(${+p.id})">📄 Ver</button>
