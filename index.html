@@ -958,8 +958,7 @@
         <select id="tareProy" onchange="rTareaje()" class="tar-ctl" style="max-width:190px"><option value="">— Todos los proyectos —</option></select>
         <input type="text" id="tareBuscar" placeholder="🔍 Buscar nombre, cargo o DNI..." oninput="fltTareaje()" class="tar-ctl" style="width:210px">
         <input type="month" id="tareMes" class="tar-ctl" style="width:132px" oninput="rTareaje()">
-        <button id="tarBtnPeriodo" class="btn btn-out btn-sm tar-menu" onclick="tarMenuPeriodo(event)" title="Período contable 21→20 y rango libre de fechas">📅 Período ▾</button>
-        <span id="tareRangoBar" style="display:none"></span>
+        <button id="tarBtnPeriodo" class="btn btn-out btn-sm tar-menu" onclick="tarMenuPeriodo(event)" title="Período contable 21→20 y rango libre de fechas">📅 Período ▾</button>        <span id="tareRangoBar" style="display:none"></span>
         <span id="tarROBadge" style="display:none;align-items:center;gap:.3rem;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:.65rem;font-weight:700;color:#ef4444">👁️ Solo lectura</span>
       </div>
       <div class="tar-barra-der">
@@ -3425,7 +3424,8 @@
 <script src="js/tareaje.js?v=29"></script>
 <script src="js/tareajeHist.js?v=2"></script>
 <script src="js/tareajeCorte.js?v=2"></script>
-<script src="js/tareajeMenus.js?v=2"></script>
+<script src="js/tareajeMenus.js?v=3"></script>
+<script src="js/tareajeAcum.js?v=1"></script>
 <script src="js/tareajeDup.js?v=1"></script>
 <script src="js/engrase.js?v=5"></script>
 <script src="js/auxmec.js?v=61"></script>
@@ -3474,6 +3474,11 @@
 <script src="js/alimentacionProy.js?v=1"></script>
 
 <!-- Modal: Tarifas de Equipos -->
+<div class="mo" id="mTarAcum"><div class="modal" style="max-width:1480px;width:96vw">
+  <div class="mh"><span class="mttl">📊 Resumen de tareaje desde el inicio</span><button class="mx" onclick="closeM('mTarAcum')">✕</button></div>
+  <div class="mb" id="mTarAcumBody" style="padding:1rem 1.2rem"></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeM('mTarAcum')">Cerrar</button></div>
+</div></div>
 <div class="mo" id="mTarDup"><div class="modal" style="max-width:720px">
   <div class="mh"><span class="mttl">🧹 Días duplicados en el tareaje</span><button class="mx" onclick="closeM(&quot;mTarDup&quot;)">✕</button></div>
   <div style="padding:.45rem 1.2rem;background:var(--panel2);border-bottom:1px solid var(--border);font-size:.72rem;color:var(--muted2)">Una persona con dos registros del mismo día. Ocurre cuando dos sesiones tarean la misma celda a la vez.</div>

@@ -209,6 +209,14 @@ function tarMenuPeriodo(ev){
       pie.appendChild(info);pie.appendChild(volver);
       div.appendChild(pie);
     }
+
+    // Todo lo marcado de cada trabajador, desde su primera marca hasta hoy
+    // (js/tareajeAcum.js). Va aquí para no sumar un botón a la barra.
+    if(typeof abrirTarAcum==='function'){
+      div.appendChild(_tmnSeparador());
+      div.appendChild(_tmnTitulo('Acumulado'));
+      div.appendChild(_tmnAccion('📊  Resumen desde el inicio','#6366f1',()=>abrirTarAcum()));
+    }
   });
 }
 
