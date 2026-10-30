@@ -355,6 +355,7 @@ let _scanWorker=null,_scanTipoSel='TD';
 let _barcodeDetector=null,_videoStream=null,_detectLoop=null;
 
 async function rAsistencia(){
+  _sciMostrarBoton();               // 🍎 solo en iPhone / iPad
   const dateEl=document.getElementById('asiDate');
   if(!dateEl.value) dateEl.value=today();
   const fecha=dateEl.value;
@@ -443,6 +444,7 @@ async function loadAsistenciaFecha(fecha){
 
 // ── ESCÁNER QR ──
 function openScanner(){
+  _scanIos=false;                   // el escáner de siempre (Android)
   _scanWorker=null;_scanTipoSel='TD';
   document.getElementById('mScanner').classList.add('open');
   document.getElementById('scanWorkerPanel').style.display='none';
@@ -580,6 +582,162 @@ async function iniciarScanner(){
     setScannerStatus('Error de cámara: '+err,'err');
   });
 }
+// ══ ESCÁNER PARA iPHONE / iPAD ══════════════════════════════════════════════
+// Safari no trae el lector de códigos que usa Android (BarcodeDetector) y caía
+// en html5-qrcode, que en iPhone casi no detecta. Este botón aparte usa ZXing
+// en WebAssembly (librería barcode-detector, versión «ponyfill»: NO reemplaza
+// window.BarcodeDetector, así que Android no se entera), con más resolución,
+// enfoque continuo y lectura de toda la imagen y de su centro ampliado.
+// Plan B: tomar una foto con la cámara del iPhone y leer el código de la foto.
+// El registro es el de siempre: procesarQR. Prefijo _sci.
+const _SCI_LIB='https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/iife/ponyfill.js';
+const _SCI_FMTS=['qr_code','data_matrix','code_128','code_39','ean_13','ean_8','itf','upc_a','upc_e','codabar'];
+const _SCI_CADA=140;              // ms entre lecturas: el iPhone no se satura
+let _scanIos=false;               // true = el escáner abierto es el del iPhone
+let _sciDet=null, _sciCargando=null, _sciCv=null, _sciLecturas=0;
+
+function _sciEsIos(){
+  const ua=navigator.userAgent||'';
+  // El iPad nuevo se presenta como Mac: se reconoce por la pantalla táctil
+  return /iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1)
+    ||/[?&]scanios\b/.test(location.search);   // ?scanios para probarlo en otro equipo
+}
+function _sciMostrarBoton(){
+  const b=document.getElementById('btnScanIos');
+  if(b)b.style.display=_sciEsIos()?'':'none';
+}
+// Carga la librería una sola vez (solo al usar este botón)
+function _sciDetector(){
+  if(_sciDet)return Promise.resolve(_sciDet);
+  if(_sciCargando)return _sciCargando;
+  _sciCargando=new Promise((ok,mal)=>{
+    const listo=()=>{
+      try{
+        const API=window.BarcodeDetectionAPI;
+        if(!API||!API.BarcodeDetector)throw new Error('la librería no quedó disponible');
+        _sciDet=new API.BarcodeDetector({formats:_SCI_FMTS});
+        ok(_sciDet);
+      }catch(e){mal(e);}
+    };
+    if(window.BarcodeDetectionAPI){listo();return;}
+    const s=document.createElement('script');
+    s.src=_SCI_LIB;s.async=true;
+    s.onload=listo;
+    s.onerror=()=>mal(new Error('sin conexión para descargar el lector'));
+    document.head.appendChild(s);
+  }).finally(()=>{_sciCargando=null;});
+  return _sciCargando;
+}
+function openScannerIos(){
+  _scanIos=true;
+  _scanWorker=null;_scanTipoSel='TD';
+  document.getElementById('mScanner').classList.add('open');
+  document.getElementById('scanWorkerPanel').style.display='none';
+  document.getElementById('qr-reader').style.display='block';
+  setScannerStatus('Preparando el lector para iPhone…','wait');
+  setTimeout(_sciIniciar,300);
+}
+function _sciDiag(txt){const el=document.getElementById('sciDiag');if(el)el.textContent=txt;}
+// Botón de foto: siempre visible, también si la cámara en vivo falla
+function _sciFotoHtml(){
+  return`<label style="display:flex;align-items:center;justify-content:center;gap:.4rem;margin-top:.5rem;padding:.6rem;border-radius:8px;border:1px dashed #64748b;color:var(--text);font-size:.82rem;font-weight:700;cursor:pointer">
+      📸 Tomar foto del código<input type="file" accept="image/*" capture="environment" onchange="_sciFoto(this)" style="display:none"></label>
+    <div id="sciDiag" style="font-size:.6rem;color:var(--muted2);text-align:center;margin-top:.3rem;font-family:monospace"></div>`;
+}
+// Dibuja el cuadro en un canvas: la imagen entera o su centro ampliado
+// (alternando), para leer también códigos chicos o lejanos.
+function _sciCuadro(fuente,w,h,centro){
+  const cv=_sciCv||(_sciCv=document.createElement('canvas'));
+  const sx=centro?w*0.2:0, sy=centro?h*0.2:0, sw=centro?w*0.6:w, sh=centro?h*0.6:h;
+  const k=Math.min(1,1280/Math.max(sw,sh))*(centro?1.6:1);
+  cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);
+  cv.getContext('2d').drawImage(fuente,sx,sy,sw,sh,0,0,cv.width,cv.height);
+  return cv;
+}
+async function _sciIniciar(){
+  const qrDiv=document.getElementById('qr-reader');
+  if(!qrDiv)return;
+  qrDiv.innerHTML=`<div class="scan-wrap"><video id="sciVideo" autoplay playsinline muted style="width:100%;max-height:300px;object-fit:cover;display:block;background:#000"></video>${_scanOverlayHTML()}</div>${_sciFotoHtml()}`;
+  let det;
+  try{det=await _sciDetector();}
+  catch(e){
+    console.warn('[SCAN iOS] lector',e);
+    setScannerStatus('⚠ No se pudo descargar el lector: '+(e.message||e)+'. Revise la señal y vuelva a abrir.','err');
+    _sciDiag('lector: no cargó');return;
+  }
+  let stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:false,
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+  }catch(e){
+    console.warn('[SCAN iOS] cámara',e);
+    setScannerStatus('⚠ No se pudo abrir la cámara ('+(e.name||e)+'). Permita la cámara en Ajustes › Safari, o use «Tomar foto del código».','err');
+    _sciDiag('lector OK · cámara: '+(e.name||'error'));return;
+  }
+  if(!document.getElementById('mScanner').classList.contains('open')){stream.getTracks().forEach(t=>t.stop());return;}
+  _videoStream=stream;
+  const vid=document.getElementById('sciVideo');
+  vid.setAttribute('playsinline','');vid.muted=true;
+  vid.srcObject=stream;
+  await new Promise(r=>{if(vid.readyState>=1)r();else vid.onloadedmetadata=r;});
+  try{await vid.play();}catch(e){}
+  // Enfoque continuo, si la cámara lo ofrece
+  const track=stream.getVideoTracks()[0];
+  let foco='—';
+  try{
+    const caps=track.getCapabilities?track.getCapabilities():{};
+    if(caps.focusMode&&caps.focusMode.includes('continuous')){
+      await track.applyConstraints({advanced:[{focusMode:'continuous'}]});foco='continuo';
+    }
+  }catch(e){}
+  _sciLecturas=0;
+  setScannerStatus('📷 Apunte el código al centro del recuadro','wait');
+  const diag=()=>_sciDiag(`motor iPhone (ZXing) · ${vid.videoWidth}×${vid.videoHeight} · foco ${foco} · lecturas ${_sciLecturas}`);
+  diag();
+  // Lee mientras esta cámara siga siendo la abierta
+  const leer=async()=>{
+    if(_videoStream!==stream)return;
+    if(!_scannerCooldown&&vid.readyState>=2&&vid.videoWidth){
+      try{
+        const res=await det.detect(_sciCuadro(vid,vid.videoWidth,vid.videoHeight,_sciLecturas%2===1));
+        _sciLecturas++;
+        if(_sciLecturas%10===0)diag();
+        if(res&&res.length&&!_scannerCooldown&&_videoStream===stream){
+          console.log('[SCAN iOS] ¡DETECTADO!',res[0].rawValue,res[0].format);
+          _scannerCooldown=true;
+          _scanSuccess();
+          procesarQR(res[0].rawValue);
+        }
+      }catch(e){if(_sciLecturas<3)console.warn('[SCAN iOS] detect',e);_sciLecturas++;}
+    }
+    setTimeout(leer,_SCI_CADA);
+  };
+  setTimeout(leer,_SCI_CADA);
+}
+// Plan B: lee el código de una foto tomada con la cámara del iPhone
+async function _sciFoto(input){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f)return;
+  setScannerStatus('Leyendo la foto…','wait');
+  try{
+    const det=await _sciDetector();
+    const bmp=await createImageBitmap(f);
+    // Primero la foto entera; si no aparece, su centro ampliado
+    let res=await det.detect(_sciCuadro(bmp,bmp.width,bmp.height,false));
+    if(!res||!res.length)res=await det.detect(_sciCuadro(bmp,bmp.width,bmp.height,true));
+    if(!res||!res.length){
+      setScannerStatus('⚠ No se encontró un código en la foto. Acérquese, que salga nítido y sin reflejo, y vuelva a intentar.','err');
+      return;
+    }
+    _scannerCooldown=true;
+    _scanSuccess();
+    procesarQR(res[0].rawValue);
+  }catch(e){
+    console.warn('[SCAN iOS] foto',e);
+    setScannerStatus('⚠ No se pudo leer la foto: '+(e.message||e),'err');
+  }
+}
+
 function _hablar(texto){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
@@ -726,7 +884,8 @@ function reiniciarEscaner(){
   const qrDiv=document.getElementById('qr-reader');
   qrDiv.style.display='block';qrDiv.innerHTML='';
   setScannerStatus('Reiniciando cámara...','wait');
-  setTimeout(iniciarScanner,300);
+  // Vuelve a arrancar el mismo motor que se estaba usando
+  setTimeout(_scanIos?_sciIniciar:iniciarScanner,300);
 }
 
 // ── FOTOCHECK QR ──
