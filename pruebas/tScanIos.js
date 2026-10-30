@@ -62,7 +62,8 @@ E.ev('openScannerIos()');
 es('abre la ventana en modo iPhone',E.ev('_scanIos'),true);
 await E.correr();                                   // _sciIniciar
 es('descarga el lector, versión fija y ponyfill',E.scripts.join(),'https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/iife/ponyfill.js');
-es('  con QR y códigos de barras',E.hechos.includes('formatos 10'),true);
+es('  con QR, Aztec (fotochecks) y códigos de barras',E.hechos.includes('formatos 12'),true);
+es('  Aztec está en la lista',/_SCI_FMTS=\[[^\]]*'aztec'/.test(SRC),true);
 es('pide la cámara en alta resolución',E.hechos.includes('cam 1920x1080'),true);
 es('  y enfoque continuo',E.hechos.includes('foco continuous'),true);
 es('ofrece «Tomar foto del código»',/📸 Tomar foto del código<input type="file" accept="image\/\*" capture="environment" onchange="_sciFoto\(this\)"/.test(E.nodo('qr-reader').innerHTML),true);

@@ -591,7 +591,9 @@ async function iniciarScanner(){
 // Plan B: tomar una foto con la cámara del iPhone y leer el código de la foto.
 // El registro es el de siempre: procesarQR. Prefijo _sci.
 const _SCI_LIB='https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/iife/ponyfill.js';
-const _SCI_FMTS=['qr_code','data_matrix','code_128','code_39','ean_13','ean_8','itf','upc_a','upc_e','codabar'];
+// aztec: las fotochecks del proyecto llevan un código Aztec (cuadrado con
+// «diana» al centro), que parece un QR pero no lo es.
+const _SCI_FMTS=['qr_code','aztec','data_matrix','pdf417','code_128','code_39','ean_13','ean_8','itf','upc_a','upc_e','codabar'];
 const _SCI_CADA=140;              // ms entre lecturas: el iPhone no se satura
 let _scanIos=false;               // true = el escáner abierto es el del iPhone
 let _sciDet=null, _sciCargando=null, _sciCv=null, _sciLecturas=0;
