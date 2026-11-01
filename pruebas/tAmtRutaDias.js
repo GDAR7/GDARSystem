@@ -8,11 +8,12 @@ const es=(l,g,e)=>{const b=String(g)===String(e);b?ok++:mal++;
   console.log((b?'  OK  ':'  MAL ')+l.padEnd(60)+'= '+g+(b?'':'  (esperado '+e+')'));};
 const SRC=fs.readFileSync(R+'js/avanceMT.js','utf8');
 const DB={equipos:[{id:1,codigo:'VOL_ECOP-001'},{id:2,codigo:'VOL_ECOP-003'}],
-  tramos:[{id:9,inicio:'Lavadero (Tres torres)'}],
+  tramos:[{id:9,inicio:'Lavadero (Tres torres)',ciclo:20},{id:42,codigo:'TMO-042',ciclo:39},
+          {id:43,codigo:'TMO-099',ciclo:30},{id:44,codigo:'TMO-SIN'}],
   partes:[
-    {fecha:'2026-10-26',turno:'Día',eqId:1,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:5}]},
-    {fecha:'2026-10-26',turno:'Noche',eqId:2,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:3}]},
-    {fecha:'2026-10-28',turno:'Día',eqId:2,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:4},
+    {fecha:'2026-10-26',turno:'Día',eqId:1,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:5,tramoId:42}]},
+    {fecha:'2026-10-26',turno:'Noche',eqId:2,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:3,tramoId:43}]},
+    {fecha:'2026-10-28',turno:'Día',eqId:2,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:4,tramoId:44},
                                                   {origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'BLANKET',cant:2}]},
     {fecha:'2026-10-29',turno:'Día',eqId:1,viajes:[{tramoId:9,destino:'R3 - Dique intermedio',material:'MATERIAL TIPO 2',cant:6}]},
     {fecha:'2026-11-03',turno:'Día',eqId:1,viajes:[{origen:'R3 - Dique Auxiliar',destino:'C. Huantajalla',material:'MATERIAL INADECUADO',cant:9}]}
@@ -46,9 +47,19 @@ es('equipos del lunes',JSON.stringify(D[0].eqs),'{"VOL_ECOP-001":5,"VOL_ECOP-003
 es('no entra el viaje de la semana siguiente',D.reduce((s,d)=>s+d.vd+d.vn,0),12);
 es('cuadra con la fila de la tabla (12 v)',/>12<span style="font-size:.6rem;color:var\(--muted2\)"> v</.test(H),true);
 
+console.log('\n== Horas por ciclo del tramo ==');
+es('lunes: 5×39 + 3×30 min = 4.75 h (cada viaje con SU tramo)',D[0].h,4.75);
+es('el tramo sin ciclo no suma horas',D[2].h,0);
+es('  y se cuenta aparte para avisarlo',D.sinCiclo,4);
+es('detalle por tramo',D.tramos.map(t=>t.codigo+' '+t.ciclo+'×'+t.viajes).join(', '),'TMO-042 39×5, TMO-099 30×3');
+es('menos de 1 h se muestra en minutos',ev('_amtOdHoras(0.65)'),'39 min');
+
 console.log('\n== La ventana ==');
 ev(`_amtOdVer(${ix})`);
 es('se abre',!!overlay,true);
+es('columna y KPI de horas',/⏱ Horas<\/th>/.test(overlay.innerHTML)&&/⏱ Horas de ciclo/.test(overlay.innerHTML),true);
+es('explica de dónde salen las horas',/TMO-042<\/b> 39 min × 5 v/.test(overlay.innerHTML),true);
+es('avisa los viajes sin ciclo',/4 viaje\(s\) sin ciclo/.test(overlay.innerHTML),true);
 es('dice la ruta',/R3 - Dique Auxiliar[\s\S]*C\. Huantajalla[\s\S]*MATERIAL INADECUADO/.test(overlay.innerHTML),true);
 es('resume en qué días se hizo',/Se hizo el <b[^>]*>LUN 26\/10, MIÉ 28\/10/.test(overlay.innerHTML),true);
 es('días con viajes 2 de 7',/2 de 7/.test(overlay.innerHTML),true);

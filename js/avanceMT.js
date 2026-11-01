@@ -1117,10 +1117,14 @@ const _AMT_OD_SOL='#facc15', _AMT_OD_NOCHE='#94a3b8';
 const _AMT_OD_LUNA='<span style="filter:grayscale(1) brightness(.6)">🌙</span>';
 const _amtOdH=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// Los 7 días de la semana con lo que se movió en esa ruta
+// Los 7 días de la semana con lo que se movió en esa ruta.
+// Horas = viajes × ciclo del tramo (min, incluye demoras) ÷ 60. Cada viaje usa
+// SU tramo: hay rutas con dos tramos de ciclo distinto y no se promedian.
+// dias.tramos lleva el detalle para explicar de dónde salen las horas.
 function _amtOdDias(ruta){
   const{fechas,fIni,fFin}=_amtSemInfo();
-  const dias={};fechas.forEach(f=>dias[f.iso]={...f,vd:0,vn:0,m3:0,eqs:{}});
+  const dias={};fechas.forEach(f=>dias[f.iso]={...f,vd:0,vn:0,m3:0,h:0,eqs:{}});
+  const tramos={};let sinCiclo=0;
   _amtSemViajes(fIni,fFin).forEach(v=>{
     if(_amtOdOri(v)!==ruta.ori)return;
     if((v.destino||'(sin destino)')!==ruta.destino)return;
@@ -1128,12 +1132,25 @@ function _amtOdDias(ruta){
     const d=dias[v.fecha];if(!d)return;
     if(v.noche)d.vn+=v.cant;else d.vd+=v.cant;
     d.m3+=v.m3;
+    const tr=v.tramoId?(DB.tramos||[]).find(t=>t.id==v.tramoId):null;
+    const cic=tr?+tr.ciclo||0:0;
+    if(cic){
+      d.h+=v.cant*cic/60;
+      const k=tr.codigo||String(tr.id);
+      if(!tramos[k])tramos[k]={codigo:k,ciclo:cic,viajes:0};
+      tramos[k].viajes+=v.cant;
+    }else sinCiclo+=v.cant;
     const eq=(DB.equipos||[]).find(e=>e.id==v.eqId);
     const cod=eq?(eq.codigo||eq.nombre||'?'):'(sin equipo)';
     d.eqs[cod]=(d.eqs[cod]||0)+v.cant;
   });
-  return fechas.map(f=>dias[f.iso]);
+  const out=fechas.map(f=>dias[f.iso]);
+  out.tramos=Object.values(tramos).sort((a,b)=>b.viajes-a.viajes);
+  out.sinCiclo=sinCiclo;
+  return out;
 }
+// 25.35 → "25.4 h" · menos de una hora en minutos ("39 min")
+const _amtOdHoras=h=>!h?'—':h<1?Math.round(h*60)+' min':_amtFmt1(h)+' h';
 
 function _amtOdVer(ix){
   const ruta=_amtOdRutas[ix];if(!ruta)return;
@@ -1142,6 +1159,7 @@ function _amtOdVer(ix){
   const col=ruta.col||'#3b82f6';
   const tvd=dias.reduce((s,d)=>s+d.vd,0), tvn=dias.reduce((s,d)=>s+d.vn,0), tv=tvd+tvn;
   const tm=dias.reduce((s,d)=>s+d.m3,0), conV=dias.filter(d=>d.vd+d.vn>0);
+  const th=dias.reduce((s,d)=>s+d.h,0), HC='#f472b6';
   const hoy=typeof today==='function'?today():'';
   const TH=_AMT_TH,TD=_AMT_TD;
   const chip=(l,v,c)=>`<div style="flex:1;min-width:110px;border:1px solid ${c};border-radius:8px;padding:.45rem .6rem;background:var(--panel2)">
@@ -1158,6 +1176,7 @@ function _amtOdVer(ix){
       <td style="${TD};text-align:center;font-family:monospace;color:${_AMT_OD_NOCHE}">${d.vn||'—'}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6">${n||'—'}</td>
       <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)">${d.m3?_amtFmt1(d.m3):'—'}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:${HC};white-space:nowrap">${_amtOdHoras(d.h)}</td>
       <td style="${TD}">${eqs||'<span style="color:var(--muted2)">—</span>'}</td>
     </tr>`;
   }).join('');
@@ -1167,7 +1186,7 @@ function _amtOdVer(ix){
   ov.id='amtOdOverlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.onclick=e=>{if(e.target===ov)_amtOdCerrar();};
-  ov.innerHTML=`<div style="background:var(--panel);border:1px solid ${col};border-radius:12px;width:min(760px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.5)">
+  ov.innerHTML=`<div style="background:var(--panel);border:1px solid ${col};border-radius:12px;width:min(820px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:flex-start;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--border);background:${col}14">
       <div style="flex:1">
         <div style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Ruta de la semana · ${rango}</div>
@@ -1182,7 +1201,11 @@ function _amtOdVer(ix){
         ${chip('Viajes',tv.toLocaleString(),'#3b82f6')}
         ${chip('<span style="color:'+_AMT_OD_SOL+'">☀</span> Día / '+_AMT_OD_LUNA+' Noche','<span style="color:'+_AMT_OD_SOL+'">'+tvd+'</span> <span style="color:var(--muted2)">/</span> <span style="color:'+_AMT_OD_NOCHE+'">'+tvn+'</span>',_AMT_OD_SOL)}
         ${chip('m³',_amtFmt1(tm),'#10b981')}
+        ${chip('⏱ Horas de ciclo',_amtOdHoras(th),HC)}
       </div>
+      ${dias.tramos.length||dias.sinCiclo?`<div style="font-size:.68rem;color:var(--muted2);margin:-.3rem 0 .55rem;line-height:1.5">⏱ Horas = viajes × ciclo del tramo:
+        ${dias.tramos.map(t=>`<b style="color:var(--text)">${_amtOdH(t.codigo)}</b> ${t.ciclo} min × ${t.viajes} v = <b style="color:${HC}">${_amtOdHoras(t.ciclo*t.viajes/60)}</b>`).join(' · ')}
+        ${dias.sinCiclo?` · <span style="color:#f59e0b">${dias.sinCiclo} viaje(s) sin ciclo en su tramo: no suman horas</span>`:''}</div>`:''}
       ${conV.length?`<div style="font-size:.72rem;color:var(--muted2);margin-bottom:.5rem">Se hizo el <b style="color:var(--text)">${conV.map(d=>d.lbl+' '+d.dm).join(', ')}</b></div>`:''}
       <div class="tbl-wrap">
       <table style="width:100%;border-collapse:collapse">
@@ -1192,6 +1215,7 @@ function _amtOdVer(ix){
           <th style="${TH};text-align:center">${_AMT_OD_LUNA} Noche</th>
           <th style="${TH};text-align:right">Viajes</th>
           <th style="${TH};text-align:right">m³</th>
+          <th style="${TH};text-align:right" title="Viajes × ciclo del tramo">⏱ Horas</th>
           <th style="${TH};text-align:left">Equipos (viajes)</th>
         </tr></thead>
         <tbody>${filas}</tbody>
@@ -1201,6 +1225,7 @@ function _amtOdVer(ix){
           <td style="${TD};text-align:center;font-family:monospace;font-weight:900;color:${_AMT_OD_NOCHE}">${tvn}</td>
           <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6">${tv.toLocaleString()}</td>
           <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ctl)">${_amtFmt1(tm)}</td>
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:${HC};white-space:nowrap">${_amtOdHoras(th)}</td>
           <td style="${TD}"></td>
         </tr></tfoot>
       </table>
