@@ -34,7 +34,8 @@ function _ccxContexto(D){
   const p=[`Período 21→20: ${D.per.desde} al ${D.per.hasta} (${D.per.dias} días)`,
            D.esFull?'Tarifa Full':'Máq. Seca'];
   if(_ccSinIgv)p.push('combustible sin IGV (÷1.18)');
-  if(_ccPrecioManual)p.push(`combustible al precio manual S/ ${(+D.precioComb||0).toFixed(2)}/gal`);
+  if(_ccPrecioManual)p.push(`combustible al precio manual S/ ${(+D.precioComb||0).toFixed(2)}/gal`
+    +(typeof _ccpcActivo==='function'&&_ccpcActivo()?` (${_ccpcFuenteTxt(D.precioFuente,D.precioDe)})`:''));
   if(_ccProyecto)p.push(`solo proyecto ${_ccProyecto}`);
   if(typeof _ccBusca!=='undefined'&&_ccBusca.trim()&&(_ccTabActiva==='equipos'||_ccTabActiva==='personal'))
     p.push(`búsqueda "${_ccBusca.trim()}"`);

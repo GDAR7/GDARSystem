@@ -83,6 +83,7 @@ function _ccaAnioPorDefecto(){
 // mueve el modo de tarifa o el precio del combustible, se recalcula solo.
 function _ccaClave(anio,KEY){
   return [anio,KEY,_ccSinIgv?1:0,_ccPrecioManual?1:0,_ccPrecioComb||0,
+          typeof _ccpcVer!=='undefined'?_ccpcVer+(_ccpcActivo()?'b':'n'):'',
           typeof _ccProyecto!=='undefined'?_ccProyecto:''].join('|');
 }
 
@@ -351,7 +352,7 @@ function _ccaExcel(){
     [S('COST CONTROL — MATRIZ ANUAL POR EQUIPO',{b:1,bg:'1E3A5F',col:'FFFFFF',al:'center'}),
       ...Array(NC-1).fill(S('',{bg:'1E3A5F'}))],
     [S(`Año ${_ccaAnio} · períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`
-       +`${_ccSinIgv?' · combustible sin IGV':''}${_ccPrecioManual?' · precio de combustible manual':''}`
+       +`${_ccSinIgv?' · combustible sin IGV':''}${_ccPrecioManual?(typeof _ccpcActivo==='function'&&_ccpcActivo()?' · precio de combustible manual de cada período':' · precio de combustible manual'):''}`
        +`${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?' · solo proyecto '+_ccProyecto:''}`
        +` · ${grupos.reduce((s,G)=>s+G.equipos.length,0)} equipo(s)`,
       {bg:'EEF2F8',col:'475569',al:'center'}),...Array(NC-1).fill(S('',{bg:'EEF2F8'}))],
@@ -439,7 +440,7 @@ function _ccaPdf(){
   const tAn=tMes.reduce((s,v)=>s+v,0);
   const ctx=[`Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`];
   if(_ccSinIgv)ctx.push('combustible sin IGV');
-  if(_ccPrecioManual)ctx.push('precio de combustible manual');
+  if(_ccPrecioManual)ctx.push(typeof _ccpcActivo==='function'&&_ccpcActivo()?'precio de combustible manual de cada período':'precio de combustible manual');
   if(typeof _ccProyecto!=='undefined'&&_ccProyecto)ctx.push('solo proyecto '+_ccProyecto);
   if(_ccaLinea)ctx.push('línea: '+_ccaLinea);
   if(_ccaTipo)ctx.push('subtipo: '+_ccaTipo);

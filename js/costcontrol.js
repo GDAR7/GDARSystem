@@ -435,7 +435,12 @@ function _ccCalcEq(per,KEY){
     _galPerTot+=g;_costoAlmTot+=imp;
   });
   const precioAlm=_galPerTot>0?_costoAlmTot/_galPerTot:0;       // precio promedio de almacén (referencia)
-  const precioComb=_ccPrecioComb||precioAlm||6.30;               // precio configurable para Cost Control
+  // Precio manual: el grabado para ESTE período (o el último anterior) si la
+  // tabla de precios por período responde; si no, el único del navegador.
+  const _pp=typeof _ccpcPara==='function'?_ccpcPara(per.hasta):null;
+  const _ppBase=typeof _ccpcActivo==='function'&&_ccpcActivo();
+  const precioComb=_pp?_pp.precio:_ppBase?(precioAlm||6.30):(_ccPrecioComb||precioAlm||6.30);
+  const precioFuente=_pp?_pp.fuente:_ppBase?'real':'local', precioDe=_pp?_pp.periodo:'';
 
   // — Costo real del proveedor: EDP ya emitidos en el período —
   // Si el equipo tiene un EDP emitido, ESE es el costo real (ya se acordó con el
@@ -528,11 +533,13 @@ function _ccCalcEq(per,KEY){
   const totalVentaEqSolo=eqRows.reduce((s,r)=>s+(r.ventaEq||0),0);
   const totalVentaComb=eqRows.reduce((s,r)=>s+(r.ventaComb||0),0);
   return{eqRows,totalVentaEq,totalCostoEq,totalGalEq,totalCombEq,totalMargenEq,
-         totalVentaEqSolo,totalVentaComb,precioAlm,precioComb};
+         totalVentaEqSolo,totalVentaComb,precioAlm,precioComb,precioFuente,precioDe};
 }
 
 function rCostControl(){
   const per=_ccPeriodo();
+  // Precios de combustible por período: si cambian, la lectura vuelve a pintar
+  if(typeof _ccpcCargar==='function')_ccpcCargar();
   const modo=_ccTarifaModo;
   const KEY=modo==='seca'?'seca':'full';
   // Un render completo puede venir de datos recién cargados: la matriz anual
@@ -542,6 +549,10 @@ function rCostControl(){
   // El cálculo vive en _ccCalcEq para que la matriz anual lo reutilice tal cual.
   const _C=_ccCalcEq(per,KEY);
   const eqRows=_C.eqRows, precioAlm=_C.precioAlm, precioComb=_C.precioComb;
+  // Precio por período (tabla en la base) o el único del navegador (sin tabla)
+  const _porPer=typeof _ccpcActivo==='function'&&_ccpcActivo();
+  const _puedePrecio=_ccPrecioManual&&(!_porPer||_ccpcEsAdmin());
+  const _fuenteTxt=_porPer&&typeof _ccpcFuenteTxt==='function'?_ccpcFuenteTxt(_C.precioFuente,_C.precioDe):'';
   const totalVentaEq=_C.totalVentaEq, totalCostoEq=_C.totalCostoEq;
   const totalGalEq=_C.totalGalEq, totalCombEq=_C.totalCombEq, totalMargenEq=_C.totalMargenEq;
 
@@ -588,15 +599,18 @@ function rCostControl(){
         <!-- Combustible: costo real del registro o precio manual (opcional) -->
         <div style="display:flex;align-items:center;gap:.5rem;background:var(--panel2);border:1px solid rgba(249,115,22,.4);border-radius:8px;padding:.28rem .6rem">
           <span style="font-size:.74rem;font-weight:700;color:#f97316">⛽</span>
-          <label title="Sin marcar, el costo sale de cada despacho registrado en Combustible con su propio precio. Al marcarlo se recalcula todo a un precio único."
+          <label title="Sin marcar, el costo sale de cada despacho registrado en Combustible con su propio precio. Al marcarlo se valoriza con el precio grabado de cada período (📅)."
             style="display:flex;align-items:center;gap:.3rem;cursor:pointer;user-select:none">
             <input type="checkbox" ${_ccPrecioManual?'checked':''} onchange="_ccTogglePrecioManual(this.checked)" style="width:auto;margin:0;cursor:pointer;accent-color:#f97316">
             <span style="font-size:.68rem;font-weight:700;color:${_ccPrecioManual?'#f97316':'var(--muted2)'};white-space:nowrap">Precio manual</span>
           </label>
-          <input id="ccPrecioComb" type="number" step="0.01" min="0" value="${precioComb.toFixed(2)}" ${_ccPrecioManual?'':'disabled'}
-            onchange="_ccSetPrecioComb(this.value)"
+          <input id="ccPrecioComb" type="number" step="0.01" min="0" value="${precioComb.toFixed(2)}" ${_puedePrecio?'':'disabled'}
+            onchange="${_porPer?`_ccpcGuardar('${per.hasta}',this.value)`:'_ccSetPrecioComb(this.value)'}"
+            title="${_porPer?(_ccpcEsAdmin()?'Precio S/ por galón de '+per.label+': se graba para todos al cambiarlo':'Precio de '+per.label+' · solo el administrador lo graba'):''}"
             style="width:60px;background:transparent;border:none;border-bottom:1px dashed rgba(249,115,22,.5);color:${_ccPrecioManual?'var(--text)':'var(--muted)'};font-family:monospace;font-weight:700;font-size:.82rem;outline:none;text-align:right;opacity:${_ccPrecioManual?'1':'.45'}">
           <span style="font-size:.62rem;color:var(--muted2);white-space:nowrap">/gal${!_ccPrecioManual&&precioAlm>0?` · real S/ ${precioAlm.toFixed(2)}`:''}</span>
+          ${_ccPrecioManual&&_porPer?`<span title="${_fuenteTxt}" style="font-size:.6rem;font-weight:700;white-space:nowrap;color:${_C.precioFuente==='grabado'?'#10b981':'#f59e0b'}">${_C.precioFuente==='grabado'?'● grabado':_C.precioFuente==='anterior'?'↩ '+_ccpcEtiqueta(_C.precioDe):'○ sin grabar'}</span>`:''}
+          ${typeof _ccpcAbrir==='function'?`<button onclick="_ccpcAbrir()" title="Ver y grabar el precio de combustible de cada período" style="background:transparent;border:1px solid rgba(249,115,22,.4);color:#f97316;border-radius:6px;cursor:pointer;font-size:.7rem;padding:.1rem .4rem">📅</button>`:''}
         </div>
         <!-- Sin IGV: solo el combustible -->
         <label title="El registro de Combustible tiene los precios con IGV. Marca esto para llevar SOLO el costo de combustible a valor neto (÷ 1.18). Venta y costo de proveedor no cambian."
@@ -609,7 +623,7 @@ function rCostControl(){
     </div>
     ${(_ccSinIgv||_ccPrecioManual)?`<div style="margin:-.5rem 0 1rem;padding:.35rem .8rem;border-left:3px solid ${_ccPrecioManual?'#f97316':'#10b981'};background:${_ccPrecioManual?'rgba(249,115,22,.08)':'rgba(16,185,129,.08)'};border-radius:0 6px 6px 0;font-size:.7rem;color:${_ccPrecioManual?'#f97316':'#10b981'}">
       ${_ccPrecioManual
-        ?`<strong>Combustible simulado</strong> — no se usa el costo registrado sino ${_ccSinIgv?`S/ ${(precioComb/_CC_IGV).toFixed(2)}/gal neto (S/ ${precioComb.toFixed(2)} ÷ ${_CC_IGV})`:`S/ ${precioComb.toFixed(2)}/gal`} para todos los despachos.`
+        ?`<strong>Combustible simulado</strong> — no se usa el costo registrado sino ${_ccSinIgv?`S/ ${(precioComb/_CC_IGV).toFixed(2)}/gal neto (S/ ${precioComb.toFixed(2)} ÷ ${_CC_IGV})`:`S/ ${precioComb.toFixed(2)}/gal`} para todos los despachos${_porPer?` de ${per.label} <span style="opacity:.8">(${_fuenteTxt})</span>`:''}.`
         :`<strong>Combustible sin IGV</strong> — el costo real registrado se divide entre ${_CC_IGV}. Venta y costo de proveedor se mantienen tal cual.`}
     </div>`:''}
 
