@@ -197,6 +197,61 @@ function _ccSetProyecto(v){
   if(typeof _ccaCache!=='undefined')_ccaCache=null;
   rCostControl();
 }
+// ── Buscador de Equipos / Personal ──────────────────────────────────────────
+// Al escribir solo se vuelven a pintar las dos tablas (#ccPanel-equipos y
+// #ccPanel-personal), nunca la barra donde está la caja: así el cursor no se
+// pierde entre tecla y tecla. Los KPI de arriba siguen siendo del período
+// completo; los subtotales y el total de la tabla son de lo que se ve.
+let _ccBusca='', _ccBuscaT=null, _ccUlt=null;
+const _ccBNorm=s=>String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+// Varias palabras: todas tienen que aparecer, en cualquier orden ("volvo 003")
+function _ccCoincide(campos){
+  const pal=_ccBNorm(_ccBusca).split(/\s+/).filter(Boolean);
+  if(!pal.length)return true;
+  const txt=_ccBNorm(campos.join(' '));
+  return pal.every(p=>txt.includes(p));
+}
+function _ccFiltraEq(rows){
+  return _ccBusca.trim()?rows.filter(r=>{const e=r.eq||{};
+    return _ccCoincide([e.codigo,e.marca,e.modelo,e.sub,e.tipo,e.proyecto,e.placa,e.proveedor]);}):rows;
+}
+function _ccFiltraHH(rows){
+  return _ccBusca.trim()?rows.filter(r=>{const p=r.persona||{};
+    return _ccCoincide([p.ape,p.nom,p.cargo,p.dni,r.tarifa&&r.tarifa.lab]);}):rows;
+}
+const _ccSinCoincidencias=()=>`<div style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">
+  Nada coincide con «${_ccBNorm(_ccBusca).replace(/[<>&"]/g,'')}» ·
+  <button onclick="_ccBuscar('',true)" style="background:transparent;border:1px solid var(--border);color:#22d3ee;border-radius:6px;padding:.15rem .6rem;font-size:.75rem;font-weight:700;cursor:pointer">Limpiar búsqueda</button></div>`;
+function _ccHtmlEquipos(){
+  const U=_ccUlt; if(!U)return'';
+  const f=_ccFiltraEq(U.eqRows);
+  return U.eqRows.length&&!f.length?_ccSinCoincidencias():_ccPanelEquipos(f,U.KEY,U.dias);
+}
+function _ccHtmlPersonal(){
+  const U=_ccUlt; if(!U)return'';
+  const f=_ccFiltraHH(U.hhRows);
+  return U.hhRows.length&&!f.length?_ccSinCoincidencias():_ccPanelPersonal(f,U.dias);
+}
+function _ccBuscaCuenta(){
+  const U=_ccUlt; if(!U||!_ccBusca.trim())return'';
+  return _ccTabActiva==='personal'
+    ?`${_ccFiltraHH(U.hhRows).length} de ${U.hhRows.length}`
+    :`${_ccFiltraEq(U.eqRows).length} de ${U.eqRows.length}`;
+}
+// Se espera un instante tras la última tecla para no redibujar en cada letra
+function _ccBuscar(v,ya){
+  _ccBusca=v||'';
+  clearTimeout(_ccBuscaT);
+  if(ya){const i=document.getElementById('ccBusca');if(i&&i.value!==_ccBusca)i.value=_ccBusca;_ccBuscaAplicar();}
+  else _ccBuscaT=setTimeout(_ccBuscaAplicar,150);
+}
+function _ccBuscaAplicar(){
+  const pe=document.getElementById('ccPanel-equipos'), pp=document.getElementById('ccPanel-personal');
+  if(pe)pe.innerHTML=_ccHtmlEquipos();
+  if(pp)pp.innerHTML=_ccHtmlPersonal();
+  const c=document.getElementById('ccBuscaCnt'); if(c)c.textContent=_ccBuscaCuenta();
+  const x=document.getElementById('ccBuscaX'); if(x)x.style.visibility=_ccBusca?'visible':'hidden';
+}
 // Proyectos que hoy tienen algún equipo asignado en el Máster
 function _ccProyectosDisponibles(){
   return [...new Set((DB.equipos||[]).map(e=>String(e.proyecto||'')).filter(Boolean))].sort();
@@ -494,6 +549,13 @@ function rCostControl(){
   const hhRows=_ccCalcHH(per);
   const totalHH=hhRows.reduce((s,r)=>s+r.costo,0);
   const totalGen=totalVentaEq+totalHH;
+  // Lo que el buscador necesita para repintar las tablas sin recalcular nada
+  _ccUlt={eqRows,hhRows,KEY,dias:per.dias};
+  // Si la página se redibuja entera mientras se escribe (otro filtro, datos
+  // nuevos), la caja vuelve con el foco y el cursor donde estaba.
+  const _bEl=document.activeElement, _bFoco=_bEl&&_bEl.id==='ccBusca';
+  const _bPos=_bFoco?_bEl.selectionStart:null;
+  const _bVal=String(_ccBusca).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
   const _tabBtn=(k,label)=>{
     const act=_ccTabActiva===k;
@@ -580,6 +642,17 @@ function rCostControl(){
       ${_tabBtn('resumen','📊 Resumen')}
       ${_tabBtn('anual','📅 Anual')}
       <div style="margin-left:auto;display:flex;align-items:center;gap:.4rem;padding-bottom:.3rem">
+        <!-- Buscador: solo Equipos y Personal -->
+        <div id="ccBuscaWrap" style="display:${_ccTabActiva==='equipos'||_ccTabActiva==='personal'?'flex':'none'};align-items:center;gap:.3rem;background:var(--panel2);border:1px solid ${_ccBusca?'#22d3ee':'var(--border)'};border-radius:7px;padding:.18rem .45rem">
+          <span style="font-size:.75rem;color:var(--muted2)">🔍</span>
+          <input id="ccBusca" type="text" value="${_bVal}" autocomplete="off" spellcheck="false"
+            placeholder="Buscar código, equipo, nombre…" title="Filtra la tabla al escribir. Varias palabras: deben estar todas. Esc limpia."
+            oninput="_ccBuscar(this.value)" onkeydown="if(event.key==='Escape'){_ccBuscar('',true);}"
+            style="width:190px;background:transparent;border:none;outline:none;color:var(--text);font-size:.75rem;padding:.12rem 0;margin:0">
+          <span id="ccBuscaCnt" style="font-size:.64rem;color:#22d3ee;font-weight:700;white-space:nowrap">${_ccBuscaCuenta()}</span>
+          <button id="ccBuscaX" onclick="_ccBuscar('',true);document.getElementById('ccBusca').focus()" title="Limpiar búsqueda"
+            style="visibility:${_ccBusca?'visible':'hidden'};background:transparent;border:none;color:var(--muted2);cursor:pointer;font-size:.75rem;padding:0 .1rem">✕</button>
+        </div>
         <span style="font-size:.68rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Proyecto</span>
         <select onchange="_ccSetProyecto(this.value)" title="Filtra todo el módulo: KPI, Equipos, Resumen y Anual. El proyecto sale del Máster de Equipos."
           style="background:var(--panel2);border:1px solid ${_ccProyecto?'#a78bfa':'var(--border)'};color:${_ccProyecto?'#a78bfa':'var(--text)'};border-radius:7px;padding:.28rem .55rem;font-size:.75rem;font-weight:${_ccProyecto?'700':'400'};max-width:200px">
@@ -594,13 +667,15 @@ function rCostControl(){
     </div>
 
     <!-- Paneles -->
-    <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccPanelEquipos(eqRows,KEY,per.dias)}</div>
-    <div id="ccPanel-personal" style="display:${_ccTabActiva==='personal'?'':'none'}">${_ccPanelPersonal(hhRows,per.dias)}</div>
+    <div id="ccPanel-equipos"  style="display:${_ccTabActiva==='equipos'?'':'none'}">${_ccHtmlEquipos()}</div>
+    <div id="ccPanel-personal" style="display:${_ccTabActiva==='personal'?'':'none'}">${_ccHtmlPersonal()}</div>
     <div id="ccPanel-resumen"  style="display:${_ccTabActiva==='resumen'?'':'none'}">${_ccPanelResumen(eqRows,hhRows,totalVentaEq,totalCostoEq,totalHH,totalGen,KEY,totalCombEq,totalMargenEq)}</div>
     <!-- La matriz anual recalcula doce períodos: solo se arma si la pestaña está
          abierta, para no encarecer el render de las otras tres. -->
     <div id="ccPanel-anual"    style="display:${_ccTabActiva==='anual'?'':'none'}">${_ccTabActiva==='anual'&&typeof _ccaPanel==='function'?_ccaPanel():''}</div>
   </div>`;
+  if(_bFoco){const i=document.getElementById('ccBusca');
+    if(i){i.focus();try{i.setSelectionRange(_bPos,_bPos);}catch(e){}}}
 }
 
 function _ccNav(dir){_ccOffset+=dir;rCostControl();}
@@ -615,6 +690,10 @@ function _ccTab(t){
     if(p)p.style.display=k===t?'':'none';
     if(b){b.style.background=k===t?'var(--acc)':'transparent';b.style.color=k===t?'#fff':'var(--muted2)';}
   });
+  // El buscador vale para Equipos y Personal; el contador cambia según la pestaña
+  const w=document.getElementById('ccBuscaWrap');
+  if(w)w.style.display=t==='equipos'||t==='personal'?'flex':'none';
+  const c=document.getElementById('ccBuscaCnt'); if(c)c.textContent=_ccBuscaCuenta();
 }
 
 // ── Columnas de la tabla de Equipos ─────────────────────────────────────────

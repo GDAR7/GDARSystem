@@ -13,7 +13,17 @@ function _ccxDatos(){
   const per=_ccPeriodo();
   const KEY=_ccTarifaModo==='seca'?'seca':'full';
   const C=_ccCalcEq(per,KEY);
-  const hhRows=_ccCalcHH(per);
+  let hhRows=_ccCalcHH(per);
+  // El buscador filtra solo la pestaña donde se escribió: Equipos o Personal.
+  // Los totales se rehacen con lo que queda, como en la tabla de la pantalla.
+  if(typeof _ccBusca!=='undefined'&&_ccBusca.trim()){
+    if(_ccTabActiva==='equipos'){
+      const R=_ccFiltraEq(C.eqRows), S=k=>R.reduce((s,r)=>s+(r[k]||0),0);
+      Object.assign(C,{eqRows:R,totalVentaEq:S('costo'),totalCostoEq:S('costoProveedor'),
+        totalGalEq:S('galones'),totalCombEq:S('costoComb'),totalMargenEq:S('margen'),
+        totalVentaEqSolo:S('ventaEq'),totalVentaComb:S('ventaComb')});
+    }else if(_ccTabActiva==='personal')hhRows=_ccFiltraHH(hhRows);
+  }
   return{per,KEY,esFull:KEY==='full',hhRows,
          totalHH:hhRows.reduce((s,r)=>s+r.costo,0),...C};
 }
@@ -26,6 +36,8 @@ function _ccxContexto(D){
   if(_ccSinIgv)p.push('combustible sin IGV (÷1.18)');
   if(_ccPrecioManual)p.push(`combustible al precio manual S/ ${(+D.precioComb||0).toFixed(2)}/gal`);
   if(_ccProyecto)p.push(`solo proyecto ${_ccProyecto}`);
+  if(typeof _ccBusca!=='undefined'&&_ccBusca.trim()&&(_ccTabActiva==='equipos'||_ccTabActiva==='personal'))
+    p.push(`búsqueda "${_ccBusca.trim()}"`);
   return p.join(' · ');
 }
 function _ccxNombre(ext){

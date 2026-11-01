@@ -991,8 +991,8 @@ function _amtRenderSemOrigen(body){
   const{fIni,fFin,rango}=info;
   const TH=_AMT_TH,TD=_AMT_TD;
   // Origen: campo del viaje; si falta, se toma el inicio del tramo
-  const tramoIni=id=>{const tr=(DB.tramos||[]).find(t=>t.id==id);return tr?(tr.inicio||tr.codigo||''):'';};
-  const vs=_amtSemViajes(fIni,fFin).map(v=>({...v,ori:v.origen||tramoIni(v.tramoId)||'(sin origen)'}));
+  const vs=_amtSemViajes(fIni,fFin).map(v=>({...v,ori:_amtOdOri(v)}));
+  _amtOdRutas=[];
 
   // grupos[origen] = {m3,viajes,vd,vn, rutas:{destino||material:{destino,material,m3,viajes,vd,vn}}}
   const grupos={};
@@ -1031,7 +1031,11 @@ function _amtRenderSemOrigen(body){
     </tr>`;
     const sub=rutas.map(function(r){
       const pct=g.m3?r.m3/g.m3*100:0;
-      return`<tr>
+      // Doble clic: qué días de la semana se hizo esta ruta. Se pasa un índice
+      // y no los textos, para que comillas o tildes no rompan el onclick.
+      const ix=_amtOdRutas.push({ori,destino:r.destino,material:r.material,col})-1;
+      return`<tr ondblclick="_amtOdVer(${ix})" title="Doble clic: ver qué días se hizo esta ruta" style="cursor:pointer"
+          onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
         <td style="${TD};padding-left:1.6rem;color:var(--muted2);font-size:.7rem;white-space:nowrap">↳</td>
         <td style="${TD};font-weight:700;color:var(--text);white-space:nowrap">→ ${r.destino}</td>
         <td style="${TD};font-size:.7rem;color:#a78bfa;white-space:nowrap">${r.material}</td>
@@ -1071,6 +1075,7 @@ function _amtRenderSemOrigen(body){
     ${_amtKpi('m³ de la Semana','<b style="font-size:1.3rem">'+_amtFmt1(totalM3)+'</b>','var(--ctl)')}
     ${_amtKpi('Rutas Origen→Destino','<b style="font-size:1.3rem">'+totalRutas+'</b>','#8b5cf6')}
   </div>
+  ${origenes.length?`<div style="font-size:.68rem;color:var(--muted2);margin:0 0 .4rem .2rem">💡 Doble clic en una ruta para ver qué días de la semana se hizo</div>`:''}
   <div class="card" style="padding:0">
     <div class="tbl-wrap">
     <table style="min-width:100%;border-collapse:collapse">
@@ -1095,4 +1100,118 @@ function _amtRenderSemOrigen(body){
     </div>
   </div>
   `;
+}
+
+// ── Detalle por día de una ruta Origen → Material → Destino ─────────────────
+// Se abre con doble clic en la tabla de arriba. Usa la misma semana y el mismo
+// filtro de material que la tabla, así que los totales siempre cuadran con la
+// fila en la que se hizo clic.
+let _amtOdRutas=[];
+// Origen del viaje; si no se anotó, el inicio del tramo
+function _amtOdOri(v){
+  const tr=v.tramoId?(DB.tramos||[]).find(t=>t.id==v.tramoId):null;
+  return v.origen||(tr?(tr.inicio||tr.codigo||''):'')||'(sin origen)';
+}
+// Sol amarillo y luna oscura (el emoji 🌙 sale amarillo: se apaga con filtro)
+const _AMT_OD_SOL='#facc15', _AMT_OD_NOCHE='#94a3b8';
+const _AMT_OD_LUNA='<span style="filter:grayscale(1) brightness(.6)">🌙</span>';
+const _amtOdH=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// Los 7 días de la semana con lo que se movió en esa ruta
+function _amtOdDias(ruta){
+  const{fechas,fIni,fFin}=_amtSemInfo();
+  const dias={};fechas.forEach(f=>dias[f.iso]={...f,vd:0,vn:0,m3:0,eqs:{}});
+  _amtSemViajes(fIni,fFin).forEach(v=>{
+    if(_amtOdOri(v)!==ruta.ori)return;
+    if((v.destino||'(sin destino)')!==ruta.destino)return;
+    if((v.material||'(sin material)')!==ruta.material)return;
+    const d=dias[v.fecha];if(!d)return;
+    if(v.noche)d.vn+=v.cant;else d.vd+=v.cant;
+    d.m3+=v.m3;
+    const eq=(DB.equipos||[]).find(e=>e.id==v.eqId);
+    const cod=eq?(eq.codigo||eq.nombre||'?'):'(sin equipo)';
+    d.eqs[cod]=(d.eqs[cod]||0)+v.cant;
+  });
+  return fechas.map(f=>dias[f.iso]);
+}
+
+function _amtOdVer(ix){
+  const ruta=_amtOdRutas[ix];if(!ruta)return;
+  const{rango}=_amtSemInfo();
+  const dias=_amtOdDias(ruta);
+  const col=ruta.col||'#3b82f6';
+  const tvd=dias.reduce((s,d)=>s+d.vd,0), tvn=dias.reduce((s,d)=>s+d.vn,0), tv=tvd+tvn;
+  const tm=dias.reduce((s,d)=>s+d.m3,0), conV=dias.filter(d=>d.vd+d.vn>0);
+  const hoy=typeof today==='function'?today():'';
+  const TH=_AMT_TH,TD=_AMT_TD;
+  const chip=(l,v,c)=>`<div style="flex:1;min-width:110px;border:1px solid ${c};border-radius:8px;padding:.45rem .6rem;background:var(--panel2)">
+    <div style="font-size:.6rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">${l}</div>
+    <div style="font-family:monospace;font-weight:900;font-size:1.05rem;color:${c}">${v}</div></div>`;
+
+  const filas=dias.map(d=>{
+    const n=d.vd+d.vn, esHoy=d.iso===hoy;
+    const eqs=Object.entries(d.eqs).sort((a,b)=>b[1]-a[1])
+      .map(([c,k])=>`<span style="display:inline-block;margin:1px 3px 1px 0;padding:0 5px;border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:.62rem">${_amtOdH(c)} <b style="color:#3b82f6">${k}</b></span>`).join('');
+    return`<tr style="${n?'':'opacity:.45;'}${esHoy?'background:rgba(245,158,11,.08)':''}">
+      <td style="${TD};font-weight:700;white-space:nowrap">${d.lbl} <span style="font-family:monospace;color:var(--muted2);font-weight:400">${d.dm}</span></td>
+      <td style="${TD};text-align:center;font-family:monospace;color:${_AMT_OD_SOL}">${d.vd||'—'}</td>
+      <td style="${TD};text-align:center;font-family:monospace;color:${_AMT_OD_NOCHE}">${d.vn||'—'}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6">${n||'—'}</td>
+      <td style="${TD};text-align:right;font-family:monospace;font-weight:700;color:var(--ctl)">${d.m3?_amtFmt1(d.m3):'—'}</td>
+      <td style="${TD}">${eqs||'<span style="color:var(--muted2)">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  _amtOdCerrar();
+  const ov=document.createElement('div');
+  ov.id='amtOdOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=e=>{if(e.target===ov)_amtOdCerrar();};
+  ov.innerHTML=`<div style="background:var(--panel);border:1px solid ${col};border-radius:12px;width:min(760px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:flex-start;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--border);background:${col}14">
+      <div style="flex:1">
+        <div style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Ruta de la semana · ${rango}</div>
+        <div style="font-weight:900;font-size:.95rem;color:${col};margin-top:.15rem">📤 ${_amtOdH(ruta.ori)} <span style="color:var(--muted2)">→</span> <span style="color:var(--text)">${_amtOdH(ruta.destino)}</span></div>
+        <div style="font-size:.74rem;color:#a78bfa;font-weight:700;margin-top:.1rem">${_amtOdH(ruta.material)}</div>
+      </div>
+      <button onclick="_amtOdCerrar()" title="Cerrar (Esc)" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:7px;cursor:pointer;padding:.2rem .55rem;font-size:.8rem">✕</button>
+    </div>
+    <div style="padding:.8rem 1rem">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+        ${chip('Días con viajes',conV.length+' de 7',col)}
+        ${chip('Viajes',tv.toLocaleString(),'#3b82f6')}
+        ${chip('<span style="color:'+_AMT_OD_SOL+'">☀</span> Día / '+_AMT_OD_LUNA+' Noche','<span style="color:'+_AMT_OD_SOL+'">'+tvd+'</span> <span style="color:var(--muted2)">/</span> <span style="color:'+_AMT_OD_NOCHE+'">'+tvn+'</span>',_AMT_OD_SOL)}
+        ${chip('m³',_amtFmt1(tm),'#10b981')}
+      </div>
+      ${conV.length?`<div style="font-size:.72rem;color:var(--muted2);margin-bottom:.5rem">Se hizo el <b style="color:var(--text)">${conV.map(d=>d.lbl+' '+d.dm).join(', ')}</b></div>`:''}
+      <div class="tbl-wrap">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--panel2)">
+          <th style="${TH};text-align:left">Día</th>
+          <th style="${TH};text-align:center"><span style="color:${_AMT_OD_SOL}">☀</span> Día</th>
+          <th style="${TH};text-align:center">${_AMT_OD_LUNA} Noche</th>
+          <th style="${TH};text-align:right">Viajes</th>
+          <th style="${TH};text-align:right">m³</th>
+          <th style="${TH};text-align:left">Equipos (viajes)</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+        <tfoot><tr style="background:var(--panel2)">
+          <td style="${TD};font-size:.65rem;font-weight:700;color:var(--muted2);text-transform:uppercase">Total</td>
+          <td style="${TD};text-align:center;font-family:monospace;font-weight:900;color:${_AMT_OD_SOL}">${tvd}</td>
+          <td style="${TD};text-align:center;font-family:monospace;font-weight:900;color:${_AMT_OD_NOCHE}">${tvn}</td>
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:#3b82f6">${tv.toLocaleString()}</td>
+          <td style="${TD};text-align:right;font-family:monospace;font-weight:900;color:var(--ctl)">${_amtFmt1(tm)}</td>
+          <td style="${TD}"></td>
+        </tr></tfoot>
+      </table>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  document.addEventListener('keydown',_amtOdTecla);
+}
+function _amtOdTecla(e){if(e.key==='Escape')_amtOdCerrar();}
+function _amtOdCerrar(){
+  const o=document.getElementById('amtOdOverlay');if(o)o.remove();
+  document.removeEventListener('keydown',_amtOdTecla);
 }

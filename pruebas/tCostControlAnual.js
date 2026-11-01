@@ -145,7 +145,7 @@ es('  que invalida el caché del anual',
   /_ccSetProyecto[\s\S]{0,160}_ccaCache=null/.test(cc),true);
 es('las opciones salen del Máster',/function _ccProyectosDisponibles\(\)/.test(cc),true);
 es('el selector va en la barra de pestañas',
-  /_tabBtn\('anual','📅 Anual'\)\}[\s\S]{0,400}_ccSetProyecto\(this\.value\)/.test(cc),true);
+  /_tabBtn\('anual','📅 Anual'\)\}[\s\S]{0,2000}_ccSetProyecto\(this\.value\)/.test(cc),true);
 es('se avisa cuando hay filtro puesto',/· SOLO \$\{_ccProyecto\}/.test(cc),true);
 es('  también en el KPI de venta',/solo \$\{_ccProyecto\}/.test(cc),true);
 
