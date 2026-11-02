@@ -98,6 +98,7 @@ function _lpsRenderTab(){
   else if(_lpsTab===3)_lpsRenderLookahead(c);
   else if(_lpsTab===4)_lpsRenderPlan(c);
   else if(_lpsTab===5)_lpsRenderRestr(c);
+  else if(_lpsTab===7)_a3Render(c);
   else _lpsRenderCnc(c);
 }
 
@@ -1389,6 +1390,7 @@ function _lpsLaManualChange(wbsId,fecha,val){
 // EXPORTAR A EXCEL
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsExportXLS(){
+  if(_lpsTab===7){_a3Excel();return;}
   if(!window.XLSX){toast('Librería Excel no cargada, intenta en segundos',true);return;}
   const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal PPC','Restricciones','CNC'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
@@ -1551,6 +1553,7 @@ function _lpsXlsCNC(wb){
 // EXPORTAR A PDF
 // ══════════════════════════════════════════════════════════════════════════════
 function _lpsPrintCurrent(){
+  if(_lpsTab===7){_a3Imprimir();return;}
   const tabNames=['Biblioteca WBS','Cronograma','Lookahead 4 Semanas','Plan Semanal / PPC','Restricciones','CNC – Causas de No Cumplimiento'];
   const tabName=tabNames[_lpsTab-1]||'Planning';
   const fechaExp=new Date().toLocaleString('es-PE');
