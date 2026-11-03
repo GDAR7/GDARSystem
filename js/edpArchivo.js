@@ -139,7 +139,7 @@ function rEdpArchivo(){
 
   const filas=_edaFilas();
   const conDoc=filas.filter(r=>_edaDoc(r)).length;
-  const T=filas.reduce((a,r)=>{a.to+=+r.total||0;a.ab+=+r.aAbonar||0;return a;},{to:0,ab:0});
+  const T=filas.reduce((a,r)=>{a.to+=+r.total||0;a.ab+=+r.aAbonar||0;a.de+=+r.montoDesc||0;return a;},{to:0,ab:0,de:0});
 
   const inpS='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .5rem;font-size:.74rem;outline:none';
   const hayFiltro=_edaProv||_edaEq||_edaDesde||_edaHasta||_edaQ||_edaSoloDoc;
@@ -148,6 +148,7 @@ function rEdpArchivo(){
     {l:'EDP listados',v:filas.length,c:'#f97316'},
     {l:'Con documento',v:conDoc+' / '+filas.length,c:conDoc===filas.length?'#10b981':'#f59e0b'},
     {l:'Total valorizado',v:'S/ '+_edaN2(T.to),c:'#06b6d4'},
+    {l:'Descuentos',v:(T.de?'− ':'')+'S/ '+_edaN2(T.de),c:'#ef4444'},
     {l:'A abonar',v:'S/ '+_edaN2(T.ab),c:'#22c55e'}
   ].map(k=>`<div class="kpi" style="--kc:${k.c}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>9?'1.15rem':'1.7rem'}">${k.v}</div></div>`).join('');
 
