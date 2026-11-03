@@ -173,9 +173,21 @@ function _vtSortBy(col){
   rValorizaciones();
 }
 
+// Filtro por código de proyecto: la tabla y las tarjetas muestran solo ese proyecto.
+let _vtProyFilt='';
+function _vtFiltProy(cod){_vtProyFilt=cod||'';rValorizaciones();}
+function _vtFillProyFilt(){
+  const sel=document.getElementById('valorizProy');if(!sel)return;
+  const cods=[...new Set([...(DB.proyectos||[]).map(p=>p.codigo),...(DB.ventas||[]).map(v=>v.codigo)].filter(Boolean))].sort();
+  if(_vtProyFilt&&!cods.includes(_vtProyFilt))_vtProyFilt='';
+  sel.innerHTML='<option value="">Todos los proyectos</option>'+cods.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.value=_vtProyFilt;
+}
+
 function rValorizaciones(){
   const canEdit=CU&&(CU.areas||[]).includes('costControl');
-  const rows=DB.ventas||[];
+  _vtFillProyFilt();
+  const rows=(DB.ventas||[]).filter(v=>!_vtProyFilt||v.codigo===_vtProyFilt);
   const totalMonto=rows.reduce((a,v)=>a+(+v.montoTotal||0),0);
   const kpis=[
     {l:'Total Valorizaciones',v:rows.length,c:'#059669'},
