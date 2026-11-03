@@ -68,6 +68,8 @@ const EMPRESA_USERS=A=>[
   {codigo:'WIL_VE',nombre:'Wilner Vega',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
   {codigo:'EDW_QU',nombre:'Edwin Quispe',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
   {codigo:'MIS_TE',nombre:'Misael Tello',cargo:'Supervisor Tecnico',areas:['operaciones'],areaModules:{operaciones:['parteTurno']}},
+  // Máster de Equipos completo; de Proveedores, solo Costos y KPI y el Archivo de EDP (edpTabs)
+  {codigo:'FRA_AB',nombre:'Franklin Abarca',cargo:'Asistente de EQ Central',areas:['mantenimiento','costControl'],areaModules:{mantenimiento:['masterEquipos'],costControl:['proveedores']},edpTabs:['costos','archivo']},
 ];
 
 // El logo de la pantalla de acceso. El src del HTML queda como respaldo:

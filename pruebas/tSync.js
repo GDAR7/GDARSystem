@@ -21,7 +21,7 @@ const USERS=new Function('document',empSrc+';return EMPRESA_USERS;')
 const meta=u=>{
   const m={dni:u.dni,nombre:u.nombre,cargo:u.cargo,codigo:u.codigo,areas:u.areas,
     email_verified:true};   // lo agrega Supabase por su cuenta
-  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','masterTabs','admin']
+  ['areaModules','readOnlyModules','excludeModules','modules','pizarraTabs','panelHorasTabs','masterTabs','edpTabs','admin']
     .forEach(k=>{if(u[k]!==undefined)m[k]=u[k];});
   return m;
 };
@@ -73,7 +73,7 @@ srv.listen(0,'127.0.0.1',async()=>{
   reset();
   let o=await corre(['--sincronizar','--simular']);
   es('dice que esta todo al dia',/Todo al dia/.test(o),true);
-  es('  y cuenta los 21',/los 21 coinciden/.test(o),true);
+  es('  y cuenta los '+USERS.length,new RegExp('los '+USERS.length+' coinciden').test(o),true);
   es('los campos de Supabase no cuentan como cambio',/email_verified/.test(o),false);
 
   console.log('\n== Detecta un permiso agregado ==');

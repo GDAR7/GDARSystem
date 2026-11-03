@@ -388,7 +388,15 @@ function _ecExcel(){
 
 // ── Tabs de la página de Proveedores ────────────────────────────────────────
 let _edpTabAct='edp';
+// Un usuario puede tener limitadas las pestañas de Proveedores (CU.edpTabs,
+// p. ej. ['costos','archivo']). Sin la lista ve las tres, como siempre.
+function _edpTabsOk(){
+  const a=typeof CU!=='undefined'&&CU&&CU.edpTabs;
+  return (Array.isArray(a)&&a.length)?a:null;
+}
 function _edpTab(k){
+  const ok=_edpTabsOk();
+  if(ok&&!ok.includes(k))k=ok[0];
   _edpTabAct=k;
   // Tres pestañas: generar, costos y el archivo de EDP ya emitidos
   const paneles={edp:'edpBody',costos:'edpCostosBody',archivo:'edpArchivoBody'};
@@ -396,7 +404,8 @@ function _edpTab(k){
     const el=document.getElementById(paneles[n]);
     if(el)el.style.display=(n===k)?'':'none';
     const btn=document.getElementById('edpTabBtn-'+n);
-    if(btn){btn.style.background=n===k?'var(--ceq)':'transparent';btn.style.color=n===k?'#fff':'var(--muted2)';}
+    if(btn){btn.style.background=n===k?'var(--ceq)':'transparent';btn.style.color=n===k?'#fff':'var(--muted2)';
+      btn.style.display=(!ok||ok.includes(n))?'':'none';}
   });
   if(k==='costos')rEdpCostos();
   else if(k==='archivo'){if(typeof rEdpArchivo==='function')rEdpArchivo();}
