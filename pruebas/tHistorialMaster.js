@@ -1,7 +1,7 @@
-// Máster de Equipos · Historial de cambios (visor de sql/historial_master.sql).
-// Lo que importa: que solo el administrador vea el botón y los datos, que cada
-// cambio diga quién, cuándo y qué campo pasó de qué a qué, y que los filtros
-// y el Excel muestren lo mismo que la pantalla.
+// Configuración · Historial Máster (visor de sql/historial_master.sql).
+// Lo que importa: que solo EIBEL25 vea la página y los datos, que cada cambio
+// diga quién, cuándo y qué campo pasó de qué a qué, y que los filtros y el
+// Excel muestren lo mismo que la pantalla.
 const fs=require('fs'),vm=require('vm');
 const R='c:/Users/LENOVO/OneDrive/Documents/GitHub/GDARSystem/';
 let ok=0,mal=0;
@@ -21,54 +21,53 @@ let pedidos=[], faltaTabla=false;
 const supa={from:t=>{pedidos.push(t);const q={select(){return q;},order(){return q;},limit(){return q;},
   then(res,rej){return Promise.resolve(faltaTabla?{data:null,error:{code:'PGRST205'}}:{data:filas,error:null}).then(res,rej);}};return q;}};
 
-const nodos={};let overlay=null,teclas=0;
+const pag={innerHTML:''}, tabla={innerHTML:''};
 const ctx=vm.createContext({console:{log(){},warn(){}},Date,Math,Number,String,Object,Array,JSON,Map,Set,Promise,isFinite,
-  supa,toast:()=>{},CU:{codigo:'OTRO'},window:{},
-  document:{getElementById:id=>id==='hmOverlay'?overlay:id==='hmTabla'?(nodos.hmTabla=nodos.hmTabla||{innerHTML:''}):null,
-    createElement:()=>({style:{},remove(){overlay=null;}}),body:{appendChild:o=>{overlay=o;}},
-    addEventListener(){teclas++;},removeEventListener(){teclas--;}}});
+  supa,toast:()=>{},CU:{codigo:'FRA_AB'},window:{},
+  document:{getElementById:id=>id==='page-historialMaster'?pag:id==='hmTabla'?tabla:null}});
 vm.runInContext(fs.readFileSync(R+'js/historialMaster.js','utf8'),ctx);
 const ev=x=>vm.runInContext(x,ctx);
 const espera=()=>new Promise(r=>setImmediate(r));
+const limpiar=()=>ev(`_hmF={quien:'',accion:'',desde:'',hasta:'',q:''}`);
 
 (async()=>{
-console.log('\n== Solo el administrador ==');
-es('usuario común: no hay botón',ev('_hmBoton()'),'');
-ev('_hmAbrir()');
-es('  ni se abre la ventana',overlay,null);
+console.log('\n== Solo EIBEL25 ==');
+ev('rHistorialMaster()');await espera();
+es('otro usuario: la página dice que es solo del administrador',/solo para el administrador/.test(pag.innerHTML),true);
+es('  no ve ningún cambio',/hmTabla/.test(pag.innerHTML),false);
 es('  ni se pide nada a la base',pedidos.length,0);
-ctx.CU={codigo:'EIBEL25'};
-es('administrador: botón 🕵️ Historial',/🕵️ Historial/.test(ev('_hmBoton()')),true);
 
 console.log('\n== Detalle de cada cambio ==');
-const d0=ev('_hmDetalle').call(null,filas[0]);
+const det=r=>ev('_hmDetalle')(r);
+const d0=det(filas[0]);
 es('editar: campo antes → después',d0[0],'Tarifa: 80 → 95');
 es('  con el nombre del campo de la ficha',d0[1],'Proveedor: X SAC → Y SAC');
 es('  documentos: qué se agregó',d0[2],'Documentos: agregó poliza.pdf');
-es('crear: lo que identifica al equipo',ev('_hmDetalle').call(null,filas[1]).join(' | '),'Código: EXC ECOP-009 | Nombre: Excavadora | Tipo: Línea Amarilla | Subtipo: Excavadora | Proveedor: Z SAC | Tarifa: 120');
-es('eliminar subtipo',ev('_hmQue').call(null,filas[2])+' · '+ev('_hmDetalle').call(null,filas[2]),'Subtipo Rodillo · Subtipo: Rodillo');
-es('quién: nombre y código',ev('_hmQuien').call(null,filas[0]),'Franklin Abarca · FRA_AB');
+es('crear: lo que identifica al equipo',det(filas[1]).join(' | '),'Código: EXC ECOP-009 | Nombre: Excavadora | Tipo: Línea Amarilla | Subtipo: Excavadora | Proveedor: Z SAC | Tarifa: 120');
+es('eliminar subtipo',ev('_hmQue')(filas[2])+' · '+det(filas[2]),'Subtipo Rodillo · Subtipo: Rodillo');
+es('quién: nombre y código',ev('_hmQuien')(filas[0]),'Franklin Abarca · FRA_AB');
 
-console.log('\n== Ventana ==');
-ev('_hmAbrir()');await espera();await espera();
+console.log('\n== Página del administrador ==');
+ctx.CU={codigo:'EIBEL25'};
+ev('rHistorialMaster()');await espera();await espera();
 es('lee la tabla del historial',pedidos.join(),'historial_master');
-let T=nodos.hmTabla.innerHTML;
+es('título de Configuración',/🕵️ Historial Máster/.test(pag.innerHTML),true);
+let T=tabla.innerHTML;
 es('muestra los 3 cambios',/3 de 3 cambios/.test(T),true);
 es('acciones con color',/>Editó</.test(T)&&/>Creó</.test(T)&&/>Eliminó</.test(T),true);
-es('filtro persona = Franklin',(ev(`_hmFiltro('quien','FRA_AB')`),/2 de 3/.test(nodos.hmTabla.innerHTML)),true);
-es('filtro acción = Creó',(ev(`_hmFiltro('accion','crear')`),/1 de 3/.test(nodos.hmTabla.innerHTML)),true);
-ev(`_hmF={quien:'',accion:'',desde:'',hasta:'',q:''}`);
-es('buscar "tarifa 95" encuentra la edición',(ev(`_hmFiltro('q','tarifa 95')`),ev('_hmFiltradas()').length),1);
-ev(`_hmF={quien:'',accion:'',desde:'2026-11-01',hasta:'',q:''}`);
+ev(`_hmFiltro('quien','FRA_AB')`);
+es('filtro persona = Franklin',/2 de 3/.test(tabla.innerHTML),true);
+ev(`_hmFiltro('accion','crear')`);
+es('  + acción = Creó',/1 de 3/.test(tabla.innerHTML),true);
+limpiar();ev(`_hmFiltro('q','tarifa 95')`);
+es('buscar "tarifa 95" encuentra la edición',ev('_hmFiltradas()').length,1);
+limpiar();ev(`_hmFiltro('desde','2026-11-01')`);
 es('filtro desde 01/11',ev('_hmFiltradas()').length,2);
-ev(`_hmF={quien:'',accion:'',desde:'',hasta:'',q:''}`);
-ev('_hmCerrar()');
-es('Esc/✕ cierra y suelta el teclado',overlay===null&&teclas===0,true);
+limpiar();
 
 console.log('\n== Sin el SQL ejecutado ==');
-faltaTabla=true;ev('_hmAbrir()');await espera();await espera();
-es('avisa que falta sql/historial_master.sql',/Falta ejecutar <b>sql\/historial_master.sql<\/b>/.test(overlay.innerHTML),true);
-ev('_hmCerrar()');
+faltaTabla=true;ev('rHistorialMaster()');await espera();await espera();
+es('avisa que falta sql/historial_master.sql',/Falta ejecutar <b>sql\/historial_master.sql<\/b>/.test(pag.innerHTML),true);
 
 console.log('\n== SQL ==');
 const S=fs.readFileSync(R+'sql/historial_master.sql','utf8');
@@ -76,6 +75,12 @@ es('solo las 2 tablas del Máster',(S.match(/after insert or update or delete on
 es('solo EIBEL25 lee',/for select to authenticated\s+using \(\(auth\.jwt\(\) -> 'user_metadata' ->> 'codigo'\) = 'EIBEL25'\)/.test(S),true);
 es('nadie lo edita ni lo borra desde el sistema',/revoke insert, update, delete on public\.historial_master from anon, authenticated/.test(S)&&!/create policy \w+ on public\.historial_master\s+for (insert|update|delete)/.test(S),true);
 es('editar anota solo lo que cambió',/is distinct from/.test(S)&&/if dif <> '\{\}'::jsonb then/.test(S),true);
+
+console.log('\n== Conexión ==');
+const H=fs.readFileSync(R+'index.html','utf8'), U=fs.readFileSync(R+'js/utils.js','utf8');
+es('página en index.html',/id="page-historialMaster"/.test(H)&&/js\/historialMaster\.js\?v=\d+/.test(H),true);
+es('ruta en utils.js',/historialMaster:rHistorialMaster/.test(U),true);
+es('el Máster no tiene botón de historial',/_hmBoton/.test(fs.readFileSync(R+'js/masterResumen.js','utf8')),false);
 
 console.log('\n'+(mal?'✗ '+mal+' FALLAS':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
 process.exit(mal?1:0);

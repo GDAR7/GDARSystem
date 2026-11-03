@@ -98,8 +98,7 @@ function _mrTabs(){
   const ok=_mrTabsOk();
   const b=(k,t)=>{if(ok&&!ok.includes(k))return '';const a=_mrVista===k;
     return `<button onclick="_mrSetVista('${k}')" style="padding:.4rem 1rem;border:none;border-radius:7px 7px 0 0;cursor:pointer;font-size:.8rem;font-weight:700;background:${a?'var(--mec)':'transparent'};color:${a?'#fff':'var(--muted2)'}">${t}</button>`;};
-  el.innerHTML=b('lista','📋 Listado')+b('resumen','🗂️ Resumen agrupado')+b('venc','🚦 Vencimientos')
-    +(typeof _hmBoton==='function'?_hmBoton():'');   // solo el administrador (js/historialMaster.js)
+  el.innerHTML=b('lista','📋 Listado')+b('resumen','🗂️ Resumen agrupado')+b('venc','🚦 Vencimientos');
   // Resumen y Vencimientos se pintan en el mismo panel
   const pl=document.getElementById('mqPanelLista'),pr=document.getElementById('mqPanelResumen');
   if(pl)pl.style.display=_mrVista==='lista'?'':'none';

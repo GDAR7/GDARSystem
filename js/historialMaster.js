@@ -3,7 +3,8 @@
 // cambió (antes → después). Lo anota la base con un trigger
 // (sql/historial_master.sql); aquí solo se lee. Solo el administrador lo ve:
 // la base no se lo entrega a nadie más.
-// Se abre con el botón 🕵️ Historial de las pestañas del Máster.
+// Es una página de ⚙️ Configuración (que hoy solo tiene EIBEL25); la página
+// tampoco se muestra a nadie más, y la base solo le entrega los datos a él.
 const _HM_TABLA='historial_master';
 const _HM_ADMIN='EIBEL25';
 const _HM_LIMITE=2000;      // los cambios más recientes que se traen
@@ -112,31 +113,19 @@ function _hmFiltradas(){
   });
 }
 
-// ── Botón y ventana ────────────────────────────────────────────────────────
-function _hmBoton(){
-  if(!_hmEsAdmin())return'';
-  return`<button onclick="_hmAbrir()" title="Quién cambió qué en el Máster de Equipos" style="margin-left:auto;margin-bottom:3px;padding:.35rem .85rem;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:.78rem;font-weight:700;background:var(--panel2);color:var(--text)">🕵️ Historial</button>`;
-}
-function _hmAbrir(){
-  if(!_hmEsAdmin()){toast('Solo el administrador ve el historial',true);return;}
-  _hmCerrar();
-  const o=document.createElement('div');
-  o.id='hmOverlay';
-  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:3vh 16px;overflow:auto';
-  o.onclick=e=>{if(e.target===o)_hmCerrar();};
-  document.body.appendChild(o);
-  document.addEventListener('keydown',_hmTecla);
+// ── Página ─────────────────────────────────────────────────────────────────
+function rHistorialMaster(){
+  const p=document.getElementById('page-historialMaster');if(!p)return;
+  if(!_hmEsAdmin()){
+    p.innerHTML='<div class="ph"><div class="ph-title" style="color:#6366f1">🕵️ Historial Máster</div></div><div class="card" style="border:1px solid #f59e0b;color:#f59e0b;font-size:.8rem;max-width:720px;margin:0 auto">🔒 Este módulo es solo para el administrador.</div>';
+    return;
+  }
   _hmCargar();
-}
-function _hmTecla(e){if(e.key==='Escape')_hmCerrar();}
-function _hmCerrar(){
-  document.removeEventListener('keydown',_hmTecla);
-  const o=document.getElementById('hmOverlay');if(o)o.remove();
 }
 function _hmFiltro(k,v){_hmF[k]=v;_hmPintarTabla();}
 
 function _hmPintar(){
-  const o=document.getElementById('hmOverlay');if(!o)return;
+  const o=document.getElementById('page-historialMaster');if(!o||!_hmEsAdmin())return;
   const ctl='background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .5rem;font-size:.76rem';
   const personas=[...new Map(_hmFilas.map(r=>[String(r.codigo||''),_hmQuien(r)])).entries()]
     .sort((a,b)=>a[1].localeCompare(b[1],'es'));
@@ -146,13 +135,11 @@ function _hmPintar(){
     ?'<div style="padding:1.2rem;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b">Falta ejecutar <b>sql/historial_master.sql</b> en Supabase. Desde ese momento se empiezan a anotar los cambios.</div>'
     :`<div style="padding:1.2rem;border:1px solid #ef4444;border-radius:8px;color:#ef4444">No se pudo leer el historial: ${_hmEsc(_hmErr)}</div>`;
   else cuerpo='<div id="hmTabla"></div>';
-  o.innerHTML=`<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;width:min(1100px,100%);padding:1rem 1.1rem" role="dialog" aria-label="Historial de cambios del Máster de Equipos">
+  o.innerHTML=`<div class="ph"><div class="ph-title" style="color:#6366f1">🕵️ Historial Máster</div><div class="ph-sub">Quién creó, editó o eliminó equipos y subtipos del Máster de Equipos · lo anota la base de datos y nadie lo puede modificar · solo administrador</div></div>
+  <div class="card" style="padding:1rem 1.1rem">
     <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem">
-      <div><div style="font-weight:800;font-size:1rem">🕵️ Historial de cambios · Máster de Equipos</div>
-        <div style="font-size:.72rem;color:var(--muted2)">Quién creó, editó o eliminó equipos y subtipos. Lo anota la base de datos; nadie lo puede modificar.</div></div>
       <button onclick="_hmCargar()" style="${ctl};margin-left:auto;cursor:pointer">↻ Actualizar</button>
       <button onclick="_hmExcel()" style="${ctl};cursor:pointer;color:#16a34a;border-color:#16a34a80">📊 Excel</button>
-      <button onclick="_hmCerrar()" aria-label="Cerrar" style="${ctl};cursor:pointer">✕</button>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.7rem">
       <label style="font-size:.64rem;color:var(--muted2)">PERSONA<br><select style="${ctl}" onchange="_hmFiltro('quien',this.value)"><option value="">— Todas —</option>

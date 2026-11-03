@@ -1,12 +1,24 @@
 // ══════════════════════════════════════════════════════════════════════════
 //  PANEL DE HORAS MÁQUINA — REPORTE DIARIO DE UTILIZACIÓN
-
+//
+//  Reporte de presentación (hoja blanca + Imprimir/PDF) con el mismo formato
+//  del Resumen Semanal, pero de un DÍA: gráfico de barras por equipo del día
+//  elegido y, al lado, el de su semana para comparar.
+//
 //  Reglas, las mismas del panel:
 //    H. Programadas = Nº de partes × horas por turno (⚙ del panel)
 //    Utilización    = H. Efectivas ÷ H. Programadas
 //    Semáforo       ≥75 % verde · 60–74 % ámbar · <60 % rojo
 //    Meta del gráfico = 75 % de utilización, el umbral del panel
-//  
+//  (metaDia y metaSem siguen calculándose, prorrateando la meta del corte por
+//   equipo, por si más adelante se quiere volver a comparar en horas)
+//
+//  Salen TODOS los equipos de la línea, no solo los que reportaron: el que no
+//  tiene parte aparece en 0 %, que es lo que interesa ver en una presentación.
+//  Los desmovilizados quedan fuera.
+//
+//  Prefijo _phd. La semana es la del panel (_phSemIni) y las horas por turno
+//  salen de _phHsProgTurno(), así que nada se calcula por duplicado.
 // ══════════════════════════════════════════════════════════════════════════
 
 let _phdFecha='';
@@ -66,6 +78,116 @@ function _phdMenuEquipos(ev){
     pie.appendChild(bt('Ninguno','#94a3b8',()=>_phdSelTodos(false)));
     div.appendChild(pie);
   });
+}
+
+// ── Observaciones del día ───────────────────────────────────────────────────
+// Comentarios escritos a mano que se imprimen al pie del PDF, debajo de la
+// tabla de detalle. Van atados a la FECHA: cada reporte lleva los suyos y no
+// se arrastran al día siguiente. eqId vacío = comentario general del día.
+// Se guardan en Supabase (sql/comentarios_dia.sql), así los ve cualquier
+// usuario y quedan como historial del reporte.
+let _phdComEdit=null;
+
+const _phdEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ambito 'dia' distingue estas observaciones de las del Reporte Mensual, que
+// viven en la misma tabla. Lo escrito antes de que existiera el mensual no
+// tiene ámbito: se cuenta como del día, que es lo que era.
+function _phdComs(fecha){
+  const f=fecha||_phdFecha;
+  return (DB.comentariosDia||[]).filter(c=>String(c.fecha||'')===String(f)
+      &&(!c.ambito||String(c.ambito)==='dia'))
+    .sort((a,b)=>(+a.id||0)-(+b.id||0));
+}
+// El nombre que se imprime en la columna Equipo
+function _phdComEqNom(eqId){
+  if(!eqId)return'GENERAL';
+  const e=(DB.equipos||[]).find(x=>+x.id===+eqId);
+  return e?String(e.codigo||('#'+e.id)):'#'+eqId;
+}
+
+function _phdComAbrir(){
+  _phdComEdit=null;
+  const sel=document.getElementById('phdComEq');
+  if(sel){
+    sel.innerHTML='<option value="">— General (todo el día) —</option>'
+      +_phdEquiposTodos().map(e=>`<option value="${+e.id}">${_phdEsc(e.codigo||('#'+e.id))}`
+        +`${e.sub?' · '+_phdEsc(e.sub):''}</option>`).join('');
+    sel.value='';
+  }
+  const t=document.getElementById('phdComTxt');if(t)t.value='';
+  const d=document.getElementById('phdComDia');
+  if(d)d.textContent=_PHD_DIAS[new Date(_phdFecha+'T12:00:00').getDay()]+' '+_phdDMY(_phdFecha);
+  _phdComBoton();
+  _phdComLista();
+  openM('mPhdCom');
+  setTimeout(()=>{const el=document.getElementById('phdComTxt');if(el)el.focus();},120);
+}
+function _phdComBoton(){
+  const b=document.getElementById('phdComBtn');
+  if(b)b.textContent=_phdComEdit==null?'＋ Agregar':'💾 Guardar cambios';
+  const c=document.getElementById('phdComCancel');
+  if(c)c.style.display=_phdComEdit==null?'none':'';
+}
+function _phdComCancelar(){
+  _phdComEdit=null;
+  const t=document.getElementById('phdComTxt');if(t)t.value='';
+  const s=document.getElementById('phdComEq');if(s)s.value='';
+  _phdComBoton();_phdComLista();
+}
+function _phdComLista(){
+  const el=document.getElementById('phdComLista');if(!el)return;
+  const lista=_phdComs();
+  el.innerHTML=lista.length?lista.map(c=>`
+    <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.4rem .5rem;border:1px solid ${+c.id===+_phdComEdit?'var(--ceq)':'var(--border)'};border-radius:6px;background:var(--panel2);margin-bottom:.35rem">
+      <span style="font-size:.64rem;font-weight:800;font-family:monospace;color:${c.eqId?'var(--ceq)':'var(--muted2)'};white-space:nowrap;padding-top:.1rem">${_phdEsc(_phdComEqNom(c.eqId))}</span>
+      <span style="flex:1;font-size:.72rem;color:var(--text);white-space:pre-wrap;line-height:1.35">${_phdEsc(c.texto)}</span>
+      <button onclick="_phdComEditar(${+c.id})" title="Editar" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted2);cursor:pointer;font-size:.7rem;padding:.1rem .35rem">✏️</button>
+      <button onclick="_phdComBorrar(${+c.id})" title="Quitar" style="background:none;border:1px solid #7f1d1d;border-radius:5px;color:#f87171;cursor:pointer;font-size:.7rem;padding:.1rem .35rem">🗑</button>
+    </div>`).join('')
+    :`<div style="font-size:.72rem;color:var(--muted2);padding:.6rem;text-align:center">Sin observaciones para este día. Si no agrega ninguna, el PDF sale como hasta ahora.</div>`;
+}
+function _phdComEditar(id){
+  const c=(DB.comentariosDia||[]).find(x=>+x.id===+id);if(!c)return;
+  _phdComEdit=+c.id;
+  const s=document.getElementById('phdComEq');if(s)s.value=c.eqId?String(+c.eqId):'';
+  const t=document.getElementById('phdComTxt');if(t){t.value=c.texto||'';t.focus();}
+  _phdComBoton();_phdComLista();
+}
+async function _phdComGuardar(){
+  const txt=(document.getElementById('phdComTxt')?.value||'').trim();
+  if(!txt){toast('Escriba el comentario',true);return;}
+  const eqV=document.getElementById('phdComEq')?.value||'';
+  const eqId=eqV?+eqV:null;
+
+  DB.comentariosDia=DB.comentariosDia||[];
+  const nuevo=_phdComEdit==null;
+  const prev=nuevo?null:DB.comentariosDia.find(c=>+c.id===+_phdComEdit);
+  const rec={id:nuevo?nidSeguro('cmd','comentariosDia'):+_phdComEdit,
+    ambito:'dia',fecha:_phdFecha,eqId,texto:txt,
+    creadoPor:(typeof CU!=='undefined'&&CU?String(CU.nombre||CU.codigo||''):'')||null};
+  // El id se reserva antes de esperar a Supabase, como en el resto del sistema
+  if(nuevo)DB.comentariosDia.push({...rec});
+  const err=await supaUpsert('comentariosDia',rec);
+  if(err){if(nuevo)DB.comentariosDia=DB.comentariosDia.filter(c=>+c.id!==+rec.id);return;}
+  if(prev)Object.assign(prev,rec);
+
+  _phdComEdit=null;
+  const t=document.getElementById('phdComTxt');if(t){t.value='';t.focus();}
+  _phdComBoton();_phdComLista();
+  rPanelHoras();                       // la vista previa se actualiza al instante
+  toast('✓ Observación '+(nuevo?'agregada':'actualizada'));
+}
+async function _phdComBorrar(id){
+  const c=(DB.comentariosDia||[]).find(x=>+x.id===+id);if(!c)return;
+  if(!confirm('¿Quitar esta observación del reporte?\n\n'+(c.texto||'')))return;
+  await supaDelete('comentariosDia',c.id);
+  DB.comentariosDia=(DB.comentariosDia||[]).filter(x=>+x.id!==+c.id);
+  if(+_phdComEdit===+c.id)_phdComEdit=null;
+  _phdComBoton();_phdComLista();
+  rPanelHoras();
+  toast('Observación quitada');
 }
 
 const _phdPad=n=>String(n).padStart(2,'0');
@@ -189,10 +311,17 @@ function _phdDoc(){
 
   // Etiquetas sobre las barras y sobre la línea de meta
   const vlBarras={id:'vlBarrasDia',afterDatasetsDraw(chart){
-    const ctx=chart.ctx;const di=chart.data.datasets.length-1;
-    const meta=chart.getDatasetMeta(di);if(!meta)return;
-    ctx.save();ctx.fillStyle='#1e3a5f';ctx.font='bold 10px Arial';ctx.textAlign='center';
-    meta.data.forEach((bar,i)=>{const v=chart.data.datasets[di].data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE')+'%',bar.x,bar.y-4);});
+    const ctx=chart.ctx;
+    ctx.save();ctx.textAlign='center';
+    // Una etiqueta sobre cada barra: la del día en azul, la de la semana en gris
+    chart.data.datasets.forEach((ds,di)=>{
+      if(ds.type==='line')return;
+      const m=chart.getDatasetMeta(di);if(!m)return;
+      const esSem=ds.label==='Semana';
+      ctx.fillStyle=esSem?'#64748b':'#1e3a5f';
+      ctx.font='bold '+(esSem?'9':'10')+'px Arial';
+      m.data.forEach((bar,i)=>{const v=ds.data[i];if(v!=null)ctx.fillText((+v).toLocaleString('es-PE')+'%',bar.x,bar.y-4);});
+    });
     const dsL=chart.data.datasets[0];
     if(dsL&&dsL.type==='line'){
       const dmL=chart.getDatasetMeta(0);
@@ -215,7 +344,9 @@ function _phdDoc(){
         labels:items.map(r=>r.eq?r.eq.codigo:'#'+r.eq),
         datasets:[
           {type:'line',label:'Meta '+META_PCT+'%',data:items.map(()=>META_PCT),borderColor:'#dc2626',borderDash:[6,4],borderWidth:2,pointRadius:0},
-          {label:'% utilización',data:items.map(r=>+r[campoPct].toFixed(1)),backgroundColor:items.map(r=>utlCol(r[campoPct])),borderRadius:3}
+          {label:'Día',data:items.map(r=>+r[campoPct].toFixed(1)),backgroundColor:items.map(r=>utlCol(r[campoPct])),borderRadius:3},
+          // Al costado, la utilización de la semana del mismo equipo, en gris
+          {label:'Semana',data:items.map(r=>+(r.utilSem||0).toFixed(1)),backgroundColor:'#94a3b8',borderRadius:3}
         ]
       },
       options:{responsive:false,animation:false,devicePixelRatio:2,
@@ -239,11 +370,12 @@ function _phdDoc(){
   D.lineas.forEach(linea=>{
     const items=D.filas.filter(r=>r.tipo===linea);
     if(!items.length)return;
-    const gDia=chartImg(items,'UTILIZACIÓN — '+linea.toUpperCase()+' · '+D.diaNombre.toUpperCase()+' '+_phdDMY(D.fecha),'utilDia');
+    const gDia=chartImg(items,'UTILIZACIÓN — '+linea.toUpperCase()+' · '+D.diaNombre.toUpperCase()+' '+_phdDMY(D.fecha)
+      +' vs. SEMANA '+_phdDMY(D.sem[0]).slice(0,5)+'–'+_phdDMY(D.sem[6]).slice(0,5),'utilDia');
     if(!gDia)return;
     graficos+=`<div style="page-break-inside:avoid;border:1px solid #ccc;border-radius:6px;padding:4px;background:#fff;margin-top:8px"><img src="${gDia}" style="width:100%;display:block"></div>`;
   });
-  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barras = % de utilización (H. Efect. ÷ H. Prog.) · color del semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · el equipo sin parte del día aparece en 0%</div>`;
+  if(graficos)graficos+=`<div style="font-size:8.5px;color:#666;margin-top:3px">Barra de color = % del día (H. Efect. ÷ H. Prog.), con el semáforo: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% · <span style="color:#dc2626">▬ ▬</span> meta 75% · <span style="color:#94a3b8">■</span> barra gris = utilización de la semana del ${_phdDMY(D.sem[0])} al ${_phdDMY(D.sem[6])} · el equipo sin parte del día aparece en 0%</div>`;
 
   // Tabla del día, agrupada por línea
   let tabla='';
@@ -276,6 +408,17 @@ function _phdDoc(){
       <td style="${TD};text-align:right">${pctU(uS)}</td>
     </tr>`;
   });
+
+  // Observaciones escritas para este día. Si no hay ninguna, la sección no se
+  // imprime y el documento queda exactamente como antes.
+  const coms=_phdComs(D.fecha);
+  const obs=coms.length?sec('Observaciones')+`<table style="${TBL}">
+      <tr><th style="${TH};text-align:left;width:130px">Equipo</th><th style="${TH};text-align:left">Comentario</th></tr>
+      ${coms.map(c=>`<tr>
+        <td style="${TD};white-space:nowrap;font-weight:800;color:${c.eqId?AZ:'#555'}">${_phdEsc(_phdComEqNom(c.eqId))}</td>
+        <td style="${TD};white-space:pre-wrap;line-height:1.35">${_phdEsc(c.texto)}</td>
+      </tr>`).join('')}
+    </table>`:'';
 
   const T=D.total;
   return`
@@ -324,9 +467,10 @@ function _phdDoc(){
     </table>
     <div style="font-size:8.5px;color:#666;margin-top:2px">
       H. Prog. = Nº de partes del día × ${D.HP}h · Utiliz. = H. Efect. ÷ H. Prog. ·
-      Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60% ·
-      las filas en rosado no tienen parte ese día · los equipos desmovilizados no se listan
+      Utiliz.: <span style="color:#15803d">■</span> ≥75% · <span style="color:#b45309">■</span> 60–74% · <span style="color:#b91c1c">■</span> &lt;60%
     </div>
+
+    ${obs}
   </div>`;
 }
 
@@ -366,6 +510,7 @@ function _phdRender(){
   if(!_phdFecha||_phdFecha<sem[0]||_phdFecha>sem[6])_phdFecha=_phdDefault();
   const inpS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);flex-shrink:0';
   const dNom=_PHD_DIAS[new Date(_phdFecha+'T12:00:00').getDay()];
+  const nCom=_phdComs().length;
   const bar=`<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;padding:.4rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Día</span>
     <button onclick="_phdNav(-1)" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:.85rem;padding:.12rem .5rem" title="Día anterior">‹</button>
@@ -375,6 +520,7 @@ function _phdRender(){
     <button onclick="_phdFecha='';rPanelHoras()" style="font-size:.62rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer" title="Último día con partes de la semana">Último con partes</button>
     <div style="width:1px;height:18px;background:var(--border)"></div>
     <button onclick="_phdMenuEquipos(event)" style="font-size:.62rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${_phdSel.size?'var(--ceq)':'var(--border)'};background:${_phdSel.size?'rgba(249,115,22,.15)':'transparent'};color:${_phdSel.size?'var(--ceq)':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${_phdSel.size?'700':'400'}" title="Elegir por código qué equipos entran en el análisis">🚜 Equipos (${_phdSelCuenta().n}/${_phdSelCuenta().total}) ▾</button>
+    <button onclick="_phdComAbrir()" style="font-size:.62rem;padding:.2rem .55rem;border-radius:5px;border:1px solid ${nCom?'#22c55e':'var(--border)'};background:${nCom?'rgba(34,197,94,.15)':'transparent'};color:${nCom?'#22c55e':'var(--muted2)'};cursor:pointer;white-space:nowrap;font-weight:${nCom?'700':'400'}" title="Observaciones que salen al pie del PDF de este día">💬 Comentarios (${nCom}) ▾</button>
     <span style="font-size:.62rem;color:var(--muted2)">Semana ${_phdDMY(sem[0])} al ${_phdDMY(sem[6])} · vista previa del documento</span>
     <button onclick="_phdPrint()" style="margin-left:auto;font-size:.72rem;padding:.3rem .9rem;border-radius:6px;border:none;background:#b91c1c;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap">🖨 Imprimir / PDF</button>
   </div>`;
