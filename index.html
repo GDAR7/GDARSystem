@@ -1003,10 +1003,13 @@
   <div style="display:flex;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.9rem">
     <button id="rosterTabBtn-grid" onclick="_rosterTab('grid')" style="background:var(--adm);color:#fff;border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🗓️ Cronograma</button>
     <button id="rosterTabBtn-fbnv" onclick="_rosterTab('fbnv')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🛡️ Guardias FBNV</button>
+    <button id="rosterTabBtn-turno" onclick="_rosterTab('turno')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">👷 Por turno</button>
     <button id="rosterTabBtn-trans" onclick="_rosterTab('trans')" style="background:transparent;color:var(--muted2);border:none;border-radius:7px 7px 0 0;padding:.4rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer">🚐 Transporte</button>
   </div>
   <div id="rosterBody"></div>
   <div id="gdRosBody" style="display:none"></div>
+  <!-- Personal del día separado por turno, con su guardia (js/rosterTurnos.js) -->
+  <div id="rtnBody" style="display:none"></div>
   <!-- Capacidad de transporte por turno, según el Roster (js/rosterTransporte.js) -->
   <div id="rtBody" style="display:none"></div>
 </div>
@@ -3402,7 +3405,7 @@
 <script src="js/empresa.js?v=12"></script>
 <script src="js/config.js?v=56"></script>
 <script src="js/utils.js?v=41"></script>
-<script src="js/personal.js?v=27"></script>
+<script src="js/personal.js?v=28"></script>
 <script src="js/rosterTransporte.js?v=2"></script>
 <script src="js/planilla.js?v=28"></script>
 <script src="js/afpTasas.js?v=4"></script>
@@ -3417,6 +3420,7 @@
 <script src="js/informePeriodo.js?v=3"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
 <script src="js/guardiasFbnv.js?v=19"></script>
+<script src="js/rosterTurnos.js?v=1"></script>
 <script src="js/combustible.js?v=12"></script>
 <script src="js/requerimientos.js?v=22"></script>
 <script src="js/reembolsables_otros.js?v=13"></script>

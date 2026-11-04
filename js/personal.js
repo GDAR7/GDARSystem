@@ -1353,9 +1353,11 @@ function _rosterGetCfg(guardia){
 
 // Tabs del Roster: 'grid' = cronograma de 35 días · 'fbnv' = cuadro de las tres
 // guardias para un día, armado con la programación (no con el tareaje marcado)
-// · 'trans' = capacidad de transporte por turno (js/rosterTransporte.js).
+// · 'turno' = el personal del día separado por turno, con su guardia
+// (js/rosterTurnos.js) · 'trans' = capacidad de transporte por turno
+// (js/rosterTransporte.js).
 let _rosterTabAct='grid';
-const _ROSTER_TABS={grid:'rosterBody',fbnv:'gdRosBody',trans:'rtBody'};
+const _ROSTER_TABS={grid:'rosterBody',fbnv:'gdRosBody',turno:'rtnBody',trans:'rtBody'};
 function _rosterTab(k){
   if(!_ROSTER_TABS[k])k='grid';
   _rosterTabAct=k;
@@ -1368,6 +1370,7 @@ function _rosterTab(k){
   });
   if(k==='grid')rRoster();
   else if(k==='fbnv')rGuardiasRoster();
+  else if(k==='turno'){if(typeof rRosterTurnos==='function')rRosterTurnos();}
   else if(typeof rRosterTransporte==='function')rRosterTransporte();
 }
 
