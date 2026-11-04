@@ -128,9 +128,22 @@ function _edaExportXls(){
   XLSX.writeFile(wb,'Archivo de EDP.xlsx');
 }
 
+// El enlace al documento vive en «detalle», que no se trae al arrancar
+// (SUPA_DIFERIDAS). Se pide una vez al abrir el Archivo y se redibuja al llegar;
+// sin esto, quien no pasó antes por Generar EDP veía todo «sin archivar».
+let _edaDetPedido=false,_edaDetCargando=false;
+function _edaPedirDetalle(todos){
+  if(_edaDetPedido||typeof cargarColumnaDiferida!=='function')return;
+  if(!todos.some(r=>r.detalle===undefined))return;
+  _edaDetPedido=true;_edaDetCargando=true;
+  Promise.resolve(cargarColumnaDiferida('edpProveedores','detalle'))
+    .finally(()=>{_edaDetCargando=false;rEdpArchivo();});
+}
+
 function rEdpArchivo(){
   const el=document.getElementById('edpArchivoBody');if(!el)return;
   const todos=(DB.edpProveedores||[]);
+  _edaPedirDetalle(todos);
   const provs=[...new Set(todos.map(r=>String(r.proveedor||'').trim()).filter(Boolean))].sort();
   const eqIds=[...new Set(todos.map(r=>String(r.eqId)))]
     .map(id=>_edaEqDe({eqId:id})).filter(Boolean)
@@ -174,6 +187,7 @@ function rEdpArchivo(){
       <td style="${TDs};text-align:center">
         ${url?`<button onclick="_edaAbrirDoc(${+r.id})" title="Abrir el documento tal como se emitió${fDoc?' el '+_edaDMY(fDoc):''}" style="background:rgba(139,92,246,.15);border:1px solid #8b5cf6;border-radius:6px;color:#a78bfa;cursor:pointer;font-size:.68rem;font-weight:700;padding:.2rem .5rem">📄 Ver</button>
         <button onclick="_edaAbrirDoc(${+r.id},1)" title="Abrirlo y mandar a imprimir: en el diálogo, elija «Guardar como PDF»" style="background:rgba(185,28,28,.15);border:1px solid #b91c1c;border-radius:6px;color:#f87171;cursor:pointer;font-size:.68rem;font-weight:700;padding:.2rem .5rem;margin-left:.25rem">🖨 PDF</button>`
+        :(_edaDetCargando&&r.detalle===undefined)?`<span style="font-size:.64rem;color:var(--muted2)">cargando…</span>`
         :`<span style="font-size:.64rem;color:var(--muted2)" title="Se archiva al guardar el EDP: ábralo en Generar EDP y guárdelo otra vez">sin archivar</span>`}
       </td>
       <td style="${TDs};font-size:.66rem;color:var(--muted2)">${_edaEsc(r.creadoPor||'—')}<br>${String(r.creadoEn||'').slice(0,10)}</td>
