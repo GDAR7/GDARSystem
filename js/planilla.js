@@ -53,6 +53,74 @@ const _PL_CV_TASA=2.138;
 // (permiso, vacaciones, retén…) cae en "Otros días" y así no se pierde.
 const _PL_TIPOS_CONOCIDOS=['TD','A5','TN','DLT','DL','DM','LP','LM','LF','F','V'];
 
+// ── Modo de pago del mes ──
+// Se elige por mes y vale para toda la planilla. Se guarda en planilla_modo
+// (sql/planilla_modo.sql) para que todos vean lo mismo; un mes sin fila sigue
+// en 'dia', que es como se pagó siempre. La tabla se lee aquí mismo, al abrir
+// la planilla, y no en la carga general.
+let _plModoListo=null,_plModoFalta=false;
+function plModoDe(mes,anio){
+  const r=(DB.planillaModo||[]).find(x=>+x.mes===+mes&&String(x.anio)===String(anio));
+  return r&&r.modo==='mes'?'mes':'dia';
+}
+function _plModoCargar(){
+  if(_plModoListo)return _plModoListo;
+  _plModoListo=(async()=>{
+    try{
+      const{data,error}=await supa.from('planilla_modo').select('*');
+      if(error)throw error;
+      DB.planillaModo=(data||[]).map(r=>({id:r.id,mes:r.mes,anio:r.anio,modo:r.modo,usuario:r.usuario,actualizadoEn:r.actualizado_en}));
+    }catch(e){
+      _plModoFalta=true;
+      DB.planillaModo=DB.planillaModo||[];
+      console.warn('[Planilla] no se pudo leer planilla_modo:',(e&&e.message)||e);
+    }
+  })();
+  return _plModoListo;
+}
+function _plModoHtml(soloLeer){
+  const m=plModoDe(_plGenMes,_plGenAnio);
+  const dm=new Date(+_plGenAnio,+_plGenMes,0).getDate()||30;
+  const ops=[
+    {k:'dia',l:'📅 Pago por día',t:'Sueldo ÷ 30 por cada día pagado: un mes de 31 días paga 31 jornales'},
+    {k:'mes',l:'🗓️ Incidencia por mes',t:'Sueldo ÷ '+dm+' días del mes por cada día pagado: el mes completo paga el sueldo exacto'}
+  ];
+  if(soloLeer){
+    const o=ops.find(x=>x.k===m);
+    return`<span style="font-size:.68rem;color:var(--muted2)" title="${o.t}">· ${o.l}</span>`;
+  }
+  return`<span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden" title="Cómo se pagan los días de ${_PL_MESES[_plGenMes]||''}">
+    ${ops.map(o=>`<button onclick="plSetModo('${o.k}')" title="${o.t}" style="font-size:.68rem;padding:.25rem .6rem;border:none;cursor:pointer;font-weight:700;white-space:nowrap;${o.k===m?'background:#0e7490;color:#fff':'background:transparent;color:var(--muted2)'}">${o.l}</button>`).join('')}
+  </span>`;
+}
+async function plSetModo(modo){
+  const mes=_plGenMes,anio=_plGenAnio;
+  if(!mes||!anio)return;
+  // Que la lectura inicial no llegue después y pise lo que se va a guardar
+  await _plModoCargar();
+  if(typeof plMesCerrado==='function'&&plMesCerrado(mes,anio)){toast('La planilla de ese mes está cerrada: reábrala para cambiar el modo de pago',true);return;}
+  if(plModoDe(mes,anio)===modo)return;
+  const dm=new Date(+anio,+mes,0).getDate();
+  if(!confirm(`${_PL_MESES[mes]} ${anio} · ${modo==='mes'?'Incidencia por mes':'Pago por día'}\n\n`+
+    (modo==='mes'
+      ?`Cada día se pagará como sueldo ÷ ${dm} (los días que trae el mes).\nEl mes completo paga exactamente el sueldo.`
+      :'Cada día se pagará como sueldo ÷ 30.\nUn mes de 31 días paga 31 jornales.')+
+    '\n\nLas horas extras no cambian. Vale para toda la planilla del mes y para todos los usuarios.\n\n¿Continuar?'))return;
+  const quien=(typeof CU!=='undefined'&&CU&&(CU.nombre||CU.codigo))||'';
+  const rec={id:+anio*100+(+mes),mes:+mes,anio:+anio,modo,usuario:quien,actualizado_en:new Date().toISOString()};
+  const{error}=await supa.from('planilla_modo').upsert(rec);
+  if(error){
+    const falta=error.code==='PGRST205'||error.code==='42P01'||/planilla_modo/.test(error.message||'');
+    toast(falta?'Falta ejecutar sql/planilla_modo.sql en Supabase':'No se pudo guardar el modo de pago: '+error.message,true);
+    return;
+  }
+  _plModoFalta=false;
+  DB.planillaModo=(DB.planillaModo||[]).filter(x=>!(+x.mes===+mes&&String(x.anio)===String(anio)));
+  DB.planillaModo.push({id:rec.id,mes:rec.mes,anio:rec.anio,modo,usuario:quien,actualizadoEn:rec.actualizado_en});
+  toast('✓ '+_PL_MESES[mes]+': '+(modo==='mes'?'incidencia por mes':'pago por día'));
+  genPlanilla(true);
+}
+
 // ── Motor de cálculo por trabajador ──
 function _calcPlanRow(p,det){
   const pad=n=>String(n).padStart(2,'0');
@@ -119,10 +187,17 @@ function _calcPlanRow(p,det){
   // presentación: no debe mover por su cuenta lo que se paga.
   const diasCv      =diasSubTotal+diasDL;
 
-  // Jornal
+  // Jornal — depende del modo de pago del mes (ver plModoDe):
+  //   'dia' → sueldo ÷ 30 por cada día pagado (un mes de 31 paga 31 jornales).
+  //   'mes' → incidencia por mes: sueldo ÷ los días que trae el mes; el mes
+  //           completo paga exactamente el sueldo, sea de 28, 30 o 31 días.
+  // Las horas extras van siempre sobre sueldo ÷ 30 ÷ 8: no cambian con el mes.
   const jornal_mes=p.sue||0;
-  const jornal = r2(jornal_mes/30);
-  const jHora =r2(jornal/8);
+  const modoPago=plModoDe(_plGenMes,_plGenAnio);
+  const diasMes =new Date(+_plGenAnio,+_plGenMes,0).getDate()||30;
+  const jornal30=r2(jornal_mes/30);
+  const jornal  =modoPago==='mes'?r2(jornal_mes/diasMes):jornal30;
+  const jHora   =r2(jornal30/8);
 
   // Horas extras
   const he25 =det?.he25 ||0; const impHE25 =r2(he25 *jHora*1.25);
@@ -151,10 +226,23 @@ function _calcPlanRow(p,det){
   const licSindical=det?.licSindical||0;
 
   // Días y tarea
-  const tareaOrdinaria=r2(jornal*diasSubTotal);
-  const remunDL       =r2(jornal*diasDL);
-  const totalDM       =r2(jornal*diasDM);
-  const totalLicPat   =r2(jornal*(diasLP+diasLM+diasLF));
+  let tareaOrdinaria=r2(jornal*diasSubTotal);
+  let remunDL       =r2(jornal*diasDL);
+  let totalDM       =r2(jornal*diasDM);
+  let totalLicPat   =r2(jornal*(diasLP+diasLM+diasLF));
+  // Incidencia por mes: cada parte es sueldo × días ÷ días del mes, sin pasar
+  // por el jornal redondeado. Con el mes completo se paga el sueldo justo: si
+  // los días pagados pasan los del mes (un día marcado dos veces) no se paga de
+  // más, y los céntimos del redondeo los absorbe la tarea ordinaria.
+  const diasJornal=diasSubTotal+diasDL+diasDM+diasLic;
+  const mesCompleto=modoPago==='mes'&&diasJornal>=diasMes;
+  if(modoPago==='mes'&&diasJornal>0){
+    const base=jornal_mes/(mesCompleto?diasJornal:diasMes);
+    remunDL    =r2(base*diasDL);
+    totalDM    =r2(base*diasDM);
+    totalLicPat=r2(base*diasLic);
+    tareaOrdinaria=mesCompleto?r2(jornal_mes-remunDL-totalDM-totalLicPat):r2(base*diasSubTotal);
+  }
 
   // Subtotal 2 — la MOVILIDAD no entra: es concepto no remunerativo, no afecta
   // a leyes sociales. Se suma recién en el neto (igual que en la planilla oficial).
@@ -249,7 +337,7 @@ function _calcPlanRow(p,det){
     diasTD,diasA5,diasTN,diasDLT,diasDL,diasDM,diasF,otrosDias,diasSubTotal,diasTotal,
     diasLP,diasLM,diasLF,diasLic,diasV,diasOtroTipo,diasNoPag,tiposNoPag,diasCv,diasMarcados,fechasDobles,
     diasPagables,sinDias,
-    jornal,jornalMes:jornal_mes,jHora,he25,he35,he100,impHE25,impHE35,impHE100,
+    jornal,jornalMes:jornal_mes,jHora,modoPago,diasMes,mesCompleto,he25,he35,he100,impHE25,impHE35,impHE100,
     asigFam,movilidad,reintegro,bAltura,bCv,bCvCalc,bNocturnas,refrigerio,licSindical,
     tareaOrdinaria,remunDL,totalDM,totalLicPat,
     subtotal2,vacaciones,bono,gratificacion,bonif9,totalGratif,
@@ -515,6 +603,9 @@ function _plFijarCols(){
 function genPlanilla(soloTabla){
   _plGenMes =+document.getElementById('plMes').value;
   _plGenAnio= document.getElementById('plAnio').value;
+  // El modo de pago se lee una vez; si trae algún mes por incidencia se
+  // redibuja, porque esta primera pasada se calculó por día.
+  if(!_plModoListo)_plModoCargar().then(()=>{if((DB.planillaModo||[]).length)genPlanilla(true);});
   const proyFiltro=document.getElementById('plProy')?.value||'';
 
   // Poblar selector de proyecto

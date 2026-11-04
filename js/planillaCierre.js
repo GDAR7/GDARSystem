@@ -165,6 +165,7 @@ function plRenderCierre(){
   if(!cab){
     el.innerHTML=`<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.45rem .8rem;background:var(--panel2);border-bottom:1px solid var(--border)">
       <span style="font-size:.72rem;color:var(--muted2)">🔓 <b style="color:#10b981">Mes abierto</b> · la planilla se recalcula en vivo desde el tareaje y la ficha de cada trabajador</span>
+      ${typeof _plModoHtml==='function'?_plModoHtml(false):''}
       <button onclick="plCerrarMes()" style="margin-left:auto;font-size:.72rem;padding:.28rem .9rem;border-radius:7px;border:none;background:#b45309;color:#fff;cursor:pointer;font-weight:800;white-space:nowrap" title="Guarda el cálculo y bloquea el tareaje del mes">🔒 Cerrar planilla del mes</button>
     </div>`;
     return;
@@ -175,6 +176,7 @@ function plRenderCierre(){
     <span style="font-size:.7rem;color:var(--muted2)">${_plcEsc(cab.fecha||'—')} · por ${_plcEsc(cab.usuario||'—')} · ${cab.nTrab||0} trab. · neto ${S(cab.netoTotal)}</span>
     ${recalc?`<span style="font-size:.66rem;color:#f97316;border:1px solid #f9731655;border-radius:5px;padding:0 .4rem" title="Filas modificadas después del cierre">${recalc} recalculada${recalc!==1?'s':''}</span>`:''}
     <span style="font-size:.68rem;color:var(--muted2)">· se muestra lo guardado, no se recalcula · tareaje del mes bloqueado</span>
+    ${typeof _plModoHtml==='function'?_plModoHtml(true):''}
     <button onclick="plReabrirMes()" style="margin-left:auto;font-size:.72rem;padding:.28rem .9rem;border-radius:7px;border:1px solid #10b98155;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;font-weight:700;white-space:nowrap">🔓 Reabrir</button>
   </div>`;
 }
