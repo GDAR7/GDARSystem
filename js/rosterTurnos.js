@@ -178,23 +178,65 @@ function _rtnExcel(){
   if(!d.total){toast('No hay personal programado ese día',true);return;}
   const dni=_rtnDni();
   const cab=['ITEM','CARGO','APELLIDOS Y NOMBRES',...(dni?['DNI']:[]),'GUARDIA','TURNO'];
+  const NC=cab.length;
+  const cG=dni?4:3;             // columna GUARDIA (la de TURNO es la última)
   const aoa=[[`PERSONAL POR TURNO — PROGRAMACIÓN DEL ROSTER · ${_rtnDMY(d.fecha)}`],[]];
-  const merges=[{s:{r:0,c:0},e:{r:0,c:cab.length-1}}];
+  const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}}];
+  // Qué es cada fila, para pintarla después: título de sección, encabezado,
+  // persona (con su sección y guardia), vacío o pie
+  const marca=[];
   _RTN_SEC.forEach(s=>{
     const lista=d.sec[s.k];
-    merges.push({s:{r:aoa.length,c:0},e:{r:aoa.length,c:cab.length-1}});
-    aoa.push([`${s.l} · ${lista.length}`]);
-    aoa.push(cab);
-    if(!lista.length)aoa.push(['','Nadie en esta situación ese día']);
-    lista.forEach((it,i)=>aoa.push([i+1,it.cargo,`${it.p.ape}, ${it.p.nom}`.toUpperCase(),
-      ...(dni?[_rtnDniDe(it.p)]:[]),it.guardia||'—',it.tipo]));
-    if(lista.length)aoa.push(['',_rtnPorGuardia(lista).map(x=>`GUARDIA ${x.g}: ${x.n}`).join(' · ')]);
+    merges.push({s:{r:aoa.length,c:0},e:{r:aoa.length,c:NC-1}});
+    marca[aoa.length]={k:'sec',s};aoa.push([`${s.l} · ${lista.length}`]);
+    marca[aoa.length]={k:'cab',s};aoa.push(cab);
+    if(!lista.length){
+      merges.push({s:{r:aoa.length,c:0},e:{r:aoa.length,c:NC-1}});
+      marca[aoa.length]={k:'vacio',s};aoa.push(['Nadie en esta situación ese día']);
+    }
+    lista.forEach((it,i)=>{
+      marca[aoa.length]={k:'fila',s,g:it.guardia};
+      aoa.push([i+1,it.cargo,`${it.p.ape}, ${it.p.nom}`.toUpperCase(),
+        ...(dni?[_rtnDniDe(it.p)]:[]),it.guardia||'—',it.tipo]);
+    });
+    if(lista.length){
+      merges.push({s:{r:aoa.length,c:0},e:{r:aoa.length,c:NC-1}});
+      marca[aoa.length]={k:'pie',s};aoa.push([_rtnPorGuardia(lista).map(x=>`GUARDIA ${x.g}: ${x.n}`).join(' · ')]);
+    }
     aoa.push([]);
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
   ws['!cols']=[{wch:6},{wch:30},{wch:42},...(dni?[{wch:11}]:[]),{wch:9},{wch:8}];
+
+  // ── Colores: los mismos de la pantalla (necesita xlsx-js-style) ──
+  const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
+  const cel=(r,c)=>ws[addr(r,c)]||(ws[addr(r,c)]={t:'s',v:''});
+  const L={style:'thin',color:{rgb:'000000'}};
+  const BOR={top:L,bottom:L,left:L,right:L};
+  const fill=rgb=>({patternType:'solid',fgColor:{rgb}});
+  const hex=c=>String(c||'').replace('#','').toUpperCase();
+  const GX={A:'C65911',B:'7030A0',C:'00B050'};   // A naranja · B morado · C verde
+  cel(0,0).s={font:{bold:true,sz:12,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'center'}};
+  marca.forEach((m,r)=>{
+    if(!m)return;
+    const bg=hex(m.s.bg);
+    for(let c=0;c<NC;c++){
+      const x=cel(r,c);
+      if(m.k==='sec')x.s={fill:fill(bg),font:{bold:true,sz:11,color:{rgb:m.s.col}},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+      else if(m.k==='cab')x.s={fill:fill(bg),font:{bold:true,sz:9},alignment:{horizontal:'center',vertical:'center'},border:BOR};
+      else if(m.k==='vacio')x.s={font:{italic:true,sz:9,color:{rgb:'94A3B8'}},alignment:{horizontal:'center'},border:BOR};
+      else if(m.k==='pie')x.s={fill:fill('F1F5F9'),font:{bold:true,sz:9},alignment:{horizontal:'left'},border:BOR};
+      else{
+        const col=c===cG?(GX[m.g]||'475569'):(c===2||c===NC-1)?m.s.col:'111111';
+        x.s={font:{sz:9,bold:c===cG||c===NC-1,color:{rgb:col},...(dni&&c===3?{name:'Courier New'}:{})},
+          alignment:{horizontal:c===2||c===1?'left':'center',vertical:'center'},border:BOR};
+        if(dni&&c===3&&x.v!==''){x.t='s';x.v=String(x.v);x.z='@';}   // DNI como texto: conserva el 0
+      }
+    }
+  });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Por turno');
   XLSX.writeFile(wb,`Personal por turno ${d.fecha}.xlsx`);
+  toast('✓ Excel descargado');
 }

@@ -45,7 +45,8 @@ const ctx=vm.createContext({
   toast:()=>{},today:()=>'2026-10-14',
   supa:{from(){return {select:async()=>({data:[]}),upsert:async()=>({})};}},
   EMPRESA:{nombre:'ECOSERMO'},nid:()=>1,syncSheet(){},supaUpsert:async()=>null,supaDelete:async()=>{},confirm:()=>true,
-  XLSX:{utils:{aoa_to_sheet:aoa=>({__aoa:aoa}),book_new:()=>({}),book_append_sheet:(wb,ws)=>{hoja=ws;}},writeFile:(wb,n)=>{archivo=n;}}
+  XLSX:{utils:{encode_cell:({r,c})=>String.fromCharCode(65+c)+(r+1),
+    aoa_to_sheet:aoa=>{const ws={__aoa:aoa};aoa.forEach((row,r)=>row.forEach((v,c)=>{if(v!=='')ws[String.fromCharCode(65+c)+(r+1)]={t:typeof v==='number'?'n':'s',v};}));return ws;},book_new:()=>({}),book_append_sheet:(wb,ws)=>{hoja=ws;}},writeFile:(wb,n)=>{archivo=n;}}
 });
 for(const f of ['personal.js','guardiasFbnv.js','rosterTurnos.js'])
   vm.runInContext(fs.readFileSync(R+'js/'+f,'utf8'),ctx,{filename:f});
@@ -97,6 +98,19 @@ const A=hoja.__aoa;
 es('archivo con la fecha',archivo,'Personal por turno 2026-10-14.xlsx');
 es('encabezado con GUARDIA y DNI',A.find(f=>f[0]==='ITEM').join('|'),'ITEM|CARGO|APELLIDOS Y NOMBRES|DNI|GUARDIA|TURNO');
 es('las cinco secciones en la hoja',A.filter(f=>/^(TURNO DÍA|TURNO NOCHE|DÍAS LIBRES|DESCANSO MÉDICO|OTROS) · /.test(f[0]||'')).length,5);
+// Colores: fila de la sección, encabezado y cada persona
+const fil=t=>A.findIndex(f=>String(f[0]||'').startsWith(t))+1;   // fila de Excel (1 = primera)
+const rDia=fil('TURNO DÍA');
+es('título de sección con su fondo',hoja['A'+rDia].s.fill.fgColor.rgb,'DDEBF7');
+es('encabezado con el fondo de la sección',hoja['C'+(rDia+1)].s.fill.fgColor.rgb,'DDEBF7');
+const rP=rDia+2;   // primera persona del turno día
+es('nombre en el azul del turno día',hoja['C'+rP].s.font.color.rgb,'0000FF');
+es('  con bordes',!!hoja['C'+rP].s.border.top,true);
+const gRow=A[rP-1][4];
+es('guardia con su color (A naranja · C verde)',hoja['E'+rP].s.font.color.rgb,{A:'C65911',B:'7030A0',C:'00B050'}[gRow]);
+es('DNI como texto (no pierde el 0)',Object.keys(hoja).some(k=>/^D\d+$/.test(k)&&hoja[k].v==='04067511'&&hoja[k].t==='s'),true);
+const rN=fil('TURNO NOCHE');
+es('nombre del turno noche en azul oscuro',hoja['C'+(rN+2)].s.font.color.rgb,'002060');
 ev('_gdToggleDni(false)');
 
 console.log('\n'+(mal?'✗ '+mal+' FALLAS':'OK todo bien')+'  ·  '+ok+'/'+(ok+mal));
