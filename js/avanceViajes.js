@@ -35,6 +35,23 @@ let _avjListo=null,_avjFalta=false;
 let _avjDoc=null;              // el corte abierto en el visor
 let _avjMapI=null,_avjMapPt=null,_avjMapZ=0;
 
+// Qué tarjetas y columnas salen en el PDF. Se recuerda en este equipo.
+const _AVJ_VIS_KEY='gdar_avj_pdf';
+let _avjVisO=null;
+function _avjVisTodo(){
+  if(!_avjVisO){try{_avjVisO=JSON.parse(localStorage.getItem(_AVJ_VIS_KEY)||'{}')||{};}catch(e){_avjVisO={};}}
+  return _avjVisO;
+}
+// Por defecto no salen la proyección, la meta ni el operador; el resto sí.
+const _AVJ_VIS_DEF={proy:false,meta:false,operador:false};
+const _avjVe=k=>{const o=_avjVisTodo();return k in o?!!o[k]:_AVJ_VIS_DEF[k]!==false;};
+function _avjSetVis(k,on){
+  _avjVisTodo()[k]=!!on;
+  try{localStorage.setItem(_AVJ_VIS_KEY,JSON.stringify(_avjVisO));}catch(e){}
+  _avjPintarKpis();_avjPintarVol();
+}
+const _avjChk=k=>`<label class="avj-pdf${_avjVe(k)?'':' off'}" title="Mostrar en el PDF"><input type="checkbox"${_avjVe(k)?' checked':''} onchange="_avjSetVis('${k}',this.checked)">PDF</label>`;
+
 const _avjEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _avjN=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
 const _avjHoyISO=()=>typeof today==='function'?today():new Date().toISOString().slice(0,10);
@@ -235,15 +252,15 @@ function _avjPintar(){
 function _avjPintarKpis(){
   const el=document.getElementById('avjKpis');if(!el||!_avj)return;
   const c=_avjCalc(_avj);
-  const k=(l,v,col,sub)=>`<div class="kpi" style="--kc:${col};flex:1;min-width:150px"><div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:1.7rem">${v}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`;
+  const k=(key,l,v,col,sub)=>`<div class="kpi" style="--kc:${col};flex:1;min-width:150px;position:relative${_avjVe(key)?'':';opacity:.45'}">${_avjChk(key)}<div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:1.7rem">${v}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`;
   el.innerHTML=[
-    k('Viajes al corte',c.viajes,'#f59e0b',`hasta las ${_avjEsc(_avj.horaCorte||'—')}${c.transc!=null?' · '+String(c.transc).replace('.',',')+' h de turno':''}`),
-    k('Volquetes operando',`${c.opera} / ${c.total}`,'#3b82f6',`${c.conViajes} con viajes`),
-    k('Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes al corte'),
-    k('Proyección al cierre',c.proy!=null?c.proy:'—','#a855f7',c.proy!=null?'al ritmo actual':'hora de corte fuera del turno'),
-    c.metaTurno?k('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#ef4444':'#10b981',
+    k('viajes','Viajes al corte',c.viajes,'#f59e0b',`hasta las ${_avjEsc(_avj.horaCorte||'—')}${c.transc!=null?' · '+String(c.transc).replace('.',',')+' h de turno':''}`),
+    k('operando','Volquetes operando',`${c.opera} / ${c.total}`,'#3b82f6',`${c.conViajes} con viajes`),
+    k('promedio','Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes al corte'),
+    k('proy','Proyección al cierre',c.proy!=null?c.proy:'—','#a855f7',c.proy!=null?'al ritmo actual':'hora de corte fuera del turno'),
+    c.metaTurno?k('meta','Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#ef4444':'#10b981',
       c.pctCorte!=null?`al corte se esperaban ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
-    c.horasPerdidas?k('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#ef4444',(_avj.restricciones||[]).length+' restricción(es)'):''
+    c.horasPerdidas?k('horas','Horas con restricción',String(c.horasPerdidas).replace('.',','),'#ef4444',(_avj.restricciones||[]).length+' restricción(es)'):''
   ].join('');
 }
 
@@ -265,7 +282,7 @@ function _avjPintarVol(){
       ${hayFin?`<td class="mono" style="text-align:right;color:#10b981;font-weight:700">${f!=null?f:'—'}</td>`:''}
     </tr>`;
   }).join('');
-  el.innerHTML=`<table><thead><tr><th>Volquete</th><th>Operador</th><th>Viajes</th><th>Origen</th><th>Destino</th><th>Material</th><th title="Marcar si el volquete no opera en el turno">No opera</th>
+  el.innerHTML=`<table><thead><tr><th>Volquete</th><th${_avjVe('operador')?'':' style="opacity:.5"'}><span style="display:inline-flex;align-items:center;gap:.45rem">Operador ${_avjChk('operador')}</span></th><th>Viajes</th><th>Origen</th><th>Destino</th><th>Material</th><th title="Marcar si el volquete no opera en el turno">No opera</th>
     ${hayFin?'<th class="tr" title="Viajes del parte del día, ya registrado">Parte final</th>':''}</tr></thead>
     <tbody>${filas||'<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--muted2)">No hay volquetes activos en el Máster</td></tr>'}</tbody></table>`;
 }
@@ -623,19 +640,20 @@ function _avjDocHtml(r,opc){
       <div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em">${l}</div>
       <div style="font-size:20px;font-weight:900;color:${col};margin-top:1px">${v}</div>
       ${sub?`<div style="font-size:9.5px;color:#475569">${sub}</div>`:''}</div>`;
+  const conOp=_avjVe('operador');
   const cajas=[
-    caja('Viajes al corte',c.viajes,AC,'hasta las '+_avjEsc(r.horaCorte)),
-    caja('Volquetes operando',`${c.opera} / ${c.total}`,'#2563eb',`${c.conViajes} con viajes`),
-    caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete'),
-    caja('Proyección al cierre',c.proy!=null?c.proy:'—','#7c3aed',c.proy!=null?'al ritmo actual':''),
-    c.metaTurno?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
-    c.horasPerdidas?caja('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#b91c1c',(r.restricciones||[]).length+' restricción(es)'):''
+    _avjVe('viajes')?caja('Viajes al corte',c.viajes,AC,'hasta las '+_avjEsc(r.horaCorte)):'',
+    _avjVe('operando')?caja('Volquetes operando',`${c.opera} / ${c.total}`,'#2563eb',`${c.conViajes} con viajes`):'',
+    _avjVe('promedio')?caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete'):'',
+    _avjVe('proy')?caja('Proyección al cierre',c.proy!=null?c.proy:'—','#7c3aed',c.proy!=null?'al ritmo actual':''):'',
+    c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
+    c.horasPerdidas&&_avjVe('horas')?caja('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#b91c1c',(r.restricciones||[]).length+' restricción(es)'):''
   ].join('');
   const vol=(r.volquetes||[]);
   const filasVol=vol.map((v,i)=>`<tr${v.noOpera?' style="background:#fef2f2"':''}>
     <td style="${TD};text-align:center;color:#64748b">${i+1}</td>
     <td style="${TD};font-weight:800;white-space:nowrap">${_avjEsc(v.codigo)}</td>
-    <td style="${TD}">${_avjEsc(v.operador||'—')}</td>
+    ${conOp?`<td style="${TD}">${_avjEsc(v.operador||'—')}</td>`:''}
     <td style="${TD}">${v.noOpera?`<b style="color:#b91c1c">No opera</b>${v.motivo?' · '+_avjEsc(v.motivo):''}`:_avjEsc((v.origen||'—')+' → '+(v.destino||'—'))}</td>
     <td style="${TD}">${v.noOpera?'':_avjEsc(v.material||'—')}</td>
     <td style="${TD};text-align:right;font-weight:800;color:${AC}">${v.noOpera?'—':_avjN(v.viajes)}</td>
@@ -670,13 +688,13 @@ function _avjDocHtml(r,opc){
         ${logo?`<img src="${_avjEsc(logo)}" alt="" style="height:52px;max-width:170px;object-fit:contain">`:''}
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px">${cajas}</div>
+    ${cajas?`<div style="display:flex;gap:8px;margin-top:12px">${cajas}</div>`:''}
     ${_avjTit('Viajes por volquete al corte · '+vol.length+' volquete(s)')}
     <table style="width:100%;border-collapse:collapse;margin-top:6px">
-      <tr><th style="${TH};width:24px;text-align:center">N°</th><th style="${TH};width:92px">Volquete</th><th style="${TH}">Operador</th><th style="${TH}">Ruta</th><th style="${TH};width:110px">Material</th>
+      <tr><th style="${TH};width:24px;text-align:center">N°</th><th style="${TH};width:92px">Volquete</th>${conOp?`<th style="${TH}">Operador</th>`:''}<th style="${TH}">Ruta</th><th style="${TH};width:110px">Material</th>
         <th style="${TH};width:56px;text-align:right">Viajes</th>${hayFin?`<th style="${TH};width:62px;text-align:right">Parte final</th>`:''}</tr>
-      ${filasVol||`<tr><td colspan="7" style="${TD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
-      <tr><td colspan="5" style="${TD};text-align:right;font-weight:800;background:#f1f5f9">TOTAL AL CORTE</td>
+      ${filasVol||`<tr><td colspan="${(conOp?6:5)+(hayFin?1:0)}" style="${TD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
+      <tr><td colspan="${conOp?5:4}" style="${TD};text-align:right;font-weight:800;background:#f1f5f9">TOTAL AL CORTE</td>
         <td style="${TD};text-align:right;font-weight:900;color:${AC};background:#f1f5f9">${c.viajes}</td>
         ${hayFin?`<td style="${TD};text-align:right;font-weight:900;color:#15803d;background:#f1f5f9">${totFin}</td>`:''}</tr>
     </table>
@@ -785,6 +803,10 @@ async function _avjCompartirPdf(){
 
 function _avjEstilos(){
   return`<style>
+  .avj-pdf{display:inline-flex;align-items:center;gap:.25rem;font-size:.58rem;font-weight:800;letter-spacing:.06em;color:#10b981;cursor:pointer;user-select:none;text-transform:uppercase}
+  .kpi .avj-pdf{position:absolute;top:.45rem;right:.55rem}
+  .avj-pdf.off{color:var(--muted2)}
+  .avj-pdf input{margin:0;width:13px;height:13px;accent-color:#10b981;cursor:pointer}
   .avj-cab{display:flex;gap:.8rem;flex-wrap:wrap;align-items:flex-end;padding:.7rem .9rem}
   .avj-f{display:flex;flex-direction:column;gap:.3rem;font-size:.62rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2)}
   .avj-f input,.avj-f select,.avj-f textarea{font-size:.84rem;padding:.45rem .55rem;border-radius:7px;border:1px solid var(--border);background:var(--panel2);color:var(--text);box-sizing:border-box;text-transform:none;letter-spacing:0;font-weight:400}
