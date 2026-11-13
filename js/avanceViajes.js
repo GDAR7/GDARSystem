@@ -971,8 +971,18 @@ function _avjPlanoRutasHtml(r,AZ){
 }
 // Plano de restricciones: el mismo armado del Parte de Turno (imagen, recuadro
 // de detalle y marcas que no se pisan), pero con letras en vez de números.
+// Etiqueta de cada restricción en el plano: su código (FL, PC…). Si el mismo
+// código se repite, lleva además la letra de la tabla (FL·A, FL·B).
+function _avjEtiquetasRes(R,conUbic){
+  const cuenta={};conUbic.forEach(x=>{const c=_avjCodDe(x);if(c)cuenta[c]=(cuenta[c]||0)+1;});
+  return conUbic.map(x=>{const c=_avjCodDe(x), l=_avjLetra(R.indexOf(x));
+    return !c?l:cuenta[c]>1?c+'·'+l:c;});
+}
+// Las marcas del Parte de Turno son círculos de 22 px: aquí se estiran a
+// píldora para que entre el código
+const _avjPildoras=h=>h.replace(/width:22px;height:22px;border-radius:50%/g,'min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;white-space:nowrap');
 function _avjMapaResHtml(R,conUbic,AZ,AC){
-  const letras=conUbic.map(x=>_avjLetra(R.indexOf(x)));
+  const letras=_avjEtiquetasRes(R,conUbic);
   if(typeof _ptMarcasHtml!=='function'||typeof _ptDetalleZona!=='function'||typeof _PT_MAPA_W==='undefined'){
     // Sin las piezas del Parte de Turno: el plano de siempre (con números)
     return _ptMapaDocHtml(R,conUbic,AZ,AC).replace('Ubicación de los trabajos','Ubicación de las restricciones');
@@ -985,7 +995,7 @@ function _avjMapaResHtml(R,conUbic,AZ,AC){
     <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
       <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%;max-width:none">
       ${zona?`<div style="position:absolute;left:${pc(zona.x,W)};top:${pc(zona.y,H)};width:${pc(zona.w,W)};height:${pc(zona.h,H)};border:2px solid #dc2626;box-sizing:border-box"></div>`:''}
-      ${_ptMarcasHtml(pts,letras,W,H,AC)}
+      ${_avjPildoras(_ptMarcasHtml(pts,letras,W,H,AC))}
     </div>`;
   if(zona){
     const dentro=pts.map((p,i)=>({p,i})).filter(o=>o.p.x>=zona.x&&o.p.x<=zona.x+zona.w&&o.p.y>=zona.y&&o.p.y<=zona.y+zona.h);
@@ -993,7 +1003,7 @@ function _avjMapaResHtml(R,conUbic,AZ,AC){
     html+=`${_avjTit('Detalle de la zona <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· ampliado '+zona.z.toFixed(1).replace('.',',')+'× · recuadro rojo del plano</span>')}
     <div style="position:relative;margin-top:6px;height:${zona.FH}px;border:2px solid #dc2626;border-radius:6px;overflow:hidden">
       <img src="${_PT_MAPA_IMG}" alt="" style="position:absolute;left:${(-zona.x*zona.z).toFixed(1)}px;top:${(-zona.y*zona.z).toFixed(1)}px;width:${(W*zona.z).toFixed(1)}px;height:${(H*zona.z).toFixed(1)}px;max-width:none">
-      ${_ptMarcasHtml(dp,dentro.map(o=>letras[o.i]),zona.FW,zona.FH,AC)}
+      ${_avjPildoras(_ptMarcasHtml(dp,dentro.map(o=>letras[o.i]),zona.FW,zona.FH,AC))}
     </div>`;
   }
   return html;

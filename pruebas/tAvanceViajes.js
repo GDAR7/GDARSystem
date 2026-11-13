@@ -184,7 +184,10 @@ es('el que no opera sale marcado',/No opera<\/b> · Mantenimiento/.test(H),true)
 es('tabla cruzada: material y ruta en el encabezado',/C\. Huantajalla<br>→ R3 - Dique Auxiliar/.test(H),true);
 es('restricciones numeradas',/Restricciones · 2/.test(H),true);
 es('plano con el título de restricciones',/Ubicación de las restricciones/.test(H)&&!/Ubicación de los trabajos/.test(H),true);
-es('  y la marca con letra A en el plano (no número)',/>A<\/div>/.test(H.split('Ubicación de las restricciones')[1].split('Plano de rutas')[0])&&!/>1<\/div>/.test(H.split('Ubicación de las restricciones')[1].split('Plano de rutas')[0]),true);
+const Hres=H.split('Ubicación de las restricciones')[1].split('Plano de rutas')[0];
+es('  y en el plano la marca lleva el código (PC), no número',/>PC<\/div>/.test(Hres)&&!/>1<\/div>/.test(Hres),true);
+es('  en forma de píldora para que entre el código',/border-radius:11px;white-space:nowrap/.test(Hres),true);
+es('código repetido: lleva también la letra',ev("(()=>{const R=[{codigo:'FL'},{codigo:'FL'},{codigo:'VO'}];return JSON.stringify(_avjEtiquetasRes(R,R));})()"),'["FL·A","FL·B","VO"]');
 es('restricciones con letras en la tabla (A y B)',/>A<\/td>/.test(H)&&/>B<\/td>/.test(H),true);
 es('letras después de la Z',ev('_avjLetra(0)')+' '+ev('_avjLetra(25)')+' '+ev('_avjLetra(26)'),'A Z A1');
 es('comparación con el parte final (21 + 15 = 36)',/Parte final/.test(H)&&/>36<\/td>/.test(H),true);
