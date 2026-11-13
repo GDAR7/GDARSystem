@@ -781,8 +781,7 @@ function _avjDocHtml(r,opc){
     const bg=v.noOpera||!t?'#fbecec':(i%2?'#f6f8fb':'#fff');
     const T=MTD+';background:'+bg;
     return`<tr>
-      <td style="${T};font-weight:900;color:${AZ};white-space:nowrap">${_avjEsc(_avjPlaca(v)||'—')}</td>
-      <td style="${T};text-align:center;color:#334155;white-space:nowrap">${_avjEsc(v.codigo)}</td>
+      <td style="${T};white-space:nowrap"><div style="font-weight:900;color:${AZ}">${_avjEsc(v.codigo)}</div>${_avjPlaca(v)?`<div style="font-size:${fs-2}px;color:#64748b;font-weight:600;letter-spacing:.03em;margin-top:1px">${_avjEsc(_avjPlaca(v))}</div>`:''}</td>
       ${conOp?`<td style="${T}">${_avjEsc(v.operador||'—')}</td>`:''}
       ${v.noOpera?`<td colspan="${nC}" style="${T};color:#b91c1c"><b>No opera</b>${v.motivo?' · '+_avjEsc(v.motivo):''}</td>`
         :C.map(col=>{const n=col.vacia?0:M.cel(v,col.key);return`<td style="${T};text-align:center;font-size:${fs+1}px">${n||''}</td>`;}).join('')}
@@ -793,16 +792,16 @@ function _avjDocHtml(r,opc){
   }).join('');
   const tablaVol=`<table style="width:100%;border-collapse:collapse;margin-top:6px">
       <tr>
-        <th rowspan="2" style="${MTH}">Placa</th><th rowspan="2" style="${MTH}">Código</th>
+        <th rowspan="2" style="${MTH}">Volquete</th>
         ${conOp?`<th rowspan="2" style="${MTH}">Operador</th>`:''}
         ${C.map(col=>`<th style="${MTH};font-size:${fs+1}px;border-bottom:1px solid #ffffff40">${col.vacia?'Viajes':_avjEsc(col.material||'—')}</th>`).join('')}
         <th rowspan="2" style="${MTH};font-size:${fs+1}px">Total</th><th rowspan="2" style="${MTH}">%</th>
         ${hayFin?`<th rowspan="2" style="${MTH}">Parte final</th>`:''}
       </tr>
       <tr>${C.map(col=>`<th style="${MTH};font-weight:600">${col.vacia?'':`${_avjEsc(col.origen||'—')}<br>→ ${_avjEsc(col.destino||'—')}`}</th>`).join('')}</tr>
-      ${filasVol||`<tr><td colspan="${nC+4+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
+      ${filasVol||`<tr><td colspan="${nC+3+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
       <tr>
-        <td colspan="${conOp?3:2}" style="${MTH};text-align:left;font-size:${fs+1}px">TOTAL VIAJES</td>
+        <td colspan="${conOp?2:1}" style="${MTH};text-align:left;font-size:${fs+1}px;white-space:nowrap">TOTAL VIAJES</td>
         ${C.map(col=>`<td style="${MTH};font-size:${fs+2}px">${col.tot||'–'}</td>`).join('')}
         <td style="${MTH};font-size:${fs+3}px">${c.viajes}</td><td style="${MTH}">${c.viajes?'100%':'–'}</td>
         ${hayFin?`<td style="${MTH}">${totFin}</td>`:''}
