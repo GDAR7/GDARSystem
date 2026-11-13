@@ -948,7 +948,9 @@ function _avjVerDoc(r,borrador){
   ov.innerHTML=`
     <div style="display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;flex-wrap:wrap">
       <b style="flex:1;color:#e2e8f0;font-size:.9rem">📄 Avance de viajes${borrador?' · vista previa (sin guardar)':''}</b>
-      <button type="button" id="avjBtnPdf" onclick="_avjCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir PDF</button>
+      <button type="button" id="avjBtnDesc" onclick="_avjDescargarPdf()" style="${bt};border:none;background:#3b82f6;color:#fff" title="Guarda el PDF en Descargas">⬇ Descargar PDF</button>
+      <button type="button" id="avjBtnCopiar" onclick="_avjCopiarImagen()" style="${bt};border:none;background:#f59e0b;color:#111" title="Copia la hoja como imagen: luego Ctrl+V en WhatsApp, correo, Teams…">📋 Copiar imagen</button>
+      <button type="button" id="avjBtnPdf" onclick="_avjCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir</button>
       <button type="button" onclick="_avjCerrarDoc()" style="${bt};background:none;border:1px solid #ffffff30;color:#e2e8f0">Cerrar</button>
     </div>
     <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px">
@@ -995,6 +997,49 @@ async function _avjGenerarPdf(r){
     return pdf.output('blob');
   }finally{caja.remove();}
 }
+function _avjBajarArchivo(blob,nombre){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+async function _avjDescargarPdf(){
+  const r=_avjDoc;if(!r)return;
+  const btn=document.getElementById('avjBtnDesc');
+  if(btn){btn.disabled=true;btn.textContent='Generando PDF…';}
+  try{
+    const nombre=_avjNombreArchivo(r);
+    _avjBajarArchivo(await _avjGenerarPdf(r),nombre);
+    toast('PDF descargado: '+nombre);
+  }catch(e){toast('No se pudo generar el PDF: '+((e&&e.message)||e),true);}
+  finally{if(btn){btn.disabled=false;btn.textContent='⬇ Descargar PDF';}}
+}
+// La hoja principal como imagen PNG en el portapapeles (un PDF no se puede copiar)
+async function _avjImagenHoja(r){
+  const LH=typeof _PT_LIB_H2C!=='undefined'?_PT_LIB_H2C:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  await _ptCargarLib(LH,()=>typeof window.html2canvas==='function');
+  const caja=document.createElement('div');
+  caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+  document.body.appendChild(caja);
+  try{
+    caja.innerHTML=_avjDocHtml(r,{sinPanel:true});
+    await Promise.all([...caja.querySelectorAll('img')].map(im=>im.complete?null:new Promise(ok=>{im.onload=im.onerror=ok;})));
+    const cv=await window.html2canvas(caja.firstElementChild,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+    return await new Promise((ok,mal)=>cv.toBlob(b=>b?ok(b):mal(new Error('no se pudo crear la imagen')),'image/png'));
+  }finally{caja.remove();}
+}
+async function _avjCopiarImagen(){
+  const r=_avjDoc;if(!r)return;
+  const btn=document.getElementById('avjBtnCopiar');
+  if(!(navigator.clipboard&&navigator.clipboard.write&&typeof ClipboardItem!=='undefined')){
+    toast('Este navegador no permite copiar imágenes: use ⬇ Descargar PDF',true);return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Copiando…';}
+  try{
+    // La promesa se entrega de inmediato (Safari exige que sea dentro del clic)
+    await navigator.clipboard.write([new ClipboardItem({'image/png':_avjImagenHoja(r)})]);
+    toast('✓ Hoja copiada como imagen: péguela con Ctrl+V en WhatsApp, correo o Teams');
+  }catch(e){toast('No se pudo copiar la imagen: '+((e&&e.message)||e)+' · use ⬇ Descargar PDF',true);}
+  finally{if(btn){btn.disabled=false;btn.textContent='📋 Copiar imagen';}}
+}
 async function _avjCompartirPdf(){
   const r=_avjDoc;if(!r)return;
   const btn=document.getElementById('avjBtnPdf');
@@ -1013,7 +1058,7 @@ async function _avjCompartirPdf(){
       toast('PDF descargado: '+nombre);
     }
   }catch(e){toast('No se pudo generar el PDF: '+((e&&e.message)||e),true);}
-  finally{if(btn){btn.disabled=false;btn.textContent='📤 Compartir PDF';}}
+  finally{if(btn){btn.disabled=false;btn.textContent='📤 Compartir';}}
 }
 
 function _avjEstilos(){
