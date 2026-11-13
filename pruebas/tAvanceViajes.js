@@ -40,7 +40,12 @@ const Nodo=id=>({id,innerHTML:'',textContent:'',value:'',style:{},firstElementCh
 const nodo=id=>nodos[id]||(nodos[id]=Nodo(id));
 ['page-avanceViajes','avjForm','avjKpis','avjVol','avjRes','avjHist','avjAviso'].forEach(nodo);
 let filas=[],faltaTabla=false,avisos=[];
-const supa={from:t=>({
+let motivos=null;   // null = falta sql/avance_motivos.sql
+const supaMot={
+  select:()=>({order:async()=>motivos?{data:motivos.slice(),error:null}:{data:null,error:{code:'PGRST205',message:'avance_motivos'}}}),
+  upsert:async f=>{if(!motivos)return{error:{message:'avance_motivos'}};motivos=motivos.filter(x=>x.id!==f.id);motivos.push(JSON.parse(JSON.stringify(f)));return{error:null};}
+};
+const supa={from:t=>t==='avance_motivos'?supaMot:({
   select:()=>({order:()=>({limit:async()=>faltaTabla?{data:null,error:{code:'PGRST205',message:'avance_viajes'}}:{data:filas.slice(),error:null}})}),
   upsert:async f=>{filas=filas.filter(x=>x.id!==f.id);filas.push(JSON.parse(JSON.stringify(f)));return{error:null};},
   delete:()=>({eq:async(k,v)=>{filas=filas.filter(x=>x.id!==v);return{error:null};}})
@@ -131,6 +136,33 @@ es('detecta rutas que comparten camino',ev('_avjSeTocan')(tr1,tr2,7)+' · '+ev('
 es('la paralela se corre hacia un costado',JSON.stringify(ev('_avjParalela')(tr1,5.5).map(p=>p.y)),'[5.5,5.5,5.5]');
 es('el número va al inicio de cada ruta',/left:71\.2px;top:43\.2px;[^"]*">1</.test(hoja),true);
 es('sin viajes no hay hoja de rutas',ev('_avjHojaRutas')({volquetes:[],restricciones:[]}),'');
+console.log('\n== Tipos de restricción (con código) ==');
+es('una restricción nueva trae el primer tipo con su código',ev("(_avjResAgregar(),_avj.restricciones[_avj.restricciones.length-1].codigo)"),'PC');
+ev("_avjResMotivo(_avj.restricciones.length-1,'FL')");
+es('  al elegir FL toma su descripción',ev("_avj.restricciones[_avj.restricciones.length-1].motivo"),'Frente sin liberar (topografía / QA)');
+es('  y la lista muestra «código · descripción»',/value="FL" selected>FL · Frente sin liberar/.test(nodos.avjRes.innerHTML),true);
+es('  la cabecera muestra la letra y el código',/Restricción C · <span class="avj-cod">FL</.test(nodos.avjRes.innerHTML),true);
+ev("_avj.restricciones.pop()");
+es('un corte viejo (sin código) lo recupera por el nombre',ev("_avjCodDe({motivo:'Voladura'})"),'VO');
+es('el PDF muestra el código en la tabla',/>VO<\/span>Voladura/.test(ev('_avjDocHtml')({volquetes:[],restricciones:[{motivo:'Voladura'}]})),true);
+// Sin el SQL: se ven los de siempre y no deja agregar
+ev('_avjMotAbrir()');await espera();
+avisos=[];await ev('_avjMotGuardar()');
+es('sin sql/avance_motivos.sql: usa los de siempre y no deja guardar',ev('_avjMotFalta')+' · '+ev('_avjMotivos(false).length')+' · '+avisos.some(a=>/sql\/avance_motivos\.sql/.test(a)),'true · 10 · true');
+// Con la tabla: agregar FL nuevo
+motivos=ev('_AVJ_MOT_DEF').map(m=>({...m}));
+ev('_avjMotListo=null');await ev('_avjCargarMotivos()');
+nodos.avjMotCod=Nodo('avjMotCod');nodos.avjMotNom=Nodo('avjMotNom');
+nodos.avjMotCod.value='PC';nodos.avjMotNom.value='Repetido';avisos=[];
+await ev('_avjMotGuardar()');
+es('no acepta un código repetido',avisos.some(a=>/PC ya existe/.test(a))+' · '+motivos.length,'true · 10');
+nodos.avjMotCod.value='fx-1';nodos.avjMotNom.value='Falta de agua para riego';
+await ev('_avjMotGuardar()');
+const nuevo=motivos.find(m=>m.codigo==='FX1');
+es('agrega el tipo nuevo con el ítem siguiente',nuevo?nuevo.item+' · '+nuevo.nombre:'—','11 · Falta de agua para riego');
+es('  y ya aparece para elegir',ev("_avjMotivos(false).some(m=>m.codigo==='FX1')"),true);
+await ev(`_avjMotActivo(${nuevo.id})`);
+es('desactivarlo lo saca de la lista sin borrarlo',ev("_avjMotivos(false).some(m=>m.codigo==='FX1')")+' · '+motivos.length,'false · 11');
 const viejo={volquetes:[{eqId:20,codigo:'VOL ECOP-002',viajes:9,origen:'A',destino:'B',material:'M'},{eqId:54,codigo:'VOL ECOP-004',viajes:0,origen:'',destino:'',material:''}]};
 es('un corte guardado con el formato anterior se sigue leyendo',ev('_avjCalc')(viejo).viajes+' · '+ev('_avjMatriz')(viejo).cols.length,'9 · 1');
 
@@ -152,7 +184,9 @@ es('el que no opera sale marcado',/No opera<\/b> · Mantenimiento/.test(H),true)
 es('tabla cruzada: material y ruta en el encabezado',/C\. Huantajalla<br>→ R3 - Dique Auxiliar/.test(H),true);
 es('restricciones numeradas',/Restricciones · 2/.test(H),true);
 es('plano con el título de restricciones',/Ubicación de las restricciones/.test(H)&&!/Ubicación de los trabajos/.test(H),true);
-es('  y la marca número 1 en el plano',/>1<\/div>/.test(H),true);
+es('  y la marca con letra A en el plano (no número)',/>A<\/div>/.test(H.split('Ubicación de las restricciones')[1].split('Plano de rutas')[0])&&!/>1<\/div>/.test(H.split('Ubicación de las restricciones')[1].split('Plano de rutas')[0]),true);
+es('restricciones con letras en la tabla (A y B)',/>A<\/td>/.test(H)&&/>B<\/td>/.test(H),true);
+es('letras después de la Z',ev('_avjLetra(0)')+' '+ev('_avjLetra(25)')+' '+ev('_avjLetra(26)'),'A Z A1');
 es('comparación con el parte final (21 + 15 = 36)',/Parte final/.test(H)&&/>36<\/td>/.test(H),true);
 es('aclara que es un avance preliminar',/no reemplaza el parte del turno/.test(H),true);
 es('nombre del archivo',ev('_avjNombreArchivo')(r),'Avance de Viajes 2026-11-12 Día 12h00 - Abel Rodríguez A..pdf');

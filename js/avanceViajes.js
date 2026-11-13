@@ -19,9 +19,21 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 const _AVJ_TABLA='avance_viajes';
-const _AVJ_MOTIVOS=['Pase cerrado / tránsito restringido','Voladura','Lluvia / clima',
-  'Frente sin liberar (topografía / QA)','Equipo de carguío inoperativo','Volquete en mantenimiento',
-  'Espera de carguío / cola','Vía en mal estado','Falta de operador','Otro'];
+// Tipos de restricción: catálogo con ítem y código (sql/avance_motivos.sql).
+// Mientras no exista la tabla se usan estos, los de siempre.
+const _AVJ_MOT_TABLA='avance_motivos';
+const _AVJ_MOT_DEF=[
+  {id:1,item:1,codigo:'PC',nombre:'Pase cerrado / tránsito restringido'},
+  {id:2,item:2,codigo:'VO',nombre:'Voladura'},
+  {id:3,item:3,codigo:'LL',nombre:'Lluvia / clima'},
+  {id:4,item:4,codigo:'FL',nombre:'Frente sin liberar (topografía / QA)'},
+  {id:5,item:5,codigo:'CI',nombre:'Equipo de carguío inoperativo'},
+  {id:6,item:6,codigo:'VM',nombre:'Volquete en mantenimiento'},
+  {id:7,item:7,codigo:'EC',nombre:'Espera de carguío / cola'},
+  {id:8,item:8,codigo:'VE',nombre:'Vía en mal estado'},
+  {id:9,item:9,codigo:'FO',nombre:'Falta de operador'},
+  {id:10,item:10,codigo:'OT',nombre:'Otro'}].map(m=>({...m,activo:true}));
+const _AVJ_MOTIVOS=_AVJ_MOT_DEF.map(m=>m.nombre);   // compatibilidad
 const _AVJ_NO_OPERA=['Mantenimiento','Sin operador','Stand by','Inoperativo','Otro'];
 // Horario de cada turno (12 h). La proyección lleva el ritmo del corte al cierre.
 const _AVJ_TURNOS={'Día':{ini:7,corte:'12:00'},'Noche':{ini:19,corte:'00:00'}};
@@ -51,6 +63,123 @@ function _avjSetVis(k,on){
   _avjPintarKpis();_avjPintarVol();
 }
 const _avjChk=k=>`<label class="avj-pdf${_avjVe(k)?'':' off'}" title="Mostrar en el PDF"><input type="checkbox"${_avjVe(k)?' checked':''} onchange="_avjSetVis('${k}',this.checked)">PDF</label>`;
+
+// ── Catálogo de tipos de restricción ───────────────────────────────────────
+let _avjMotListo=null,_avjMotFalta=false,_avjMotEdit=null;
+function _avjMotivos(todos){
+  const L=(DB.avjMotivos&&DB.avjMotivos.length)?DB.avjMotivos:_AVJ_MOT_DEF;
+  return L.filter(m=>todos||m.activo!==false).slice().sort((a,b)=>(+a.item||0)-(+b.item||0));
+}
+// El tipo de una restricción: por su código o, en cortes viejos, por el nombre
+function _avjMotDe(x){
+  const L=_avjMotivos(true);
+  return (x&&x.codigo&&L.find(m=>m.codigo===x.codigo))||(x&&L.find(m=>m.nombre===x.motivo))||null;
+}
+const _avjCodDe=x=>(x&&x.codigo)||((_avjMotDe(x)||{}).codigo)||'';
+const _avjEsOtro=x=>_avjCodDe(x)==='OT'||(x&&x.motivo)==='Otro';
+function _avjCargarMotivos(forzar){
+  if(_avjMotListo&&!forzar)return _avjMotListo;
+  _avjMotListo=(async()=>{
+    try{
+      const{data,error}=await supa.from(_AVJ_MOT_TABLA).select('*').order('item');
+      if(error)throw error;
+      DB.avjMotivos=(data||[]).map(f=>({id:f.id,item:+f.item||0,codigo:String(f.codigo||''),nombre:String(f.nombre||''),activo:f.activo!==false}));
+      _avjMotFalta=false;
+    }catch(e){
+      _avjMotFalta=true;
+      console.warn('[Avance de viajes] no se pudo leer '+_AVJ_MOT_TABLA+':',(e&&e.message)||e);
+    }
+  })();
+  return _avjMotListo;
+}
+function _avjMotAbrir(){
+  let ov=document.getElementById('avjMotModal');
+  if(!ov){ov=document.createElement('div');ov.id='avjMotModal';document.body.appendChild(ov);}
+  ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.85);display:flex;align-items:center;justify-content:center;padding:1rem';
+  _avjMotEdit=null;
+  _avjMotPintar();
+  _avjCargarMotivos(true).then(_avjMotPintar);
+}
+function _avjMotCerrar(){
+  const ov=document.getElementById('avjMotModal');if(ov){ov.innerHTML='';ov.style.display='none';}
+  _avjMotEdit=null;
+  _avjPintarRes();
+}
+function _avjMotPintar(){
+  const ov=document.getElementById('avjMotModal');if(!ov)return;
+  const L=_avjMotivos(true);
+  const ed=_avjMotEdit!=null?L.find(m=>m.id===_avjMotEdit):null;
+  const sig=L.reduce((m,x)=>Math.max(m,+x.item||0),0)+1;
+  const filas=L.map(m=>`<tr style="${m.activo===false?'opacity:.45':''}${ed&&ed.id===m.id?';background:rgba(250,204,21,.08)':''}">
+      <td class="mono" style="text-align:center;color:var(--muted2)">${m.item}</td>
+      <td><span class="avj-cod">${_avjEsc(m.codigo)}</span></td>
+      <td>${_avjEsc(m.nombre)}</td>
+      <td style="font-size:.7rem;color:${m.activo===false?'var(--muted2)':'#10b981'}">${m.activo===false?'Inactivo':'Activo'}</td>
+      <td style="white-space:nowrap;text-align:right">
+        <button class="btn btn-out btn-sm" onclick="_avjMotEditar(${m.id})" title="Editar" ${_avjMotFalta?'disabled':''}>✏️</button>
+        <button class="btn btn-out btn-sm" onclick="_avjMotActivo(${m.id})" title="${m.activo===false?'Volver a usar':'Dejar de usar (no se borra: los cortes guardados lo siguen mostrando)'}" ${_avjMotFalta?'disabled':''}>${m.activo===false?'▶️':'⏸'}</button>
+      </td></tr>`).join('');
+  ov.style.display='flex';
+  ov.innerHTML=`<div class="card" style="width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;margin:0">
+    <div class="card-head"><span class="card-title">⛔ Tipos de restricción</span>
+      <button class="btn btn-out btn-sm" onclick="_avjMotCerrar()">✕</button></div>
+    <div class="card-body" style="overflow:auto;display:flex;flex-direction:column;gap:.8rem">
+      ${_avjMotFalta?`<div style="padding:.55rem .75rem;border:1px solid #ef444470;background:rgba(239,68,68,.1);border-radius:8px;font-size:.76rem;color:#f87171">
+        ⚠ Falta ejecutar <b>sql/avance_motivos.sql</b> en Supabase: se muestran los tipos de siempre y todavía no se pueden agregar ni cambiar.</div>`:''}
+      <div class="tbl-wrap"><table>
+        <thead><tr><th style="width:44px;text-align:center">Ítem</th><th style="width:70px">Código</th><th>Descripción</th><th style="width:64px">Estado</th><th></th></tr></thead>
+        <tbody>${filas}</tbody></table></div>
+      <div style="border:1px solid var(--border);border-radius:9px;padding:.75rem;background:var(--panel2);display:flex;flex-direction:column;gap:.6rem">
+        <b style="font-size:.78rem;color:${ed?'#facc15':'var(--text)'}">${ed?`✏️ Editando el ítem ${ed.item} · ${_avjEsc(ed.codigo)}`:`＋ Nuevo tipo · ítem ${sig}`}</b>
+        <div style="display:grid;grid-template-columns:110px 1fr;gap:.6rem">
+          <label class="avj-f">Código<input id="avjMotCod" maxlength="5" value="${_avjEsc(ed?ed.codigo:'')}" placeholder="FL" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" style="text-transform:uppercase;font-weight:800"></label>
+          <label class="avj-f">Descripción<input id="avjMotNom" maxlength="80" value="${_avjEsc(ed?ed.nombre:'')}" placeholder="Falta de liberación"></label>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end">
+          ${ed?'<button class="btn btn-out" onclick="_avjMotEdit=null;_avjMotPintar()">Cancelar</button>':''}
+          <button class="btn btn-a" style="--ba:#10b981" onclick="_avjMotGuardar()" ${_avjMotFalta?'disabled':''}>${ed?'💾 Guardar cambios':'＋ Agregar'}</button>
+        </div>
+      </div>
+    </div></div>`;
+}
+function _avjMotEditar(id){_avjMotEdit=id;_avjMotPintar();const e=document.getElementById('avjMotNom');if(e&&e.focus)e.focus();}
+async function _avjMotGuardar(){
+  if(_avjMotFalta){toast('Falta ejecutar sql/avance_motivos.sql en Supabase',true);return;}
+  const cod=String((document.getElementById('avjMotCod')||{}).value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5);
+  const nom=String((document.getElementById('avjMotNom')||{}).value||'').trim();
+  if(!cod||!nom){toast('Indique el código y la descripción',true);return;}
+  const L=_avjMotivos(true);
+  const ed=_avjMotEdit!=null?L.find(m=>m.id===_avjMotEdit):null;
+  if(L.some(m=>m.codigo===cod&&(!ed||m.id!==ed.id))){toast(`El código ${cod} ya existe`,true);return;}
+  const fila=ed?{id:ed.id,item:ed.item,codigo:cod,nombre:nom,activo:ed.activo!==false}
+    :{id:Date.now(),item:L.reduce((m,x)=>Math.max(m,+x.item||0),0)+1,codigo:cod,nombre:nom,activo:true};
+  const{error}=await supa.from(_AVJ_MOT_TABLA).upsert({...fila,actualizado_en:new Date().toISOString()});
+  if(error){toast('No se pudo guardar: '+error.message,true);return;}
+  DB.avjMotivos=(DB.avjMotivos||[]).filter(m=>m.id!==fila.id).concat([fila]);
+  // En el corte abierto, las restricciones de ese tipo toman el nombre nuevo
+  if(ed&&_avj)_avj.restricciones.forEach(x=>{if(_avjCodDe(x)===ed.codigo){x.codigo=cod;x.motivo=nom;}});
+  toast(`✓ ${cod} · ${nom} ${ed?'actualizado':'agregado'}`);
+  _avjMotEdit=null;_avjMotPintar();
+}
+async function _avjMotActivo(id){
+  const m=_avjMotivos(true).find(x=>x.id===id);if(!m||_avjMotFalta)return;
+  const fila={id:m.id,item:m.item,codigo:m.codigo,nombre:m.nombre,activo:m.activo===false};
+  const{error}=await supa.from(_AVJ_MOT_TABLA).upsert({...fila,actualizado_en:new Date().toISOString()});
+  if(error){toast('No se pudo cambiar: '+error.message,true);return;}
+  DB.avjMotivos=(DB.avjMotivos||[]).filter(x=>x.id!==id).concat([fila]);
+  _avjMotPintar();
+}
+// El tipo elegido en una restricción del formulario
+function _avjResMotivo(i,cod){
+  const x=_avj&&_avj.restricciones[i];if(!x)return;
+  const m=_avjMotivos(true).find(z=>z.codigo===cod);if(!m)return;
+  x.codigo=m.codigo;x.motivo=m.nombre;
+  _avjPintarRes();_avjPintarKpis();
+}
+
+// Las restricciones van con letras (A, B, C…) para no confundirse con los
+// números de las rutas en el plano
+const _avjLetra=i=>String.fromCharCode(65+i%26)+(i>=26?String(Math.floor(i/26)):'');
 
 const _avjEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _avjN=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
@@ -234,6 +363,7 @@ function rAvanceViajes(){
     <div id="avjHist"></div>`;
   _avjPintar();
   _avjCargar().then(()=>{_avjPintarAviso();_avjPintarHist();});
+  _avjCargarMotivos().then(()=>_avjPintarRes());
 }
 function _avjPintarAviso(){
   const el=document.getElementById('avjAviso');if(!el)return;
@@ -271,6 +401,7 @@ function _avjPintar(){
       <label class="avj-f">Hora del corte<input type="time" value="${_avjEsc(_avj.horaCorte)}" onchange="_avjSet('horaCorte',this.value)" style="color-scheme:dark"></label>
       <label class="avj-f" title="Viajes que se esperan de cada volquete en el turno completo. 0 = sin meta">Meta por volquete / turno<input type="number" min="0" step="1" value="${_avj.meta||''}" placeholder="sin meta" oninput="_avjSet('meta',this.value,1)"></label>
       ${_avj.id?`<span class="avj-edit">✏️ Editando el corte guardado · <button type="button" onclick="_avjDescartar()">empezar uno nuevo</button></span>`:''}
+      <button type="button" class="btn btn-out" style="margin-left:auto;align-self:center;color:#f87171;border-color:#ef444460" onclick="_avjMotAbrir()" title="Agregar o cambiar los tipos de restricción (con su código)">⛔ Tipos de restricción</button>
     </div></div>
     <div class="kpi-row" id="avjKpis"></div>
     <div class="card" style="margin-bottom:.8rem">
@@ -399,11 +530,14 @@ function _avjPintarRes(){
     const h=_avjHorasEntre(x.ini,x.fin);
     const fotos=[...(x.fotos||[]).map((f,k)=>({...f,guardada:1,k})),...(x._nuevas||[]).map((f,k)=>({...f,k}))];
     return`<div class="avj-res">
-      <div class="avj-res-head"><b>⛔ Restricción ${i+1}</b>
+      <div class="avj-res-head"><b>⛔ Restricción ${_avjLetra(i)}${_avjCodDe(x)?` · <span class="avj-cod">${_avjEsc(_avjCodDe(x))}</span>`:''}</b>
         <button type="button" class="avj-link" onclick="_avjResQuitar(${i})">Quitar</button></div>
       <div class="avj-grid">
-        <label class="avj-f">Motivo<select onchange="_avjRes(${i},'motivo',this.value)">
-          ${_AVJ_MOTIVOS.map(m=>`<option${m===x.motivo?' selected':''}>${m}</option>`).join('')}</select></label>
+        <label class="avj-f">Tipo de restricción<select onchange="_avjResMotivo(${i},this.value)">
+          ${(()=>{const cod=_avjCodDe(x), L=_avjMotivos(false);
+            // Un tipo ya desactivado sigue saliendo en la restricción que lo usa
+            const act=_avjMotDe(x);if(act&&!L.some(m=>m.codigo===act.codigo))L.push(act);
+            return L.map(m=>`<option value="${_avjEsc(m.codigo)}"${m.codigo===cod?' selected':''}>${_avjEsc(m.codigo)} · ${_avjEsc(m.nombre)}</option>`).join('');})()}</select></label>
         <label class="avj-f">Desde<input type="time" value="${_avjEsc(x.ini)}" onchange="_avjRes(${i},'ini',this.value)" style="color-scheme:dark"></label>
         <label class="avj-f">Hasta<input type="time" value="${_avjEsc(x.fin)}" onchange="_avjRes(${i},'fin',this.value)" style="color-scheme:dark"></label>
         <div class="avj-f">Duración<div style="font-size:.95rem;font-weight:800;color:${h?'#ef4444':'var(--muted2)'};padding:.45rem 0">${h?String(h).replace('.',',')+' h':'—'}</div></div>
@@ -452,7 +586,8 @@ function _avjVol(i,campo,v){
 function _avjResAgregar(){
   if(!_avj)return;
   const ini=_avj.horaCorte&&_avjMin(_avj.horaCorte)!=null?_avj.horaCorte:'';
-  _avj.restricciones.push({motivo:_AVJ_MOTIVOS[0],ini:'',fin:ini,todos:true,eqIds:[],descripcion:'',ubicacion:null,fotos:[],_nuevas:[]});
+  const m0=_avjMotivos(false)[0]||_AVJ_MOT_DEF[0];
+  _avj.restricciones.push({codigo:m0.codigo,motivo:m0.nombre,ini:'',fin:ini,todos:true,eqIds:[],descripcion:'',ubicacion:null,fotos:[],_nuevas:[]});
   _avjPintarRes();_avjPintarKpis();
 }
 function _avjRes(i,campo,v,soloDato){
@@ -470,7 +605,7 @@ function _avjResEq(i,eqId,on){
 function _avjResQuitar(i){
   const x=_avj&&_avj.restricciones[i];if(!x)return;
   const nf=(x.fotos||[]).length+(x._nuevas||[]).length;
-  if((x.descripcion||nf)&&!confirm('¿Quitar la restricción '+(i+1)+(nf?' con sus '+nf+' foto(s)':'')+'?'))return;
+  if((x.descripcion||nf)&&!confirm('¿Quitar la restricción '+_avjLetra(i)+(nf?' con sus '+nf+' foto(s)':'')+'?'))return;
   (x._nuevas||[]).forEach(f=>{try{URL.revokeObjectURL(f.url);}catch(e){}});
   _avj.restricciones.splice(i,1);
   _avjPintarRes();_avjPintarKpis();
@@ -552,7 +687,7 @@ function _avjMapaPintar(){
   const bt='font-size:.8rem;padding:.55rem .8rem;border-radius:7px;cursor:pointer;font-weight:700;white-space:nowrap';
   ov.innerHTML=`
     <div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;color:#e2e8f0">
-      <b style="flex:1;font-size:.9rem">📍 Ubicación · Restricción ${_avjMapI+1}</b>
+      <b style="flex:1;font-size:.9rem">📍 Ubicación · Restricción ${_avjLetra(_avjMapI)}</b>
       <button type="button" onclick="_avjMapaZoom(-1)" style="${bt};background:#ffffff12;border:1px solid #ffffff25;color:#e2e8f0">−</button>
       <span style="font-size:.75rem;min-width:42px;text-align:center">${z}%</span>
       <button type="button" onclick="_avjMapaZoom(1)" style="${bt};background:#ffffff12;border:1px solid #ffffff25;color:#e2e8f0">+</button>
@@ -610,7 +745,7 @@ function _avjCopia(){
         viajes:rutas.reduce((s,x)=>s+x.viajes,0),rutas,
         noOpera:!!v.noOpera,motivo:v.noOpera?(v.motivo||''):''};
     }),
-    restricciones:r.restricciones.map(x=>({motivo:x.motivo,ini:x.ini||'',fin:x.fin||'',todos:!!x.todos,
+    restricciones:r.restricciones.map(x=>({codigo:_avjCodDe(x),motivo:x.motivo,ini:x.ini||'',fin:x.fin||'',todos:!!x.todos,
       eqIds:x.todos?[]:(x.eqIds||[]),descripcion:String(x.descripcion||'').trim(),
       frente:x.ubicacion&&typeof _ptFrenteEnPunto==='function'?(_ptFrenteEnPunto(x.ubicacion)||''):'',
       ubicacion:x.ubicacion||null,
@@ -625,7 +760,7 @@ async function _avjGuardar(){
   if(!c.viajes&&!_avj.restricciones.length&&!_avj.volquetes.some(v=>v.noOpera)){
     toast('Cargue los viajes de al menos un volquete, o una restricción',true);return;
   }
-  if(_avj.restricciones.some(x=>!x.descripcion&&x.motivo==='Otro')){toast('Describa la restricción marcada como «Otro»',true);return;}
+  if(_avj.restricciones.some(x=>!x.descripcion&&_avjEsOtro(x))){toast('Describa la restricción marcada como «Otro»',true);return;}
   await _avjCargar();
   if(_avjFalta){toast('Falta ejecutar sql/avance_viajes.sql en Supabase: el corte no se puede guardar todavía',true);return;}
   // Otro corte del mismo día, turno y hora: se reemplaza (con aviso)
@@ -672,7 +807,7 @@ function _avjPintarHist(){
       <td class="tr mono" style="color:#f59e0b;font-weight:800">${c.viajes}</td>
       <td class="tr mono">${c.conViajes} de ${c.total}</td>
       <td class="tr mono">${c.proy!=null?c.proy:'—'}</td>
-      <td>${(r.restricciones||[]).length?`<span style="color:#ef4444;font-weight:700">⛔ ${(r.restricciones||[]).length}</span> <span style="font-size:.7rem;color:var(--muted2)">${_avjEsc([...new Set(r.restricciones.map(x=>x.motivo))].join(' · ').slice(0,60))}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
+      <td>${(r.restricciones||[]).length?`<span style="color:#ef4444;font-weight:700">⛔ ${(r.restricciones||[]).length}</span> <span style="font-size:.7rem;color:var(--muted2)">${_avjEsc([...new Set(r.restricciones.map(x=>_avjCodDe(x)||x.motivo))].join(' · ').slice(0,60))}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
       <td style="font-size:.72rem;color:var(--muted2)">${_avjEsc(r.autor||'—')}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-out btn-sm" onclick="_avjVerDoc(_avjBuscar(${r.id}))" title="Ver y compartir el PDF">📄</button>
@@ -722,7 +857,7 @@ async function _avjEliminar(id){
 // ── Documento (hoja A4 de 794 px, el formato del Parte de Turno) ───────────
 function _avjFotosDe(r){
   const out=[];
-  (r.restricciones||[]).forEach((x,i)=>(x.fotos||[]).forEach(f=>{if(f&&f.url)out.push({...f,res:i+1,motivo:x.motivo});}));
+  (r.restricciones||[]).forEach((x,i)=>(x.fotos||[]).forEach(f=>{if(f&&f.url)out.push({...f,res:_avjLetra(i),motivo:(_avjCodDe(x)?_avjCodDe(x)+' · ':'')+(x.motivo||'')});}));
   return out.map((f,k)=>({...f,k:k+1}));
 }
 function _avjPanelFilas(fotos){
@@ -796,17 +931,17 @@ function _avjPlanoRutasHtml(r,AZ){
   conTrazo.forEach(a=>{a.P=a.pts.map(px);});
   // Rutas que comparten camino van en paralelo (como un mapa de metro):
   // a cada una le toca un carril 0, +1, −1, +2… distinto del de las que pisa.
-  const SEP=5.5, carriles=[0,1,-1,2,-2,3,-3,4,-4];
+  const SEP=3.5, carriles=[0,1,-1,2,-2,3,-3,4,-4];
   conTrazo.forEach((a,i)=>{
     const vecinas=conTrazo.slice(0,i).filter(b=>_avjSeTocan(a.P,b.P,7));
     a.carril=carriles.find(k=>!vecinas.some(b=>b.carril===k))||0;
     a.Q=_avjParalela(a.P,a.carril*SEP);
   });
-  const lineas=conTrazo.map(a=>`<polyline points="${a.Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('')
+  const lineas=conTrazo.map(a=>`<polyline points="${a.Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('')
     +conTrazo.map(a=>{
       const Q=a.Q, fin=Q[Q.length-1];
-      return`<polyline points="${Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${a.col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="5.5" fill="${a.col}" stroke="#fff" stroke-width="2"/>`;
+      return`<polyline points="${Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${a.col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="4" fill="${a.col}" stroke="#fff" stroke-width="1.5"/>`;
     }).join('');
   // Número al INICIO de cada ruta; si dos salen del mismo lugar, uno al lado del otro
   const puestos=[];
@@ -833,6 +968,35 @@ function _avjPlanoRutasHtml(r,AZ){
         <td style="${TDl};color:#334155">${_avjEsc(a.tramo?a.tramo.codigo:'—')}</td>
         <td style="${TDl};text-align:center;font-weight:900;color:${a.col}">${a.tot}</td></tr>`).join('')}
     </table>`;
+}
+// Plano de restricciones: el mismo armado del Parte de Turno (imagen, recuadro
+// de detalle y marcas que no se pisan), pero con letras en vez de números.
+function _avjMapaResHtml(R,conUbic,AZ,AC){
+  const letras=conUbic.map(x=>_avjLetra(R.indexOf(x)));
+  if(typeof _ptMarcasHtml!=='function'||typeof _ptDetalleZona!=='function'||typeof _PT_MAPA_W==='undefined'){
+    // Sin las piezas del Parte de Turno: el plano de siempre (con números)
+    return _ptMapaDocHtml(R,conUbic,AZ,AC).replace('Ubicación de los trabajos','Ubicación de las restricciones');
+  }
+  const W=_PT_MAPA_W, H=W*_PT_MAPA_PROP, D=_PT_NUM_D;
+  const pts=conUbic.map(a=>({x:+a.ubicacion.x/100*W,y:+a.ubicacion.y/100*H}));
+  const zona=_ptDetalleZona(pts,W,H,D);
+  const pc=(v,t)=>(v/t*100).toFixed(3)+'%';
+  let html=`${_avjTit('Ubicación de las restricciones')}
+    <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
+      <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%;max-width:none">
+      ${zona?`<div style="position:absolute;left:${pc(zona.x,W)};top:${pc(zona.y,H)};width:${pc(zona.w,W)};height:${pc(zona.h,H)};border:2px solid #dc2626;box-sizing:border-box"></div>`:''}
+      ${_ptMarcasHtml(pts,letras,W,H,AC)}
+    </div>`;
+  if(zona){
+    const dentro=pts.map((p,i)=>({p,i})).filter(o=>o.p.x>=zona.x&&o.p.x<=zona.x+zona.w&&o.p.y>=zona.y&&o.p.y<=zona.y+zona.h);
+    const dp=dentro.map(o=>({x:(o.p.x-zona.x)*zona.z,y:(o.p.y-zona.y)*zona.z}));
+    html+=`${_avjTit('Detalle de la zona <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· ampliado '+zona.z.toFixed(1).replace('.',',')+'× · recuadro rojo del plano</span>')}
+    <div style="position:relative;margin-top:6px;height:${zona.FH}px;border:2px solid #dc2626;border-radius:6px;overflow:hidden">
+      <img src="${_PT_MAPA_IMG}" alt="" style="position:absolute;left:${(-zona.x*zona.z).toFixed(1)}px;top:${(-zona.y*zona.z).toFixed(1)}px;width:${(W*zona.z).toFixed(1)}px;height:${(H*zona.z).toFixed(1)}px;max-width:none">
+      ${_ptMarcasHtml(dp,dentro.map(o=>letras[o.i]),zona.FW,zona.FH,AC)}
+    </div>`;
+  }
+  return html;
 }
 // Hoja propia del PDF con el plano de rutas
 function _avjHojaRutas(r){
@@ -917,8 +1081,8 @@ function _avjDocHtml(r,opc){
   const filasRes=R.map((x,i)=>{
     const h=_avjHorasEntre(x.ini,x.fin);
     return`<tr>
-      <td style="${TD};text-align:center;font-weight:800;color:${AC}">${i+1}</td>
-      <td style="${TD};font-weight:700">${_avjEsc(x.motivo)}${x.ubicacion?' <span style="color:#10b981">📍</span>':''}${(x.fotos||[]).length?` <span style="color:#64748b;font-weight:400;font-size:10.5px">📷 ${x.fotos.length}</span>`:''}${x.frente?`<div style="font-weight:400;font-size:10.5px;color:#475569">${_avjEsc(x.frente)}</div>`:''}</td>
+      <td style="${TD};text-align:center;font-weight:800;color:${AC}">${_avjLetra(i)}</td>
+      <td style="${TD};font-weight:700">${_avjCodDe(x)?`<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:10px;font-weight:900;letter-spacing:.04em;margin-right:5px">${_avjEsc(_avjCodDe(x))}</span>`:''}${_avjEsc(x.motivo)}${x.ubicacion?' <span style="color:#10b981">📍</span>':''}${(x.fotos||[]).length?` <span style="color:#64748b;font-weight:400;font-size:10.5px">📷 ${x.fotos.length}</span>`:''}${x.frente?`<div style="font-weight:400;font-size:10.5px;color:#475569">${_avjEsc(x.frente)}</div>`:''}</td>
       <td style="${TD};white-space:nowrap">${x.ini||x.fin?_avjEsc((x.ini||'?')+' – '+(x.fin||'?')):'—'}${h?`<div style="color:#b91c1c;font-weight:700">${String(h).replace('.',',')} h</div>`:''}</td>
       <td style="${TD}">${x.todos?'Todos':_avjEsc((x.eqIds||[]).map(codDe).join(', ')||'—')}</td>
       <td style="${TD};white-space:pre-wrap">${_avjEsc(x.descripcion||'')}</td>
@@ -926,7 +1090,7 @@ function _avjDocHtml(r,opc){
   }).join('');
   const conUbic=R.filter(x=>x&&x.ubicacion&&isFinite(+x.ubicacion.x));
   const mapa=conUbic.length&&typeof _ptMapaDocHtml==='function'
-    ?_ptMapaDocHtml(R,conUbic,AZ,AC).replace('Ubicación de los trabajos','Ubicación de las restricciones'):'';
+    ?_avjMapaResHtml(R,conUbic,AZ,AC):'';
   const fotos=_avjFotosDe(r);
   return`<div style="width:794px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid ${AZ};padding-bottom:10px">
@@ -1107,6 +1271,7 @@ function _avjEstilos(){
   .avj-in{font-size:.8rem;padding:.32rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);width:100%;box-sizing:border-box;min-width:110px}
   .avj-num{width:76px;min-width:76px;text-align:right;font-weight:800;color:#f59e0b;font-size:.95rem}
   tr.avj-off td{opacity:.6}
+  .avj-cod{display:inline-block;padding:.05rem .4rem;border-radius:4px;background:rgba(239,68,68,.18);border:1px solid #ef444470;color:#fca5a5;font-family:var(--mono,monospace);font-size:.7rem;font-weight:800;letter-spacing:.05em}
   tr.avj-cero td{background:rgba(239,68,68,.06)}
   .avj-mx th,.avj-mx td{vertical-align:middle}
   .avj-colh{min-width:160px;text-transform:none;letter-spacing:0}
