@@ -271,7 +271,7 @@ function _avjPintarVol(){
   const filas=_avj.volquetes.map((v,i)=>{
     const f=fin[v.eqId];
     return`<tr class="${v.noOpera?'avj-off':''}">
-      <td class="mono" style="font-weight:800;white-space:nowrap">${_avjEsc(v.codigo)}</td>
+      <td class="mono" style="font-weight:800;white-space:nowrap">${_avjEsc(v.codigo)}${(()=>{const e=(DB.equipos||[]).find(x=>+x.id===+v.eqId);const pl=e&&String(e.placa||'').trim();return pl?`<div style="font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:.04em;margin-top:.1rem">${_avjEsc(pl)}</div>`:'';})()}</td>
       <td><input class="avj-in" value="${_avjEsc(v.operador)}" oninput="_avjVol(${i},'operador',this.value)" placeholder="Operador" style="min-width:170px"></td>
       <td>${v.noOpera?`<select class="avj-in" onchange="_avjVol(${i},'motivo',this.value)"><option value="">— motivo —</option>${_AVJ_NO_OPERA.map(m=>`<option${m===v.motivo?' selected':''}>${m}</option>`).join('')}</select>`
         :`<input class="avj-in avj-num" type="number" min="0" step="1" inputmode="numeric" value="${_avjEsc(v.viajes)}" oninput="_avjVol(${i},'viajes',this.value)" placeholder="0">`}</td>
