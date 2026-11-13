@@ -27,7 +27,7 @@ const _AVJ_NO_OPERA=['Mantenimiento','Sin operador','Stand by','Inoperativo','Ot
 const _AVJ_TURNOS={'Día':{ini:7,corte:'12:00'},'Noche':{ini:19,corte:'00:00'}};
 const _AVJ_HORAS_TURNO=12;
 const _AVJ_FOTOS_MAX=12;
-const _AVJ_AZ='#1e3a5f', _AVJ_AC='#b45309';
+const _AVJ_AZ='#2f5f98', _AVJ_AC='#b45309';   // azul medio (encabezados del PDF)
 const _AVJ_ZOOMS=[100,175,250,350];
 
 let _avj=null;                 // el corte que se está llenando
@@ -83,16 +83,59 @@ function _avjSugerencias(){
   const top=o=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,40);
   return{origenes:top(c.o),destinos:top(c.d),materiales:top(c.m)};
 }
-// La ruta que más usó el volquete en sus últimos partes: se ofrece de entrada
-function _avjRutaHabitual(eqId){
-  const ps=(DB.partes||[]).filter(p=>+p.eqId===+eqId&&(p.viajes||[]).length)
-    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).slice(0,5);
-  const c={};
-  ps.forEach(p=>p.viajes.forEach(v=>{const k=[v.origen||'',v.destino||'',v.material||''].join('|');c[k]=(c[k]||0)+_avjN(v.cant);}));
-  const k=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
-  if(!k)return{origen:'',destino:'',material:''};
-  const [origen,destino,material]=k.split('|');
-  return{origen,destino,material};
+// ── Rutas (las columnas de la tabla cruzada) ───────────────────────────────
+// Un volquete puede hacer viajes en varias rutas o frentes: cada ruta es una
+// columna (material · origen → destino) y todas suman al total del corte.
+const _avjClaveRuta=x=>[x.origen||'',x.destino||'',x.material||''].join('|');
+let _avjColSeq=0;
+const _avjColNueva=x=>({id:'c'+(++_avjColSeq),origen:(x&&x.origen)||'',destino:(x&&x.destino)||'',material:(x&&x.material)||''});
+// Las rutas del último día con partes de volquetes: las columnas de un corte nuevo
+function _avjRutasRecientes(){
+  const ids=new Set(_avjVolquetesMaster().map(e=>+e.id));
+  const ps=(DB.partes||[]).filter(p=>ids.has(+p.eqId)&&(p.viajes||[]).some(v=>v.origen||v.destino));
+  if(!ps.length)return[];
+  const ult=ps.reduce((m,p)=>String(p.fecha).slice(0,10)>m?String(p.fecha).slice(0,10):m,'');
+  const c={},d={};
+  ps.filter(p=>String(p.fecha).slice(0,10)===ult).forEach(p=>p.viajes.forEach(v=>{
+    if(!v.origen&&!v.destino)return;
+    const k=_avjClaveRuta(v);
+    c[k]=(c[k]||0)+(_avjN(v.cant)||1);
+    d[k]={origen:v.origen||'',destino:v.destino||'',material:v.material||''};
+  }));
+  return Object.keys(c).sort((a,b)=>c[b]-c[a]).slice(0,8).map(k=>d[k]);
+}
+// Las rutas de un volquete guardado (los primeros cortes tenían una sola)
+function _avjRutasVol(v){
+  if(Array.isArray(v.rutas))return v.rutas;
+  if(_avjN(v.viajes)>0||v.origen||v.destino)
+    return[{origen:v.origen||'',destino:v.destino||'',material:v.material||'',viajes:_avjN(v.viajes),o:0}];
+  return[];
+}
+// Viajes de un volquete: en el formulario (v.c, por columna) o guardado
+function _avjTotVol(v){
+  if(!v||v.noOpera)return 0;
+  if(v.c)return Object.values(v.c).reduce((s,x)=>s+_avjN(x),0);
+  return _avjRutasVol(v).reduce((s,x)=>s+_avjN(x.viajes),0);
+}
+// Columnas de un corte guardado, en el orden en que se llenaron
+function _avjMatriz(r){
+  const m={};
+  (r.volquetes||[]).forEach(v=>{
+    if(v.noOpera)return;
+    _avjRutasVol(v).forEach(x=>{
+      const k=_avjClaveRuta(x);
+      if(!m[k])m[k]={key:k,origen:x.origen||'',destino:x.destino||'',material:x.material||'',o:+x.o||0,tot:0};
+      m[k].o=Math.min(m[k].o,+x.o||0);
+      m[k].tot+=_avjN(x.viajes);
+    });
+  });
+  const cols=Object.values(m).sort((a,b)=>a.o-b.o);
+  const cel=(v,k)=>v.noOpera?0:_avjRutasVol(v).filter(x=>_avjClaveRuta(x)===k).reduce((s,x)=>s+_avjN(x.viajes),0);
+  return{cols,cel};
+}
+function _avjPlaca(v){
+  const e=(DB.equipos||[]).find(x=>+x.id===+v.eqId);
+  return String((e&&e.placa)||v.placa||'').trim();
 }
 // Viajes del parte final de ese día y turno, por volquete (para comparar)
 function _avjParteFinal(fecha,turno){
@@ -118,8 +161,8 @@ function _avjHorasEntre(ini,fin){
 function _avjCalc(r){
   const vol=r.volquetes||[];
   const opera=vol.filter(v=>!v.noOpera);
-  const viajes=opera.reduce((s,v)=>s+_avjN(v.viajes),0);
-  const conViajes=opera.filter(v=>_avjN(v.viajes)>0).length;
+  const viajes=opera.reduce((s,v)=>s+_avjTotVol(v),0);
+  const conViajes=opera.filter(v=>_avjTotVol(v)>0).length;
   const T=_AVJ_TURNOS[r.turno]||_AVJ_TURNOS['Día'];
   const cm=_avjMin(r.horaCorte);
   let transc=null;
@@ -131,20 +174,15 @@ function _avjCalc(r){
   const metaAlCorte=metaTurno&&valida?Math.round(metaTurno*transc/_AVJ_HORAS_TURNO):0;
   const horasPerdidas=(r.restricciones||[]).reduce((s,x)=>s+_avjHorasEntre(x.ini,x.fin),0);
   return{viajes,opera:opera.length,total:vol.length,conViajes,
-    promedio:opera.length?viajes/opera.length:0,transc:valida?transc:null,proy,
+    promedio:conViajes?viajes/conViajes:0,transc:valida?transc:null,proy,
     meta,metaTurno,metaAlCorte,pctCorte:metaAlCorte?viajes/metaAlCorte*100:null,
     horasPerdidas:Math.round(horasPerdidas*10)/10};
 }
 // Viajes por ruta (origen → destino · material)
 function _avjPorRuta(r){
-  const m={};
-  (r.volquetes||[]).forEach(v=>{
-    if(v.noOpera||!_avjN(v.viajes))return;
-    const k=[v.origen||'—',v.destino||'—',v.material||''].join('|');
-    (m[k]=m[k]||{origen:v.origen||'—',destino:v.destino||'—',material:v.material||'',viajes:0,vol:0}).viajes+=_avjN(v.viajes);
-    m[k].vol++;
-  });
-  return Object.values(m).sort((a,b)=>b.viajes-a.viajes);
+  const M=_avjMatriz(r);
+  return M.cols.filter(c=>c.tot>0).map(c=>({origen:c.origen||'—',destino:c.destino||'—',material:c.material,viajes:c.tot,
+    vol:(r.volquetes||[]).filter(v=>M.cel(v,c.key)>0).length})).sort((a,b)=>b.viajes-a.viajes);
 }
 
 // ── Carga de la tabla ──────────────────────────────────────────────────────
@@ -175,9 +213,11 @@ function _avjNuevo(fecha,turno){
   const h=new Date().getHours();
   turno=turno||((h>=7&&h<19)?'Día':'Noche');
   let meta=0;try{meta=+localStorage.getItem('gdar_avj_meta')||0;}catch(e){}
-  return{id:null,fecha:fecha||_avjHoyISO(),turno,horaCorte:_AVJ_TURNOS[turno].corte,meta,
+  const cols=_avjRutasRecientes().map(_avjColNueva);
+  if(!cols.length)cols.push(_avjColNueva());
+  return{id:null,fecha:fecha||_avjHoyISO(),turno,horaCorte:_AVJ_TURNOS[turno].corte,meta,cols,
     volquetes:_avjVolquetesMaster().map(e=>({eqId:+e.id,codigo:e.codigo,operador:_avjUltimoOperador(e.id),
-      viajes:'',..._avjRutaHabitual(e.id),noOpera:false,motivo:''})),
+      c:{},noOpera:false,motivo:''})),
     restricciones:[],observaciones:''};
 }
 
@@ -205,10 +245,14 @@ function _avjPintarAviso(){
 // volquete al Máster después), completa la lista sin tocar lo ya escrito.
 function _avjCompletarVol(){
   if(!_avj)return;
+  if(!Array.isArray(_avj.cols)||!_avj.cols.length){
+    _avj.cols=_avjRutasRecientes().map(_avjColNueva);
+    if(!_avj.cols.length)_avj.cols.push(_avjColNueva());
+  }
   _avjVolquetesMaster().forEach(e=>{
     if(_avj.volquetes.some(v=>+v.eqId===+e.id))return;
     _avj.volquetes.push({eqId:+e.id,codigo:e.codigo,operador:_avjUltimoOperador(e.id),
-      viajes:'',..._avjRutaHabitual(e.id),noOpera:false,motivo:''});
+      c:{},noOpera:false,motivo:''});
   });
   _avj.volquetes.sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),'es',{numeric:true}));
 }
@@ -230,8 +274,10 @@ function _avjPintar(){
     </div></div>
     <div class="kpi-row" id="avjKpis"></div>
     <div class="card" style="margin-bottom:.8rem">
-      <div class="card-head"><span class="card-title">🚛 Viajes por volquete al corte</span>
-        <span style="font-size:.7rem;color:var(--muted2)">ruta y material se ofrecen de los últimos partes de cada volquete</span></div>
+      <div class="card-head"><span class="card-title">🚛 Viajes por volquete y ruta al corte</span>
+        <span style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">
+          <span style="font-size:.7rem;color:var(--muted2)">las rutas se ofrecen del último parte · un volquete puede tener viajes en varias</span>
+          <button type="button" class="btn btn-a" style="--ba:#3b82f6" onclick="_avjColAgregar()">＋ Ruta</button></span></div>
       <div class="card-body" style="padding:0"><div class="tbl-wrap" id="avjVol"></div></div>
     </div>
     <div class="card" style="margin-bottom:.8rem">
@@ -255,8 +301,8 @@ function _avjPintarKpis(){
   const k=(key,l,v,col,sub)=>`<div class="kpi" style="--kc:${col};flex:1;min-width:150px;position:relative${_avjVe(key)?'':';opacity:.45'}">${_avjChk(key)}<div class="kpi-lbl">${l}</div><div class="kpi-val" style="font-size:1.7rem">${v}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`;
   el.innerHTML=[
     k('viajes','Viajes al corte',c.viajes,'#f59e0b',`hasta las ${_avjEsc(_avj.horaCorte||'—')}${c.transc!=null?' · '+String(c.transc).replace('.',',')+' h de turno':''}`),
-    k('operando','Volquetes operando',`${c.opera} / ${c.total}`,'#3b82f6',`${c.conViajes} con viajes`),
-    k('promedio','Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes al corte'),
+    k('operando','Volquetes operativos',`${c.conViajes} de ${c.total}`,'#3b82f6',c.total-c.opera?`${c.total-c.opera} no opera(n)`:'con viajes al corte'),
+    k('promedio','Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes por volquete operativo'),
     k('proy','Proyección al cierre',c.proy!=null?c.proy:'—','#a855f7',c.proy!=null?'al ritmo actual':'hora de corte fuera del turno'),
     c.metaTurno?k('meta','Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#ef4444':'#10b981',
       c.pctCorte!=null?`al corte se esperaban ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
@@ -266,25 +312,83 @@ function _avjPintarKpis(){
 
 function _avjPintarVol(){
   const el=document.getElementById('avjVol');if(!el||!_avj)return;
+  const C=_avj.cols||[];
   const fin=_avjParteFinal(_avj.fecha,_avj.turno);
   const hayFin=Object.keys(fin).length>0;
+  const conOp=_avjVe('operador');
+  const tot=_avjCalc(_avj).viajes;
+  const th=C.map((c,j)=>`<th class="avj-colh"><div class="avj-colh-in">
+      <div style="display:flex;gap:.25rem;align-items:center">
+        <input class="avj-in avj-mat" id="avjCH${j}" list="avjDlM" value="${_avjEsc(c.material)}" placeholder="Material" oninput="_avjColSet(${j},'material',this.value)">
+        <button type="button" class="avj-x" onclick="_avjColQuitar(${j})" title="Quitar esta ruta">✕</button></div>
+      <input class="avj-in" list="avjDlO" value="${_avjEsc(c.origen)}" placeholder="Origen" oninput="_avjColSet(${j},'origen',this.value)">
+      <input class="avj-in" list="avjDlD" value="${_avjEsc(c.destino)}" placeholder="→ Destino" oninput="_avjColSet(${j},'destino',this.value)">
+    </div></th>`).join('');
   const filas=_avj.volquetes.map((v,i)=>{
-    const f=fin[v.eqId];
-    return`<tr class="${v.noOpera?'avj-off':''}">
-      <td class="mono" style="font-weight:800;white-space:nowrap">${_avjEsc(v.codigo)}${(()=>{const e=(DB.equipos||[]).find(x=>+x.id===+v.eqId);const pl=e&&String(e.placa||'').trim();return pl?`<div style="font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:.04em;margin-top:.1rem">${_avjEsc(pl)}</div>`:'';})()}</td>
-      <td><input class="avj-in" value="${_avjEsc(v.operador)}" oninput="_avjVol(${i},'operador',this.value)" placeholder="Operador" style="min-width:170px"></td>
-      <td>${v.noOpera?`<select class="avj-in" onchange="_avjVol(${i},'motivo',this.value)"><option value="">— motivo —</option>${_AVJ_NO_OPERA.map(m=>`<option${m===v.motivo?' selected':''}>${m}</option>`).join('')}</select>`
-        :`<input class="avj-in avj-num" type="number" min="0" step="1" inputmode="numeric" value="${_avjEsc(v.viajes)}" oninput="_avjVol(${i},'viajes',this.value)" placeholder="0">`}</td>
-      <td><input class="avj-in" list="avjDlO" value="${_avjEsc(v.origen)}" oninput="_avjVol(${i},'origen',this.value)" placeholder="Origen" ${v.noOpera?'disabled':''}></td>
-      <td><input class="avj-in" list="avjDlD" value="${_avjEsc(v.destino)}" oninput="_avjVol(${i},'destino',this.value)" placeholder="Destino" ${v.noOpera?'disabled':''}></td>
-      <td><input class="avj-in" list="avjDlM" value="${_avjEsc(v.material)}" oninput="_avjVol(${i},'material',this.value)" placeholder="Material" ${v.noOpera?'disabled':''}></td>
+    const t=_avjTotVol(v), f=fin[v.eqId];
+    return`<tr id="avjR${i}" class="${v.noOpera?'avj-off':t?'':'avj-cero'}">
+      <td class="mono" style="font-weight:800;white-space:nowrap">${_avjEsc(_avjPlaca(v)||'—')}</td>
+      <td class="mono" style="white-space:nowrap;font-size:.72rem;color:var(--muted2)">${_avjEsc(v.codigo)}</td>
+      ${v.noOpera
+        ?`<td colspan="${C.length}"><div style="display:flex;align-items:center;gap:.5rem"><b style="color:#f87171;font-size:.76rem;white-space:nowrap">No opera</b>
+            <select class="avj-in" style="max-width:220px" onchange="_avjVol(${i},'motivo',this.value)"><option value="">— motivo —</option>${_AVJ_NO_OPERA.map(m=>`<option${m===v.motivo?' selected':''}>${m}</option>`).join('')}</select></div></td>`
+        :C.map((c,j)=>`<td style="text-align:center"><input class="avj-in avj-num avj-cel" type="number" min="0" step="1" inputmode="numeric" value="${_avjEsc((v.c||{})[c.id]||'')}" oninput="_avjCel(${i},${j},this.value)" placeholder="·"></td>`).join('')}
+      <td class="mono tr" id="avjT${i}" style="font-weight:900;color:#f59e0b;font-size:.95rem">${t||'–'}</td>
+      <td class="mono tr" id="avjP${i}" style="font-size:.74rem;color:var(--muted2)">${_avjPct(t,tot)}</td>
       <td style="text-align:center"><input type="checkbox" ${v.noOpera?'checked':''} onchange="_avjVol(${i},'noOpera',this.checked)" title="No opera en este turno" style="width:auto;cursor:pointer"></td>
+      <td${conOp?'':' style="opacity:.5"'}><input class="avj-in" value="${_avjEsc(v.operador)}" oninput="_avjVol(${i},'operador',this.value)" placeholder="Operador" style="min-width:170px"></td>
       ${hayFin?`<td class="mono" style="text-align:right;color:#10b981;font-weight:700">${f!=null?f:'—'}</td>`:''}
     </tr>`;
   }).join('');
-  el.innerHTML=`<table><thead><tr><th>Volquete</th><th${_avjVe('operador')?'':' style="opacity:.5"'}><span style="display:inline-flex;align-items:center;gap:.45rem">Operador ${_avjChk('operador')}</span></th><th>Viajes</th><th>Origen</th><th>Destino</th><th>Material</th><th title="Marcar si el volquete no opera en el turno">No opera</th>
-    ${hayFin?'<th class="tr" title="Viajes del parte del día, ya registrado">Parte final</th>':''}</tr></thead>
-    <tbody>${filas||'<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--muted2)">No hay volquetes activos en el Máster</td></tr>'}</tbody></table>`;
+  const totFin=hayFin?_avj.volquetes.reduce((s,v)=>s+(fin[v.eqId]||0),0):0;
+  el.innerHTML=`<table class="avj-mx"><thead><tr><th>Placa</th><th>Código</th>${th}
+      <th class="tr">Total</th><th class="tr">%</th><th title="Marcar si el volquete no opera en el turno">No opera</th>
+      <th${conOp?'':' style="opacity:.5"'}><span style="display:inline-flex;align-items:center;gap:.45rem">Operador ${_avjChk('operador')}</span></th>
+      ${hayFin?'<th class="tr" title="Viajes del parte del día, ya registrado">Parte final</th>':''}</tr></thead>
+    <tbody>${filas||`<tr><td colspan="${C.length+6}" style="text-align:center;padding:1.5rem;color:var(--muted2)">No hay volquetes activos en el Máster</td></tr>`}</tbody>
+    ${filas?`<tfoot><tr class="avj-tot"><td colspan="2">TOTAL VIAJES</td>
+      ${C.map((c,j)=>`<td id="avjCT${j}" class="mono" style="text-align:center">${_avjTotCol(c)||'–'}</td>`).join('')}
+      <td id="avjTT" class="mono tr" style="color:#f59e0b;font-size:1rem">${tot}</td><td class="mono tr">${tot?'100%':'–'}</td><td></td><td></td>
+      ${hayFin?`<td class="mono tr" style="color:#10b981">${totFin}</td>`:''}</tr></tfoot>`:''}</table>`;
+}
+const _avjPct=(t,tot)=>t&&tot?(t/tot*100).toFixed(1).replace('.',',')+'%':'–';
+const _avjTotCol=c=>(_avj?_avj.volquetes:[]).reduce((s,v)=>s+(v.noOpera?0:_avjN((v.c||{})[c.id])),0);
+// Al escribir un número solo se actualizan los totales (no se pierde el cursor)
+function _avjTotalesVivos(){
+  if(!_avj)return;
+  const tot=_avjCalc(_avj).viajes;
+  const $=id=>document.getElementById(id);
+  _avj.volquetes.forEach((v,i)=>{
+    const t=_avjTotVol(v);
+    const a=$('avjT'+i);if(a)a.textContent=t||'–';
+    const p=$('avjP'+i);if(p)p.textContent=_avjPct(t,tot);
+    const r=$('avjR'+i);if(r)r.className=v.noOpera?'avj-off':t?'':'avj-cero';
+  });
+  (_avj.cols||[]).forEach((c,j)=>{const e=$('avjCT'+j);if(e)e.textContent=_avjTotCol(c)||'–';});
+  const tt=$('avjTT');if(tt)tt.textContent=tot;
+}
+function _avjCel(i,j,val){
+  const v=_avj&&_avj.volquetes[i], c=_avj&&_avj.cols[j];if(!v||!c)return;
+  v.c=v.c||{};
+  if(String(val).trim()==='')delete v.c[c.id];else v.c[c.id]=val;
+  _avjTotalesVivos();_avjPintarKpis();
+}
+function _avjColSet(j,campo,val){const c=_avj&&_avj.cols[j];if(c)c[campo]=val;}
+function _avjColAgregar(){
+  if(!_avj)return;
+  _avj.cols.push(_avjColNueva());
+  _avjPintarVol();
+  const e=document.getElementById('avjCH'+(_avj.cols.length-1));if(e&&e.focus)e.focus();
+}
+function _avjColQuitar(j){
+  const c=_avj&&_avj.cols[j];if(!c)return;
+  const n=_avjTotCol(c);
+  const nom=[c.origen,c.destino].filter(Boolean).join(' → ')||'esta ruta';
+  if(n&&!confirm(`¿Quitar la ruta «${nom}» con sus ${n} viaje(s)?`))return;
+  _avj.volquetes.forEach(v=>{if(v.c)delete v.c[c.id];});
+  _avj.cols.splice(j,1);
+  if(!_avj.cols.length)_avj.cols.push(_avjColNueva());
+  _avjPintarVol();_avjPintarKpis();
 }
 
 function _avjPintarRes(){
@@ -341,9 +445,10 @@ function _avjSet(campo,v,soloDato){
 }
 function _avjVol(i,campo,v){
   const x=_avj&&_avj.volquetes[i];if(!x)return;
+  // 'viajes' a secas va a la primera ruta (atajo)
+  if(campo==='viajes'){_avjCel(i,0,v);return;}
   x[campo]=campo==='noOpera'?!!v:v;
-  if(campo==='noOpera'){if(v)x.viajes='';else x.motivo='';_avjPintarVol();_avjPintarRes();}
-  if(campo==='viajes'||campo==='noOpera')_avjPintarKpis();
+  if(campo==='noOpera'){if(v)x.c={};else x.motivo='';_avjPintarVol();_avjPintarRes();_avjPintarKpis();}
 }
 function _avjResAgregar(){
   if(!_avj)return;
@@ -499,9 +604,13 @@ function _avjMapaCerrar(){
 function _avjCopia(){
   const r=_avj;
   return{id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:_avjN(r.meta),
-    volquetes:r.volquetes.map(v=>({eqId:v.eqId,codigo:v.codigo,operador:String(v.operador||'').trim(),
-      viajes:v.noOpera?0:_avjN(v.viajes),origen:v.origen||'',destino:v.destino||'',material:v.material||'',
-      noOpera:!!v.noOpera,motivo:v.noOpera?(v.motivo||''):''})),
+    volquetes:r.volquetes.map(v=>{
+      const rutas=v.noOpera?[]:(r.cols||[]).map((c,o)=>({origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),
+        material:String(c.material||'').trim(),viajes:_avjN((v.c||{})[c.id]),o})).filter(x=>x.viajes>0);
+      return{eqId:v.eqId,codigo:v.codigo,placa:_avjPlaca(v),operador:String(v.operador||'').trim(),
+        viajes:rutas.reduce((s,x)=>s+x.viajes,0),rutas,
+        noOpera:!!v.noOpera,motivo:v.noOpera?(v.motivo||''):''};
+    }),
     restricciones:r.restricciones.map(x=>({motivo:x.motivo,ini:x.ini||'',fin:x.fin||'',todos:!!x.todos,
       eqIds:x.todos?[]:(x.eqIds||[]),descripcion:String(x.descripcion||'').trim(),
       frente:x.ubicacion&&typeof _ptFrenteEnPunto==='function'?(_ptFrenteEnPunto(x.ubicacion)||''):'',
@@ -562,7 +671,7 @@ function _avjPintarHist(){
       <td class="mono">${_avjDMY(r.fecha)}</td><td>${r.turno==='Noche'?'🌙':'☀️'} ${_avjEsc(r.turno)}</td>
       <td class="mono">${_avjEsc(r.horaCorte)}</td>
       <td class="tr mono" style="color:#f59e0b;font-weight:800">${c.viajes}</td>
-      <td class="tr mono">${c.opera} / ${c.total}</td>
+      <td class="tr mono">${c.conViajes} de ${c.total}</td>
       <td class="tr mono">${c.proy!=null?c.proy:'—'}</td>
       <td>${(r.restricciones||[]).length?`<span style="color:#ef4444;font-weight:700">⛔ ${(r.restricciones||[]).length}</span> <span style="font-size:.7rem;color:var(--muted2)">${_avjEsc([...new Set(r.restricciones.map(x=>x.motivo))].join(' · ').slice(0,60))}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
       <td style="font-size:.72rem;color:var(--muted2)">${_avjEsc(r.autor||'—')}</td>
@@ -575,7 +684,7 @@ function _avjPintarHist(){
   el.innerHTML=`<div class="card"><div class="card-head"><span class="card-title">🗂️ Cortes guardados</span>
       <span style="font-size:.7rem;color:var(--muted2)">${(DB.avanceViajes||[]).length} corte(s)</span></div>
     <div class="card-body" style="padding:0"><div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Turno</th><th>Corte</th><th class="tr">Viajes</th><th class="tr">Operando</th><th class="tr">Proyección</th><th>Restricciones</th><th>Registró</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Turno</th><th>Corte</th><th class="tr">Viajes</th><th class="tr">Operativos</th><th class="tr">Proyección</th><th>Restricciones</th><th>Registró</th><th></th></tr></thead>
       <tbody>${filas||`<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--muted2)">${_avjFalta?'Falta ejecutar sql/avance_viajes.sql':'Todavía no hay cortes guardados'}</td></tr>`}</tbody>
     </table></div></div></div>`;
 }
@@ -584,9 +693,18 @@ function _avjEditar(id){
   const r=_avjBuscar(id);if(!r)return;
   if(_avj&&!_avj.id&&(_avjCalc(_avj).viajes||_avj.restricciones.length)&&!confirm('¿Abrir ese corte para editarlo? Lo que no se guardó del actual se pierde.'))return;
   // Los volquetes del corte, más los del Máster que se hayan sumado después
-  const vol=(r.volquetes||[]).map(v=>({...v,viajes:v.noOpera?'':(v.viajes||'')}));
-  _avjVolquetesMaster().forEach(e=>{if(!vol.some(v=>+v.eqId===+e.id))vol.push({eqId:+e.id,codigo:e.codigo,operador:'',viajes:'',origen:'',destino:'',material:'',noOpera:false,motivo:''});});
-  _avj={id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:r.meta,volquetes:vol,
+  // Las rutas guardadas vuelven a ser columnas
+  const M=_avjMatriz(r);
+  const cols=M.cols.map(c=>({..._avjColNueva(c),key:c.key}));
+  const vol=(r.volquetes||[]).map(v=>{
+    const c={};
+    if(!v.noOpera)cols.forEach(col=>{const n=M.cel(v,col.key);if(n)c[col.id]=String(n);});
+    return{eqId:v.eqId,codigo:v.codigo,operador:v.operador||'',c,noOpera:!!v.noOpera,motivo:v.motivo||''};
+  });
+  cols.forEach(c=>delete c.key);
+  if(!cols.length)cols.push(_avjColNueva());
+  _avjVolquetesMaster().forEach(e=>{if(!vol.some(v=>+v.eqId===+e.id))vol.push({eqId:+e.id,codigo:e.codigo,operador:'',c:{},noOpera:false,motivo:''});});
+  _avj={id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:r.meta,cols,volquetes:vol,
     restricciones:(r.restricciones||[]).map(x=>({...x,eqIds:[...(x.eqIds||[])],fotos:[...(x.fotos||[])],_nuevas:[]})),
     observaciones:r.observaciones||'',autor:r.autor,creadoEn:r.creadoEn};
   _avjPintar();
@@ -643,24 +761,54 @@ function _avjDocHtml(r,opc){
   const conOp=_avjVe('operador');
   const cajas=[
     _avjVe('viajes')?caja('Viajes al corte',c.viajes,AC,'hasta las '+_avjEsc(r.horaCorte)):'',
-    _avjVe('operando')?caja('Volquetes operando',`${c.opera} / ${c.total}`,'#2563eb',`${c.conViajes} con viajes`):'',
-    _avjVe('promedio')?caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete'):'',
+    _avjVe('operando')?caja('Volquetes operativos',`${c.conViajes} de ${c.total}`,'#2563eb',c.total-c.opera?`${c.total-c.opera} no opera(n)`:'con viajes al corte'):'',
+    _avjVe('promedio')?caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete operativo'):'',
     _avjVe('proy')?caja('Proyección al cierre',c.proy!=null?c.proy:'—','#7c3aed',c.proy!=null?'al ritmo actual':''):'',
     c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
     c.horasPerdidas&&_avjVe('horas')?caja('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#b91c1c',(r.restricciones||[]).length+' restricción(es)'):''
   ].join('');
   const vol=(r.volquetes||[]);
-  const filasVol=vol.map((v,i)=>`<tr${v.noOpera?' style="background:#fef2f2"':''}>
-    <td style="${TD};text-align:center;color:#64748b">${i+1}</td>
-    <td style="${TD};font-weight:800;white-space:nowrap">${_avjEsc(v.codigo)}</td>
-    ${conOp?`<td style="${TD}">${_avjEsc(v.operador||'—')}</td>`:''}
-    <td style="${TD}">${v.noOpera?`<b style="color:#b91c1c">No opera</b>${v.motivo?' · '+_avjEsc(v.motivo):''}`:_avjEsc((v.origen||'—')+' → '+(v.destino||'—'))}</td>
-    <td style="${TD}">${v.noOpera?'':_avjEsc(v.material||'—')}</td>
-    <td style="${TD};text-align:right;font-weight:800;color:${AC}">${v.noOpera?'—':_avjN(v.viajes)}</td>
-    ${hayFin?`<td style="${TD};text-align:right;color:#15803d;font-weight:700">${fin[v.eqId]!=null?fin[v.eqId]:'—'}</td>`:''}
-  </tr>`).join('');
+  // Tabla cruzada: volquetes × rutas, como el reporte de viajes en Excel
+  const M=_avjMatriz(r);
+  const C=M.cols.length?M.cols:[{key:'',origen:'',destino:'',material:'',tot:0,vacia:1}];
+  const nC=C.length;
+  const fs=nC>6?10:11;
+  const MTD=`padding:5px 6px;border:1px solid #cfd8e6;font-size:${fs}px;color:#111;vertical-align:middle`;
+  const MTH=`padding:5px 6px;border:1px solid #ffffff55;background:${AZ};color:#fff;font-size:${fs-1}px;font-weight:800;text-align:center;vertical-align:middle`;
   const totFin=hayFin?vol.reduce((s,v)=>s+(fin[v.eqId]||0),0):0;
-  const rutas=_avjPorRuta(r);
+  const pct=t=>t&&c.viajes?(t/c.viajes*100).toFixed(1)+'%':'–';
+  const filasVol=vol.map((v,i)=>{
+    const t=_avjTotVol(v);
+    const bg=v.noOpera||!t?'#fbecec':(i%2?'#f6f8fb':'#fff');
+    const T=MTD+';background:'+bg;
+    return`<tr>
+      <td style="${T};font-weight:900;color:${AZ};white-space:nowrap">${_avjEsc(_avjPlaca(v)||'—')}</td>
+      <td style="${T};text-align:center;color:#334155;white-space:nowrap">${_avjEsc(v.codigo)}</td>
+      ${conOp?`<td style="${T}">${_avjEsc(v.operador||'—')}</td>`:''}
+      ${v.noOpera?`<td colspan="${nC}" style="${T};color:#b91c1c"><b>No opera</b>${v.motivo?' · '+_avjEsc(v.motivo):''}</td>`
+        :C.map(col=>{const n=col.vacia?0:M.cel(v,col.key);return`<td style="${T};text-align:center;font-size:${fs+1}px">${n||''}</td>`;}).join('')}
+      <td style="${T};text-align:center;font-weight:900;font-size:${fs+1}px;background:${bg==='#fbecec'?bg:'#e8eff9'}">${t||'–'}</td>
+      <td style="${T};text-align:center;color:#334155">${pct(t)}</td>
+      ${hayFin?`<td style="${T};text-align:center;color:#15803d;font-weight:700">${fin[v.eqId]!=null?fin[v.eqId]:'—'}</td>`:''}
+    </tr>`;
+  }).join('');
+  const tablaVol=`<table style="width:100%;border-collapse:collapse;margin-top:6px">
+      <tr>
+        <th rowspan="2" style="${MTH}">Placa</th><th rowspan="2" style="${MTH}">Código</th>
+        ${conOp?`<th rowspan="2" style="${MTH}">Operador</th>`:''}
+        ${C.map(col=>`<th style="${MTH};font-size:${fs+1}px;border-bottom:1px solid #ffffff40">${col.vacia?'Viajes':_avjEsc(col.material||'—')}</th>`).join('')}
+        <th rowspan="2" style="${MTH};font-size:${fs+1}px">Total</th><th rowspan="2" style="${MTH}">%</th>
+        ${hayFin?`<th rowspan="2" style="${MTH}">Parte final</th>`:''}
+      </tr>
+      <tr>${C.map(col=>`<th style="${MTH};font-weight:600">${col.vacia?'':`${_avjEsc(col.origen||'—')}<br>→ ${_avjEsc(col.destino||'—')}`}</th>`).join('')}</tr>
+      ${filasVol||`<tr><td colspan="${nC+4+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
+      <tr>
+        <td colspan="${conOp?3:2}" style="${MTH};text-align:left;font-size:${fs+1}px">TOTAL VIAJES</td>
+        ${C.map(col=>`<td style="${MTH};font-size:${fs+2}px">${col.tot||'–'}</td>`).join('')}
+        <td style="${MTH};font-size:${fs+3}px">${c.viajes}</td><td style="${MTH}">${c.viajes?'100%':'–'}</td>
+        ${hayFin?`<td style="${MTH}">${totFin}</td>`:''}
+      </tr>
+    </table>`;
   const R=r.restricciones||[];
   const codDe=id=>{const v=vol.find(x=>+x.eqId===+id);return v?v.codigo:String(id);};
   const filasRes=R.map((x,i)=>{
@@ -689,21 +837,8 @@ function _avjDocHtml(r,opc){
       </div>
     </div>
     ${cajas?`<div style="display:flex;gap:8px;margin-top:12px">${cajas}</div>`:''}
-    ${_avjTit('Viajes por volquete al corte · '+vol.length+' volquete(s)')}
-    <table style="width:100%;border-collapse:collapse;margin-top:6px">
-      <tr><th style="${TH};width:24px;text-align:center">N°</th><th style="${TH};width:92px">Volquete</th>${conOp?`<th style="${TH}">Operador</th>`:''}<th style="${TH}">Ruta</th><th style="${TH};width:110px">Material</th>
-        <th style="${TH};width:56px;text-align:right">Viajes</th>${hayFin?`<th style="${TH};width:62px;text-align:right">Parte final</th>`:''}</tr>
-      ${filasVol||`<tr><td colspan="${(conOp?6:5)+(hayFin?1:0)}" style="${TD};text-align:center;color:#64748b">Sin volquetes</td></tr>`}
-      <tr><td colspan="${conOp?5:4}" style="${TD};text-align:right;font-weight:800;background:#f1f5f9">TOTAL AL CORTE</td>
-        <td style="${TD};text-align:right;font-weight:900;color:${AC};background:#f1f5f9">${c.viajes}</td>
-        ${hayFin?`<td style="${TD};text-align:right;font-weight:900;color:#15803d;background:#f1f5f9">${totFin}</td>`:''}</tr>
-    </table>
-    ${rutas.length?`${_avjTit('Viajes por ruta')}
-    <table style="width:100%;border-collapse:collapse;margin-top:6px">
-      <tr><th style="${TH}">Origen</th><th style="${TH}">Destino</th><th style="${TH}">Material</th><th style="${TH};width:70px;text-align:right">Volquetes</th><th style="${TH};width:60px;text-align:right">Viajes</th></tr>
-      ${rutas.map(x=>`<tr><td style="${TD}">${_avjEsc(x.origen)}</td><td style="${TD}">${_avjEsc(x.destino)}</td><td style="${TD}">${_avjEsc(x.material||'—')}</td>
-        <td style="${TD};text-align:right">${x.vol}</td><td style="${TD};text-align:right;font-weight:800;color:${AC}">${x.viajes}</td></tr>`).join('')}
-    </table>`:''}
+    ${_avjTit('Viajes por volquete y ruta al corte · '+vol.length+' volquete(s)')}
+    ${tablaVol}
     ${_avjTit('Restricciones · '+R.length)}
     <table style="width:100%;border-collapse:collapse;margin-top:6px">
       <tr><th style="${TH};width:24px;text-align:center">N°</th><th style="${TH};width:160px">Motivo</th><th style="${TH};width:86px">Horario</th><th style="${TH};width:110px">Volquetes</th><th style="${TH}">Descripción</th></tr>
@@ -819,6 +954,16 @@ function _avjEstilos(){
   .avj-in{font-size:.8rem;padding:.32rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);width:100%;box-sizing:border-box;min-width:110px}
   .avj-num{width:76px;min-width:76px;text-align:right;font-weight:800;color:#f59e0b;font-size:.95rem}
   tr.avj-off td{opacity:.6}
+  tr.avj-cero td{background:rgba(239,68,68,.06)}
+  .avj-mx th,.avj-mx td{vertical-align:middle}
+  .avj-colh{min-width:160px;text-transform:none;letter-spacing:0}
+  .avj-colh-in{display:flex;flex-direction:column;gap:.22rem}
+  .avj-colh .avj-in{min-width:0;font-size:.72rem;padding:.25rem .4rem}
+  .avj-colh .avj-mat{font-weight:800;color:#60a5fa}
+  .avj-x{background:none;border:1px solid var(--border);color:var(--muted2);border-radius:5px;width:22px;height:22px;flex:none;cursor:pointer;font-size:.65rem}
+  .avj-x:hover{color:#f87171;border-color:#ef4444}
+  .avj-cel{width:64px;min-width:64px;text-align:center}
+  .avj-mx tfoot td{font-weight:900;border-top:2px solid #3b82f6;background:rgba(59,130,246,.1);padding:.55rem .6rem;font-size:.82rem}
   .avj-res{border:1px solid #ef444455;border-radius:9px;padding:.75rem;background:var(--panel2);display:flex;flex-direction:column;gap:.6rem;margin-bottom:.7rem}
   .avj-res-head{display:flex;justify-content:space-between;align-items:center;color:#f87171;font-size:.8rem}
   .avj-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.6rem}
