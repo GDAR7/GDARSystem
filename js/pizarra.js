@@ -1163,6 +1163,7 @@ function _pizRenderRutas(c){
       </div>
     </div>
     <button onclick="_rutaUndoUltimo()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #06b6d440;background:rgba(6,182,212,.08);color:#06b6d4;cursor:pointer;white-space:nowrap;flex-shrink:0">⌫ Deshacer</button>
+    <button id="rutaBtnSolo" onclick="_rutaToggleSolo()" title="Oculta los trazos de los demás tramos: solo se ve el seleccionado, para dibujar sin que se mezclen" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #eab30860;background:${_rutaSoloSel?'rgba(234,179,8,.22)':'rgba(234,179,8,.07)'};color:${_rutaSoloSel?'#eab308':'#a3a3a3'};cursor:pointer;white-space:nowrap;flex-shrink:0">${_rutaSoloSel?'👁 Mostrar todos':'🙈 Ocultar otros'}</button>
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
     <button id="rutaBtnVista" onclick="_rutaToggleVista()" title="Cambiar entre vista de plan (aérea) e isométrica" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #f9731640;background:rgba(249,115,22,.07);color:#f97316;cursor:pointer;white-space:nowrap;flex-shrink:0">🏔️ Vista Isométrico</button>
     <button onclick="_rutaLimpiarTodas()" title="Borra los trazados de la vista ACTIVA para redibujar" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #f97316;background:rgba(249,115,22,.1);color:#f97316;cursor:pointer;white-space:nowrap;flex-shrink:0">🔄 Limpiar Trazados</button>
@@ -1304,6 +1305,20 @@ function _rutaOnGlobalMouseup(){
   const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor=_rutaDibujando?'crosshair':'grab';
 }
 
+// Ocultar los trazos de los demás tramos para dibujar uno nuevo sin mezclarse
+let _rutaSoloSel=false;
+function _rutaBtnSoloEstilo(){
+  const b=document.getElementById('rutaBtnSolo');if(!b)return;
+  b.textContent=_rutaSoloSel?'👁 Mostrar todos':'🙈 Ocultar otros';
+  b.style.background=_rutaSoloSel?'rgba(234,179,8,.22)':'rgba(234,179,8,.07)';
+  b.style.color=_rutaSoloSel?'#eab308':'#a3a3a3';
+}
+function _rutaToggleSolo(){
+  _rutaSoloSel=!_rutaSoloSel;
+  _rutaBtnSoloEstilo();
+  _rutaRefresh();
+  if(_rutaSoloSel&&!_rutaSelId)toast('Trazos ocultos · seleccione un tramo para ver solo el suyo');
+}
 function _rutaToggleCalor(){
   _rutaModoCalor=!_rutaModoCalor;
   _rutaRefresh();
@@ -1387,6 +1402,8 @@ function _rutaRenderSvg(tramos,heat){
   const sorted=(tramos||[]).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||''));
   const maxV=heat?_rutaMaxViajes(heat):1;
   sorted.forEach((t,i)=>{
+    // «Ocultar otros»: solo se ve el tramo seleccionado (o ninguno)
+    if(_rutaSoloSel&&t.id!==_rutaSelId)return;
     const pts=(_rutaVistaIso?t.puntosIso:t.puntos)||[];if(pts.length<2)return;
     const baseCol=_rutaColors[i%_rutaColors.length];
     const h=heat?(heat[t.id]||null):null;
@@ -1465,6 +1482,7 @@ function _rutaSelect(id){
   if(hint)hint.textContent=tr?`✔ ${tr.codigo} seleccionado`:'';
   _rutaDibujando=false;_rutaPuntos=[];
   _rutaCancelarDraw(false);
+  if(_rutaSoloSel)_rutaRefresh();
 }
 
 function _rutaToggleDraw(){
