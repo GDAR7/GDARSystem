@@ -1014,7 +1014,7 @@ function _avjHojaRutas(r){
   return`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${AZ};padding-bottom:8px">
       <div style="font-size:18px;font-weight:900;color:${AZ}">PLANO DE RUTAS CON VIAJES</div>
-      <div style="font-size:11px;color:#334155;text-align:right"><span style="text-transform:capitalize">${_avjEsc(_avjFechaLarga(r.fecha))}</span> · Turno ${_avjEsc(r.turno)} · corte ${_avjEsc(r.horaCorte)}<br>${_avjCalc(r).viajes} viajes · solo se sombrean las rutas con viajes</div>
+      <div style="font-size:11px;color:#334155;text-align:right"><span style="text-transform:capitalize">${_avjEsc(_avjFechaLarga(r.fecha))}</span> · Turno ${_avjEsc(r.turno)} · corte ${_avjEsc(r.horaCorte)}<br>${_avjCalc(r).viajes} viajes</div>
     </div>${cuerpo}</div>`;
 }
 function _avjDocHtml(r,opc){
@@ -1134,7 +1134,6 @@ function _avjDocHtml(r,opc){
       :_avjTit('Panel fotográfico · '+fotos.length+' foto(s)')+_avjPanelFilas(fotos)):''}
     <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #d6dbe3;padding-top:9px;font-size:11px;color:#475569">
       <span>Registró: <b style="color:#111">${_avjEsc(r.autor||'—')}</b></span>
-      <span>Avance preliminar · no reemplaza el parte del turno · ${_avjEsc(new Date(r.actualizadoEn||r.creadoEn||Date.now()).toLocaleString('es-PE'))}</span>
     </div>
   </div>`;
 }

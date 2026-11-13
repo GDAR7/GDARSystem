@@ -191,7 +191,8 @@ es('código repetido: lleva también la letra',ev("(()=>{const R=[{codigo:'FL'},
 es('restricciones con letras en la tabla (A y B)',/>A<\/td>/.test(H)&&/>B<\/td>/.test(H),true);
 es('letras después de la Z',ev('_avjLetra(0)')+' '+ev('_avjLetra(25)')+' '+ev('_avjLetra(26)'),'A Z A1');
 es('comparación con el parte final (21 + 15 = 36)',/Parte final/.test(H)&&/>36<\/td>/.test(H),true);
-es('aclara que es un avance preliminar',/no reemplaza el parte del turno/.test(H),true);
+es('el pie solo lleva quién registró (sin la nota de avance preliminar)',/Registró:/.test(H)&&!/no reemplaza el parte del turno/.test(H),true);
+es('la hoja de rutas no lleva la nota «solo se sombrean…»',/solo se sombrean/.test(ev('_avjHojaRutas')(r)),false);
 es('nombre del archivo',ev('_avjNombreArchivo')(r),'Avance de Viajes 2026-11-12 Día 12h00 - Abel Rodríguez A..pdf');
 
 console.log('\n== Editar, reemplazar y eliminar ==');
