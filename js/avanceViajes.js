@@ -184,8 +184,20 @@ function _avjPintarAviso(){
     ⚠ Falta ejecutar <b>sql/avance_viajes.sql</b> en Supabase: se puede llenar el corte y ver el PDF, pero no se guardará.</div>`:'';
 }
 
+// Si el corte se armó antes de que llegaran los equipos (o se agregó un
+// volquete al Máster después), completa la lista sin tocar lo ya escrito.
+function _avjCompletarVol(){
+  if(!_avj)return;
+  _avjVolquetesMaster().forEach(e=>{
+    if(_avj.volquetes.some(v=>+v.eqId===+e.id))return;
+    _avj.volquetes.push({eqId:+e.id,codigo:e.codigo,operador:_avjUltimoOperador(e.id),
+      viajes:'',..._avjRutaHabitual(e.id),noOpera:false,motivo:''});
+  });
+  _avj.volquetes.sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),'es',{numeric:true}));
+}
 function _avjPintar(){
   const el=document.getElementById('avjForm');if(!el||!_avj)return;
+  _avjCompletarVol();
   const s=_avjSugerencias();
   const dl=(id,l)=>`<datalist id="${id}">${l.map(x=>`<option value="${_avjEsc(x)}">`).join('')}</datalist>`;
   el.innerHTML=`
