@@ -745,6 +745,76 @@ function _avjPanelHojas(r){
       <div style="font-size:11px;color:#334155;text-align:right"><span style="text-transform:capitalize">${_avjEsc(_avjFechaLarga(r.fecha))}</span> · Turno ${_avjEsc(r.turno)} · corte ${_avjEsc(r.horaCorte)}<br>Hoja ${h+1} de ${hojas.length} · ${fotos.length} foto(s)</div>
     </div>${_avjPanelFilas(l)}</div>`);
 }
+// ── Plano de rutas: los tramos dibujados en el módulo Rutas (misma imagen
+// aérea) que tuvieron viajes en el corte. Solo se sombrean esos.
+const _AVJ_COL_RUTA=['#e11d48','#2563eb','#16a34a','#f59e0b','#9333ea','#0891b2','#db2777','#65a30d','#ea580c','#4f46e5'];
+const _avjNorm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+function _avjTramoDe(origen,destino){
+  const o=_avjNorm(origen), d=_avjNorm(destino);
+  if(!o||!d)return null;
+  const L=(DB.tramos||[]).filter(t=>_avjNorm(t.inicio)===o&&_avjNorm(t.fin)===d);
+  return L.find(t=>(t.puntos||[]).length>=2)||L[0]||null;
+}
+function _avjRutasActivas(r){
+  return _avjMatriz(r).cols.filter(c=>c.tot>0).map((c,i)=>{
+    const t=_avjTramoDe(c.origen,c.destino);
+    let pts=t&&(t.puntos||[]).length>=2?t.puntos:null, vuelta=false;
+    // Sin trazo propio: el tramo de vuelta recorre el mismo camino
+    if(!pts&&_avjNorm(c.origen)!==_avjNorm(c.destino)){
+      const tv=_avjTramoDe(c.destino,c.origen);
+      if(tv&&(tv.puntos||[]).length>=2){pts=tv.puntos.slice().reverse();vuelta=true;}
+    }
+    return{...c,n:i+1,col:_AVJ_COL_RUTA[i%_AVJ_COL_RUTA.length],tramo:t,pts,vuelta};
+  });
+}
+function _avjPlanoRutasHtml(r,AZ){
+  const A=_avjRutasActivas(r);if(!A.length)return'';
+  const img=typeof _PT_MAPA_IMG!=='undefined'?_PT_MAPA_IMG:'09.-ERP/Imagenes/R3_2026_IMAGEN.png';
+  const W=712, H=Math.round(W*(typeof _PT_MAPA_PROP!=='undefined'?_PT_MAPA_PROP:1339/2208));
+  const max=Math.max(...A.map(a=>a.tot),1);
+  const conTrazo=A.filter(a=>a.pts);
+  const px=p=>({x:+p.x/100*W,y:+p.y/100*H});
+  const lineas=conTrazo.map(a=>{
+    const P=a.pts.map(px), sw=(3+5*a.tot/max).toFixed(1);
+    const pts=P.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+    const ini=P[0], fin=P[P.length-1];
+    return`<polyline points="${pts}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="${(+sw+3).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="${pts}" fill="none" stroke="${a.col}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${ini.x.toFixed(1)}" cy="${ini.y.toFixed(1)}" r="5" fill="#fff" stroke="${a.col}" stroke-width="3"/>
+      <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="6" fill="${a.col}" stroke="#fff" stroke-width="2"/>`;
+  }).join('');
+  // Número de la ruta a mitad del trazo (en HTML para que no se deforme)
+  const marcas=conTrazo.map(a=>{
+    const P=a.pts.map(px), m=P[Math.floor(P.length/2)];
+    return`<div style="position:absolute;left:${m.x.toFixed(1)}px;top:${m.y.toFixed(1)}px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${a.col};border:2px solid #fff;color:#fff;font:900 12px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${a.n}</div>`;
+  }).join('');
+  const TDl='padding:5px 7px;border:1px solid #cfd8e6;font-size:11px;color:#111;font-family:Arial,Helvetica,sans-serif;white-space:normal;vertical-align:middle';
+  const THl=`padding:5px 7px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;white-space:normal;text-align:left`;
+  return`<div style="position:relative;margin-top:6px;width:${W}px;height:${H}px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
+      <img src="${_avjEsc(img)}" alt="" style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;max-width:none;display:block">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;left:0;top:0">${lineas}</svg>
+      ${marcas}
+      ${conTrazo.length?'':`<div style="position:absolute;left:0;right:0;bottom:0;background:rgba(15,23,42,.75);color:#fff;font:600 11px Arial,sans-serif;padding:6px 10px">Las rutas con viajes no tienen su tramo dibujado: se pueden trazar en el módulo Rutas.</div>`}
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <tr><th style="${THl};width:34px;text-align:center">N°</th><th style="${THl};width:120px">Material</th><th style="${THl}">Ruta</th><th style="${THl};width:80px">Tramo</th><th style="${THl};width:58px;text-align:center">Viajes</th></tr>
+      ${A.map(a=>`<tr>
+        <td style="${TDl};text-align:center"><span style="display:inline-block;width:20px;height:20px;line-height:20px;border-radius:50%;background:${a.col};color:#fff;font-weight:900;font-size:11px">${a.n}</span></td>
+        <td style="${TDl};font-weight:700">${_avjEsc(a.material||'—')}</td>
+        <td style="${TDl}">${_avjEsc(a.origen||'—')} → ${_avjEsc(a.destino||'—')}${a.pts?'':` <span style="color:#b45309;font-size:10px">· sin trazo en el plano</span>`}</td>
+        <td style="${TDl};color:#334155">${_avjEsc(a.tramo?a.tramo.codigo:'—')}</td>
+        <td style="${TDl};text-align:center;font-weight:900;color:${a.col}">${a.tot}</td></tr>`).join('')}
+    </table>`;
+}
+// Hoja propia del PDF con el plano de rutas
+function _avjHojaRutas(r){
+  const AZ=_AVJ_AZ, cuerpo=_avjPlanoRutasHtml(r,AZ);if(!cuerpo)return'';
+  return`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${AZ};padding-bottom:8px">
+      <div style="font-size:18px;font-weight:900;color:${AZ}">PLANO DE RUTAS CON VIAJES</div>
+      <div style="font-size:11px;color:#334155;text-align:right"><span style="text-transform:capitalize">${_avjEsc(_avjFechaLarga(r.fecha))}</span> · Turno ${_avjEsc(r.turno)} · corte ${_avjEsc(r.horaCorte)}<br>${_avjCalc(r).viajes} viajes · solo se sombrean las rutas con viajes</div>
+    </div>${cuerpo}</div>`;
+}
 function _avjDocHtml(r,opc){
   const AZ=_AVJ_AZ, AC=_AVJ_AC;
   const logo=(typeof EMPRESA!=='undefined'&&EMPRESA.logo)?EMPRESA.logo:'';
@@ -752,7 +822,7 @@ function _avjDocHtml(r,opc){
   const fin=_avjParteFinal(r.fecha,r.turno);
   const hayFin=Object.keys(fin).length>0;
   const TD='padding:6px 8px;border:1px solid #d6dbe3;font-size:11.5px;vertical-align:top;color:#111';
-  const TH=`padding:6px 8px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.04em;text-align:left`;
+  const TH=`padding:6px 8px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.04em;text-align:left;font-family:Arial,Helvetica,sans-serif;white-space:normal`;
   const caja=(l,v,col,sub)=>`<div style="flex:1;border:2px solid ${col};border-radius:8px;padding:7px 9px;min-width:0">
       <div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em">${l}</div>
       <div style="font-size:20px;font-weight:900;color:${col};margin-top:1px">${v}</div>
@@ -771,9 +841,16 @@ function _avjDocHtml(r,opc){
   const M=_avjMatriz(r);
   const C=M.cols.length?M.cols:[{key:'',origen:'',destino:'',material:'',tot:0,vacia:1}];
   const nC=C.length;
-  const fs=nC>6?10:11;
-  const MTD=`padding:5px 6px;border:1px solid #cfd8e6;font-size:${fs}px;color:#111;vertical-align:middle`;
-  const MTH=`padding:5px 6px;border:1px solid #ffffff55;background:${AZ};color:#fff;font-size:${fs-1}px;font-weight:800;text-align:center;vertical-align:middle`;
+  // La hoja mide 714 px útiles: las columnas fijas toman lo suyo y las rutas
+  // se reparten el resto; con más rutas la letra baja por escalones.
+  const fs=nC<=3?11:nC<=5?10:nC<=7?9:8;
+  const wVol=nC<=5?104:92, wTot=nC<=5?46:40, wPct=nC<=5?46:40, wOp=nC<=4?120:96, wFin=48;
+  const wRuta=Math.max(40,Math.floor((714-wVol-wTot-wPct-(conOp?wOp:0)-(hayFin?wFin:0))/nC));
+  const colg=`<colgroup><col style="width:${wVol}px">${conOp?`<col style="width:${wOp}px">`:''}${C.map(()=>`<col style="width:${wRuta}px">`).join('')}<col style="width:${wTot}px"><col style="width:${wPct}px">${hayFin?`<col style="width:${wFin}px">`:''}</colgroup>`;
+  // El estilo de las tablas del sistema no debe colarse en la hoja (no corta línea)
+  const BASE='font-family:Arial,Helvetica,sans-serif;white-space:normal;overflow-wrap:anywhere;word-break:normal;letter-spacing:0;line-height:1.25';
+  const MTD=`${BASE};padding:${nC>5?'4px 4px':'5px 6px'};border:1px solid #cfd8e6;font-size:${fs}px;color:#111;vertical-align:middle`;
+  const MTH=`${BASE};padding:${nC>5?'4px 3px':'5px 5px'};border:1px solid #ffffff55;background:${AZ};color:#fff;font-size:${fs-1}px;font-weight:800;text-align:center;vertical-align:middle;text-transform:uppercase`;
   const totFin=hayFin?vol.reduce((s,v)=>s+(fin[v.eqId]||0),0):0;
   const pct=t=>t&&c.viajes?(t/c.viajes*100).toFixed(1)+'%':'–';
   const filasVol=vol.map((v,i)=>{
@@ -790,7 +867,7 @@ function _avjDocHtml(r,opc){
       ${hayFin?`<td style="${T};text-align:center;color:#15803d;font-weight:700">${fin[v.eqId]!=null?fin[v.eqId]:'—'}</td>`:''}
     </tr>`;
   }).join('');
-  const tablaVol=`<table style="width:100%;border-collapse:collapse;margin-top:6px">
+  const tablaVol=`<table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">${colg}
       <tr>
         <th rowspan="2" style="${MTH}">Volquete</th>
         ${conOp?`<th rowspan="2" style="${MTH}">Operador</th>`:''}
@@ -846,6 +923,10 @@ function _avjDocHtml(r,opc){
     ${r.observaciones?`<div style="margin-top:12px;border-left:4px solid #64748b;background:#f8fafc;padding:9px 12px;border-radius:0 6px 6px 0">
       <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em">Observaciones</div>
       <div style="font-size:12px;margin-top:3px;white-space:pre-wrap">${_avjEsc(r.observaciones)}</div></div>`:''}
+    ${(()=>{const pl=_avjPlanoRutasHtml(r,AZ);if(!pl)return'';
+      return opc&&opc.sinPanel
+        ?`<div style="margin-top:12px;font-size:11.5px;color:#475569">🗺️ <b>Plano de rutas con viajes:</b> en la hoja siguiente.</div>`
+        :_avjTit('Plano de rutas con viajes')+pl;})()}
     ${fotos.length?(opc&&opc.sinPanel
       ?`<div style="margin-top:12px;font-size:11.5px;color:#475569">📷 <b>Panel fotográfico:</b> ${fotos.length} foto(s) en las hojas siguientes.</div>`
       :_avjTit('Panel fotográfico · '+fotos.length+' foto(s)')+_avjPanelFilas(fotos)):''}
@@ -906,7 +987,8 @@ async function _avjGenerarPdf(r){
     const alto=cv.height*W/cv.width, img=cv.toDataURL('image/jpeg',0.92);
     let y=0;pdf.addImage(img,'JPEG',0,0,W,alto);
     while(alto-y>H){y+=H;pdf.addPage();pdf.addImage(img,'JPEG',0,-y,W,alto);}
-    for(const hoja of _avjPanelHojas(r)){
+    const hojaRutas=_avjHojaRutas(r);
+    for(const hoja of [...(hojaRutas?[hojaRutas]:[]),..._avjPanelHojas(r)]){
       const c2=await dibujar(hoja);
       pdf.addPage();pdf.addImage(c2.toDataURL('image/jpeg',0.85),'JPEG',0,0,W,Math.min(H,c2.height*W/c2.width));
     }

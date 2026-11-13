@@ -26,6 +26,12 @@ const DB={
     {id:4,fecha:'2026-11-12',eqId:20,op:'PEREZ, JUAN',turno:'DIA',viajes:[{cant:21,origen:'C. Huantajalla',destino:'R3 - Dique Auxiliar'}]},
     {id:5,fecha:'2026-11-12',eqId:54,op:'LOPEZ, ANA',turno:'DIA',nViajes:15,viajes:[]}
   ],
+  tramos:[
+    {id:1,codigo:'TMO-002',inicio:'C. Huantajalla',fin:'R3 - Dique Auxiliar',puntos:[{x:10,y:10},{x:20,y:20},{x:30,y:30}]},
+    {id:2,codigo:'TMO-060',inicio:'C. Huantajalla',fin:'C. Huantajalla',puntos:[]},
+    {id:3,codigo:'TMO-078',inicio:'Mesa de plata',fin:'Lavadero (Tres torres)',puntos:[]},
+    {id:4,codigo:'TMO-090',inicio:'Lavadero (Tres torres)',fin:'Mesa de plata',puntos:[{x:50,y:50},{x:60,y:60}]}
+  ],
   frentesTrabajo:[{nombre:'R3 - Dique intermedio',puntos:[{x:40,y:40},{x:60,y:40},{x:60,y:60},{x:40,y:60}]}]
 };
 const nodos={};
@@ -106,6 +112,21 @@ es('pantalla: fila de totales por ruta',/TOTAL VIAJES/.test(nodos.avjVol.innerHT
 ev("_avjCel(0,1,'');_avjCel(1,1,'')");
 ev("_avjColQuitar(1)");
 es('quitar la ruta deja una sola columna',ev('_avj.cols.length')+' · '+ev('_avjCalc(_avj).viajes'),'1 · 16');
+console.log('\n== Plano de rutas con viajes ==');
+const conRutas={fecha:'2026-11-12',turno:'Día',horaCorte:'12:00',restricciones:[],volquetes:[
+  {eqId:20,codigo:'VOL ECOP-002',viajes:12,rutas:[{origen:'C. Huantajalla',destino:'R3 - Dique Auxiliar',material:'COMUN',viajes:8,o:0},{origen:'MESA DE PLATA',destino:'Lavadero (Tres torres)',material:'TIPO 2',viajes:4,o:1}]},
+  {eqId:54,codigo:'VOL ECOP-004',viajes:3,rutas:[{origen:'C. Huantajalla',destino:'C. Huantajalla',material:'COMUN',viajes:3,o:2}]}]};
+const act=ev('_avjRutasActivas')(conRutas);
+es('una entrada por ruta con viajes',act.map(a=>a.n+':'+(a.tramo&&a.tramo.codigo)).join(', '),'1:TMO-002, 2:TMO-078, 3:TMO-060');
+es('el tramo dibujado se usa tal cual',act[0].pts.length+' · '+act[0].vuelta,'3 · false');
+es('sin trazo propio usa el de vuelta (mayúsculas no importan)',act[1].vuelta+' · '+act[1].pts[0].x,'true · 60');
+es('sin trazo en ningún sentido queda en la leyenda',act[2].pts,null);
+const hoja=ev('_avjHojaRutas')(conRutas);
+es('hoja propia con la imagen aérea',/PLANO DE RUTAS CON VIAJES/.test(hoja)&&/R3_2026_IMAGEN\.png/.test(hoja),true);
+es('  solo dibuja las rutas con trazo (2 líneas)',(hoja.match(/<polyline/g)||[]).length,4);
+es('  y avisa la que no tiene trazo',/sin trazo en el plano/.test(hoja),true);
+es('en el PDF el plano va en su hoja',/en la hoja siguiente/.test(ev('_avjDocHtml')(conRutas,{sinPanel:true})),true);
+es('sin viajes no hay hoja de rutas',ev('_avjHojaRutas')({volquetes:[],restricciones:[]}),'');
 const viejo={volquetes:[{eqId:20,codigo:'VOL ECOP-002',viajes:9,origen:'A',destino:'B',material:'M'},{eqId:54,codigo:'VOL ECOP-004',viajes:0,origen:'',destino:'',material:''}]};
 es('un corte guardado con el formato anterior se sigue leyendo',ev('_avjCalc')(viejo).viajes+' · '+ev('_avjMatriz')(viejo).cols.length,'9 · 1');
 
