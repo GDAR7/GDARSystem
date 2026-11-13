@@ -327,8 +327,7 @@ function _avjPintarVol(){
   const filas=_avj.volquetes.map((v,i)=>{
     const t=_avjTotVol(v), f=fin[v.eqId];
     return`<tr id="avjR${i}" class="${v.noOpera?'avj-off':t?'':'avj-cero'}">
-      <td class="mono" style="font-weight:800;white-space:nowrap">${_avjEsc(_avjPlaca(v)||'—')}</td>
-      <td class="mono" style="white-space:nowrap;font-size:.72rem;color:var(--muted2)">${_avjEsc(v.codigo)}</td>
+      <td class="mono" style="white-space:nowrap"><div style="font-weight:800">${_avjEsc(v.codigo)}</div>${_avjPlaca(v)?`<div style="font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:.04em;margin-top:.1rem">${_avjEsc(_avjPlaca(v))}</div>`:''}</td>
       ${v.noOpera
         ?`<td colspan="${C.length}"><div style="display:flex;align-items:center;gap:.5rem"><b style="color:#f87171;font-size:.76rem;white-space:nowrap">No opera</b>
             <select class="avj-in" style="max-width:220px" onchange="_avjVol(${i},'motivo',this.value)"><option value="">— motivo —</option>${_AVJ_NO_OPERA.map(m=>`<option${m===v.motivo?' selected':''}>${m}</option>`).join('')}</select></div></td>`
@@ -341,12 +340,12 @@ function _avjPintarVol(){
     </tr>`;
   }).join('');
   const totFin=hayFin?_avj.volquetes.reduce((s,v)=>s+(fin[v.eqId]||0),0):0;
-  el.innerHTML=`<table class="avj-mx"><thead><tr><th>Placa</th><th>Código</th>${th}
+  el.innerHTML=`<table class="avj-mx"><thead><tr><th>Volquete</th>${th}
       <th class="tr">Total</th><th class="tr">%</th><th title="Marcar si el volquete no opera en el turno">No opera</th>
       <th${conOp?'':' style="opacity:.5"'}><span style="display:inline-flex;align-items:center;gap:.45rem">Operador ${_avjChk('operador')}</span></th>
       ${hayFin?'<th class="tr" title="Viajes del parte del día, ya registrado">Parte final</th>':''}</tr></thead>
-    <tbody>${filas||`<tr><td colspan="${C.length+6}" style="text-align:center;padding:1.5rem;color:var(--muted2)">No hay volquetes activos en el Máster</td></tr>`}</tbody>
-    ${filas?`<tfoot><tr class="avj-tot"><td colspan="2">TOTAL VIAJES</td>
+    <tbody>${filas||`<tr><td colspan="${C.length+5}" style="text-align:center;padding:1.5rem;color:var(--muted2)">No hay volquetes activos en el Máster</td></tr>`}</tbody>
+    ${filas?`<tfoot><tr class="avj-tot"><td style="white-space:nowrap">TOTAL VIAJES</td>
       ${C.map((c,j)=>`<td id="avjCT${j}" class="mono" style="text-align:center">${_avjTotCol(c)||'–'}</td>`).join('')}
       <td id="avjTT" class="mono tr" style="color:#f59e0b;font-size:1rem">${tot}</td><td class="mono tr">${tot?'100%':'–'}</td><td></td><td></td>
       ${hayFin?`<td class="mono tr" style="color:#10b981">${totFin}</td>`:''}</tr></tfoot>`:''}</table>`;
