@@ -1150,6 +1150,7 @@ function _pizRenderRutas(c){
     </div>
     <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
     <button id="rutaBtnDraw" onclick="_rutaToggleDraw()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #10b98140;background:rgba(16,185,129,.1);color:#10b981;cursor:pointer;white-space:nowrap;flex-shrink:0">✏️ Dibujar</button>
+    <button id="rutaBtnEditar" onclick="_rutaToggleEditar()" title="Mover, agregar o quitar puntos del trazo del tramo seleccionado" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #facc1540;background:rgba(250,204,21,.07);color:#facc15;cursor:pointer;white-space:nowrap;flex-shrink:0">🔧 Editar puntos</button>
     <button id="rutaBtnBorrar" onclick="_rutaBorrar()" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #ef444440;background:rgba(239,68,68,.07);color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0">🗑 Borrar</button>
     <div style="position:relative;flex-shrink:0">
       <button onclick="_rutaCopyToggle(event)" style="font-size:.7rem;padding:.2rem .6rem;border-radius:5px;border:1px solid #8b5cf640;background:rgba(139,92,246,.08);color:#8b5cf6;cursor:pointer;white-space:nowrap">📋 Copiar desde...</button>
@@ -1218,7 +1219,7 @@ function _pizRenderRutas(c){
     wrap.addEventListener('click',_rutaMapClick);
     wrap.addEventListener('dblclick',_rutaMapDblClick);
     wrap.addEventListener('mousemove',_rutaMouseMove);
-    wrap.addEventListener('contextmenu',e=>{e.preventDefault();_rutaCancelarDraw();});
+    wrap.addEventListener('contextmenu',e=>{e.preventDefault();if(_rutaEditando)return;_rutaCancelarDraw();});
     wrap.addEventListener('wheel',_rutaOnWheel,{passive:false});
     wrap.addEventListener('mousedown',_rutaOnMousedown);
   }
@@ -1241,6 +1242,8 @@ function _rutaApplyTransform(){
   // Actualizar ícono del candado
   const lb=document.getElementById('rutaLockBtn');
   if(lb)lb.textContent=_rutaZoomLocked?'🔒':'🔓';
+  // Los puntos editables mantienen su tamaño en pantalla con cualquier zoom
+  if(_rutaEditando)_rutaEditPintar();
 }
 function _rutaToggleLock(){
   _rutaZoomLocked=!_rutaZoomLocked;
@@ -1294,12 +1297,23 @@ function _rutaOnMousedown(e){
   const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor='grabbing';
 }
 function _rutaOnGlobalMousemove(e){
+  // Arrastrando un punto del trazo en edición
+  if(_rutaEditando&&_rutaArrastre!=null){
+    const canvas=document.getElementById('rutaCanvas');if(!canvas)return;
+    const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;
+    _rutaPuntos[_rutaArrastre]={
+      x:+Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)).toFixed(2),
+      y:+Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100)).toFixed(2)};
+    _rutaEditPintar();
+    return;
+  }
   if(!_rutaIsPanning||!_rutaPanStart)return;
   const nx=e.clientX-_rutaPanStart.x, ny=e.clientY-_rutaPanStart.y;
   if(Math.abs(nx-_rutaPanX)>2||Math.abs(ny-_rutaPanY)>2)_rutaDidPan=true;
   _rutaPanX=nx;_rutaPanY=ny;_rutaApplyTransform();
 }
 function _rutaOnGlobalMouseup(){
+  _rutaArrastre=null;
   _rutaIsPanning=false;
   _rutaDidPan=false;
   const canvas=document.getElementById('rutaCanvas');if(canvas)canvas.style.cursor=_rutaDibujando?'crosshair':'grab';
@@ -1404,6 +1418,8 @@ function _rutaRenderSvg(tramos,heat){
   sorted.forEach((t,i)=>{
     // «Ocultar otros»: solo se ve el tramo seleccionado (o ninguno)
     if(_rutaSoloSel&&t.id!==_rutaSelId)return;
+    // El que se está editando se dibuja aparte, con sus puntos movibles
+    if(_rutaEditando&&t.id===_rutaSelId)return;
     const pts=(_rutaVistaIso?t.puntosIso:t.puntos)||[];if(pts.length<2)return;
     const baseCol=_rutaColors[i%_rutaColors.length];
     const h=heat?(heat[t.id]||null):null;
@@ -1473,6 +1489,10 @@ function _rutaShowTooltip(e,t,h){
 function _rutaHideTooltip(){const t=document.getElementById('rutaTooltip');if(t)t.style.display='none';}
 
 function _rutaSelect(id){
+  if(_rutaEditando&&id!==_rutaSelId){
+    if(!confirm('Hay cambios de puntos sin guardar en el tramo actual. ¿Descartarlos?'))return;
+    _rutaEditSalir();
+  }
   _rutaSelId=id;
   document.querySelectorAll('[id^="ruta-item-"]').forEach(el=>{
     el.style.outline=el.id===`ruta-item-${id}`?'2px solid #10b981':'none';
@@ -1485,8 +1505,107 @@ function _rutaSelect(id){
   if(_rutaSoloSel)_rutaRefresh();
 }
 
+// ── Editar puntos de un trazo ya dibujado ───────────────────────────────────
+// Arrastrar un punto lo mueve · el ＋ entre dos puntos agrega uno · clic
+// derecho sobre un punto lo quita · «Guardar puntos» guarda · Esc cancela.
+let _rutaEditando=false, _rutaArrastre=null, _rutaEditHist=[];
+// Guarda el estado antes de cada cambio (para ⌫ Deshacer)
+const _rutaEditMarcar=()=>{_rutaEditHist.push(_rutaPuntos.map(p=>({...p})));if(_rutaEditHist.length>100)_rutaEditHist.shift();};
+const _rutaPtsVista=tr=>((_rutaVistaIso?tr.puntosIso:tr.puntos)||[]);
+function _rutaToggleEditar(){
+  if(_rutaEditando){_rutaEditGuardar();return;}
+  if(!_rutaSelId){toast('Selecciona un tramo primero',true);return;}
+  if(_rutaDibujando){toast('Termina primero el dibujo en curso',true);return;}
+  const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);if(!tr)return;
+  const pts=_rutaPtsVista(tr);
+  if(pts.length<2){toast('Este tramo no tiene trazo para editar: use ✏️ Dibujar',true);return;}
+  _rutaEditando=true;_rutaArrastre=null;_rutaEditHist=[];
+  _rutaPuntos=pts.map(p=>({x:+p.x,y:+p.y}));
+  const btn=document.getElementById('rutaBtnEditar');
+  if(btn){btn.textContent='💾 Guardar puntos';btn.style.background='rgba(250,204,21,.22)';btn.style.borderColor='#facc15';}
+  const hint=document.getElementById('rutaHint');
+  if(hint)hint.textContent='Arrastre un punto para moverlo · ＋ agrega un punto · clic derecho en un punto lo quita · Esc cancela';
+  document.addEventListener('keydown',_rutaEditTecla);
+  _rutaRenderSvg(DB.tramos||[]);
+  _rutaEditPintar();
+}
+function _rutaEditTecla(e){if(e.key==='Escape')_rutaEditCancelar();}
+function _rutaEditPintar(){
+  const svg=document.getElementById('rutaSvg');if(!svg)return;
+  svg.querySelectorAll('.ruta-edit').forEach(el=>el.remove());
+  if(!_rutaEditando||_rutaPuntos.length<1)return;
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  const z=_rutaZoom||1, NS='http://www.w3.org/2000/svg';
+  const P=_rutaPuntos.map(p=>({x:p.x*W/100,y:p.y*H/100}));
+  const el=(tag,at)=>{const e=document.createElementNS(NS,tag);e.classList.add('ruta-edit');Object.keys(at).forEach(k=>e.setAttribute(k,at[k]));svg.appendChild(e);return e;};
+  el('path',{d:'M '+P.map(p=>p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' L '),stroke:'#000',
+    'stroke-width':(6/z).toFixed(2),fill:'none',opacity:'.45','stroke-linecap':'round','stroke-linejoin':'round'});
+  el('path',{d:'M '+P.map(p=>p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' L '),stroke:'#facc15',
+    'stroke-width':(3/z).toFixed(2),fill:'none','stroke-linecap':'round','stroke-linejoin':'round'});
+  // ＋ a mitad de cada segmento: al apretarlo nace un punto nuevo y ya se arrastra
+  for(let i=1;i<P.length;i++){
+    const m={x:(P[i-1].x+P[i].x)/2,y:(P[i-1].y+P[i].y)/2};
+    const c=el('circle',{cx:m.x.toFixed(1),cy:m.y.toFixed(1),r:(4.5/z).toFixed(2),fill:'#0f172a',stroke:'#facc15','stroke-width':(1.5/z).toFixed(2)});
+    c.style.pointerEvents='all';c.style.cursor='copy';
+    const t=document.createElementNS(NS,'title');t.textContent='Agregar un punto aquí';c.appendChild(t);
+    c.addEventListener('mousedown',ev=>{
+      if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();
+      _rutaEditMarcar();
+      _rutaPuntos.splice(i,0,{x:+(m.x/W*100).toFixed(2),y:+(m.y/H*100).toFixed(2)});
+      _rutaArrastre=i;_rutaEditPintar();
+    });
+  }
+  // Los puntos del trazo: inicio verde, fin rojo
+  P.forEach((p,i)=>{
+    const col=i===0?'#10b981':i===P.length-1?'#ef4444':'#facc15';
+    const c=el('circle',{cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:(i===_rutaArrastre?8:6.5)/z,fill:col,stroke:'#000','stroke-width':(1.5/z).toFixed(2)});
+    c.style.pointerEvents='all';c.style.cursor='move';
+    const t=document.createElementNS(NS,'title');t.textContent=`Punto ${i+1} de ${P.length} · arrastre para mover · clic derecho para quitar`;c.appendChild(t);
+    c.addEventListener('mousedown',ev=>{
+      if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();
+      _rutaEditMarcar();
+      _rutaArrastre=i;
+    });
+    c.addEventListener('contextmenu',ev=>{
+      ev.stopPropagation();ev.preventDefault();
+      if(_rutaPuntos.length<=2){toast('Una ruta necesita al menos 2 puntos',true);return;}
+      _rutaEditMarcar();
+      _rutaPuntos.splice(i,1);_rutaEditPintar();
+    });
+  });
+}
+function _rutaEditSalir(){
+  _rutaEditando=false;_rutaArrastre=null;_rutaPuntos=[];
+  document.removeEventListener('keydown',_rutaEditTecla);
+  const svg=document.getElementById('rutaSvg');
+  if(svg)svg.querySelectorAll('.ruta-edit').forEach(el=>el.remove());
+  const btn=document.getElementById('rutaBtnEditar');
+  if(btn){btn.textContent='🔧 Editar puntos';btn.style.background='rgba(250,204,21,.07)';btn.style.borderColor='#facc1540';}
+  const hint=document.getElementById('rutaHint');
+  const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
+  if(hint)hint.textContent=tr?`✔ ${tr.codigo} seleccionado`:'';
+  _rutaRenderSvg(DB.tramos||[]);
+}
+function _rutaEditCancelar(){
+  if(!_rutaEditando)return;
+  _rutaEditSalir();
+  toast('Edición cancelada: el trazo quedó como estaba');
+}
+function _rutaEditGuardar(){
+  const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
+  if(!tr){_rutaEditSalir();return;}
+  if(_rutaPuntos.length<2){toast('Una ruta necesita al menos 2 puntos',true);return;}
+  const nuevos=_rutaPuntos.map(p=>({x:+p.x,y:+p.y}));
+  if(_rutaVistaIso)tr.puntosIso=nuevos;else tr.puntos=nuevos;
+  syncSheet('saveTramo',tr);
+  toast(`✓ Puntos de "${tr.codigo}" [${_rutaVistaIso?'Isométrico':'Plan'}] guardados (${nuevos.length} puntos)`);
+  _rutaEditSalir();
+  _rutaUpdateSidebarStats();
+}
+
 function _rutaToggleDraw(){
   if(!_rutaSelId){toast('Selecciona un tramo primero',true);return;}
+  if(_rutaEditando){toast('Guarde o cancele (Esc) la edición de puntos primero',true);return;}
   _rutaDibujando=!_rutaDibujando;
   const btn=document.getElementById('rutaBtnDraw');
   const cur=document.getElementById('rutaCursor');
@@ -1606,6 +1725,7 @@ function _rutaCancelarDraw(reset=true){
 
 async function _rutaBorrar(){
   if(!_rutaSelId)return;
+  if(_rutaEditando){toast('Guarde o cancele (Esc) la edición de puntos primero',true);return;}
   const tr=(DB.tramos||[]).find(t=>t.id===_rutaSelId);
   if(!tr)return;
   const vista=_rutaVistaIso?'Isométrico':'Plan';
@@ -1635,6 +1755,10 @@ async function _rutaLimpiarTodas(){
 }
 
 function _rutaToggleVista(){
+  if(_rutaEditando){
+    if(!confirm('Hay cambios de puntos sin guardar. ¿Descartarlos y cambiar de vista?'))return;
+    _rutaEditSalir();
+  }
   _rutaVistaIso=!_rutaVistaIso;
   _rutaCancelarDraw();
   // Cambiar imagen de fondo
@@ -1677,6 +1801,7 @@ function _rutaCopiarDesde(id){
   const from=(DB.tramos||[]).find(t=>t.id===id);
   if(!from||!from.puntos||!from.puntos.length){toast('El tramo origen no tiene ruta dibujada',true);return;}
   if(!_rutaSelId){toast('Selecciona primero el tramo destino en el panel lateral',true);return;}
+  if(_rutaEditando){toast('Guarde o cancele (Esc) la edición de puntos primero',true);return;}
   // Activar modo dibujo si no está activo
   if(!_rutaDibujando){
     _rutaDibujando=true;
@@ -1696,6 +1821,10 @@ function _rutaCopiarDesde(id){
 }
 
 function _rutaUndoUltimo(){
+  if(_rutaEditando){
+    if(!_rutaEditHist.length){toast('Sin cambios para deshacer',true);return;}
+    _rutaPuntos=_rutaEditHist.pop();_rutaArrastre=null;_rutaEditPintar();return;
+  }
   if(!_rutaPuntos.length){toast('Sin puntos para deshacer',true);return;}
   _rutaPuntos.pop();
   _rutaRedibujarTemp();
