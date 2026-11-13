@@ -767,26 +767,54 @@ function _avjRutasActivas(r){
     return{...c,n:i+1,col:_AVJ_COL_RUTA[i%_AVJ_COL_RUTA.length],tramo:t,pts,vuelta};
   });
 }
+// Distancia de un punto a un segmento (px)
+function _avjDistSeg(p,a,b){
+  const dx=b.x-a.x, dy=b.y-a.y, L=dx*dx+dy*dy;
+  const t=L?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L)):0;
+  return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
+}
+// ¿Dos trazos comparten camino? (al menos 2 puntos de uno sobre el otro)
+function _avjSeTocan(A,B,tol){
+  const sobre=(X,Y)=>{let n=0;for(const p of X){for(let i=1;i<Y.length;i++){if(_avjDistSeg(p,Y[i-1],Y[i])<tol){n++;break;}}if(n>=2)return true;}return false;};
+  return sobre(A,B)||sobre(B,A);
+}
+// El mismo trazo corrido d px hacia un costado (perpendicular al avance)
+function _avjParalela(P,d){
+  if(!d||P.length<2)return P.map(p=>({...p}));
+  return P.map((p,i)=>{
+    const a=P[Math.max(0,i-1)], b=P[Math.min(P.length-1,i+1)];
+    const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1;
+    return{x:p.x-dy/L*d,y:p.y+dx/L*d};
+  });
+}
 function _avjPlanoRutasHtml(r,AZ){
   const A=_avjRutasActivas(r);if(!A.length)return'';
   const img=typeof _PT_MAPA_IMG!=='undefined'?_PT_MAPA_IMG:'09.-ERP/Imagenes/R3_2026_IMAGEN.png';
   const W=712, H=Math.round(W*(typeof _PT_MAPA_PROP!=='undefined'?_PT_MAPA_PROP:1339/2208));
-  const max=Math.max(...A.map(a=>a.tot),1);
   const conTrazo=A.filter(a=>a.pts);
   const px=p=>({x:+p.x/100*W,y:+p.y/100*H});
-  const lineas=conTrazo.map(a=>{
-    const P=a.pts.map(px), sw=(3+5*a.tot/max).toFixed(1);
-    const pts=P.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
-    const ini=P[0], fin=P[P.length-1];
-    return`<polyline points="${pts}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="${(+sw+3).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>
-      <polyline points="${pts}" fill="none" stroke="${a.col}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="${ini.x.toFixed(1)}" cy="${ini.y.toFixed(1)}" r="5" fill="#fff" stroke="${a.col}" stroke-width="3"/>
-      <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="6" fill="${a.col}" stroke="#fff" stroke-width="2"/>`;
-  }).join('');
-  // Número de la ruta a mitad del trazo (en HTML para que no se deforme)
+  conTrazo.forEach(a=>{a.P=a.pts.map(px);});
+  // Rutas que comparten camino van en paralelo (como un mapa de metro):
+  // a cada una le toca un carril 0, +1, −1, +2… distinto del de las que pisa.
+  const SEP=5.5, carriles=[0,1,-1,2,-2,3,-3,4,-4];
+  conTrazo.forEach((a,i)=>{
+    const vecinas=conTrazo.slice(0,i).filter(b=>_avjSeTocan(a.P,b.P,7));
+    a.carril=carriles.find(k=>!vecinas.some(b=>b.carril===k))||0;
+    a.Q=_avjParalela(a.P,a.carril*SEP);
+  });
+  const lineas=conTrazo.map(a=>`<polyline points="${a.Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('')
+    +conTrazo.map(a=>{
+      const Q=a.Q, fin=Q[Q.length-1];
+      return`<polyline points="${Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${a.col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="5.5" fill="${a.col}" stroke="#fff" stroke-width="2"/>`;
+    }).join('');
+  // Número al INICIO de cada ruta; si dos salen del mismo lugar, uno al lado del otro
+  const puestos=[];
   const marcas=conTrazo.map(a=>{
-    const P=a.pts.map(px), m=P[Math.floor(P.length/2)];
-    return`<div style="position:absolute;left:${m.x.toFixed(1)}px;top:${m.y.toFixed(1)}px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${a.col};border:2px solid #fff;color:#fff;font:900 12px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${a.n}</div>`;
+    const p={...a.Q[0]};
+    for(let k=0;k<8&&puestos.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<22);k++)p.x+=24;
+    puestos.push(p);
+    return`<div style="position:absolute;left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${a.col};border:2px solid #fff;color:#fff;font:900 12px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${a.n}</div>`;
   }).join('');
   const TDl='padding:5px 7px;border:1px solid #cfd8e6;font-size:11px;color:#111;font-family:Arial,Helvetica,sans-serif;white-space:normal;vertical-align:middle';
   const THl=`padding:5px 7px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;white-space:normal;text-align:left`;

@@ -126,6 +126,10 @@ es('hoja propia con la imagen aérea',/PLANO DE RUTAS CON VIAJES/.test(hoja)&&/R
 es('  solo dibuja las rutas con trazo (2 líneas)',(hoja.match(/<polyline/g)||[]).length,4);
 es('  y avisa la que no tiene trazo',/sin trazo en el plano/.test(hoja),true);
 es('en el PDF el plano va en su hoja',/en la hoja siguiente/.test(ev('_avjDocHtml')(conRutas,{sinPanel:true})),true);
+const tr1=[{x:0,y:0},{x:100,y:0},{x:200,y:0}], tr2=[{x:50,y:2},{x:150,y:1},{x:150,y:90}], tr3=[{x:0,y:200},{x:100,y:200}];
+es('detecta rutas que comparten camino',ev('_avjSeTocan')(tr1,tr2,7)+' · '+ev('_avjSeTocan')(tr1,tr3,7),'true · false');
+es('la paralela se corre hacia un costado',JSON.stringify(ev('_avjParalela')(tr1,5.5).map(p=>p.y)),'[5.5,5.5,5.5]');
+es('el número va al inicio de cada ruta',/left:71\.2px;top:43\.2px;[^"]*">1</.test(hoja),true);
 es('sin viajes no hay hoja de rutas',ev('_avjHojaRutas')({volquetes:[],restricciones:[]}),'');
 const viejo={volquetes:[{eqId:20,codigo:'VOL ECOP-002',viajes:9,origen:'A',destino:'B',material:'M'},{eqId:54,codigo:'VOL ECOP-004',viajes:0,origen:'',destino:'',material:''}]};
 es('un corte guardado con el formato anterior se sigue leyendo',ev('_avjCalc')(viejo).viajes+' · '+ev('_avjMatriz')(viejo).cols.length,'9 · 1');
