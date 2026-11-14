@@ -375,6 +375,20 @@ es('las librerías de PDF se cargan solo al compartir',/cdnjs\.cloudflare\.com\/
   ctx.document.createElement=tag=>tag==='a'?{click(){descargado=this.download;},remove(){},set href(v){}}:prevCreate(tag);
   await ev('_ptCompartirPdf()');
   es('en la computadora se descarga',descargado,'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+  // ── Paginado: cortar entre bloques, sin hojas casi vacías
+  const pg=s=>JSON.stringify(ev(s));
+  es('cabe en una hoja: una sola',pg('_ptPaginas(1000,[300,600],1123)'),'[{"y0":0,"y1":1000}]');
+  es('se pasa solo un poco (el pie): una hoja achicada',pg('_ptPaginas(1200,[300,600,1150],1123)'),'[{"y0":0,"y1":1200,"encoger":true}]');
+  const P=ev('_ptPaginas(2000,[200,500,900,1050,1400,1800],1123)');
+  es('largo: corta en el último bloque que entra (no a mitad)',P.map(p=>Math.round(p.y0)+'-'+Math.round(p.y1)).join(' '),'0-1050 1050-2000');
+  es('  ningún corte fuera de los permitidos',P.slice(0,-1).every(p=>[200,500,900,1050,1400,1800].includes(p.y1)),true);
+  const P2=ev('_ptPaginas(2150,[1050,2100],1123)');
+  es('si la última hoja quedaría casi vacía, se junta achicada',P2.length+' · '+P2[P2.length-1].encoger,'2 · true');
+  const P3=ev('_ptPaginas(3000,[],1123)');
+  es('sin cortes posibles: corta por el alto de la hoja',P3[0].y1,1093);
+  const srcP=fs.readFileSync(R+'js/parteTurno.js','utf8');
+  es('los títulos van pegados a lo que sigue',(srcP.match(/data-pt-tit/g)||[]).length>=4,true);
+
   // «⬇ Descargar PDF»: descarga aunque haya menú de compartir
   descargado=null;compartido=null;
   ctx.navigator={canShare:()=>true,share:async d=>{compartido=d;}};

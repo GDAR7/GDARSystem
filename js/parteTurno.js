@@ -732,7 +732,7 @@ function _ptMapaDocHtml(acts,conUbic,AZ,AC){
   const nums=conUbic.map(a=>acts.indexOf(a)+1);
   const zona=_ptDetalleZona(pts,W,H,D);
   const pc=(v,t)=>(v/t*100).toFixed(3)+'%';
-  const titulo=t=>`<div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">${t}</div>`;
+  const titulo=t=>`<div data-pt-tit style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">${t}</div>`;
   let html=`${titulo('Ubicación de los trabajos')}
     <div style="position:relative;margin-top:6px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
       <img src="${_PT_MAPA_IMG}" alt="" style="display:block;width:100%;max-width:none">
@@ -775,7 +775,7 @@ function _ptPanelFilas(fotos,AC){
   return`<table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">${h}</table>`;
 }
 const _PT_AZ='#1e3a5f', _PT_AC='#b45309';
-const _ptTituloDoc=t=>`<div style="margin-top:14px;font-size:11px;font-weight:800;color:${_PT_AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${_PT_AZ};padding-bottom:3px">${t}</div>`;
+const _ptTituloDoc=t=>`<div data-pt-tit style="margin-top:14px;font-size:11px;font-weight:800;color:${_PT_AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${_PT_AZ};padding-bottom:3px">${t}</div>`;
 // Para el PDF: el panel en hojas A4 propias (794×1123 px), 6 fotos por hoja,
 // así ninguna foto queda partida entre dos páginas.
 const _PT_FOTOS_HOJA=6;
@@ -821,7 +821,7 @@ function _ptDocHtml(r,opc){
         ${logo?`<img src="${_ptEsc(logo)}" alt="" style="height:52px;max-width:170px;object-fit:contain">`:''}
       </div>
     </div>
-    <div style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">Actividades ejecutadas · ${acts.length}</div>
+    <div data-pt-tit style="margin-top:14px;font-size:11px;font-weight:800;color:${AZ};text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid ${AZ};padding-bottom:3px">Actividades ejecutadas · ${acts.length}</div>
     <table style="width:100%;border-collapse:collapse;margin-top:6px">
       <tr><th style="${TH};width:30px;text-align:center">N°</th><th style="${TH};width:150px">Frente</th><th style="${TH}">Trabajo realizado</th>
         <th style="${TH};width:110px;text-align:right">Cantidad</th></tr>
@@ -895,6 +895,64 @@ function _ptCargarLib(src,global){
     document.head.appendChild(s);
   });
 }
+// ── Paginado del PDF ────────────────────────────────────────────────────────
+const _PT_HOJA_PX=1123;          // alto de un A4 a 794 px de ancho
+const _PT_MARGEN_PX=30;          // margen arriba/abajo en las hojas que siguen
+// Dónde se puede cortar (px desde arriba de la hoja): antes de cada bloque y
+// entre las filas de las tablas. Nunca entre un título y lo que le sigue.
+function _ptCortesDoc(raiz){
+  const top=raiz.getBoundingClientRect().top, out=[];
+  const hijos=[...raiz.children];
+  hijos.forEach((el,i)=>{
+    if(!i)return;
+    const prev=hijos[i-1];
+    if(prev.hasAttribute&&prev.hasAttribute('data-pt-tit'))return;
+    const a=prev.getBoundingClientRect().bottom-top, b=el.getBoundingClientRect().top-top;
+    out.push((a+b)/2);
+  });
+  raiz.querySelectorAll('table tr').forEach((tr,i)=>{
+    if(tr.previousElementSibling)out.push(tr.getBoundingClientRect().top-top);
+  });
+  return out;
+}
+// Reparte un documento de `alto` px en hojas de PH px, cortando solo en `cortes`.
+// Si lo que sobra es poco (p. ej. solo el pie), esa hoja se achica para que entre.
+function _ptPaginas(alto,cortes,PH){
+  const M=_PT_MARGEN_PX, POCO=PH*0.2;   // hasta 20 % de más: se achica (letra ≥ 83 %)
+  if(alto<=PH)return[{y0:0,y1:alto}];
+  if(alto<=PH+POCO)return[{y0:0,y1:alto,encoger:true}];
+  const C=[...new Set(cortes)].filter(c=>c>0&&c<alto).sort((a,b)=>a-b);
+  const pags=[];let y0=0;
+  while(y0<alto-1){
+    const cabe=PH-(pags.length?2*M:M);
+    if(alto-y0<=cabe){pags.push({y0,y1:alto});break;}
+    const c=C.filter(c=>c>y0+cabe*0.35&&c<=y0+cabe).pop();
+    const y1=c||y0+cabe;
+    pags.push({y0,y1});y0=y1;
+  }
+  // La última quedó casi vacía: se junta con la anterior, achicada
+  if(pags.length>1){
+    const u=pags[pags.length-1];
+    if(u.y1-u.y0<=POCO){pags.pop();const p=pags[pags.length-1];p.y1=u.y1;p.encoger=true;}
+  }
+  return pags;
+}
+// Pone cada tramo del lienzo en su hoja A4 (W×H mm)
+function _ptPonerPaginas(pdf,cv,pags,W,H){
+  const s=cv.width/794, mm=W/794, M=_PT_MARGEN_PX*mm;
+  pags.forEach((p,i)=>{
+    const sub=document.createElement('canvas');
+    sub.width=cv.width;sub.height=Math.max(1,Math.round((p.y1-p.y0)*s));
+    const g=sub.getContext('2d');
+    g.fillStyle='#fff';g.fillRect(0,0,sub.width,sub.height);
+    g.drawImage(cv,0,Math.round(p.y0*s),cv.width,sub.height,0,0,cv.width,sub.height);
+    const arriba=i?M:0, disp=H-arriba-(i?M:0);
+    let w=W, h=(p.y1-p.y0)*mm;
+    if(h>disp){w=W*disp/h;h=disp;}
+    if(i)pdf.addPage();
+    pdf.addImage(sub.toDataURL('image/jpeg',0.92),'JPEG',(W-w)/2,arriba,w,h);
+  });
+}
 // Arma el PDF a partir del documento: lo dibuja en una hoja oculta de 794 px
 // (fuera de la pantalla, sin la reducción del celular) y lo pasa a A4.
 async function _ptGenerarPdf(r){
@@ -913,12 +971,20 @@ async function _ptGenerarPdf(r){
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
     const W=210, H=297;
     const cv=await dibujar(_ptDocHtml(r,{sinPanel:true}));
-    const alto=cv.height*W/cv.width;
-    const img=cv.toDataURL('image/jpeg',0.92);
-    // Si el parte es más largo que una hoja, sigue en las siguientes
-    let y=0;
-    pdf.addImage(img,'JPEG',0,0,W,alto);
-    while(alto-y>H){y+=H;pdf.addPage();pdf.addImage(img,'JPEG',0,-y,W,alto);}
+    const raiz=caja.firstElementChild;
+    if(typeof cv.getContext==='function'&&raiz&&typeof raiz.getBoundingClientRect==='function'){
+      // Se reparte en hojas cortando ENTRE bloques (nunca a mitad de una imagen)
+      const altoPx=cv.height*794/cv.width;
+      const pags=_ptPaginas(altoPx,_ptCortesDoc(raiz),_PT_HOJA_PX);
+      _ptPonerPaginas(pdf,cv,pags,W,H);
+    }else{
+      // Sin poder medir: como antes, una imagen larga repartida
+      const alto=cv.height*W/cv.width;
+      const img=cv.toDataURL('image/jpeg',0.92);
+      let y=0;
+      pdf.addImage(img,'JPEG',0,0,W,alto);
+      while(alto-y>H){y+=H;pdf.addPage();pdf.addImage(img,'JPEG',0,-y,W,alto);}
+    }
     // Panel fotográfico: cada hoja, entera en su página
     for(const hoja of _ptPanelHojas(r)){
       const c2=await dibujar(hoja);
