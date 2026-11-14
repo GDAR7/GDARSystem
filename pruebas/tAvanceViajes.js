@@ -215,6 +215,71 @@ es('avisa en pantalla que falta sql/avance_viajes.sql',/sql\/avance_viajes\.sql/
 ev("_avjVol(0,'viajes','5')");ev("_avjGuardar()");await espera();await espera();
 es('no guarda y lo dice',filas.length===0&&avisos.some(a=>/sql\/avance_viajes\.sql/.test(a)),true);
 
+console.log('\n== Detalle (lupa) de rutas cortas ==');
+{
+  const ev=s=>vm.runInContext(s,ctx);
+  // Una ruta larga y una interna corta (25×13 px) que sale del mismo lugar
+  ctx.__A=[
+    {n:1,col:'#e11d48',origen:'C. Huantajalla',destino:'R3 - Dique Auxiliar',Q:[{x:400,y:50},{x:450,y:150},{x:550,y:300}]},
+    {n:2,col:'#2563eb',origen:'C. Huantajalla',destino:'C. Huantajalla',Q:[{x:390,y:55},{x:405,y:60},{x:415,y:68}]}
+  ];
+  ev('_avjBlanco=null;_avjLupaMov={}');
+  let L=ev('_avjLupas(__A,712,432)');
+  es('la ruta corta arma una zona de detalle',L.length+' · '+L[0].chicas.map(a=>a.n).join(','),'1 · 2');
+  es('  la zona la contiene',L[0].zona.x<390&&L[0].zona.x+L[0].zona.w>415&&L[0].zona.y<55&&L[0].zona.y+L[0].zona.h>68,true);
+  es('  se amplía entre 1,8× y 4×',L[0].z>=1.8&&L[0].z<=4,true);
+  es('  lleva el nombre del lugar',L[0].nombre,'C. Huantajalla');
+  es('sin saber qué es blanco, va debajo del plano',L[0].pos,null);
+  // Imagen toda blanca salvo nada: se ubica dentro, sin tapar las rutas
+  ev('_avjBlanco={cw:178,ch:108,S:_avjIntegral(178,108,()=>1)}');
+  L=ev('_avjLupas(__A,712,432)');
+  const p=L[0].pos||{}, O=ev('_avjOcupado(__A,712,432)');
+  ctx.__p=p;ctx.__g=L[0];
+  es('con espacio blanco, va dentro del plano',!!L[0].pos,true);
+  es('  sin tapar ninguna ruta',ev('_avjSuma(_avjOcupado(__A,712,432),__p.x,__p.y,__g.bw,__g.bh).s'),0);
+  es('  sin tapar su recuadro rojo',p.x>L[0].zona.x+L[0].zona.w||p.x+L[0].bw<L[0].zona.x||p.y>L[0].zona.y+L[0].zona.h||p.y+L[0].bh<L[0].zona.y,true);
+  // Movido a mano: se respeta (y no se sale del plano)
+  ev('_avjLupaMov={0:{x:900,y:20}}');
+  L=ev('_avjLupas(__A,712,432)');
+  es('movido a mano: queda donde lo dejaron, dentro del plano',L[0].pos.x+' · '+L[0].pos.y,(712-L[0].bw)+' · 20');
+  ev('_avjLupaMov={}');
+  // Imagen sin nada blanco: debajo
+  ev('_avjBlanco={cw:178,ch:108,S:_avjIntegral(178,108,()=>0)}');
+  es('sin espacio blanco, va debajo',ev('_avjLupas(__A,712,432)')[0].pos,null);
+  // Solo rutas largas: no hay detalle
+  ctx.__B=[ctx.__A[0]];
+  es('sin rutas cortas no hay detalle',ev('_avjLupas(__B,712,432)').length,0);
+  // Números: el segundo al lado, no lejos
+  const m=ev('_avjMarcas([{a:{n:1,col:"#f00"},p:{x:100,y:100}},{a:{n:2,col:"#00f"},p:{x:100,y:100}},{a:{n:3,col:"#0f0"},p:{x:100,y:100}}],712,432)');
+  const xs=[...m.matchAll(/left:([\d.]+)px;top:([\d.]+)px/g)].map(x=>x[1]+','+x[2]);
+  es('números juntos: al lado y no en fila hacia lejos',xs.join(' '),'100.0,100.0 124.0,100.0 76.0,100.0');
+  // Flecha
+  const f=ev('_avjFlechaSvg({x:400,y:40,w:60,h:40},{x:30,y:10,w:264,h:190})');
+  es('la flecha une el recuadro con el detalle',/<line/.test(f)&&/<polygon/.test(f),true);
+  es('  pegados no lleva flecha',ev('_avjFlechaSvg({x:10,y:10,w:60,h:40},{x:12,y:12,w:60,h:40})'),'');
+  // En el plano: recuadro rojo, detalle y flecha; el número 2 ya no se repite afuera
+  DB.tramos.push({id:9,codigo:'TMO-060b',inicio:'Cantera X',fin:'Cantera X',puntos:[{x:54.8,y:12.7},{x:56.9,y:13.9},{x:58.3,y:15.7}]});
+  DB.tramos.push({id:10,codigo:'TMO-002b',inicio:'Cantera X',fin:'Botadero Y',puntos:[{x:56.2,y:11.6},{x:63.2,y:34.7},{x:77.2,y:69.4}]});
+  ctx.__r={fecha:'2026-11-13',turno:'Día',horaCorte:'18:00',volquetes:[{codigo:'V1',rutas:[
+    {origen:'Cantera X',destino:'Botadero Y',material:'M',viajes:10},{origen:'Cantera X',destino:'Cantera X',material:'M',viajes:5}]}],restricciones:[]};
+  ev('_avjBlanco={cw:178,ch:108,S:_avjIntegral(178,108,()=>1)}');
+  let h=ev('_avjPlanoRutasHtml(__r,"#2f5f98")');
+  es('plano: recuadro rojo de la zona',/stroke="#dc2626" stroke-width="2"/.test(h),true);
+  es('  el detalle dentro, arrastrable',/data-avj-lupa="0"/.test(h)&&/data-zona="/.test(h),true);
+  es('  con su flecha',/data-avj-flecha="0"><line/.test(h),true);
+  es('  título del detalle',/Detalle · Cantera X · \d,\d×/.test(h),true);
+  es('  cada número una sola vez en el plano general (los otros, en el detalle)',(h.match(/>2<\/div>/g)||[]).length,1);
+  ev('_avjBlanco=null');
+  h=ev('_avjPlanoRutasHtml(__r,"#2f5f98")');
+  es('sin espacio: el detalle debajo, sin flecha',/data-avj-lupa/.test(h)+' · '+/data-avj-flecha/.test(h)+' · '+/Detalle · Cantera X/.test(h),'false · false · true');
+  DB.tramos.splice(-2,2);
+  // La vista previa: botón para volver a la ubicación automática
+  const srcA=fs.readFileSync(R+'js/avanceViajes.js','utf8');
+  es('vista previa: ↺ Ubicación automática',/_avjLupaReset\(\)/.test(srcA)&&/function _avjLupaReset\(\)\{_avjLupaMov=\{\};_avjRepintarDoc\(\);\}/.test(srcA),true);
+  es('el PDF espera saber qué es blanco antes de dibujar',/await _avjCargarBlanco\(\)/.test(srcA),true);
+  es('hoja más alta que A4: se achica sin deformarse',/w2=h2>H\?W\*H\/h2:W/.test(srcA),true);
+}
+
 console.log('\n== Conexión ==');
 const I=fs.readFileSync(R+'index.html','utf8'),U=fs.readFileSync(R+'js/utils.js','utf8'),C=fs.readFileSync(R+'js/config.js','utf8');
 es('página y script en index.html',/id="page-avanceViajes"/.test(I)&&/js\/avanceViajes\.js\?v=\d+/.test(I),true);

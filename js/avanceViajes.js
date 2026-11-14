@@ -922,6 +922,207 @@ function _avjParalela(P,d){
     return{x:p.x-dy/L*d,y:p.y+dx/L*d};
   });
 }
+// ── Detalle (lupa) de rutas cortas o amontonadas ───────────────────────────
+// Las rutas internas (p. ej. C. Huantajalla → C. Huantajalla) miden pocos px
+// en el plano y sus números se amontonan. Se marca la zona con un recuadro
+// rojo y se amplía en un recuadro puesto en una parte BLANCA de la imagen,
+// unido con una flecha. En la vista previa el recuadro se puede arrastrar.
+const _AVJ_CEL=4;                 // tamaño de celda (px) de las grillas de búsqueda
+let _avjBlanco=null, _avjBlancoProm=null;
+let _avjLupaMov={};               // posiciones movidas a mano {k:{x,y}} (solo la vista abierta)
+// Grilla acumulada: suma de cualquier rectángulo en tiempo constante
+function _avjIntegral(cw,ch,val){
+  const k=cw+1, S=new Float32Array(k*(ch+1));
+  for(let y=0;y<ch;y++)for(let x=0;x<cw;x++)S[(y+1)*k+x+1]=val(x,y)+S[y*k+x+1]+S[(y+1)*k+x]-S[y*k+x];
+  return S;
+}
+function _avjSuma(G,x,y,w,h){
+  const c=_AVJ_CEL, k=G.cw+1;
+  const x0=Math.max(0,Math.floor(x/c)), y0=Math.max(0,Math.floor(y/c));
+  const x1=Math.min(G.cw,Math.ceil((x+w)/c)), y1=Math.min(G.ch,Math.ceil((y+h)/c));
+  if(x1<=x0||y1<=y0)return{s:0,n:0};
+  return{s:G.S[y1*k+x1]-G.S[y0*k+x1]-G.S[y1*k+x0]+G.S[y0*k+x0],n:(x1-x0)*(y1-y0)};
+}
+// Qué partes de la imagen del plano son blancas (o transparentes). Se calcula
+// una sola vez; sin esto el detalle va debajo del plano.
+function _avjCargarBlanco(){
+  if(_avjBlanco)return Promise.resolve(_avjBlanco);
+  if(_avjBlancoProm)return _avjBlancoProm;
+  if(typeof Image==='undefined'||typeof document==='undefined')return Promise.resolve(null);
+  const src=typeof _PT_MAPA_IMG!=='undefined'?_PT_MAPA_IMG:'09.-ERP/Imagenes/R3_2026_IMAGEN.png';
+  _avjBlancoProm=new Promise(ok=>{
+    const im=new Image();
+    im.onload=()=>{
+      try{
+        const W=712, H=Math.round(W*(typeof _PT_MAPA_PROP!=='undefined'?_PT_MAPA_PROP:1339/2208));
+        const cw=Math.ceil(W/_AVJ_CEL), ch=Math.ceil(H/_AVJ_CEL);
+        const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+        const g=cv.getContext('2d');g.drawImage(im,0,0,cw,ch);
+        const d=g.getImageData(0,0,cw,ch).data;
+        const S=_avjIntegral(cw,ch,(x,y)=>{const i=(y*cw+x)*4;return d[i+3]<40||(d[i]>232&&d[i+1]>232&&d[i+2]>232)?1:0;});
+        _avjBlanco={cw,ch,S};
+      }catch(e){_avjBlanco=null;}
+      _avjBlancoProm=null;ok(_avjBlanco);
+    };
+    im.onerror=()=>{_avjBlancoProm=null;ok(null);};
+    im.src=src;
+  });
+  return _avjBlancoProm;
+}
+const _avjCaja=P=>{const xs=P.map(p=>p.x), ys=P.map(p=>p.y);
+  return{x0:Math.min(...xs),y0:Math.min(...ys),x1:Math.max(...xs),y1:Math.max(...ys)};};
+// Números de ruta sin pisarse: al lado, abajo, arriba… (sin irse lejos)
+function _avjMarcas(lista,W,H){
+  const OFF=[[0,0],[24,0],[-24,0],[0,24],[0,-24],[24,24],[-24,24],[24,-24],[-24,-24],[48,0],[-48,0],[48,24],[-48,24]];
+  const puestos=[];
+  return lista.map(({a,p:p0})=>{
+    let p=null;
+    for(const [dx,dy] of OFF){
+      const q={x:p0.x+dx,y:p0.y+dy};
+      if(W&&(q.x<11||q.x>W-11||q.y<11||q.y>H-11)&&(dx||dy))continue;
+      if(!puestos.some(o=>Math.hypot(o.x-q.x,o.y-q.y)<22)){p=q;break;}
+    }
+    if(!p){p={...p0};while(puestos.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<22))p.x+=24;}
+    puestos.push(p);
+    return`<div style="position:absolute;left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${a.col};border:2px solid #fff;color:#fff;font:900 12px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${a.n}</div>`;
+  }).join('');
+}
+// Zonas a ampliar: rutas cortas (< 50 px) y, junto a ellas, los inicios donde
+// se juntan 3 o más números. Hasta 3 zonas.
+function _avjLupas(conTrazo,W,H){
+  const CHICA=50, CERCA=22, JUNTA=30, PAD=16, MAXW=260, MAXH=170, ZMAX=4, ZMIN=1.8;
+  const items=[];
+  conTrazo.forEach(a=>{
+    const b=_avjCaja(a.Q), chica=Math.max(b.x1-b.x0,b.y1-b.y0)<CHICA;
+    const juntos=conTrazo.filter(o=>Math.hypot(o.Q[0].x-a.Q[0].x,o.Q[0].y-a.Q[0].y)<CERCA).length;
+    if(chica)items.push({b,chicas:[a]});
+    else if(juntos>=3)items.push({b:{x0:a.Q[0].x,y0:a.Q[0].y,x1:a.Q[0].x,y1:a.Q[0].y},chicas:[]});
+  });
+  // Junta las que están cerca
+  let grupos=items.map(i=>({...i.b,chicas:i.chicas.slice(),n:1}));
+  for(let cambio=true;cambio;){
+    cambio=false;
+    for(let i=0;i<grupos.length&&!cambio;i++)for(let j=i+1;j<grupos.length&&!cambio;j++){
+      const A=grupos[i], B=grupos[j];
+      const gx=Math.max(0,Math.max(A.x0,B.x0)-Math.min(A.x1,B.x1)), gy=Math.max(0,Math.max(A.y0,B.y0)-Math.min(A.y1,B.y1));
+      if(Math.hypot(gx,gy)<JUNTA){
+        grupos[i]={x0:Math.min(A.x0,B.x0),y0:Math.min(A.y0,B.y0),x1:Math.max(A.x1,B.x1),y1:Math.max(A.y1,B.y1),chicas:A.chicas.concat(B.chicas),n:A.n+B.n};
+        grupos.splice(j,1);cambio=true;
+      }
+    }
+  }
+  grupos=grupos.filter(g=>g.chicas.length).sort((a,b)=>b.n-a.n);
+  const out=[];
+  const armar=(g,partir)=>{
+    if(out.length>=3)return;
+    let x=g.x0-PAD, y=g.y0-PAD, w=g.x1-g.x0+2*PAD, h=g.y1-g.y0+2*PAD;
+    // Mínimo para no ampliar más de 4×, con la forma del recuadro
+    const mw=Math.max(w,MAXW/ZMAX,h*MAXW/MAXH), mh=Math.max(h,MAXH/ZMAX,w*MAXH/MAXW);
+    x-=(mw-w)/2;y-=(mh-h)/2;w=mw;h=mh;
+    w=Math.min(w,W);h=Math.min(h,H);
+    x=Math.max(0,Math.min(W-w,x));y=Math.max(0,Math.min(H-h,y));
+    const z=Math.min(ZMAX,MAXW/w,MAXH/h);
+    // Zona muy grande para ampliarla: se prueba cada ruta corta por separado
+    if(z<ZMIN){if(partir&&g.chicas.length>1)g.chicas.forEach(a=>armar({..._avjCaja(a.Q),chicas:[a]},false));return;}
+    out.push({zona:{x,y,w,h},z,LW:Math.round(w*z),LH:Math.round(h*z),chicas:g.chicas,
+      nombre:g.chicas[0].origen||g.chicas[0].destino||'zona'});
+  };
+  grupos.forEach(g=>armar(g,true));
+  out.forEach((g,k)=>{g.k=k;g.bw=g.LW+4;g.bh=g.LH+20;});
+  // Dónde ponerlas: lo más cerca de su zona, en blanco y sin tapar rutas
+  const O=_avjOcupado(conTrazo,W,H);
+  const evitar=out.map(g=>({...g.zona}));
+  out.forEach(g=>{
+    const m=_avjLupaMov[g.k];
+    g.pos=m?{x:Math.max(0,Math.min(W-g.bw,m.x)),y:Math.max(0,Math.min(H-g.bh,m.y))}
+      :_avjUbicarLupa(g.zona,g.bw,g.bh,W,H,_avjBlanco,O,evitar);
+    if(g.pos)evitar.push({x:g.pos.x,y:g.pos.y,w:g.bw,h:g.bh});
+  });
+  return out;
+}
+// Celdas por donde pasan rutas o hay números (para no taparlos)
+function _avjOcupado(conTrazo,W,H){
+  const cw=Math.ceil(W/_AVJ_CEL), ch=Math.ceil(H/_AVJ_CEL), M=new Uint8Array(cw*ch);
+  const marcar=(px,py,r)=>{const cx=Math.floor(px/_AVJ_CEL), cy=Math.floor(py/_AVJ_CEL);
+    for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++)if(x>=0&&y>=0&&x<cw&&y<ch)M[y*cw+x]=1;};
+  conTrazo.forEach(a=>{
+    for(let i=1;i<a.Q.length;i++){const p=a.Q[i-1], q=a.Q[i], L=Math.hypot(q.x-p.x,q.y-p.y), n=Math.max(1,Math.ceil(L/2));
+      for(let t=0;t<=n;t++)marcar(p.x+(q.x-p.x)*t/n,p.y+(q.y-p.y)*t/n,1);}
+    marcar(a.Q[0].x,a.Q[0].y,4);
+  });
+  return{cw,ch,S:_avjIntegral(cw,ch,(x,y)=>M[y*cw+x])};
+}
+function _avjUbicarLupa(zona,bw,bh,W,H,B,O,evitar){
+  if(!B||bw>W-8||bh>H-8)return null;
+  const cz={x:zona.x+zona.w/2,y:zona.y+zona.h/2};
+  for(const minimo of [.9,.75]){
+    let mejor=null, dmin=Infinity;
+    for(let y=4;y+bh<=H-4;y+=6)for(let x=4;x+bw<=W-4;x+=6){
+      const d=Math.hypot(x+bw/2-cz.x,y+bh/2-cz.y);if(d>=dmin)continue;
+      if(evitar.some(R=>x<R.x+R.w+8&&x+bw>R.x-8&&y<R.y+R.h+8&&y+bh>R.y-8))continue;
+      if(_avjSuma(O,x,y,bw,bh).s>0)continue;
+      const b=_avjSuma(B,x,y,bw,bh);if(!b.n||b.s<b.n*minimo)continue;
+      mejor={x,y};dmin=d;
+    }
+    if(mejor)return mejor;
+  }
+  return null;
+}
+// Flecha roja del recuadro de la zona al detalle (de borde a borde)
+function _avjFlechaSvg(Z,L){
+  const cz={x:Z.x+Z.w/2,y:Z.y+Z.h/2}, cl={x:L.x+L.w/2,y:L.y+L.h/2};
+  const borde=(R,c,o)=>{const dx=o.x-c.x, dy=o.y-c.y;
+    const t=Math.min(dx?R.w/2/Math.abs(dx):Infinity,dy?R.h/2/Math.abs(dy):Infinity,1);
+    return{x:c.x+dx*t,y:c.y+dy*t};};
+  const a=borde(Z,cz,cl), b=borde(L,cl,cz), dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
+  if(len<10)return'';
+  const ux=dx/len, uy=dy/len, f=n=>n.toFixed(1);
+  const bx=b.x-ux*10, by=b.y-uy*10;
+  const punta=`${f(b.x)},${f(b.y)} ${f(bx-uy*5.5)},${f(by+ux*5.5)} ${f(bx+uy*5.5)},${f(by-ux*5.5)}`;
+  return`<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(bx)}" y2="${f(by)}" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(bx)}" y2="${f(by)}" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round"/>
+    <polygon points="${punta}" fill="#dc2626" stroke="#fff" stroke-width="1"/>`;
+}
+// Contenido del detalle: el recorte ampliado de la imagen con las rutas
+function _avjLupaCuerpo(g,conTrazo,img,W,H){
+  const Z=g.zona, z=g.z, f=p=>({x:(p.x-Z.x)*z,y:(p.y-Z.y)*z}), s=Q=>Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+  const L=conTrazo.map(a=>({a,Q:a.Q.map(f)}));
+  const svg=L.map(o=>`<polyline points="${s(o.Q)}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('')
+    +L.map(o=>{const fin=o.Q[o.Q.length-1];
+      return`<polyline points="${s(o.Q)}" fill="none" stroke="${o.a.col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="4.5" fill="${o.a.col}" stroke="#fff" stroke-width="1.5"/>`;}).join('');
+  const dentro=L.filter(o=>o.Q[0].x>=0&&o.Q[0].x<=g.LW&&o.Q[0].y>=0&&o.Q[0].y<=g.LH);
+  return`<div style="position:relative;width:${g.LW}px;height:${g.LH}px;overflow:hidden">
+      <img src="${_avjEsc(img)}" alt="" style="position:absolute;left:${(-Z.x*z).toFixed(1)}px;top:${(-Z.y*z).toFixed(1)}px;width:${(W*z).toFixed(1)}px;height:${(H*z).toFixed(1)}px;max-width:none;display:block">
+      <svg width="${g.LW}" height="${g.LH}" viewBox="0 0 ${g.LW} ${g.LH}" style="position:absolute;left:0;top:0">${svg}</svg>
+      ${_avjMarcas(dentro.map(o=>({a:o.a,p:o.Q[0]})),g.LW,g.LH)}
+    </div>`;
+}
+// Arrastrar el detalle en la vista previa (también con el dedo)
+function _avjLupaArrastre(cont){
+  if(!cont||!cont.querySelectorAll)return;
+  cont.querySelectorAll('[data-avj-lupa]').forEach(el=>{
+    el.style.cursor='move';el.style.touchAction='none';
+    el.title='Arrastre para mover el detalle';
+    el.addEventListener('pointerdown',ev=>{
+      ev.preventDefault();
+      const plano=el.parentElement, k=+el.getAttribute('data-avj-lupa');
+      const PW=plano.clientWidth, PH=plano.clientHeight, w=el.offsetWidth, h=el.offsetHeight;
+      const s=(plano.getBoundingClientRect().width/plano.offsetWidth)||1;
+      const x0=parseFloat(el.style.left)||0, y0=parseFloat(el.style.top)||0, cx=ev.clientX, cy=ev.clientY;
+      const z=el.getAttribute('data-zona').split(',').map(Number);
+      const flecha=plano.querySelector('[data-avj-flecha="'+k+'"]');
+      try{el.setPointerCapture(ev.pointerId);}catch(e){}
+      const mover=e=>{
+        const x=Math.max(0,Math.min(PW-w,x0+(e.clientX-cx)/s)), y=Math.max(0,Math.min(PH-h,y0+(e.clientY-cy)/s));
+        el.style.left=x.toFixed(1)+'px';el.style.top=y.toFixed(1)+'px';
+        if(flecha)flecha.innerHTML=_avjFlechaSvg({x:z[0],y:z[1],w:z[2],h:z[3]},{x,y,w,h});
+        _avjLupaMov[k]={x,y};
+      };
+      const soltar=()=>{el.removeEventListener('pointermove',mover);el.removeEventListener('pointerup',soltar);el.removeEventListener('pointercancel',soltar);};
+      el.addEventListener('pointermove',mover);el.addEventListener('pointerup',soltar);el.addEventListener('pointercancel',soltar);
+    });
+  });
+}
 function _avjPlanoRutasHtml(r,AZ){
   const A=_avjRutasActivas(r);if(!A.length)return'';
   const img=typeof _PT_MAPA_IMG!=='undefined'?_PT_MAPA_IMG:'09.-ERP/Imagenes/R3_2026_IMAGEN.png';
@@ -943,22 +1144,29 @@ function _avjPlanoRutasHtml(r,AZ){
       return`<polyline points="${Q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${a.col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="${fin.x.toFixed(1)}" cy="${fin.y.toFixed(1)}" r="4" fill="${a.col}" stroke="#fff" stroke-width="1.5"/>`;
     }).join('');
+  // Rutas cortas o con los números amontonados: van ampliadas en un detalle (lupa)
+  const lupas=_avjLupas(conTrazo,W,H);
+  // Los números que caen dentro de un recuadro rojo ya se ven en su detalle
+  const enLupa=new Set();lupas.forEach(g=>{g.chicas.forEach(a=>enLupa.add(a));
+    const Z=g.zona;conTrazo.forEach(a=>{const p=a.Q[0];if(p.x>=Z.x&&p.x<=Z.x+Z.w&&p.y>=Z.y&&p.y<=Z.y+Z.h)enLupa.add(a);});});
   // Número al INICIO de cada ruta; si dos salen del mismo lugar, uno al lado del otro
-  const puestos=[];
-  const marcas=conTrazo.map(a=>{
-    const p={...a.Q[0]};
-    for(let k=0;k<8&&puestos.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<22);k++)p.x+=24;
-    puestos.push(p);
-    return`<div style="position:absolute;left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:${a.col};border:2px solid #fff;color:#fff;font:900 12px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${a.n}</div>`;
-  }).join('');
+  const marcas=_avjMarcas(conTrazo.filter(a=>!enLupa.has(a)).map(a=>({a,p:a.Q[0]})),W,H);
+  const recuadros=lupas.map(g=>{const Z=g.zona;
+    return`<rect x="${Z.x.toFixed(1)}" y="${Z.y.toFixed(1)}" width="${Z.w.toFixed(1)}" height="${Z.h.toFixed(1)}" rx="3" fill="none" stroke="#fff" stroke-width="3.5"/><rect x="${Z.x.toFixed(1)}" y="${Z.y.toFixed(1)}" width="${Z.w.toFixed(1)}" height="${Z.h.toFixed(1)}" rx="3" fill="none" stroke="#dc2626" stroke-width="2"/>`
+      +(g.pos?`<g data-avj-flecha="${g.k}">${_avjFlechaSvg(Z,{x:g.pos.x,y:g.pos.y,w:g.bw,h:g.bh})}</g>`:'');}).join('');
+  const titLupa=(g,abajo)=>`<div style="height:16px;line-height:16px;background:#dc2626;color:#fff;font:800 9.5px Arial,sans-serif;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:.04em">Detalle · ${_avjEsc(g.nombre)} · ${g.z.toFixed(1).replace('.',',')}×</div>`;
+  const lupasDentro=lupas.filter(g=>g.pos).map(g=>`<div data-avj-lupa="${g.k}" data-zona="${[g.zona.x,g.zona.y,g.zona.w,g.zona.h].map(v=>v.toFixed(1)).join(',')}" style="position:absolute;left:${g.pos.x.toFixed(1)}px;top:${g.pos.y.toFixed(1)}px;width:${g.LW}px;box-sizing:content-box;border:2px solid #dc2626;border-radius:5px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.5);overflow:hidden">${titLupa(g)}${_avjLupaCuerpo(g,conTrazo,img,W,H)}</div>`).join('');
+  const lupasAbajo=lupas.filter(g=>!g.pos);
   const TDl='padding:5px 7px;border:1px solid #cfd8e6;font-size:11px;color:#111;font-family:Arial,Helvetica,sans-serif;white-space:normal;vertical-align:middle';
   const THl=`padding:5px 7px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;white-space:normal;text-align:left`;
   return`<div style="position:relative;margin-top:6px;width:${W}px;height:${H}px;border:1px solid #d6dbe3;border-radius:6px;overflow:hidden">
       <img src="${_avjEsc(img)}" alt="" style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;max-width:none;display:block">
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;left:0;top:0">${lineas}</svg>
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;left:0;top:0">${lineas}${recuadros}</svg>
       ${marcas}
+      ${lupasDentro}
       ${conTrazo.length?'':`<div style="position:absolute;left:0;right:0;bottom:0;background:rgba(15,23,42,.75);color:#fff;font:600 11px Arial,sans-serif;padding:6px 10px">Las rutas con viajes no tienen su tramo dibujado: se pueden trazar en el módulo Rutas.</div>`}
     </div>
+    ${lupasAbajo.length?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">${lupasAbajo.map(g=>`<div style="width:${g.LW}px;box-sizing:content-box;border:2px solid #dc2626;border-radius:5px;overflow:hidden">${titLupa(g,true)}${_avjLupaCuerpo(g,conTrazo,img,W,H)}</div>`).join('')}</div>`:''}
     <table style="width:100%;border-collapse:collapse;margin-top:8px">
       <tr><th style="${THl};width:34px;text-align:center">N°</th><th style="${THl};width:120px">Material</th><th style="${THl}">Ruta</th><th style="${THl};width:80px">Tramo</th><th style="${THl};width:58px;text-align:center">Viajes</th></tr>
       ${A.map(a=>`<tr>
@@ -1141,6 +1349,7 @@ function _avjDocHtml(r,opc){
 // borrador: vista previa de lo que se está llenando, todavía sin guardar
 function _avjVerDoc(r,borrador){
   if(!r)return;
+  if(_avjDoc!==r)_avjLupaMov={};      // otro documento: el detalle vuelve a su lugar automático
   _avjDoc=r;
   let ov=document.getElementById('avjDocView');
   if(!ov){ov=document.createElement('div');ov.id='avjDocView';document.body.appendChild(ov);}
@@ -1149,6 +1358,8 @@ function _avjVerDoc(r,borrador){
   ov.innerHTML=`
     <div style="display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;flex-wrap:wrap">
       <b style="flex:1;color:#e2e8f0;font-size:.9rem">📄 Avance de viajes${borrador?' · vista previa (sin guardar)':''}</b>
+      <span id="avjLupaTools" style="display:none;align-items:center;gap:.4rem;color:#94a3b8;font-size:.72rem">✥ El detalle del plano se puede arrastrar
+        <button type="button" onclick="_avjLupaReset()" style="font-size:.72rem;padding:.3rem .55rem;border-radius:6px;cursor:pointer;background:none;border:1px solid #ffffff30;color:#e2e8f0;font-weight:700" title="Vuelve a poner el detalle en el lugar que eligió el sistema">↺ Ubicación automática</button></span>
       <button type="button" id="avjBtnDesc" onclick="_avjDescargarPdf()" style="${bt};border:none;background:#3b82f6;color:#fff" title="Guarda el PDF en Descargas">⬇ Descargar PDF</button>
       <button type="button" id="avjBtnCopiar" onclick="_avjCopiarImagen()" style="${bt};border:none;background:#f59e0b;color:#111" title="Copia la hoja como imagen: luego Ctrl+V en WhatsApp, correo, Teams…">📋 Copiar imagen</button>
       <button type="button" id="avjBtnPdf" onclick="_avjCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir</button>
@@ -1157,12 +1368,29 @@ function _avjVerDoc(r,borrador){
     <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px">
       <div id="avjDocWrap" style="max-width:794px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5)">${_avjDocHtml(r)}</div>
     </div>`;
-  const wrap=document.getElementById('avjDocWrap');
-  if(wrap&&typeof window!=='undefined'&&window.innerWidth){
+  _avjAjustarDoc();
+  // Cuando se sabe qué partes de la imagen son blancas, el detalle se ubica ahí
+  if(!_avjBlanco)Promise.resolve(_avjCargarBlanco()).then(B=>{if(B&&_avjDoc===r)_avjRepintarDoc();}).catch(()=>{});
+}
+// Achica la hoja en pantallas angostas y activa el arrastre del detalle
+function _avjAjustarDoc(){
+  const wrap=document.getElementById('avjDocWrap');if(!wrap)return;
+  if(typeof window!=='undefined'&&window.innerWidth){
     const disp=Math.min(794,window.innerWidth-24);
     if(disp<794){const h=wrap.firstElementChild;if(h){h.style.transform='scale('+(disp/794)+')';h.style.transformOrigin='top left';}wrap.style.width=disp+'px';}
   }
+  try{
+    _avjLupaArrastre(wrap);
+    const tools=document.getElementById('avjLupaTools');
+    if(tools&&wrap.querySelector)tools.style.display=wrap.querySelector('[data-avj-lupa]')?'inline-flex':'none';
+  }catch(e){}
 }
+function _avjRepintarDoc(){
+  const wrap=document.getElementById('avjDocWrap');if(!wrap||!_avjDoc)return;
+  wrap.innerHTML=_avjDocHtml(_avjDoc);
+  _avjAjustarDoc();
+}
+function _avjLupaReset(){_avjLupaMov={};_avjRepintarDoc();}
 function _avjCerrarDoc(){const ov=document.getElementById('avjDocView');if(ov){ov.innerHTML='';ov.style.display='none';}_avjDoc=null;}
 function _avjNombreArchivo(r){
   const quien=String(r.autor||'').replace(/[\\/:*?"<>|]+/g,'').trim().slice(0,40);
@@ -1175,6 +1403,7 @@ async function _avjGenerarPdf(r){
   const LP=typeof _PT_LIB_PDF!=='undefined'?_PT_LIB_PDF:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
   await _ptCargarLib(LH,()=>typeof window.html2canvas==='function');
   await _ptCargarLib(LP,()=>!!(window.jspdf&&window.jspdf.jsPDF));
+  try{await _avjCargarBlanco();}catch(e){}   // para ubicar el detalle del plano en lo blanco
   const caja=document.createElement('div');
   caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
   document.body.appendChild(caja);
@@ -1193,7 +1422,9 @@ async function _avjGenerarPdf(r){
     const hojaRutas=_avjHojaRutas(r);
     for(const hoja of [...(hojaRutas?[hojaRutas]:[]),..._avjPanelHojas(r)]){
       const c2=await dibujar(hoja);
-      pdf.addPage();pdf.addImage(c2.toDataURL('image/jpeg',0.85),'JPEG',0,0,W,Math.min(H,c2.height*W/c2.width));
+      // Si la hoja sale más alta que una A4, se achica entera (sin deformarla)
+      const h2=c2.height*W/c2.width, w2=h2>H?W*H/h2:W;
+      pdf.addPage();pdf.addImage(c2.toDataURL('image/jpeg',0.85),'JPEG',(W-w2)/2,0,w2,Math.min(H,h2));
     }
     return pdf.output('blob');
   }finally{caja.remove();}
