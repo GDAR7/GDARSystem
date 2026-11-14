@@ -267,7 +267,7 @@ console.log('\n== Detalle (lupa) de rutas cortas ==');
   es('plano: recuadro rojo de la zona',/stroke="#dc2626" stroke-width="2"/.test(h),true);
   es('  el detalle dentro, arrastrable',/data-avj-lupa="0"/.test(h)&&/data-zona="/.test(h),true);
   es('  con su flecha',/data-avj-flecha="0"><line/.test(h),true);
-  es('  título del detalle',/Detalle · Cantera X · \d,\d×/.test(h),true);
+  es('  título del detalle, sin el zoom',/Detalle · Cantera X<\/div>/.test(h)+' · '+/\d×/.test(h),'true · false');
   es('  cada número una sola vez en el plano general (los otros, en el detalle)',(h.match(/>2<\/div>/g)||[]).length,1);
   ev('_avjBlanco=null');
   h=ev('_avjPlanoRutasHtml(__r,"#2f5f98")');
