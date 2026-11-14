@@ -1166,7 +1166,7 @@ function _avjPlanoRutasHtml(r,AZ){
       ${lupasDentro}
       ${conTrazo.length?'':`<div style="position:absolute;left:0;right:0;bottom:0;background:rgba(15,23,42,.75);color:#fff;font:600 11px Arial,sans-serif;padding:6px 10px">Las rutas con viajes no tienen su tramo dibujado: se pueden trazar en el módulo Rutas.</div>`}
     </div>
-    ${lupasAbajo.length?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">${lupasAbajo.map(g=>`<div style="width:${g.LW}px;box-sizing:content-box;border:2px solid #dc2626;border-radius:5px;overflow:hidden">${titLupa(g,true)}${_avjLupaCuerpo(g,conTrazo,img,W,H)}</div>`).join('')}</div>`:''}
+    ${lupasAbajo.length?`<div data-avj-abajo style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-evenly;width:${W}px;margin-top:8px">${lupasAbajo.map(g=>`<div style="width:${g.LW}px;box-sizing:content-box;border:2px solid #dc2626;border-radius:5px;overflow:hidden">${titLupa(g,true)}${_avjLupaCuerpo(g,conTrazo,img,W,H)}</div>`).join('')}</div>`:''}
     <table style="width:100%;border-collapse:collapse;margin-top:8px">
       <tr><th style="${THl};width:34px;text-align:center">N°</th><th style="${THl};width:120px">Material</th><th style="${THl}">Ruta</th><th style="${THl};width:80px">Tramo</th><th style="${THl};width:58px;text-align:center">Viajes</th></tr>
       ${A.map(a=>`<tr>

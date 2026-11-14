@@ -272,6 +272,7 @@ console.log('\n== Detalle (lupa) de rutas cortas ==');
   ev('_avjBlanco=null');
   h=ev('_avjPlanoRutasHtml(__r,"#2f5f98")');
   es('sin espacio: el detalle debajo, sin flecha',/data-avj-lupa/.test(h)+' · '+/data-avj-flecha/.test(h)+' · '+/Detalle · Cantera X/.test(h),'false · false · true');
+  es('  los de abajo se reparten parejo en el ancho del plano',/data-avj-abajo style="[^"]*justify-content:space-evenly;width:712px/.test(h),true);
   DB.tramos.splice(-2,2);
   // La vista previa: botón para volver a la ubicación automática
   const srcA=fs.readFileSync(R+'js/avanceViajes.js','utf8');
