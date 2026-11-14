@@ -375,7 +375,28 @@ es('las librerías de PDF se cargan solo al compartir',/cdnjs\.cloudflare\.com\/
   ctx.document.createElement=tag=>tag==='a'?{click(){descargado=this.download;},remove(){},set href(v){}}:prevCreate(tag);
   await ev('_ptCompartirPdf()');
   es('en la computadora se descarga',descargado,'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+  // «⬇ Descargar PDF»: descarga aunque haya menú de compartir
+  descargado=null;compartido=null;
+  ctx.navigator={canShare:()=>true,share:async d=>{compartido=d;}};
+  await ev('_ptDescargarPdf()');
+  es('Descargar PDF descarga directo',descargado,'Parte de Turno 2026-10-13 Noche - Ervin Rojas.pdf');
+  es('  sin abrir el menú de compartir',compartido,null);
   ctx.document.createElement=prevCreate;
+  // «📋 Copiar imagen»: sin portapapeles de imágenes avisa
+  avisos.length=0;ctx.navigator={};
+  await ev('_ptCopiarImagen()');
+  es('Copiar imagen sin soporte avisa que use Descargar',avisos.some(a=>a.e&&/Descargar PDF/.test(a.m)),true);
+  // Con portapapeles: entrega la imagen PNG
+  let copiado=null;
+  ctx.ClipboardItem=class{constructor(o){this.o=o;}};
+  ctx.navigator={clipboard:{write:async it=>{copiado=it[0].o;}}};
+  ctx.window.html2canvas=async()=>({width:1588,height:2000,toBlob:cb=>cb({png:true})});
+  avisos.length=0;
+  await ev('_ptCopiarImagen()');
+  es('Copiar imagen pone un PNG en el portapapeles',!!(copiado&&copiado['image/png']),true);
+  es('  y la imagen se genera bien',JSON.stringify(copiado&&await copiado['image/png']),'{"png":true}');
+  es('  avisa que ya se puede pegar',avisos.some(a=>!a.e&&/copiada/.test(a.m)),true);
+  es('el visor tiene los 3 botones',/_ptDescargarPdf\(\)/.test(srcPT)&&/_ptCopiarImagen\(\)/.test(srcPT)&&/_ptCompartirPdf\(\)/.test(srcPT),true);
   // Sin conexión para la librería: se avisa, no se rompe
   ctx.window.html2canvas=undefined;
   ctx.document.createElement=tag=>{const n=prevCreate(tag);setTimeout(()=>n.onerror&&n.onerror(),0);return n;};
