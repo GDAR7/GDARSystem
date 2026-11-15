@@ -512,6 +512,14 @@ const _PTR_ICO_DIR='09.-ERP/Imagenes/iconos-plan/';
 // Cisterna de combustible: solo existe como imagen (el dibujo es de respaldo)
 _PTR_ICONOS.splice(_PTR_ICONOS.findIndex(i=>i.k==='cisterna')+1,0,{k:'combustible',n:'Cisterna de combustible',s:`<rect x="3" y="31" width="41" height="3" fill="#4b5563"/><rect x="3" y="16" width="29" height="15" rx="7" fill="#e5e7eb" stroke="#1f2937" stroke-width="1.5"/>
   <rect x="16" y="19" width="14" height="6" fill="#facc15"/><path d="M10 20 L13 23 L10 26 L7 23 Z" fill="#ef4444"/>${_ptrCabina(34,19,10,12)}${_ptrRueda(9,37)}${_ptrRueda(19,37)}${_ptrRueda(39,37)}`});
+// Escenas de operación (dos equipos trabajando juntos): solo existen como
+// imagen; el dibujo de respaldo es el del equipo que carga
+{const s=k=>(_PTR_ICONOS.find(i=>i.k===k)||{}).s||'';
+  _PTR_ICONOS.push(
+    {k:'exc_volq',n:'Carguío: excavadora + volquete',s:s('excavadora')},
+    {k:'carg_volq',n:'Carguío: cargador + volquete',s:s('cargador')},
+    {k:'exc_zar',n:'Zarandeo: excavadora + zaranda',s:s('excavadora')},
+    {k:'carg_zar',n:'Zarandeo: cargador + zaranda',s:s('cargador')});}
 // [clave, archivo, nombre que se muestra]
 const _PTR_ICO_IMG={
   volquete:['Volquete.png'], excavadora:['Excavadora_orugas.png'], retro:['Retroexcavadora.png'],
@@ -520,7 +528,9 @@ const _PTR_ICO_IMG={
   trompo:['Trompo de concreto.png'], carmix:['Carmix.png','Carmix (mixer autocargable)'],
   plancha:['Plancha compactadora.png','Plancha compactadora'], cisterna:['Cisterna_agua.png'],
   combustible:['Cisterna_combustible.png'], personal:['Personal piso.png','Personal de piso'],
-  torre:['T. Luminaria.png','Torre de luminaria']
+  torre:['T. Luminaria.png','Torre de luminaria'],
+  exc_volq:['excavadora_cargando_volquete.png'], carg_volq:['cargador_y_volquete.png'],
+  exc_zar:['excavadora_y_zaranda.png'], carg_zar:['cargador_y_zaranda.png']
 };
 _PTR_ICONOS.forEach(i=>{const x=_PTR_ICO_IMG[i.k];if(!x)return;
   i.img=_PTR_ICO_DIR+encodeURIComponent(x[0]);      // hay nombres con espacios y puntos

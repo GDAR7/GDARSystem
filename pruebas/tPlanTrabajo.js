@@ -96,9 +96,10 @@ es('número: un toque',ev('_ptr.fotos[0].marcas[2].tipo'),'numero');
 es('paleta de íconos con los de obra y línea amarilla',['trompo','carmix','plancha','excavadora','volquete','rodillo','cargador','motoniveladora','tractor','retro'].every(k=>ev('_PTR_ICONOS').some(i=>i.k===k)),true);
 // Las imágenes de la empresa (iconos-plan/) reemplazan al dibujo; existen en la carpeta
 const conImg=ev('_PTR_ICONOS.filter(i=>i.img).map(i=>i.img)');
-es('íconos con imagen propia: los 15 de la carpeta, y existen',conImg.length+' · '+conImg.every(p=>fs.existsSync(R+decodeURIComponent(p))),'15 · true');
+es('íconos con imagen propia: los 19 de la carpeta, y existen',conImg.length+' · '+conImg.every(p=>fs.existsSync(R+decodeURIComponent(p))),'19 · true');
+es('  escenas de operación: carguío y zarandeo',['exc_volq','carg_volq','exc_zar','carg_zar'].map(k=>ev('_ptrIcono("'+k+'").n')).join(' | '),'Carguío: excavadora + volquete | Carguío: cargador + volquete | Zarandeo: excavadora + zaranda | Zarandeo: cargador + zaranda');
 es('  nombres con espacios y puntos van codificados',conImg.some(p=>/T\.%20Luminaria\.png$/.test(p)),true);
-es('  el cono ya no se ofrece en la paleta',ev('_ptrIconosPaleta().some(i=>i.k==="senal")')+' · '+ev('_ptrIconosPaleta().length'),'false · 15');
+es('  el cono ya no se ofrece en la paleta',ev('_ptrIconosPaleta().some(i=>i.k==="senal")')+' · '+ev('_ptrIconosPaleta().length'),'false · 19');
 es('  una marca vieja con cono se sigue viendo como cono',ev('_ptrIcono("senal").n'),'Señalización / cono');
 es('  cisterna de combustible (nueva) se reconoce en el texto',ev('_ptrTiposDe("ABASTECIMIENTO CON CISTERNA DE COMBUSTIBLE Y CISTERNA DE AGUA").join(",")'),'combustible,cisterna');
 es('  el volquete usa su PNG; el cono (sin imagen) sigue dibujado',/<img src="09\.-ERP\/Imagenes\/iconos-plan\/Volquete\.png"/.test(ev('_ptrIconoSvg("volquete",40)'))+' · '+/<svg/.test(ev('_ptrIconoSvg("senal",40)')),'true · true');
