@@ -310,7 +310,7 @@ function _ptrDescartar(){
 let _ptrEqRes=false;          // el selector es para una restricción (no una actividad)
 const _ptrEqItem=()=>_ptr&&(_ptrEqRes?(_ptr.restricciones||[]):_ptr.actividades)[_ptrEqI];
 // Tipos que se pueden poner sin código (máquinas y personal de la paleta)
-const _PTR_TIPOS_EQ=['excavadora','retro','cargador','tractor','motoniveladora','rodillo','volquete','cisterna','trompo','carmix','plancha','zaranda','personal'];
+const _PTR_TIPOS_EQ=['excavadora','retro','cargador','tractor','motoniveladora','rodillo','volquete','cisterna','combustible','trompo','carmix','plancha','zaranda','personal'];
 function _ptrTipo(i,k,on){
   const a=_ptr&&_ptr.actividades[i];if(!a)return;
   a.tipos=(a.tipos||[]).filter(x=>x!==k);if(on)a.tipos.push(k);
@@ -509,13 +509,25 @@ const _PTR_ICONOS=[
 // puestas guardan solo la clave (k), así que toman la imagen nueva solas.
 // Para sumar otra: copiar el PNG a la carpeta y agregar aquí su línea.
 const _PTR_ICO_DIR='09.-ERP/Imagenes/iconos-plan/';
+// Cisterna de combustible: solo existe como imagen (el dibujo es de respaldo)
+_PTR_ICONOS.splice(_PTR_ICONOS.findIndex(i=>i.k==='cisterna')+1,0,{k:'combustible',n:'Cisterna de combustible',s:`<rect x="3" y="31" width="41" height="3" fill="#4b5563"/><rect x="3" y="16" width="29" height="15" rx="7" fill="#e5e7eb" stroke="#1f2937" stroke-width="1.5"/>
+  <rect x="16" y="19" width="14" height="6" fill="#facc15"/><path d="M10 20 L13 23 L10 26 L7 23 Z" fill="#ef4444"/>${_ptrCabina(34,19,10,12)}${_ptrRueda(9,37)}${_ptrRueda(19,37)}${_ptrRueda(39,37)}`});
+// [clave, archivo, nombre que se muestra]
 const _PTR_ICO_IMG={
-  volquete:'Volquete.png', excavadora:'Excavadora_orugas.png', retro:'Retroexcavadora.png',
-  cargador:'Cargadora_frontal.png', tractor:'Bulldozer.png', motoniveladora:'Motoniveladora.png',
-  rodillo:'Rodillo_compactador.png', zaranda:'Zaranda_movil.png'
+  volquete:['Volquete.png'], excavadora:['Excavadora_orugas.png'], retro:['Retroexcavadora.png'],
+  cargador:['Cargadora_frontal.png'], tractor:['Bulldozer.png'], motoniveladora:['Motoniveladora.png'],
+  rodillo:['Rodillo_compactador.png'], zaranda:['Zaranda_movil.png','Zaranda móvil'],
+  trompo:['Trompo de concreto.png'], carmix:['Carmix.png','Carmix (mixer autocargable)'],
+  plancha:['Plancha compactadora.png','Plancha compactadora'], cisterna:['Cisterna_agua.png'],
+  combustible:['Cisterna_combustible.png'], personal:['Personal piso.png','Personal de piso'],
+  torre:['T. Luminaria.png','Torre de luminaria']
 };
-_PTR_ICONOS.forEach(i=>{if(_PTR_ICO_IMG[i.k])i.img=_PTR_ICO_DIR+_PTR_ICO_IMG[i.k];});
-const _ptrZaranda=_PTR_ICONOS.find(i=>i.k==='zaranda');if(_ptrZaranda&&_ptrZaranda.img)_ptrZaranda.n='Zaranda móvil';
+_PTR_ICONOS.forEach(i=>{const x=_PTR_ICO_IMG[i.k];if(!x)return;
+  i.img=_PTR_ICO_DIR+encodeURIComponent(x[0]);      // hay nombres con espacios y puntos
+  if(x[1])i.n=x[1];});
+// Ya no se ofrece (las marcas viejas con ese ícono se siguen viendo)
+const _PTR_ICO_OCULTOS=['senal'];
+const _ptrIconosPaleta=()=>_PTR_ICONOS.filter(i=>!_PTR_ICO_OCULTOS.includes(i.k));
 const _ptrIcono=k=>_PTR_ICONOS.find(i=>i.k===k)||_PTR_ICONOS[0];
 // El ícono a px de lado: la imagen de la empresa si hay, si no el dibujo
 const _ptrIconoSvg=(k,px)=>{const i=_ptrIcono(k);
@@ -611,7 +623,7 @@ function _ptrEdPintar(){
     </div>
     ${_ptrEd.tool==='icono'?`<div style="display:flex;gap:.35rem;padding:.45rem .8rem;border-bottom:1px solid #ffffff18;overflow-x:auto;align-items:center">
       <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap">Ícono:</span>
-      ${_PTR_ICONOS.map(i=>`<button type="button" onclick="_ptrEdIcono('${i.k}')" title="${_ptrEsc(i.n)}" style="flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:.3rem .4rem;border-radius:8px;cursor:pointer;background:#fff;border:3px solid ${_ptrEd.icono===i.k?'#f59e0b':'transparent'};width:78px">
+      ${_ptrIconosPaleta().map(i=>`<button type="button" onclick="_ptrEdIcono('${i.k}')" title="${_ptrEsc(i.n)}" style="flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:.3rem .4rem;border-radius:8px;cursor:pointer;background:#fff;border:3px solid ${_ptrEd.icono===i.k?'#f59e0b':'transparent'};width:78px">
         ${_ptrIconoSvg(i.k,38)}<span style="font-size:.58rem;font-weight:700;color:#1f2937;line-height:1.1;text-align:center;white-space:normal">${_ptrEsc(i.n.replace(/ \(.*\)/,''))}</span></button>`).join('')}
     </div>`:''}
     <div style="display:flex;gap:.35rem;padding:.45rem .8rem;border-bottom:1px solid #ffffff18;overflow-x:auto;align-items:center">
@@ -1240,7 +1252,7 @@ const _PTR_SECTOR_RE=/^(ESTRIBO\s+(?:DERECHO|IZQUIERDO)|AGUAS\s+(?:ABAJO|ARRIBA)
 // Equipos que se mencionan → tipos (íconos). La retro va antes que la excavadora.
 const _PTR_EQ_PALABRAS=[[/RETRO\s*EXCAVADORA|RETRO\b/,'retro'],[/EXCAVADORA|\bEXC\b\.?/,'excavadora'],[/VOLQUETE/,'volquete'],
   [/CARGADOR(?:\s+FRONTAL)?|\bCF\b/,'cargador'],[/TRACTOR/,'tractor'],[/MOTONIVELADORA|\bMOTO\b/,'motoniveladora'],[/RODILLO/,'rodillo'],
-  [/CISTERNA/,'cisterna'],[/TROMPO|MIXER/,'trompo'],[/CARMIX/,'carmix'],[/PLANCHA/,'plancha'],[/[ZS]ARANDA/,'zaranda'],[/PERSONAL/,'personal']];
+  [/CISTERNA\s+DE\s+COMBUSTIBLE|COMBUSTIBLE|PETROLERO/,'combustible'],[/CISTERNA/,'cisterna'],[/TROMPO|MIXER/,'trompo'],[/CARMIX/,'carmix'],[/PLANCHA/,'plancha'],[/[ZS]ARANDA/,'zaranda'],[/PERSONAL/,'personal']];
 function _ptrTiposDe(txt){
   let t=_ptrSinTilde(txt).toUpperCase();const out=[];
   _PTR_EQ_PALABRAS.forEach(([re,k])=>{const g=new RegExp(re.source,'g');if(g.test(t)){out.push(k);t=t.replace(g,' ');}});
