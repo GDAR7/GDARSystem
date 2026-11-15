@@ -181,7 +181,7 @@ function _ptrPintar(){
       <label class="ptr-f" style="flex:1;min-width:180px">Título / zona<input type="text" maxlength="80" value="${_ptrEsc(_ptr.titulo)}" placeholder="Opcional · ej. Dique Auxiliar – capa 58" oninput="_ptrSet('titulo',this.value,1)"></label>
       <label class="ptr-f" style="min-width:200px">Responsable del plan<input type="text" list="ptrDlP" maxlength="80" value="${_ptrEsc(_ptr.responsable)}" oninput="_ptrSet('responsable',this.value,1)"></label>
       ${_ptr.id?`<span class="ptr-edit">✏️ Editando un plan guardado · <button type="button" onclick="_ptrDescartar()">empezar uno nuevo</button></span>`:''}
-      <button type="button" class="btn btn-a" style="--ba:#22c55e;margin-left:auto;align-self:center" onclick="_ptrPegarAbrir()" title="Pegue el plan tal como lo escribe en WhatsApp y el sistema lo arma">📋 Pegar desde WhatsApp</button>
+      <button type="button" class="btn btn-a" style="--ba:#22c55e;margin-left:auto;align-self:center" onclick="_ptrPegarAbrir()" title="Pegue el plan escrito como texto (WhatsApp, correo, Word…) y el sistema lo arma">📋 Pegar desde texto</button>
     </div></div>
     <div class="card" style="margin-bottom:.8rem">
       <div class="card-head"><span class="card-title">🛠️ Actividades planificadas</span>
@@ -1058,7 +1058,7 @@ async function _ptrCompartirPdf(){
   finally{if(btn){btn.disabled=false;btn.textContent='📤 Compartir';}}
 }
 
-// ── 📋 Pegar desde WhatsApp ────────────────────────────────────────────────
+// ── 📋 Pegar desde texto ────────────────────────────────────────────────
 // Arma el plan con el texto tal como se escribe en el grupo:
 //   PLAN DE TRABAJO TURNO DIA GUARDIA B      → turno y guardia
 //   15/11/2026                               → fecha
@@ -1147,7 +1147,7 @@ function _ptrPegarAbrir(){
   ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.85);display:flex;align-items:center;justify-content:center;padding:12px';
   ov.innerHTML=`<div style="background:var(--panel,#0f172a);border:1px solid var(--border,#334155);border-radius:12px;width:min(720px,100%);max-height:92vh;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;gap:.5rem;padding:.7rem .9rem;border-bottom:1px solid var(--border,#334155)">
-      <b style="flex:1;font-size:.9rem">📋 Pegar el plan desde WhatsApp</b>
+      <b style="flex:1;font-size:.9rem">📋 Pegar el plan desde texto</b>
       <button type="button" onclick="_ptrPegarCerrar()" class="btn btn-out">Cancelar</button></div>
     <div style="padding:.8rem .9rem;display:flex;flex-direction:column;gap:.6rem;overflow:auto">
       <div style="font-size:.74rem;color:var(--muted2);line-height:1.5">Pegue el texto tal cual. Las líneas con <b>*</b> son frentes; «ESTRIBO DERECHO», «AGUAS ABAJO…» son sectores; cada línea es una actividad; después de «RESTRICCIONES:» van las restricciones y «NOTA:» es la nota del pie. Los equipos mencionados (volquetes, excavadora, CF…) se reconocen solos.</div>
