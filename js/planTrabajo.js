@@ -504,8 +504,24 @@ const _PTR_ICONOS=[
     <circle cx="19" cy="9" r="2.4" fill="#fde047"/><circle cx="29" cy="9" r="2.4" fill="#fde047"/><path d="M14 15 L8 22 M34 15 L40 22" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>`},
   {k:'senal',n:'Señalización / cono',s:`<path d="M24 5 L35 40 L13 40 Z" fill="#f97316" stroke="#1f2937" stroke-width="1.5"/><path d="M19.5 22 L28.5 22 L30 27 L18 27 Z" fill="#fff"/><path d="M16.5 32 L31.5 32 L32.6 35.5 L15.4 35.5 Z" fill="#fff"/><rect x="8" y="40" width="32" height="4" rx="1" fill="#1f2937"/>`}
 ];
+// Imágenes propias de la empresa (09.-ERP/Imagenes/iconos-plan/, PNG con
+// fondo transparente): reemplazan al dibujo del mismo equipo. Las marcas ya
+// puestas guardan solo la clave (k), así que toman la imagen nueva solas.
+// Para sumar otra: copiar el PNG a la carpeta y agregar aquí su línea.
+const _PTR_ICO_DIR='09.-ERP/Imagenes/iconos-plan/';
+const _PTR_ICO_IMG={
+  volquete:'Volquete.png', excavadora:'Excavadora_orugas.png', retro:'Retroexcavadora.png',
+  cargador:'Cargadora_frontal.png', tractor:'Bulldozer.png', motoniveladora:'Motoniveladora.png',
+  rodillo:'Rodillo_compactador.png', zaranda:'Zaranda_movil.png'
+};
+_PTR_ICONOS.forEach(i=>{if(_PTR_ICO_IMG[i.k])i.img=_PTR_ICO_DIR+_PTR_ICO_IMG[i.k];});
+const _ptrZaranda=_PTR_ICONOS.find(i=>i.k==='zaranda');if(_ptrZaranda&&_ptrZaranda.img)_ptrZaranda.n='Zaranda móvil';
 const _ptrIcono=k=>_PTR_ICONOS.find(i=>i.k===k)||_PTR_ICONOS[0];
-const _ptrIconoSvg=(k,px)=>`<svg width="${px}" height="${px}" viewBox="0 0 48 48" style="display:block">${_ptrIcono(k).s}</svg>`;
+// El ícono a px de lado: la imagen de la empresa si hay, si no el dibujo
+const _ptrIconoSvg=(k,px)=>{const i=_ptrIcono(k);
+  // Los PNG traen margen transparente: se agrandan un poco dentro de su cuadro
+  return i.img?`<span style="display:block;width:${px}px;height:${px}px;overflow:hidden"><img src="${_ptrEsc(i.img)}" alt="" draggable="false" style="display:block;width:${Math.round(px*1.16)}px;height:${Math.round(px*1.16)}px;max-width:none;margin:${-Math.round(px*.08)}px 0 0 ${-Math.round(px*.08)}px;object-fit:contain"></span>`
+    :`<svg width="${px}" height="${px}" viewBox="0 0 48 48" style="display:block">${i.s}</svg>`;};
 
 // ── Marcas sobre la foto ───────────────────────────────────────────────────
 // Puntos en % de la foto. Se dibujan en un SVG con la misma proporción de la

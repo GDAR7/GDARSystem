@@ -94,6 +94,10 @@ ev('_ptrEdHerr("numero");_ptrEdPunto({x:80,y:20})');
 es('número: un toque',ev('_ptr.fotos[0].marcas[2].tipo'),'numero');
 // Íconos: trompo, carmix, plancha con operador, línea amarilla, volquetes…
 es('paleta de íconos con los de obra y línea amarilla',['trompo','carmix','plancha','excavadora','volquete','rodillo','cargador','motoniveladora','tractor','retro'].every(k=>ev('_PTR_ICONOS').some(i=>i.k===k)),true);
+// Las imágenes de la empresa (iconos-plan/) reemplazan al dibujo; existen en la carpeta
+const conImg=ev('_PTR_ICONOS.filter(i=>i.img).map(i=>i.img)');
+es('íconos con imagen propia: los 8 de la carpeta',conImg.length+' · '+conImg.every(p=>fs.existsSync(R+p)),'8 · true');
+es('  el volquete usa su PNG; el trompo sigue dibujado',/<img src="09\.-ERP\/Imagenes\/iconos-plan\/Volquete\.png"/.test(ev('_ptrIconoSvg("volquete",40)'))+' · '+/<svg/.test(ev('_ptrIconoSvg("trompo",40)')),'true · true');
 ev('_ptrEdIcono("carmix");_ptrEdPunto({x:40,y:40})');
 es('ícono: un toque lo pone, con su actividad',ev('const m=_ptr.fotos[0].marcas[3];m.tipo+" · "+m.icono+" · "+(m.act===_ptr.actividades[1].uid)'),'icono · carmix · true');
 const Mi=ev('_ptrMarcasHtml(_ptr.fotos[0],_ptr.actividades,{W:712})');
