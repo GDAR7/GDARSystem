@@ -40,6 +40,18 @@ create table if not exists public.plan_trabajo (
 );
 create index if not exists plan_trabajo_fecha on public.plan_trabajo (fecha desc, tipo);
 
+-- ── Versión 2: guardia, restricciones y nota fija ──────────────────────────
+-- Si la tabla ya se creó con la primera versión, aquí se agregan las columnas
+-- nuevas sin tocar los planes guardados.
+--   · guardia        : 'A', 'B', 'C' o vacío.
+--   · restricciones  : [{codigo, motivo, descripcion, eqIds, equipos}]
+--                      con los mismos códigos del Avance de Viajes (FO, LL…).
+--   · nota           : la nota fija del pie («sujeto a cambios…»).
+--   · En actividades se suman: sector, material y tipos (equipos sin código).
+alter table public.plan_trabajo add column if not exists guardia       text;
+alter table public.plan_trabajo add column if not exists restricciones jsonb not null default '[]'::jsonb;
+alter table public.plan_trabajo add column if not exists nota          text;
+
 -- ── Seguridad ──────────────────────────────────────────────────────────────
 alter table public.plan_trabajo enable row level security;
 drop policy if exists gdar_autenticado on public.plan_trabajo;
@@ -52,6 +64,6 @@ notify pgrst, 'reload schema';
 
 -- ── Comprobación ───────────────────────────────────────────────────────────
 -- Debe devolver la tabla vacía (o los planes que ya se hayan guardado).
-select id, tipo, fecha, turno, jsonb_array_length(actividades) as actividades,
-       jsonb_array_length(fotos) as fotos
+select id, tipo, fecha, turno, guardia, jsonb_array_length(actividades) as actividades,
+       jsonb_array_length(fotos) as fotos, jsonb_array_length(restricciones) as restricciones
 from public.plan_trabajo order by fecha desc;

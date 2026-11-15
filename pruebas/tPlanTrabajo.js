@@ -36,7 +36,7 @@ const ctx=vm.createContext({DB,console,Date,Math,Number,String,Object,Array,JSON
   URL:{createObjectURL:()=>'blob:x',revokeObjectURL(){}},
   document:{getElementById:id=>nodos[id]||null,createElement:()=>Nodo('tmp'),body:{appendChild(){}},head:{appendChild(){}},
     addEventListener(){},removeEventListener(){},querySelector:()=>null,querySelectorAll:()=>[]},
-  window:{innerWidth:1400},localStorage:{getItem:()=>null,setItem(){}},
+  window:{innerWidth:1400},localStorage:(()=>{const m={};return{getItem:k=>k in m?m[k]:null,setItem:(k,v)=>{m[k]=String(v);}};})(),
   toast:(m,e)=>avisos.push(m),confirm:()=>confirma,today:()=>'2026-11-14',supa:supaEsp,
   CU:{nombre:'Abel Rodríguez A.',codigo:'EIBEL25'},EMPRESA:{logo:'img/logo.png'}});
 vm.runInContext(fs.readFileSync(R+'js/parteTurno.js','utf8'),ctx,{filename:'parteTurno.js'});
@@ -154,7 +154,8 @@ console.log('\n== Documento ==');
 const rec=ev('DB.planTrabajo[0]');ctx.__rec=rec;
 let D=ev('_ptrDocHtml(__rec)');
 es('título y fecha',/PLAN DE TRABAJO DIARIO/.test(D)&&/domingo 15 de noviembre de 2026/.test(D),true);
-es('tarjetas: actividades, equipos, personal, responsable',/>Equipos asignados<\/div>[\s\S]*?>2<\/div>/.test(D)&&/>Personal<\/div>[\s\S]*?>6<\/div>/.test(D),true);
+es('tarjetas: frentes, actividades, equipos, personal, restricciones',/>Frentes<\/div>[\s\S]*?>2<\/div>/.test(D)&&/>Equipos<\/div>[\s\S]*?>2<\/div>/.test(D)&&/>Personal<\/div>[\s\S]*?>6<\/div>/.test(D)&&/>Restricciones<\/div>[\s\S]*?>0<\/div>/.test(D),true);
+es('agrupado por frente (franja con el nombre)',/▸ R3 - Dique Auxiliar/.test(D)&&/▸ C\. Huantajalla/.test(D),true);
 es('tabla con meta y equipos',/40 viajes/.test(D)&&/VOL ECOP-002, EXC-01/.test(D),true);
 es('en pantalla: la foto con su leyenda',/Zonas de trabajo · Foto 1 de 1/.test(D)&&/Descarga de material capa 58/.test(D.split('Zonas de trabajo · Foto')[1]),true);
 const Ds=ev('_ptrDocHtml(__rec,{sinFotos:true})');
@@ -169,7 +170,58 @@ D=ev('_ptrDocHtml(__sem)');
 es('semanal: título y rango',/PLAN DE TRABAJO SEMANAL/.test(D)&&/Semana del 09\/11\/2026 al 15\/11\/2026/.test(D),true);
 const pos=['Toda la semana','Lun 09/11','Mié 11/11'].map(t=>D.indexOf(t));
 es('  agrupado por día, en orden (primero toda la semana)',pos.every(p=>p>0)&&pos[0]<pos[1]&&pos[1]<pos[2],true);
-es('  la numeración sigue el orden de carga',/F3[\s\S]*?<\/tr>/.test(D)&&D.indexOf('>3</span>')<D.indexOf('F3'),true);
+es('  la numeración sigue el orden de carga',/▸ F3<\/td><\/tr><tr>\s*<td[^>]*><span[^>]*>3<\/span>/.test(D),true);
+es('  columnas vacías no salen (sin meta, equipos, personal ni responsable)',/>Meta<\/th>|>Equipos<\/th>|>Pers\.<\/th>|>Responsable<\/th>|>Sector<\/th>/.test(D),false);
+
+console.log('\n== Guardia, sector, material, restricciones y nota ==');
+ctx.__g={...ctx.__sem,tipo:'Diario',fecha:'2026-11-15',turno:'Día',guardia:'B',nota:'Sujeto a cambios del Sponsor.',
+  actividades:[{uid:'a',frente:'R3 - Dique intermedio',sector:'Estribo derecho',material:'Concreto',descripcion:'Vaciado',tipos:['retro','excavadora']}],
+  restricciones:[{codigo:'FO',descripcion:'Tractor #1 sin operador',eqIds:[5]}]};
+D=ev('_ptrDocHtml(__g)');
+es('guardia en el turno',/Turno Día · Guardia B/.test(D),true);
+es('columnas sector y material',/>Sector<\/th>/.test(D)&&/>Estribo derecho</.test(D)&&/>Material<\/th>/.test(D),true);
+es('equipos por tipo, sin código',/Retroexcavadora, Excavadora/.test(D),true);
+es('restricciones con su código y equipo',/>FO<\/span>/.test(D)&&/Falta de operador/.test(D)&&/>EXC-01</.test(D)&&/Tractor #1 sin operador/.test(D),true);
+es('nota al pie',/NOTA:<\/b> Sujeto a cambios del Sponsor\./.test(D),true);
+es('nombre del archivo con guardia',ev('_ptrNombreArchivo(__g)'),'Plan de Trabajo 2026-11-15 Día Guardia B.pdf');
+ev('_ptr=_ptrNuevo();_ptrSet("nota","Mi nota fija",1)');
+es('la nota fija se recuerda para el siguiente plan',ev('_ptrNuevo().nota'),'Mi nota fija');
+
+console.log('\n== Pegar desde WhatsApp ==');
+ctx.__txt=`PLAN DE TRABAJO TURNO DIA GUARDIA B
+15/11/2026
+*DIQUE INTERMEDIO
+ESTRIBO DERECHO; PREPARACION DE CONCRETO Y VACEADO DE CONCRETO EN GRIETAS #95 Y # 96. CON PERSONAL DE PISO Y APOYO DE EQUIPO RETROEXCAVADORA Y EXCAVADORA.
+ESTRIBO IZQUIERDO
+CONTINUAR LOS TRABAJOS EN CAPA#4 PARA SU LIBERACION RESPECTIVA.
+** DIQUE AUXILIAR
+SEGUIR CON LOS TRABAJOS EN CAPA 58.
+AGUAS ABAJO CONTRAFUERTE SEGUIR CON LOS TRABAJOS CON LA CAPA#12.
+* HUANTAJALLA
+CARGUIO DE MATERIAL COMUN (COM) CON VOLQUETES Y EXCAVADORA.
+SARANDEO DE MATERIAL CON CF.Y ZARANDA.
+** MEZA DE PLÀTA
+SE TIENE AREA LIBERADA DE MARERIAL TIPO 2 PARA SU CARGUIO.
+NOTA: EL PLAN DE TRABAJO QUE SE HACE ESTA A CUALQUIER CAMBIO.
+RESTRICCIONES :
+TRACTOR #1 EN HUANTAJALLA SIN OP. POR MOTIVO DE SALUD.`;
+DB.frentesTrabajo=[{nombre:'R3 - Dique intermedio'},{nombre:'R3 - Dique Auxiliar'},{nombre:'C. Huantajalla'},{nombre:'Mesa de plata'}];
+const P=ev('_ptrDesdeTexto(__txt)');
+es('cabecera: turno, guardia y fecha',P.turno+' · '+P.guardia+' · '+P.fecha,'Día · B · 2026-11-15');
+es('frentes con el nombre del Máster (MEZA DE PLÀTA → Mesa de plata)',[...new Set(P.actividades.map(a=>a.frente))].join(' | '),'R3 - Dique intermedio | R3 - Dique Auxiliar | C. Huantajalla | Mesa de plata');
+es('7 actividades (una por línea)',P.actividades.length,7);
+es('sector al inicio con «;»',P.actividades[0].sector+' · '+P.actividades[0].descripcion.slice(0,11),'Estribo derecho · PREPARACION');
+es('sector en su propia línea vale para la siguiente',P.actividades[1].sector,'Estribo izquierdo');
+es('el sector no pasa al otro frente',P.actividades[2].sector,'');
+es('sector compuesto',P.actividades[3].sector,'Aguas abajo contrafuerte');
+es('equipos reconocidos (retro antes que excavadora)',P.actividades[0].tipos.join(','),'retro,excavadora,personal');
+es('CF = cargador frontal, zaranda',P.actividades[5].tipos.join(','),'cargador,zaranda');
+es('material: (COM), Tipo 2, concreto',[P.actividades[4].material,P.actividades[6].material,P.actividades[0].material].join(','),'COM,Tipo 2,Concreto');
+es('nota (aunque diga «plan de trabajo»)',P.nota,'EL PLAN DE TRABAJO QUE SE HACE ESTA A CUALQUIER CAMBIO.');
+es('restricción: falta de operador',P.restricciones.length+' · '+P.restricciones[0].codigo,'1 · FO');
+ev('_ptr=_ptrNuevo()');confirma=true;
+ev('_ptrPegarUsar(__txt)');
+es('«Armar el plan» llena el formulario',ev('_ptr.fecha+" · "+_ptr.turno+" · "+_ptr.guardia+" · "+_ptr.actividades.length+" · "+_ptr.restricciones.length'),'2026-11-15 · Día · B · 7 · 1');
 es('nombre del archivo',ev('_ptrNombreArchivo(__sem)'),'Plan de Trabajo Semanal 2026-11-09 Día y Noche.pdf');
 
 console.log('\n== Partir del plan anterior ==');
