@@ -108,6 +108,27 @@ ev('_ptrEdHerr("borrar");_ptrEdPunto({x:80.5,y:20.5})');
 es('borrar: quita la marca tocada',ev('_ptr.fotos[0].marcas.map(m=>m.tipo).join(",")'),'zona,flecha');
 ev('_ptrEdHerr("numero");_ptrEdPunto({x:5,y:5});_ptrEdDeshacer()');
 es('deshacer quita la última',ev('_ptr.fotos[0].marcas.length'),2);
+// ✋ Editar: elegir la zona, mover un punto, agregar y quitar puntos, moverla entera
+ev('_ptrEdHerr("editar");_ptrEdPunto({x:22,y:15})');
+es('editar: tocar dentro de la zona la elige',ev('_ptrEd.sel+" · "+_ptr.fotos[0].marcas[0].tipo'),'0 · zona');
+es('  aparecen los puntos, los ＋ y el ✥',(()=>{const h=ev('_ptrEdAsas(_ptr.fotos[0])');return (h.match(/_ptrEdAsaDown\(event,\d\)/g)||[]).length+' puntos · '+(h.match(/_ptrEdMedioDown/g)||[]).length+' ＋ · '+/_ptrEdAsaDown\(event,-1\)/.test(h);})(),'3 puntos · 3 ＋ · true');
+ev('_ptrEdGuardarHist();_ptrEdMoverPunto(1,5,-5,_ptrEdSel().pts.map(p=>({...p})))');
+es('  mover un punto',ev('JSON.stringify(_ptr.fotos[0].marcas[0].pts[1])'),'{"x":35,"y":5}');
+ev('_ptrEdDeshacer()');
+es('  deshacer lo devuelve',ev('JSON.stringify(_ptr.fotos[0].marcas[0].pts[1])'),'{"x":30,"y":10}');
+ev('_ptrEdAgregarPunto(0)');
+es('  ＋ agrega un punto en la mitad del lado',ev('_ptr.fotos[0].marcas[0].pts.length+" · "+JSON.stringify(_ptr.fotos[0].marcas[0].pts[1])'),'4 · {"x":20,"y":10}');
+es('  quitar un punto',ev('_ptrEdQuitarPunto(1)')+' · '+ev('_ptr.fotos[0].marcas[0].pts.length'),'true · 3');
+avisos=[];
+es('  una zona no queda con menos de 3 puntos',ev('_ptrEdQuitarPunto(0)')+' · '+avisos.some(a=>/al menos 3/.test(a)),'false · true');
+ev('_ptrEdMoverPunto(-1,10,10,_ptrEdSel().pts.map(p=>({...p})))');
+es('  ✥ mueve toda la zona',ev('_ptr.fotos[0].marcas[0].pts.map(p=>p.x+","+p.y).join(" ")'),'20,20 40,20 40,40');
+ev('_ptrEdAct(_ptr.actividades[1].uid)');
+es('  tocar otra actividad cambia la de la marca',ev('_ptr.fotos[0].marcas[0].act===_ptr.actividades[1].uid'),true);
+ev('_ptrEdDeshacer();_ptrEdMoverPunto(-1,-10,-10,_ptrEdSel().pts.map(p=>({...p})))');
+es('  y se puede deshacer',ev('_ptr.fotos[0].marcas[0].act===_ptr.actividades[0].uid'),true);
+ev('_ptrEdPunto({x:90,y:90})');
+es('  tocar fuera la suelta',ev('_ptrEd.sel'),null);
 ev('_ptrEdCerrar(true)');
 ev('_ptrMarcar(0);_ptrEdHerr("numero");_ptrEdPunto({x:60,y:80});_ptrEdCerrar(false)');
 es('«Descartar cambios» deja las marcas como estaban',ev('_ptr.fotos[0].marcas.length'),2);
@@ -123,6 +144,13 @@ es('la miniatura muestra las marcas y cuántas son',/Marcar \(2\)/.test(nodos.pt
 ev('_ptrActQuitar(1)');
 es('quitar una actividad borra sus marcas',ev('_ptr.fotos[0].marcas.map(m=>m.tipo).join(",")'),'zona');
 es('  las demás se renumeran solas',ev('_ptr.actividades.map((a,i)=>i+1+":"+a.frente).join(" ")'),'1:R3 - Dique Auxiliar 2:C. Huantajalla');
+
+// 🗺️ Plano general: la imagen aérea del proyecto, primera y sin subirla
+ev('_ptrPlanoGeneral()');
+es('plano general: va primero, con la imagen del proyecto',ev('_ptr.fotos[0].url+" · "+_ptr.fotos[0].asp+" · "+!_ptr.fotos[0].file'),'09.-ERP/Imagenes/R3_2026_IMAGEN.png · 1.649 · true');
+ev('_ptrPlanoGeneral()');
+es('  no se repite',ev('_ptr.fotos.filter(f=>f.general).length'),1);
+ev('_ptr.fotos.shift()');
 
 console.log('\n== Lo que se guarda ==');
 const C=ev('_ptrCopia()');

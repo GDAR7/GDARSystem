@@ -191,6 +191,7 @@ function _ptrPintar(){
     <div class="card" style="margin-bottom:.8rem">
       <div class="card-head"><span class="card-title">📷 Fotos de las zonas de trabajo</span>
         <span style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-out" onclick="_ptrPlanoGeneral()" title="La imagen aérea del proyecto (la misma del Avance de Viajes y el Parte de Turno)">🗺️ Agregar plano general</button>
           <button type="button" class="btn btn-out" onclick="_ptrFotosAnterior()" title="Trae las fotos del último plan guardado, sin subirlas otra vez">↺ Usar las fotos del plan anterior</button>
           <label class="btn btn-a" style="--ba:#10b981;cursor:pointer">＋ Agregar fotos<input type="file" accept="image/*" multiple style="display:none" onchange="_ptrFotosAgregar(this)"></label>
         </span></div>
@@ -409,6 +410,18 @@ function _ptrFotosAnterior(){
   toast(`✓ ${nuevas.length} foto(s) del plan del ${_ptrDMY(prev.fecha)}`);
   _ptrPintarActs();_ptrPintarFotos();
 }
+// La imagen aérea del proyecto como una foto más (no se sube: ya está en el sistema)
+function _ptrPlanoGeneral(){
+  if(!_ptr)return;
+  const url=typeof _PT_MAPA_IMG!=='undefined'?_PT_MAPA_IMG:'09.-ERP/Imagenes/R3_2026_IMAGEN.png';
+  if(_ptr.fotos.some(f=>f.url===url)){toast('El plano general ya está en este plan');return;}
+  if(_ptr.fotos.length>=_PTR_FOTOS_MAX){toast(`Ya hay ${_PTR_FOTOS_MAX} fotos en este plan: es el máximo`,true);return;}
+  const prop=typeof _PT_MAPA_PROP!=='undefined'?_PT_MAPA_PROP:1339/2208;
+  // Va primero: es la vista de conjunto
+  _ptr.fotos.unshift({url,nombre:'Plano general',nota:'Plano general del proyecto',asp:+(1/prop).toFixed(4),marcas:[],general:true});
+  _ptrPintarFotos();
+  toast('✓ Plano general agregado: toque «✏️ Marcar» para dibujar las zonas');
+}
 function _ptrFotoQuitar(k){
   const f=_ptr&&_ptr.fotos[k];if(!f)return;
   if((f.marcas||[]).length&&!confirm(`¿Quitar la foto ${k+1} con sus ${f.marcas.length} marca(s)?`))return;
@@ -542,7 +555,7 @@ function _ptrMarcar(k){
   const f=_ptr&&_ptr.fotos[k];if(!f)return;
   if(!_ptr.actividades.length){toast('Primero agregue al menos una actividad: cada marca es de una actividad',true);return;}
   const prevAct=_ptrEd&&_ptr.actividades.some(a=>a.uid===_ptrEd.act)?_ptrEd.act:_ptr.actividades[0].uid;
-  _ptrEd={k,tool:'zona',act:prevAct,icono:(_ptrEd&&_ptrEd.icono)||_PTR_ICONOS[0].k,pend:[],zoom:0,copia:JSON.parse(JSON.stringify(f.marcas||[]))};
+  _ptrEd={k,tool:'zona',act:prevAct,icono:(_ptrEd&&_ptrEd.icono)||_PTR_ICONOS[0].k,pend:[],zoom:0,sel:null,hist:[],copia:JSON.parse(JSON.stringify(f.marcas||[]))};
   let ov=document.getElementById('ptrEdView');
   if(!ov){ov=document.createElement('div');ov.id='ptrEdView';document.body.appendChild(ov);}
   ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.94);display:flex;flex-direction:column';
@@ -551,13 +564,16 @@ function _ptrMarcar(k){
 }
 function _ptrEdTecla(e){
   if(!_ptrEd)return;
-  if(e.key==='Escape'){if(_ptrEd.pend.length){_ptrEd.pend=[];_ptrEdPintar();}else _ptrEdCerrar(false);}
+  if(e.key==='Escape'){if(_ptrEd.pend.length){_ptrEd.pend=[];_ptrEdPintar();}else if(_ptrEd.sel!=null){_ptrEd.sel=null;_ptrEdPintar();}else _ptrEdCerrar(false);}
+  else if((e.key==='Delete'||e.key==='Supr')&&_ptrEdSel())_ptrEdBorrarSel();
   else if(e.key==='Enter'&&_ptrEd.tool==='zona'&&_ptrEd.pend.length>=3)_ptrEdCerrarZona();
   else if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();_ptrEdDeshacer();}
 }
 function _ptrEdPintar(){
   const ov=document.getElementById('ptrEdView');if(!ov||!_ptrEd||!_ptr)return;
   const f=_ptr.fotos[_ptrEd.k];if(!f)return;
+  const selM=_ptrEdSel();
+  const actVista=selM?selM.act:_ptrEd.act;
   const ia=_ptr.actividades.findIndex(a=>a.uid===_ptrEd.act), col=_ptrColor(Math.max(0,ia));
   const z=_PTR_ZOOMS[_ptrEd.zoom];
   const bt='font-size:.8rem;padding:.5rem .75rem;border-radius:7px;cursor:pointer;font-weight:700;white-space:nowrap;border:1px solid #ffffff25;background:#ffffff10;color:#e2e8f0';
@@ -565,12 +581,14 @@ function _ptrEdPintar(){
   const ayuda={zona:_ptrEd.pend.length>=3?'Siga tocando para agregar puntos · toque el primer punto o «✓ Cerrar zona» para terminar':'Toque los bordes de la zona, punto por punto (3 o más)',
     flecha:_ptrEd.pend.length?'Ahora toque a dónde apunta la flecha':'Toque dónde empieza la flecha',
     numero:'Toque dónde va el número de la actividad',borrar:'Toque una marca para borrarla',
-    icono:`Toque dónde va: <b>${_ptrEsc(_ptrIcono(_ptrEd.icono).n)}</b> (elija otro arriba)`}[_ptrEd.tool];
+    icono:`Toque dónde va: <b>${_ptrEsc(_ptrIcono(_ptrEd.icono).n)}</b> (elija otro arriba)`,
+    editar:selM?'Arrastre los puntos blancos para cambiar la forma · <b>✥</b> mueve toda la marca · <b>＋</b> agrega un punto · clic derecho (o dedo sostenido) en un punto lo quita · toque otra actividad arriba para cambiarla'
+      :'Toque una marca (zona, flecha, número o ícono) para editarla'}[_ptrEd.tool];
   const sc=document.getElementById('ptrEdScroll');const pos=sc?{l:sc.scrollLeft,t:sc.scrollTop}:null;
   ov.innerHTML=`
     <div style="display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-bottom:1px solid #ffffff18;color:#e2e8f0;flex-wrap:wrap">
       <b style="font-size:.9rem;margin-right:.3rem">✏️ Foto ${_ptrEd.k+1}</b>
-      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('icono','🧰 Íconos')}${tool('borrar','🧽 Borrar')}
+      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('icono','🧰 Íconos')}${tool('editar','✋ Editar')}${tool('borrar','🧽 Borrar')}
       <button type="button" onclick="_ptrEdDeshacer()" style="${bt}" title="Ctrl+Z">↶ Deshacer</button>
       <span style="flex:1"></span>
       <button type="button" onclick="_ptrEdZoom(-1)" style="${bt}">−</button><span style="font-size:.75rem;min-width:40px;text-align:center">${z}%</span><button type="button" onclick="_ptrEdZoom(1)" style="${bt}">+</button>
@@ -582,25 +600,138 @@ function _ptrEdPintar(){
     </div>`:''}
     <div style="display:flex;gap:.35rem;padding:.45rem .8rem;border-bottom:1px solid #ffffff18;overflow-x:auto;align-items:center">
       <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap">Actividad:</span>
-      ${_ptr.actividades.map((a,i)=>`<button type="button" onclick="_ptrEdAct('${a.uid}')" title="${_ptrEsc(a.descripcion||'')}" style="${bt};display:flex;align-items:center;gap:.35rem;${a.uid===_ptrEd.act?`border-color:${_ptrColor(i)};background:${_ptrColor(i)}33`:''}"><span style="width:20px;height:20px;border-radius:50%;background:${_ptrColor(i)};color:#fff;font-weight:900;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>${_ptrEsc((a.frente||'Actividad '+(i+1)).slice(0,28))}</button>`).join('')}
+      ${_ptr.actividades.map((a,i)=>`<button type="button" onclick="_ptrEdAct('${a.uid}')" title="${_ptrEsc(a.descripcion||'')}" style="${bt};display:flex;align-items:center;gap:.35rem;${a.uid===actVista?`border-color:${_ptrColor(i)};background:${_ptrColor(i)}33`:''}"><span style="width:20px;height:20px;border-radius:50%;background:${_ptrColor(i)};color:#fff;font-weight:900;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>${_ptrEsc((a.frente||'Actividad '+(i+1)).slice(0,28))}</button>`).join('')}
     </div>
     <div id="ptrEdScroll" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px">
       <div id="ptrEdBox" onclick="_ptrEdToque(event)" style="position:relative;width:${z}%;max-width:${z===100?'1100px':'none'};margin:0 auto;aspect-ratio:${(+f.asp||4/3).toFixed(4)};cursor:crosshair">
         <img src="${_ptrEsc(f.url)}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;pointer-events:none">
-        ${_ptrMarcasHtml(f,_ptr.actividades,{pend:{pts:_ptrEd.pend,col}})}
+        <div id="ptrEdCapa" style="position:absolute;inset:0;pointer-events:none">${_ptrMarcasHtml(f,_ptr.actividades,{pend:{pts:_ptrEd.pend,col}})}</div>
+        <div id="ptrEdAsas">${_ptrEdAsas(f)}</div>
       </div>
     </div>
     <div style="padding:.6rem .8rem;border-top:1px solid #ffffff18;display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;color:#cbd5e1">
       <span style="font-size:.8rem;flex:1;min-width:200px">${ayuda}</span>
       ${_ptrEd.tool==='zona'&&_ptrEd.pend.length>=3?`<button type="button" onclick="_ptrEdCerrarZona()" style="${bt};background:${col};border-color:${col};color:#fff">✓ Cerrar zona</button>`:''}
       ${_ptrEd.pend.length?`<button type="button" onclick="_ptrEdCancelarTrazo()" style="${bt}">Cancelar trazo</button>`:''}
+      ${selM?`<button type="button" onclick="_ptrEdBorrarSel()" style="${bt};border-color:#ef444470;color:#f87171">🗑 Borrar esta marca</button>`:''}
       <button type="button" onclick="_ptrEdCerrar(false)" style="${bt};background:none">Descartar cambios</button>
       <button type="button" onclick="_ptrEdCerrar(true)" style="${bt};border:none;background:#10b981;color:#0b1220">✓ Listo</button>
     </div>`;
   const sc2=document.getElementById('ptrEdScroll');if(sc2&&pos){sc2.scrollLeft=pos.l;sc2.scrollTop=pos.t;}
 }
-function _ptrEdHerr(t){if(!_ptrEd)return;_ptrEd.tool=t;_ptrEd.pend=[];_ptrEdPintar();}
-function _ptrEdAct(uid){if(!_ptrEd)return;_ptrEd.act=uid;_ptrEdPintar();}
+function _ptrEdHerr(t){if(!_ptrEd)return;_ptrEd.tool=t;_ptrEd.pend=[];if(t!=='editar')_ptrEd.sel=null;_ptrEdPintar();}
+function _ptrEdAct(uid){
+  if(!_ptrEd)return;
+  // Con una marca elegida en «Editar», la actividad se le cambia a esa marca
+  const m=_ptrEdSel();
+  if(m&&m.act!==uid){_ptrEdGuardarHist();m.act=uid;}
+  _ptrEd.act=uid;_ptrEdPintar();
+}
+// ── Editar marcas: elegir, arrastrar puntos, mover, agregar y quitar puntos ─
+const _ptrEdFoto=()=>_ptrEd&&_ptr&&_ptr.fotos[_ptrEd.k];
+function _ptrEdSel(){
+  const f=_ptrEdFoto();
+  return f&&_ptrEd.tool==='editar'&&_ptrEd.sel!=null?(f.marcas||[])[_ptrEd.sel]||null:null;
+}
+function _ptrEdGuardarHist(){
+  const f=_ptrEdFoto();if(!f)return;
+  _ptrEd.hist.push(JSON.stringify(f.marcas||[]));
+  if(_ptrEd.hist.length>80)_ptrEd.hist.shift();
+}
+const _ptrLim=v=>+Math.max(0,Math.min(100,v)).toFixed(2);
+// ¿El punto cae dentro de la zona? (en % con la proporción de la foto)
+function _ptrDentro(p,P,asp){
+  let d=false;
+  for(let i=0,j=P.length-1;i<P.length;j=i++){
+    const yi=P[i].y/asp, yj=P[j].y/asp, py=p.y/asp;
+    if(((yi>py)!==(yj>py))&&(p.x<(P[j].x-P[i].x)*(py-yi)/((yj-yi)||1e-9)+P[i].x))d=!d;
+  }
+  return d;
+}
+// La marca más cercana al toque (o la zona que lo contiene)
+function _ptrEdMarcaEn(f,p){
+  const asp=+f.asp||4/3, dist=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/asp);
+  let mejor=-1,dm=5;
+  (f.marcas||[]).forEach((m,i)=>{
+    const cands=[...(m.pts||[]),...(m.tipo==='zona'?[_ptrCentro(m.pts)]:[])];
+    if(m.tipo==='flecha'&&m.pts.length>1)cands.push({x:(m.pts[0].x+m.pts[1].x)/2,y:(m.pts[0].y+m.pts[1].y)/2});
+    cands.forEach(q=>{const d=dist(p,q);if(d<dm){dm=d;mejor=i;}});
+  });
+  if(mejor<0)(f.marcas||[]).forEach((m,i)=>{if(mejor<0&&m.tipo==='zona'&&(m.pts||[]).length>=3&&_ptrDentro(p,m.pts,asp))mejor=i;});
+  return mejor;
+}
+function _ptrEdAsas(f){
+  const m=_ptrEdSel();if(!m)return'';
+  const ia=_ptr.actividades.findIndex(a=>a.uid===m.act), col=_ptrColor(Math.max(0,ia));
+  const pos=p=>`position:absolute;left:${(+p.x).toFixed(2)}%;top:${(+p.y).toFixed(2)}%;transform:translate(-50%,-50%);touch-action:none;pointer-events:auto;z-index:3`;
+  const P=m.pts||[];let h='';
+  // ＋ en la mitad de cada lado de la zona: agrega un punto ahí
+  if(m.tipo==='zona')P.forEach((p,j)=>{const q=P[(j+1)%P.length];
+    h+=`<div onpointerdown="_ptrEdMedioDown(event,${j})" onclick="event.stopPropagation()" title="Agregar un punto aquí" style="${pos({x:(+p.x+ +q.x)/2,y:(+p.y+ +q.y)/2})};width:15px;height:15px;border-radius:50%;background:${col};border:1.5px solid #fff;color:#fff;font:900 11px/12px Arial;text-align:center;cursor:copy;opacity:.85">+</div>`;});
+  // ✥ mueve toda la marca
+  if(P.length>1){const c=m.tipo==='zona'?_ptrCentro(P):{x:(+P[0].x+ +P[1].x)/2,y:(+P[0].y+ +P[1].y)/2};
+    h+=`<div onpointerdown="_ptrEdAsaDown(event,-1)" onclick="event.stopPropagation()" title="Mover toda la marca" style="${pos(c)};width:26px;height:26px;border-radius:50%;background:#0f172acc;border:2px solid #fff;color:#fff;font:900 15px/22px Arial;text-align:center;cursor:move">✥</div>`;}
+  // Los puntos
+  P.forEach((p,j)=>{h+=`<div onpointerdown="_ptrEdAsaDown(event,${j})" oncontextmenu="_ptrEdAsaMenu(event,${j})" onclick="event.stopPropagation()" title="${P.length>1?'Arrastre para mover este punto · clic derecho lo quita':'Arrastre para mover'}" style="${pos(p)};width:17px;height:17px;border-radius:50%;background:#fff;border:3.5px solid ${col};box-shadow:0 0 0 1.5px #000a;cursor:grab"></div>`;});
+  return h;
+}
+// Repinta solo las marcas y los puntos (sin recargar la foto) mientras se arrastra
+function _ptrEdCapa(){
+  const f=_ptrEdFoto();if(!f)return;
+  const c=document.getElementById('ptrEdCapa'), a=document.getElementById('ptrEdAsas');
+  const ia=_ptr.actividades.findIndex(x=>x.uid===_ptrEd.act);
+  if(c)c.innerHTML=_ptrMarcasHtml(f,_ptr.actividades,{pend:{pts:_ptrEd.pend,col:_ptrColor(Math.max(0,ia))}});
+  if(a)a.innerHTML=_ptrEdAsas(f);
+}
+function _ptrEdArrastrar(ev,fn){
+  if(ev.preventDefault)ev.preventDefault();if(ev.stopPropagation)ev.stopPropagation();
+  const box=document.getElementById('ptrEdBox');if(!box)return;
+  const r=box.getBoundingClientRect();if(!r.width||!r.height)return;
+  const x0=ev.clientX, y0=ev.clientY;
+  const mover=e=>{fn((e.clientX-x0)/r.width*100,(e.clientY-y0)/r.height*100);_ptrEdCapa();};
+  const soltar=()=>{document.removeEventListener('pointermove',mover);document.removeEventListener('pointerup',soltar);document.removeEventListener('pointercancel',soltar);_ptrEd.arrastro=Date.now();_ptrEdPintar();};
+  document.addEventListener('pointermove',mover);document.addEventListener('pointerup',soltar);document.addEventListener('pointercancel',soltar);
+}
+// j = punto; -1 = toda la marca
+function _ptrEdMoverPunto(j,dx,dy,o){
+  const m=_ptrEdSel();if(!m)return;
+  if(j<0||m.pts.length===1)m.pts=o.map(p=>({x:_ptrLim(+p.x+dx),y:_ptrLim(+p.y+dy)}));
+  else m.pts[j]={x:_ptrLim(+o[j].x+dx),y:_ptrLim(+o[j].y+dy)};
+}
+function _ptrEdAsaDown(ev,j){
+  const m=_ptrEdSel();if(!m||(ev.button!=null&&ev.button!==0))return;
+  _ptrEdGuardarHist();
+  const o=m.pts.map(p=>({...p}));
+  _ptrEdArrastrar(ev,(dx,dy)=>_ptrEdMoverPunto(j,dx,dy,o));
+}
+function _ptrEdAgregarPunto(j){
+  const m=_ptrEdSel();if(!m||m.tipo!=='zona')return -1;
+  const p=m.pts[j], q=m.pts[(j+1)%m.pts.length];
+  m.pts.splice(j+1,0,{x:_ptrLim((+p.x+ +q.x)/2),y:_ptrLim((+p.y+ +q.y)/2)});
+  return j+1;
+}
+function _ptrEdMedioDown(ev,j){
+  if(!_ptrEdSel()||(ev.button!=null&&ev.button!==0))return;
+  _ptrEdGuardarHist();
+  const n=_ptrEdAgregarPunto(j);if(n<0)return;
+  const o=_ptrEdSel().pts.map(p=>({...p}));
+  _ptrEdCapa();
+  _ptrEdArrastrar(ev,(dx,dy)=>_ptrEdMoverPunto(n,dx,dy,o));
+}
+function _ptrEdQuitarPunto(j){
+  const m=_ptrEdSel();if(!m)return false;
+  if(m.tipo!=='zona'){toast('Ese punto no se puede quitar: use «🗑 Borrar esta marca»',true);return false;}
+  if(m.pts.length<=3){toast('Una zona necesita al menos 3 puntos',true);return false;}
+  _ptrEdGuardarHist();m.pts.splice(j,1);return true;
+}
+function _ptrEdAsaMenu(ev,j){
+  if(ev.preventDefault)ev.preventDefault();if(ev.stopPropagation)ev.stopPropagation();
+  if(_ptrEdQuitarPunto(j))_ptrEdPintar();
+}
+function _ptrEdBorrarSel(){
+  const f=_ptrEdFoto();if(!f||_ptrEd.sel==null)return;
+  _ptrEdGuardarHist();f.marcas.splice(_ptrEd.sel,1);_ptrEd.sel=null;_ptrEdPintar();
+}
 function _ptrEdIcono(k){if(!_ptrEd)return;_ptrEd.icono=k;_ptrEd.tool='icono';_ptrEdPintar();}
 function _ptrEdZoom(d){if(!_ptrEd)return;_ptrEd.zoom=Math.max(0,Math.min(_PTR_ZOOMS.length-1,_ptrEd.zoom+d));_ptrEdPintar();}
 function _ptrEdCancelarTrazo(){if(!_ptrEd)return;_ptrEd.pend=[];_ptrEdPintar();}
@@ -610,11 +741,18 @@ function _ptrEdPunto(p){
   f.marcas=f.marcas||[];
   const asp=+f.asp||4/3, dist=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/asp);   // en % del ancho
   const t=_ptrEd.tool;
-  if(t==='numero'){f.marcas.push({tipo:'numero',act:_ptrEd.act,pts:[p]});}
-  else if(t==='icono'){f.marcas.push({tipo:'icono',icono:_ptrIcono(_ptrEd.icono).k,act:_ptrEd.act,pts:[p]});}
+  _ptrEd.hist=_ptrEd.hist||[];
+  if(t==='editar'){
+    // Un clic que termina un arrastre no cambia la marca elegida
+    if(_ptrEd.arrastro&&Date.now()-_ptrEd.arrastro<350){_ptrEdPintar();return;}
+    const i=_ptrEdMarcaEn(f,p);_ptrEd.sel=i<0?null:i;
+    if(i>=0)_ptrEd.act=f.marcas[i].act;
+  }
+  else if(t==='numero'){_ptrEdGuardarHist();f.marcas.push({tipo:'numero',act:_ptrEd.act,pts:[p]});}
+  else if(t==='icono'){_ptrEdGuardarHist();f.marcas.push({tipo:'icono',icono:_ptrIcono(_ptrEd.icono).k,act:_ptrEd.act,pts:[p]});}
   else if(t==='flecha'){
     if(!_ptrEd.pend.length)_ptrEd.pend=[p];
-    else{f.marcas.push({tipo:'flecha',act:_ptrEd.act,pts:[_ptrEd.pend[0],p]});_ptrEd.pend=[];}
+    else{_ptrEdGuardarHist();f.marcas.push({tipo:'flecha',act:_ptrEd.act,pts:[_ptrEd.pend[0],p]});_ptrEd.pend=[];}
   }
   else if(t==='zona'){
     if(_ptrEd.pend.length>=3&&dist(p,_ptrEd.pend[0])<2.5){_ptrEdCerrarZona();return;}
@@ -626,7 +764,7 @@ function _ptrEdPunto(p){
       const cands=[...(m.pts||[]),...(m.tipo==='zona'?[_ptrCentro(m.pts)]:[])];
       cands.forEach(q=>{const d=dist(p,q);if(d<dm){dm=d;mejor=i;}});
     });
-    if(mejor>=0)f.marcas.splice(mejor,1);
+    if(mejor>=0){_ptrEdGuardarHist();f.marcas.splice(mejor,1);}
   }
   _ptrEdPintar();
 }
@@ -638,12 +776,16 @@ function _ptrEdToque(ev){
 }
 function _ptrEdCerrarZona(){
   const f=_ptrEd&&_ptr&&_ptr.fotos[_ptrEd.k];if(!f||_ptrEd.pend.length<3)return;
+  _ptrEdGuardarHist();
   (f.marcas=f.marcas||[]).push({tipo:'zona',act:_ptrEd.act,pts:_ptrEd.pend.slice()});
   _ptrEd.pend=[];_ptrEdPintar();
 }
+// Deshacer: el último punto del trazo en curso o el último cambio (agregar,
+// borrar, mover puntos, cambiar de actividad)
 function _ptrEdDeshacer(){
   const f=_ptrEd&&_ptr&&_ptr.fotos[_ptrEd.k];if(!f)return;
-  if(_ptrEd.pend.length)_ptrEd.pend.pop();else (f.marcas||[]).pop();
+  if(_ptrEd.pend.length)_ptrEd.pend.pop();
+  else if((_ptrEd.hist||[]).length){f.marcas=JSON.parse(_ptrEd.hist.pop());if(_ptrEd.sel!=null&&!f.marcas[_ptrEd.sel])_ptrEd.sel=null;}
   _ptrEdPintar();
 }
 function _ptrEdCerrar(guardar){
