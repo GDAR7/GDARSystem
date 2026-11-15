@@ -154,6 +154,17 @@ es('  la esquina lo agranda',ev('_ptrEdSel().caja.w'),40);
 const Cd=ev('_ptrCopia()');
 es('  sin subir: se marca local (no se guarda una foto que no está en el servidor)',Cd.fotos[0].marcas.filter(m=>m.tipo==='detalle').map(m=>m.local).join(),'1');
 ev('_ptrEdBorrarSel()');
+// Arrastrar una marca entera (íconos, números, zonas…)
+ev('_ptrEdHerr("icono");_ptrEdIcono("volquete");_ptrEdPunto({x:10,y:80})');
+ctx.__mi=ev('_ptr.fotos[0].marcas[_ptr.fotos[0].marcas.length-1]');
+ev('_ptrEdMoverMarca(__mi,JSON.parse(JSON.stringify({pts:__mi.pts})),15,-5)');
+es('arrastrar un ícono lo mueve entero',JSON.stringify(ctx.__mi.pts),'[{"x":25,"y":75}]');
+const nAntes=ev('_ptr.fotos[0].marcas.length');
+ev('_ptrEd.arrastro=Date.now();_ptrEdPunto({x:25,y:75})');
+es('  soltarlo no pone otro ícono encima',ev('_ptr.fotos[0].marcas.length'),nAntes);
+ev('_ptrEdPunto({x:25,y:75})');
+es('  un toque normal sí pone otro',ev('_ptr.fotos[0].marcas.length'),nAntes+1);
+ev('_ptr.fotos[0].marcas.splice(-2,2)');
 ev('_ptrEdCerrar(true)');
 ev('_ptrMarcar(0);_ptrEdHerr("numero");_ptrEdPunto({x:60,y:80});_ptrEdCerrar(false)');
 es('«Descartar cambios» deja las marcas como estaban',ev('_ptr.fotos[0].marcas.length'),2);
