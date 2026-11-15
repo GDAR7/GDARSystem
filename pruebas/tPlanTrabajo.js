@@ -92,6 +92,18 @@ ev('_ptrEdPunto({x:70,y:60})');
 es('  el segundo la completa, de la actividad 2',ev('_ptr.fotos[0].marcas[1].tipo+" · "+(_ptr.fotos[0].marcas[1].act===_ptr.actividades[1].uid)'),'flecha · true');
 ev('_ptrEdHerr("numero");_ptrEdPunto({x:80,y:20})');
 es('número: un toque',ev('_ptr.fotos[0].marcas[2].tipo'),'numero');
+// Íconos: trompo, carmix, plancha con operador, línea amarilla, volquetes…
+es('paleta de íconos con los de obra y línea amarilla',['trompo','carmix','plancha','excavadora','volquete','rodillo','cargador','motoniveladora','tractor','retro'].every(k=>ev('_PTR_ICONOS').some(i=>i.k===k)),true);
+ev('_ptrEdIcono("carmix");_ptrEdPunto({x:40,y:40})');
+es('ícono: un toque lo pone, con su actividad',ev('const m=_ptr.fotos[0].marcas[3];m.tipo+" · "+m.icono+" · "+(m.act===_ptr.actividades[1].uid)'),'icono · carmix · true');
+const Mi=ev('_ptrMarcasHtml(_ptr.fotos[0],_ptr.actividades,{W:712})');
+es('  se dibuja en un recuadro del color de la actividad, con su número',/border:2\.5px solid #2563eb[^>]*><svg[^>]*viewBox="0 0 48 48"/.test(Mi)&&/>2<\/span><\/div>/.test(Mi),true);
+ev('_ptrEdHerr("borrar");_ptrEdPunto({x:40.5,y:40.5})');
+es('  se borra con 🧽',ev('_ptr.fotos[0].marcas.some(m=>m.tipo==="icono")'),false);
+ev('_ptrEdIcono("volquete");_ptrEdPunto({x:44,y:44});_ptrEdPunto({x:46,y:46})');
+ctx.__fi={marcas:ev('_ptr.fotos[0].marcas.filter(m=>m.tipo==="icono")')};
+es('  la leyenda dice cuántos de cada uno',/Volquete <b>×2<\/b>/.test(ev('_ptrLeyenda(__fi,_ptr.actividades)')),true);
+ev('_ptr.fotos[0].marcas=_ptr.fotos[0].marcas.filter(m=>m.tipo!=="icono")');
 ev('_ptrEdHerr("borrar");_ptrEdPunto({x:80.5,y:20.5})');
 es('borrar: quita la marca tocada',ev('_ptr.fotos[0].marcas.map(m=>m.tipo).join(",")'),'zona,flecha');
 ev('_ptrEdHerr("numero");_ptrEdPunto({x:5,y:5});_ptrEdDeshacer()');

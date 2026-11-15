@@ -350,6 +350,57 @@ function _ptrPintarFotos(){
     :`<div style="text-align:center;color:var(--muted2);font-size:.8rem;padding:1rem">Agregue las fotos aéreas (dron) y marque sobre ellas dónde va cada actividad</div>`;
 }
 
+// ── Íconos de equipos y recursos (dibujados aquí, 48×48) ───────────────────
+// Se ponen sobre la foto con un toque, en un recuadro con el color de la
+// actividad. Ruedas, cabinas y vidrios comparten estilo para que se vean de
+// la misma familia.
+const _ptrRueda=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r||4}" fill="#1f2937"/><circle cx="${x}" cy="${y}" r="${((r||4)*.4).toFixed(1)}" fill="#9ca3af"/>`;
+const _ptrCabina=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/><rect x="${x+w*.45}" y="${y+2}" width="${w*.45}" height="${h*.38}" rx=".8" fill="#bfdbfe" stroke="#1f2937" stroke-width="1"/>`;
+const _PTR_ICONOS=[
+  {k:'trompo',n:'Trompo de concreto',s:`<rect x="3" y="30" width="41" height="4" fill="#4b5563"/>${_ptrCabina(33,18,11,13)}
+    <g transform="rotate(-14 19 22)"><ellipse cx="19" cy="22" rx="14" ry="8.5" fill="#e5e7eb" stroke="#1f2937" stroke-width="1.5"/><path d="M9 16 L13 28 M15 14.5 L19 29.5 M21 14 L25 29.5 M27 15 L30 28" stroke="#9ca3af" stroke-width="1.6"/></g>
+    <path d="M5 25 L1 31" stroke="#1f2937" stroke-width="2" stroke-linecap="round"/>${_ptrRueda(10,36)}${_ptrRueda(20,36)}${_ptrRueda(38,36)}`},
+  {k:'carmix',n:'Carmix (mixer autocargable)',s:`<rect x="5" y="26" width="30" height="8" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>
+    <g transform="rotate(16 17 19)"><ellipse cx="17" cy="19" rx="11" ry="7" fill="#e5e7eb" stroke="#1f2937" stroke-width="1.5"/><path d="M10 14 L13 24 M16 12.5 L18 25.5 M22 13 L23 24.5" stroke="#9ca3af" stroke-width="1.5"/></g>
+    <path d="M28 14 L28 26 M37 14 L37 26 M27 14 L38 14" stroke="#1f2937" stroke-width="1.8"/><rect x="29" y="18" width="7" height="6" fill="#bfdbfe" stroke="#1f2937" stroke-width="1"/>
+    <path d="M35 29 L42 31" stroke="#1f2937" stroke-width="2.2"/><path d="M40 25 L47 25 L47 34 L41 34 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.5"/>${_ptrRueda(12,36,5)}${_ptrRueda(30,36,5)}`},
+  {k:'plancha',n:'Plancha compactadora (con operador)',s:`<rect x="6" y="39" width="22" height="4" rx="1" fill="#374151"/><rect x="8" y="29" width="17" height="10" rx="2" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>
+    <rect x="11" y="31.5" width="8" height="4" rx="1" fill="#1f2937"/><path d="M24 32 L34 22" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="38" cy="10" r="3.6" fill="#f2c9a0" stroke="#1f2937" stroke-width="1"/><path d="M33.6 9 A4.4 4.4 0 0 1 42.4 9 Z" fill="#facc15" stroke="#1f2937" stroke-width="1"/>
+    <path d="M38 14 L38 28" stroke="#f97316" stroke-width="5" stroke-linecap="round"/><path d="M38 18 L34 22" stroke="#f97316" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M38 27 L35 42 M38 27 L42 42" stroke="#1e3a8a" stroke-width="2.6" stroke-linecap="round"/>`},
+  {k:'excavadora',n:'Excavadora',s:`<rect x="3" y="36" width="26" height="7" rx="3.5" fill="#374151"/><rect x="5" y="27" width="22" height="9" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>${_ptrCabina(16,19,10,9)}
+    <path d="M9 28 L21 9 L37 15" fill="none" stroke="#f59e0b" stroke-width="4.5" stroke-linejoin="round"/><path d="M9 28 L21 9 L37 15" fill="none" stroke="#1f2937" stroke-width="1"/>
+    <path d="M37 15 L40 29" stroke="#1f2937" stroke-width="2.5"/><path d="M35 29 L45 29 L42 37 L37 35 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.5"/>`},
+  {k:'volquete',n:'Volquete',s:`<rect x="3" y="31" width="41" height="3" fill="#4b5563"/><path d="M3 17 L31 15 L31 31 L5 31 Z" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>
+    <path d="M8 20 L8 28 M15 19.5 L15 28 M22 19 L22 28" stroke="#b45309" stroke-width="1.2"/>${_ptrCabina(33,19,11,12)}${_ptrRueda(9,37)}${_ptrRueda(19,37)}${_ptrRueda(39,37)}`},
+  {k:'rodillo',n:'Rodillo compactador',s:`<rect x="3" y="24" width="16" height="16" rx="8" fill="#9ca3af" stroke="#1f2937" stroke-width="1.5"/><path d="M5 32 L17 32" stroke="#4b5563" stroke-width="1.2"/>
+    <rect x="18" y="25" width="22" height="9" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/><path d="M25 25 L25 12 M37 25 L37 12 M23 12 L39 12" stroke="#1f2937" stroke-width="1.8"/>${_ptrRueda(36,37,6)}`},
+  {k:'cargador',n:'Cargador frontal',s:`<rect x="16" y="23" width="25" height="11" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>${_ptrCabina(27,11,11,12)}
+    <path d="M11 30 L22 27" stroke="#1f2937" stroke-width="2.6"/><path d="M2 25 L12 25 L12 36 L4 36 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.5"/>${_ptrRueda(21,37,6)}${_ptrRueda(37,37,6)}`},
+  {k:'motoniveladora',n:'Motoniveladora',s:`<path d="M5 26 L34 24" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/><path d="M5 26 L34 24" stroke="#1f2937" stroke-width="1"/>${_ptrCabina(31,13,11,16)}
+    <path d="M13 34 L27 31" stroke="#374151" stroke-width="3" stroke-linecap="round"/><path d="M20 27 L20 32" stroke="#1f2937" stroke-width="1.6"/>${_ptrRueda(7,37,5)}${_ptrRueda(33,38,5)}${_ptrRueda(43,38,5)}`},
+  {k:'tractor',n:'Tractor oruga',s:`<rect x="6" y="34" width="32" height="9" rx="4.5" fill="#374151"/><circle cx="11" cy="38.5" r="2" fill="#9ca3af"/><circle cx="33" cy="38.5" r="2" fill="#9ca3af"/>
+    <rect x="9" y="25" width="25" height="9" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>${_ptrCabina(19,14,11,11)}
+    <path d="M34 29 L40 30" stroke="#1f2937" stroke-width="2.4"/><path d="M40 20 Q45 30 41 42 L38 42 Q41 31 37 21 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.4"/>
+    <path d="M9 31 L3 37 L5 40" fill="none" stroke="#1f2937" stroke-width="2"/>`},
+  {k:'retro',n:'Retroexcavadora',s:`<rect x="12" y="24" width="22" height="10" rx="1.5" fill="#f59e0b" stroke="#1f2937" stroke-width="1.5"/>${_ptrCabina(18,12,11,12)}
+    <path d="M34 28 L42 28" stroke="#1f2937" stroke-width="2.4"/><path d="M40 23 L47 23 L47 33 L41 33 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.4"/>
+    <path d="M12 26 L5 12 L2 22" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linejoin="round"/><path d="M12 26 L5 12 L2 22" fill="none" stroke="#1f2937" stroke-width="1"/>
+    <path d="M0 22 L5 22 L4 28 L1 27 Z" fill="#9ca3af" stroke="#1f2937" stroke-width="1.2"/>${_ptrRueda(17,37,5)}${_ptrRueda(33,37,6)}`},
+  {k:'cisterna',n:'Cisterna de agua',s:`<rect x="3" y="31" width="41" height="3" fill="#4b5563"/><rect x="3" y="16" width="29" height="15" rx="7" fill="#60a5fa" stroke="#1f2937" stroke-width="1.5"/>
+    <path d="M9 23 Q11 19 13 23 Q11 26 9 23 Z" fill="#fff"/>${_ptrCabina(34,19,10,12)}${_ptrRueda(9,37)}${_ptrRueda(19,37)}${_ptrRueda(39,37)}`},
+  {k:'personal',n:'Personal / cuadrilla',s:`<circle cx="24" cy="12" r="5.5" fill="#f2c9a0" stroke="#1f2937" stroke-width="1.2"/><path d="M17.5 10.5 A6.5 6.5 0 0 1 30.5 10.5 L32 11 L16 11 Z" fill="#facc15" stroke="#1f2937" stroke-width="1.2"/>
+    <path d="M15 24 Q24 17 33 24 L32 35 L16 35 Z" fill="#f97316" stroke="#1f2937" stroke-width="1.3"/><path d="M18 27 L30 27" stroke="#e5e7eb" stroke-width="2"/>
+    <path d="M19 35 L18 45 M29 35 L30 45" stroke="#1e3a8a" stroke-width="4" stroke-linecap="round"/>`},
+  {k:'torre',n:'Torre de iluminación',s:`<rect x="13" y="38" width="22" height="4" rx="1" fill="#f59e0b" stroke="#1f2937" stroke-width="1.3"/>${_ptrRueda(17,44,3)}${_ptrRueda(31,44,3)}
+    <path d="M24 38 L24 12" stroke="#374151" stroke-width="2.5"/><rect x="14" y="5" width="20" height="8" rx="1.5" fill="#374151"/>
+    <circle cx="19" cy="9" r="2.4" fill="#fde047"/><circle cx="29" cy="9" r="2.4" fill="#fde047"/><path d="M14 15 L8 22 M34 15 L40 22" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>`},
+  {k:'senal',n:'Señalización / cono',s:`<path d="M24 5 L35 40 L13 40 Z" fill="#f97316" stroke="#1f2937" stroke-width="1.5"/><path d="M19.5 22 L28.5 22 L30 27 L18 27 Z" fill="#fff"/><path d="M16.5 32 L31.5 32 L32.6 35.5 L15.4 35.5 Z" fill="#fff"/><rect x="8" y="40" width="32" height="4" rx="1" fill="#1f2937"/>`}
+];
+const _ptrIcono=k=>_PTR_ICONOS.find(i=>i.k===k)||_PTR_ICONOS[0];
+const _ptrIconoSvg=(k,px)=>`<svg width="${px}" height="${px}" viewBox="0 0 48 48" style="display:block">${_ptrIcono(k).s}</svg>`;
+
 // ── Marcas sobre la foto ───────────────────────────────────────────────────
 // Puntos en % de la foto. Se dibujan en un SVG con la misma proporción de la
 // foto (100 × 100/asp), así un trazo mide lo mismo a lo ancho y a lo alto.
@@ -376,6 +427,11 @@ function _ptrMarcasHtml(f,acts,opc){
       svg+=`<line x1="${n(A.x)}" y1="${n(A.y)}" x2="${n(bx)}" y2="${n(by)}" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><line x1="${n(A.x)}" y1="${n(A.y)}" x2="${n(bx)}" y2="${n(by)}" stroke="${a.col}" stroke-width=".7" stroke-linecap="round"/>
         <polygon points="${cab}" fill="${a.col}" stroke="#fff" stroke-width=".3" stroke-linejoin="round"/>`;
       num(m.pts[0],a);
+    }else if(m.tipo==='icono'){
+      // Recuadro blanco con el ícono, borde del color de la actividad y su número
+      const p=m.pts[0], s=Math.round(tam*2), b=Math.max(14,Math.round(tam*.62));
+      nums+=`<div style="position:absolute;left:${n(+p.x)}%;top:${n(+p.y)}%;transform:translate(-50%,-50%);width:${s}px;height:${s}px;border-radius:7px;background:#fff;border:2.5px solid ${a.col};box-shadow:0 1px 5px rgba(0,0,0,.6);box-sizing:border-box;padding:1px;pointer-events:none">${_ptrIconoSvg(m.icono,s-7)}
+        <span style="position:absolute;right:-${Math.round(b*.45)}px;top:-${Math.round(b*.45)}px;width:${b}px;height:${b}px;border-radius:50%;background:${a.col};border:1.5px solid #fff;color:#fff;font:900 ${Math.round(b*.6)}px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${a.n}</span></div>`;
     }else{
       num(m.pts[0],a);
     }
@@ -393,7 +449,7 @@ function _ptrMarcar(k){
   const f=_ptr&&_ptr.fotos[k];if(!f)return;
   if(!_ptr.actividades.length){toast('Primero agregue al menos una actividad: cada marca es de una actividad',true);return;}
   const prevAct=_ptrEd&&_ptr.actividades.some(a=>a.uid===_ptrEd.act)?_ptrEd.act:_ptr.actividades[0].uid;
-  _ptrEd={k,tool:'zona',act:prevAct,pend:[],zoom:0,copia:JSON.parse(JSON.stringify(f.marcas||[]))};
+  _ptrEd={k,tool:'zona',act:prevAct,icono:(_ptrEd&&_ptrEd.icono)||_PTR_ICONOS[0].k,pend:[],zoom:0,copia:JSON.parse(JSON.stringify(f.marcas||[]))};
   let ov=document.getElementById('ptrEdView');
   if(!ov){ov=document.createElement('div');ov.id='ptrEdView';document.body.appendChild(ov);}
   ov.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(5,8,15,.94);display:flex;flex-direction:column';
@@ -415,16 +471,22 @@ function _ptrEdPintar(){
   const tool=(t,l)=>`<button type="button" onclick="_ptrEdHerr('${t}')" style="${bt};${_ptrEd.tool===t?'background:#f59e0b;border-color:#f59e0b;color:#111':''}">${l}</button>`;
   const ayuda={zona:_ptrEd.pend.length>=3?'Siga tocando para agregar puntos · toque el primer punto o «✓ Cerrar zona» para terminar':'Toque los bordes de la zona, punto por punto (3 o más)',
     flecha:_ptrEd.pend.length?'Ahora toque a dónde apunta la flecha':'Toque dónde empieza la flecha',
-    numero:'Toque dónde va el número de la actividad',borrar:'Toque una marca para borrarla'}[_ptrEd.tool];
+    numero:'Toque dónde va el número de la actividad',borrar:'Toque una marca para borrarla',
+    icono:`Toque dónde va: <b>${_ptrEsc(_ptrIcono(_ptrEd.icono).n)}</b> (elija otro arriba)`}[_ptrEd.tool];
   const sc=document.getElementById('ptrEdScroll');const pos=sc?{l:sc.scrollLeft,t:sc.scrollTop}:null;
   ov.innerHTML=`
     <div style="display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-bottom:1px solid #ffffff18;color:#e2e8f0;flex-wrap:wrap">
       <b style="font-size:.9rem;margin-right:.3rem">✏️ Foto ${_ptrEd.k+1}</b>
-      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('borrar','🧽 Borrar')}
+      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('icono','🧰 Íconos')}${tool('borrar','🧽 Borrar')}
       <button type="button" onclick="_ptrEdDeshacer()" style="${bt}" title="Ctrl+Z">↶ Deshacer</button>
       <span style="flex:1"></span>
       <button type="button" onclick="_ptrEdZoom(-1)" style="${bt}">−</button><span style="font-size:.75rem;min-width:40px;text-align:center">${z}%</span><button type="button" onclick="_ptrEdZoom(1)" style="${bt}">+</button>
     </div>
+    ${_ptrEd.tool==='icono'?`<div style="display:flex;gap:.35rem;padding:.45rem .8rem;border-bottom:1px solid #ffffff18;overflow-x:auto;align-items:center">
+      <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap">Ícono:</span>
+      ${_PTR_ICONOS.map(i=>`<button type="button" onclick="_ptrEdIcono('${i.k}')" title="${_ptrEsc(i.n)}" style="flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:.3rem .4rem;border-radius:8px;cursor:pointer;background:#fff;border:3px solid ${_ptrEd.icono===i.k?'#f59e0b':'transparent'};width:78px">
+        ${_ptrIconoSvg(i.k,38)}<span style="font-size:.58rem;font-weight:700;color:#1f2937;line-height:1.1;text-align:center;white-space:normal">${_ptrEsc(i.n.replace(/ \(.*\)/,''))}</span></button>`).join('')}
+    </div>`:''}
     <div style="display:flex;gap:.35rem;padding:.45rem .8rem;border-bottom:1px solid #ffffff18;overflow-x:auto;align-items:center">
       <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap">Actividad:</span>
       ${_ptr.actividades.map((a,i)=>`<button type="button" onclick="_ptrEdAct('${a.uid}')" title="${_ptrEsc(a.descripcion||'')}" style="${bt};display:flex;align-items:center;gap:.35rem;${a.uid===_ptrEd.act?`border-color:${_ptrColor(i)};background:${_ptrColor(i)}33`:''}"><span style="width:20px;height:20px;border-radius:50%;background:${_ptrColor(i)};color:#fff;font-weight:900;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>${_ptrEsc((a.frente||'Actividad '+(i+1)).slice(0,28))}</button>`).join('')}
@@ -446,6 +508,7 @@ function _ptrEdPintar(){
 }
 function _ptrEdHerr(t){if(!_ptrEd)return;_ptrEd.tool=t;_ptrEd.pend=[];_ptrEdPintar();}
 function _ptrEdAct(uid){if(!_ptrEd)return;_ptrEd.act=uid;_ptrEdPintar();}
+function _ptrEdIcono(k){if(!_ptrEd)return;_ptrEd.icono=k;_ptrEd.tool='icono';_ptrEdPintar();}
 function _ptrEdZoom(d){if(!_ptrEd)return;_ptrEd.zoom=Math.max(0,Math.min(_PTR_ZOOMS.length-1,_ptrEd.zoom+d));_ptrEdPintar();}
 function _ptrEdCancelarTrazo(){if(!_ptrEd)return;_ptrEd.pend=[];_ptrEdPintar();}
 // Un toque en la foto, ya pasado a % (separado para poder probarlo)
@@ -455,6 +518,7 @@ function _ptrEdPunto(p){
   const asp=+f.asp||4/3, dist=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/asp);   // en % del ancho
   const t=_ptrEd.tool;
   if(t==='numero'){f.marcas.push({tipo:'numero',act:_ptrEd.act,pts:[p]});}
+  else if(t==='icono'){f.marcas.push({tipo:'icono',icono:_ptrIcono(_ptrEd.icono).k,act:_ptrEd.act,pts:[p]});}
   else if(t==='flecha'){
     if(!_ptrEd.pend.length)_ptrEd.pend=[p];
     else{f.marcas.push({tipo:'flecha',act:_ptrEd.act,pts:[_ptrEd.pend[0],p]});_ptrEd.pend=[];}
@@ -651,9 +715,12 @@ function _ptrLeyenda(f,acts){
   const usadas=[...new Set((f.marcas||[]).map(m=>m.act))].map(u=>acts.findIndex(a=>a.uid===u)).filter(i=>i>=0).sort((a,b)=>a-b);
   if(!usadas.length)return'';
   return`<table style="width:100%;border-collapse:collapse;margin-top:6px">${usadas.map(i=>{const a=acts[i];
+    // Íconos de esta actividad en la foto: «🚛 Volquete ×3»
+    const cuenta={};(f.marcas||[]).filter(m=>m.tipo==='icono'&&m.act===a.uid).forEach(m=>{cuenta[m.icono]=(cuenta[m.icono]||0)+1;});
+    const iconos=Object.keys(cuenta).map(k=>`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">${_ptrIconoSvg(k,20)}${_ptrEsc(_ptrIcono(k).n)}${cuenta[k]>1?' <b>×'+cuenta[k]+'</b>':''}</span>`).join('');
     return`<tr><td style="width:28px;padding:4px 6px;border:1px solid #d6dbe3;text-align:center">${_ptrChip(i)}</td>
       <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;font-weight:700;width:150px">${_ptrEsc(a.frente||'—')}</td>
-      <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;white-space:pre-wrap">${_ptrEsc(String(a.descripcion||'').slice(0,220))}</td>
+      <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px"><div style="white-space:pre-wrap">${_ptrEsc(String(a.descripcion||'').slice(0,220))}</div>${iconos?`<div style="display:flex;flex-wrap:wrap">${iconos}</div>`:''}</td>
       <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;font-weight:800;text-align:right;white-space:nowrap;width:80px">${_ptrEsc(_ptrMetaTxt(a))}</td></tr>`;}).join('')}</table>`;
 }
 function _ptrDocHtml(r,opc){
