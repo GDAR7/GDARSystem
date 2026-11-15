@@ -217,7 +217,8 @@ function _avjSugerencias(){
 // columna (material · origen → destino) y todas suman al total del corte.
 const _avjClaveRuta=x=>[x.origen||'',x.destino||'',x.material||''].join('|');
 let _avjColSeq=0;
-const _avjColNueva=x=>({id:'c'+(++_avjColSeq),origen:(x&&x.origen)||'',destino:(x&&x.destino)||'',material:(x&&x.material)||''});
+const _avjColNueva=x=>({id:'c'+(++_avjColSeq),origen:(x&&x.origen)||'',destino:(x&&x.destino)||'',material:(x&&x.material)||'',
+  capa:x&&x.capa!=null&&x.capa!==''?String(x.capa):''});
 // Las rutas del último día con partes de volquetes: las columnas de un corte nuevo
 function _avjRutasRecientes(){
   const ids=new Set(_avjVolquetesMaster().map(e=>+e.id));
@@ -259,9 +260,30 @@ function _avjMatriz(r){
     });
   });
   const cols=Object.values(m).sort((a,b)=>a.o-b.o);
+  // Cuántos viajes de cada ruta fueron a capa (el resto, a acopio)
+  cols.forEach(c=>{const d=(r.destinos||[]).find(x=>_avjClaveRuta(x)===c.key);
+    c.capa=d&&d.capa!==''&&d.capa!=null?Math.min(c.tot,Math.max(0,_avjN(d.capa))):null;});
   const cel=(v,k)=>v.noOpera?0:_avjRutasVol(v).filter(x=>_avjClaveRuta(x)===k).reduce((s,x)=>s+_avjN(x.viajes),0);
   return{cols,cel};
 }
+// ── Capa o acopio ──────────────────────────────────────────────────────────
+// Por ruta se indica cuántos viajes fueron A CAPA; el resto va A ACOPIO.
+// Sin indicar (null) no se reparte: se muestra «–».
+const _avjCapaDe=(capa,tot)=>capa===''||capa==null?null:Math.min(tot,Math.max(0,_avjN(capa)));
+function _avjRepartoTot(L){                 // L = [{capa, tot}]
+  let capa=0,acopio=0,sin=0;
+  L.forEach(x=>{if(!x.tot)return;const k=_avjCapaDe(x.capa,x.tot);if(k==null)sin+=x.tot;else{capa+=k;acopio+=x.tot-k;}});
+  return{capa,acopio,sin,hay:L.some(x=>x.tot&&_avjCapaDe(x.capa,x.tot)!=null)};
+}
+// ── Avance (a medio turno) o Reporte (al cierre del turno) ─────────────────
+const _AVJ_TIPOS=['Avance','Reporte'];
+// Se sugiere Reporte cuando el corte es a la hora de cierre del turno
+function _avjTipoSugerido(turno,hora){
+  const m=_avjMin(hora);if(m==null)return'Avance';
+  if(turno==='Noche')return m>=6*60&&m<=12*60?'Reporte':'Avance';
+  return m>=18*60?'Reporte':'Avance';
+}
+const _avjTipoDe=r=>_AVJ_TIPOS.includes(r&&r.tipo)?r.tipo:'Avance';
 function _avjPlaca(v){
   const e=(DB.equipos||[]).find(x=>+x.id===+v.eqId);
   return String((e&&e.placa)||v.placa||'').trim();
@@ -317,6 +339,7 @@ function _avjPorRuta(r){
 // ── Carga de la tabla ──────────────────────────────────────────────────────
 function _avjDeFila(f){
   return{id:f.id,fecha:String(f.fecha||'').slice(0,10),turno:f.turno,horaCorte:f.hora_corte,meta:+f.meta||0,
+    tipo:_AVJ_TIPOS.includes(f.tipo)?f.tipo:'Avance',destinos:f.destinos||[],
     volquetes:f.volquetes||[],restricciones:f.restricciones||[],observaciones:f.observaciones||'',
     autor:f.autor||'',creadoEn:f.creado_en,actualizadoEn:f.actualizado_en};
 }
@@ -345,6 +368,7 @@ function _avjNuevo(fecha,turno){
   const cols=_avjRutasRecientes().map(_avjColNueva);
   if(!cols.length)cols.push(_avjColNueva());
   return{id:null,fecha:fecha||_avjHoyISO(),turno,horaCorte:_AVJ_TURNOS[turno].corte,meta,cols,
+    tipo:_avjTipoSugerido(turno,_AVJ_TURNOS[turno].corte),tipoManual:false,
     volquetes:_avjVolquetesMaster().map(e=>({eqId:+e.id,codigo:e.codigo,operador:_avjUltimoOperador(e.id),
       c:{},noOpera:false,motivo:''})),
     restricciones:[],observaciones:''};
@@ -397,6 +421,9 @@ function _avjPintar(){
       <label class="avj-f">Fecha<input type="date" value="${_avjEsc(_avj.fecha)}" onchange="_avjSet('fecha',this.value)" style="color-scheme:dark"></label>
       <div class="avj-f">Turno<div class="avj-seg">
         ${['Día','Noche'].map(t=>`<button type="button" class="${_avj.turno===t?'on':''}" onclick="_avjSet('turno','${t}')">${t==='Día'?'☀️':'🌙'} ${t}</button>`).join('')}
+      </div></div>
+      <div class="avj-f">Tipo<div class="avj-seg">
+        ${_AVJ_TIPOS.map(t=>`<button type="button" class="${_avjTipoDe(_avj)===t?'on':''}" onclick="_avjSet('tipo','${t}')" title="${t==='Avance'?'Corte a medio turno':'Cierre del turno'}">${t==='Avance'?'⏱️':'🏁'} ${t}</button>`).join('')}
       </div></div>
       <label class="avj-f">Hora del corte<input type="time" value="${_avjEsc(_avj.horaCorte)}" onchange="_avjSet('horaCorte',this.value)" style="color-scheme:dark"></label>
       <label class="avj-f" title="Viajes que se esperan de cada volquete en el turno completo. 0 = sin meta">Meta por volquete / turno<input type="number" min="0" step="1" value="${_avj.meta||''}" placeholder="sin meta" oninput="_avjSet('meta',this.value,1)"></label>
@@ -479,7 +506,38 @@ function _avjPintarVol(){
     ${filas?`<tfoot><tr class="avj-tot"><td style="white-space:nowrap">TOTAL VIAJES</td>
       ${C.map((c,j)=>`<td id="avjCT${j}" class="mono" style="text-align:center">${_avjTotCol(c)||'–'}</td>`).join('')}
       <td id="avjTT" class="mono tr" style="color:#f59e0b;font-size:1rem">${tot}</td><td class="mono tr">${tot?'100%':'–'}</td><td></td><td></td>
-      ${hayFin?`<td class="mono tr" style="color:#10b981">${totFin}</td>`:''}</tr></tfoot>`:''}</table>`;
+      ${hayFin?`<td class="mono tr" style="color:#10b981">${totFin}</td>`:''}</tr>
+      <tr class="avj-capa"><td style="white-space:nowrap" title="Cuántos viajes de cada ruta fueron directo a la capa · el resto va a acopio">⬆ A CAPA</td>
+        ${C.map((c,j)=>`<td style="text-align:center"><div style="display:flex;gap:.2rem;justify-content:center;align-items:center">
+          <input class="avj-in avj-cel" id="avjCC${j}" type="number" min="0" step="1" inputmode="numeric" value="${_avjEsc(c.capa)}" placeholder="·" oninput="_avjCapa(${j},this.value)" title="Viajes a capa (el resto, a acopio)">
+          <button type="button" class="avj-mini" onclick="_avjCapaTodo(${j},1)" title="Todo a capa">C</button><button type="button" class="avj-mini" onclick="_avjCapaTodo(${j},0)" title="Todo a acopio">A</button></div></td>`).join('')}
+        <td id="avjCCT" class="mono tr" style="color:#10b981">–</td><td></td><td></td><td></td>${hayFin?'<td></td>':''}</tr>
+      <tr class="avj-capa"><td style="white-space:nowrap" title="Viajes que fueron al área de acopio">⬇ A ACOPIO</td>
+        ${C.map((c,j)=>`<td id="avjCA${j}" class="mono" style="text-align:center;color:#a78bfa">–</td>`).join('')}
+        <td id="avjCAT" class="mono tr" style="color:#a78bfa">–</td><td></td><td></td><td></td>${hayFin?'<td></td>':''}</tr></tfoot>`:''}</table>`;
+  _avjRepartoVivo();
+}
+// Capa / acopio: al escribir solo se actualizan los números (no se pierde el cursor)
+function _avjRepartoVivo(){
+  if(!_avj)return;
+  const $=id=>document.getElementById(id);
+  const L=(_avj.cols||[]).map(c=>({capa:c.capa,tot:_avjTotCol(c)}));
+  L.forEach((x,j)=>{const k=_avjCapaDe(x.capa,x.tot), e=$('avjCA'+j);if(e)e.textContent=k==null||!x.tot?'–':(x.tot-k)||'0';});
+  const R=_avjRepartoTot(L);
+  const a=$('avjCCT'), b=$('avjCAT');
+  if(a)a.textContent=R.hay?R.capa:'–';
+  if(b)b.textContent=R.hay?R.acopio:'–';
+}
+function _avjCapa(j,val){
+  const c=_avj&&_avj.cols[j];if(!c)return;
+  c.capa=String(val).trim()===''?'':String(Math.max(0,Math.round(_avjN(val))));
+  _avjRepartoVivo();
+}
+function _avjCapaTodo(j,todo){
+  const c=_avj&&_avj.cols[j];if(!c)return;
+  c.capa=String(todo?_avjTotCol(c):0);
+  const e=document.getElementById('avjCC'+j);if(e)e.value=c.capa;
+  _avjRepartoVivo();
 }
 const _avjPct=(t,tot)=>t&&tot?(t/tot*100).toFixed(1).replace('.',',')+'%':'–';
 const _avjTotCol=c=>(_avj?_avj.volquetes:[]).reduce((s,v)=>s+(v.noOpera?0:_avjN((v.c||{})[c.id])),0);
@@ -496,6 +554,7 @@ function _avjTotalesVivos(){
   });
   (_avj.cols||[]).forEach((c,j)=>{const e=$('avjCT'+j);if(e)e.textContent=_avjTotCol(c)||'–';});
   const tt=$('avjTT');if(tt)tt.textContent=tot;
+  _avjRepartoVivo();
 }
 function _avjCel(i,j,val){
   const v=_avj&&_avj.volquetes[i], c=_avj&&_avj.cols[j];if(!v||!c)return;
@@ -572,8 +631,14 @@ function _avjSet(campo,v,soloDato){
     if(_avj.horaCorte===_AVJ_TURNOS[_avj.turno].corte)_avj.horaCorte=_AVJ_TURNOS[v].corte;
   }
   _avj[campo]=v;
+  // Avance / Reporte: si nadie lo eligió a mano, sigue la hora del corte
+  if(campo==='tipo')_avj.tipoManual=true;
+  else if((campo==='turno'||campo==='horaCorte')&&!_avj.tipoManual){
+    const t=_avjTipoSugerido(_avj.turno,_avj.horaCorte);
+    if(t!==_avj.tipo){_avj.tipo=t;if(!soloDato){_avjPintar();return;}}
+  }
   if(soloDato)return;
-  if(campo==='fecha'||campo==='turno')_avjPintar();
+  if(campo==='fecha'||campo==='turno'||campo==='tipo')_avjPintar();
   else _avjPintarKpis();
 }
 function _avjVol(i,campo,v){
@@ -737,7 +802,10 @@ function _avjMapaCerrar(){
 // Lo que se guarda y lo que dibuja el PDF (sin los archivos locales)
 function _avjCopia(){
   const r=_avj;
-  return{id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:_avjN(r.meta),
+  return{id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:_avjN(r.meta),tipo:_avjTipoDe(r),
+    // Capa / acopio por ruta (solo las que tienen viajes y reparto indicado)
+    destinos:(r.cols||[]).map(c=>{const tot=_avjTotCol(c), k=_avjCapaDe(c.capa,tot);
+      return tot&&k!=null?{origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),material:String(c.material||'').trim(),capa:k}:null;}).filter(Boolean),
     volquetes:r.volquetes.map(v=>{
       const rutas=v.noOpera?[]:(r.cols||[]).map((c,o)=>({origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),
         material:String(c.material||'').trim(),viajes:_avjN((v.c||{})[c.id]),o})).filter(x=>x.viajes>0);
@@ -778,8 +846,15 @@ async function _avjGuardar(){
     const ahora=new Date().toISOString();
     const fila={id,fecha:r.fecha,turno:r.turno,hora_corte:r.horaCorte,meta:r.meta,volquetes:r.volquetes,
       restricciones:r.restricciones,observaciones:r.observaciones||null,autor:r.autor,
+      tipo:r.tipo,destinos:r.destinos,
       creado_en:igual&&igual.creadoEn||_avj.creadoEn||ahora,actualizado_en:ahora};
-    const{error}=await supa.from(_AVJ_TABLA).upsert(fila);
+    let{error}=await supa.from(_AVJ_TABLA).upsert(fila);
+    // Tabla sin las columnas nuevas (falta el SQL): se guarda igual, sin ellas
+    if(error&&/tipo|destinos/.test(String(error.message||''))){
+      delete fila.tipo;delete fila.destinos;
+      ({error}=await supa.from(_AVJ_TABLA).upsert(fila));
+      if(!error)toast('Se guardó sin Avance/Reporte ni capa/acopio: falta ejecutar de nuevo sql/avance_viajes.sql',true);
+    }
     if(error){toast('No se pudo guardar el corte: '+error.message,true);return;}
     const rec=_avjDeFila(fila);
     DB.avanceViajes=(DB.avanceViajes||[]).filter(x=>x.id!==id);
@@ -803,7 +878,7 @@ function _avjPintarHist(){
     const c=_avjCalc(r);
     return`<tr>
       <td class="mono">${_avjDMY(r.fecha)}</td><td>${r.turno==='Noche'?'🌙':'☀️'} ${_avjEsc(r.turno)}</td>
-      <td class="mono">${_avjEsc(r.horaCorte)}</td>
+      <td class="mono">${_avjEsc(r.horaCorte)} <span style="font-size:.66rem;font-weight:800;padding:.05rem .35rem;border-radius:4px;${_avjTipoDe(r)==='Reporte'?'background:rgba(16,185,129,.15);color:#10b981':'background:rgba(245,158,11,.15);color:#f59e0b'}">${_avjTipoDe(r)}</span></td>
       <td class="tr mono" style="color:#f59e0b;font-weight:800">${c.viajes}</td>
       <td class="tr mono">${c.conViajes} de ${c.total}</td>
       <td class="tr mono">${c.proy!=null?c.proy:'—'}</td>
@@ -829,7 +904,7 @@ function _avjEditar(id){
   // Los volquetes del corte, más los del Máster que se hayan sumado después
   // Las rutas guardadas vuelven a ser columnas
   const M=_avjMatriz(r);
-  const cols=M.cols.map(c=>({..._avjColNueva(c),key:c.key}));
+  const cols=M.cols.map(c=>({..._avjColNueva(c),key:c.key}));   // trae también su reparto capa/acopio
   const vol=(r.volquetes||[]).map(v=>{
     const c={};
     if(!v.noOpera)cols.forEach(col=>{const n=M.cel(v,col.key);if(n)c[col.id]=String(n);});
@@ -839,6 +914,7 @@ function _avjEditar(id){
   if(!cols.length)cols.push(_avjColNueva());
   _avjVolquetesMaster().forEach(e=>{if(!vol.some(v=>+v.eqId===+e.id))vol.push({eqId:+e.id,codigo:e.codigo,operador:'',c:{},noOpera:false,motivo:''});});
   _avj={id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:r.meta,cols,volquetes:vol,
+    tipo:_avjTipoDe(r),tipoManual:true,
     restricciones:(r.restricciones||[]).map(x=>({...x,eqIds:[...(x.eqIds||[])],fotos:[...(x.fotos||[])],_nuevas:[]})),
     observaciones:r.observaciones||'',autor:r.autor,creadoEn:r.creadoEn};
   _avjPintar();
@@ -1282,7 +1358,7 @@ function _avjDocHtml(r,opc){
         <th rowspan="2" style="${MTH}">Volquete</th>
         ${conOp?`<th rowspan="2" style="${MTH}">Operador</th>`:''}
         ${C.map(col=>`<th style="${MTH};font-size:${fs+1}px;border-bottom:1px solid #ffffff40">${col.vacia?'Viajes':_avjEsc(col.material||'—')}</th>`).join('')}
-        <th rowspan="2" style="${MTH};font-size:${fs+1}px">Total</th><th rowspan="2" style="${MTH}">%</th>
+        <th rowspan="2" style="${MTH};font-size:${fs}px;white-space:nowrap;padding-left:1px;padding-right:1px">Total</th><th rowspan="2" style="${MTH}">%</th>
         ${hayFin?`<th rowspan="2" style="${MTH}">Parte final</th>`:''}
       </tr>
       <tr>${C.map(col=>`<th style="${MTH};font-weight:600">${col.vacia?'':`${_avjEsc(col.origen||'—')}<br>→ ${_avjEsc(col.destino||'—')}`}</th>`).join('')}</tr>
@@ -1293,6 +1369,18 @@ function _avjDocHtml(r,opc){
         <td style="${MTH};font-size:${fs+3}px">${c.viajes}</td><td style="${MTH}">${c.viajes?'100%':'–'}</td>
         ${hayFin?`<td style="${MTH}">${totFin}</td>`:''}
       </tr>
+      ${(()=>{
+        // Capa / acopio: solo si se indicó en alguna ruta
+        const Rp=_avjRepartoTot(C.map(col=>({capa:col.capa,tot:col.tot})));if(!Rp.hay)return'';
+        const fila=(lbl,col,bg,f)=>`<tr>
+          <td colspan="${conOp?2:1}" style="${MTD};background:${bg};color:${col};font-weight:900;text-align:left;white-space:nowrap">${lbl}</td>
+          ${C.map(x=>{const k=_avjCapaDe(x.capa,x.tot);return`<td style="${MTD};background:${bg};text-align:center;font-weight:800;color:${col}">${!x.tot||k==null?'–':f(k,x.tot)}</td>`;}).join('')}
+          <td style="${MTD};background:${bg};text-align:center;font-weight:900;color:${col};font-size:${fs+1}px">${lbl.includes('CAPA')?Rp.capa:Rp.acopio}</td>
+          <td style="${MTD};background:${bg};text-align:center;color:#334155">${c.viajes?((lbl.includes('CAPA')?Rp.capa:Rp.acopio)/c.viajes*100).toFixed(1)+'%':'–'}</td>
+          ${hayFin?`<td style="${MTD};background:${bg}"></td>`:''}</tr>`;
+        return fila('⬆ A CAPA','#15803d','#ecfdf3',(k)=>k)+fila('⬇ A ACOPIO','#6d28d9','#f5f3ff',(k,t)=>t-k)
+          +(Rp.sin?`<tr><td colspan="${nC+3+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};font-size:${fs-1}px;color:#64748b;text-align:left">${Rp.sin} viaje(s) sin indicar si fueron a capa o a acopio</td></tr>`:'');
+      })()}
     </table>`;
   const R=r.restricciones||[];
   const codDe=id=>{const v=vol.find(x=>+x.eqId===+id);return v?v.codigo:String(id);};
@@ -1313,7 +1401,7 @@ function _avjDocHtml(r,opc){
   return`<div style="width:794px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid ${AZ};padding-bottom:10px">
       <div>
-        <div style="font-size:24px;font-weight:900;color:${AZ};letter-spacing:.02em">AVANCE DE VIAJES</div>
+        <div style="font-size:24px;font-weight:900;color:${AZ};letter-spacing:.02em">${_avjTipoDe(r).toUpperCase()} DE VIAJES</div>
         <div style="font-size:13px;color:#334155;margin-top:3px"><span style="text-transform:capitalize">${_avjEsc(_avjFechaLarga(r.fecha))}</span> · corte a las <b>${_avjEsc(r.horaCorte)}</b></div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
@@ -1357,7 +1445,7 @@ function _avjVerDoc(r,borrador){
   const bt='font-size:.85rem;padding:.6rem 1rem;border-radius:8px;cursor:pointer;font-weight:800;white-space:nowrap';
   ov.innerHTML=`
     <div style="display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;flex-wrap:wrap">
-      <b style="flex:1;color:#e2e8f0;font-size:.9rem">📄 Avance de viajes${borrador?' · vista previa (sin guardar)':''}</b>
+      <b style="flex:1;color:#e2e8f0;font-size:.9rem">📄 ${_avjTipoDe(r)} de viajes${borrador?' · vista previa (sin guardar)':''}</b>
       <span id="avjLupaTools" style="display:none;align-items:center;gap:.4rem;color:#94a3b8;font-size:.72rem">✥ El detalle del plano se puede arrastrar
         <button type="button" onclick="_avjLupaReset()" style="font-size:.72rem;padding:.3rem .55rem;border-radius:6px;cursor:pointer;background:none;border:1px solid #ffffff30;color:#e2e8f0;font-weight:700" title="Vuelve a poner el detalle en el lugar que eligió el sistema">↺ Ubicación automática</button></span>
       <button type="button" id="avjBtnDesc" onclick="_avjDescargarPdf()" style="${bt};border:none;background:#3b82f6;color:#fff" title="Guarda el PDF en Descargas">⬇ Descargar PDF</button>
@@ -1394,7 +1482,7 @@ function _avjLupaReset(){_avjLupaMov={};_avjRepintarDoc();}
 function _avjCerrarDoc(){const ov=document.getElementById('avjDocView');if(ov){ov.innerHTML='';ov.style.display='none';}_avjDoc=null;}
 function _avjNombreArchivo(r){
   const quien=String(r.autor||'').replace(/[\\/:*?"<>|]+/g,'').trim().slice(0,40);
-  return 'Avance de Viajes '+String(r.fecha||'')+' '+String(r.turno||'')+' '+String(r.horaCorte||'').replace(':','h')+(quien?' - '+quien:'')+'.pdf';
+  return _avjTipoDe(r)+' de Viajes '+String(r.fecha||'')+' '+String(r.turno||'')+' '+String(r.horaCorte||'').replace(':','h')+(quien?' - '+quien:'')+'.pdf';
 }
 // El PDF se arma igual que el del Parte de Turno: la hoja se dibuja fuera de la
 // pantalla a 794 px y se pasa a A4; las fotos van en hojas propias.
@@ -1481,8 +1569,8 @@ async function _avjCompartirPdf(){
     const nombre=_avjNombreArchivo(r);
     const archivo=new File([blob],nombre,{type:'application/pdf'});
     if(navigator.canShare&&navigator.canShare({files:[archivo]})){
-      try{await navigator.share({files:[archivo],title:'Avance de viajes',
-        text:`Avance de viajes · ${_avjFechaLarga(r.fecha)} · turno ${r.turno} · corte ${r.horaCorte}`});}
+      try{await navigator.share({files:[archivo],title:_avjTipoDe(r)+' de viajes',
+        text:`${_avjTipoDe(r)} de viajes · ${_avjFechaLarga(r.fecha)} · turno ${r.turno} · corte ${r.horaCorte}`});}
       catch(e){if(e&&e.name!=='AbortError')throw e;}
     }else{
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;
@@ -1521,6 +1609,9 @@ function _avjEstilos(){
   .avj-x{background:none;border:1px solid var(--border);color:var(--muted2);border-radius:5px;width:22px;height:22px;flex:none;cursor:pointer;font-size:.65rem}
   .avj-x:hover{color:#f87171;border-color:#ef4444}
   .avj-cel{width:64px;min-width:64px;text-align:center}
+  .avj-mx tfoot tr.avj-capa td{font-weight:700;border-top:1px solid var(--border);background:rgba(16,185,129,.05);padding:.35rem .5rem;font-size:.76rem}
+  .avj-mini{background:none;border:1px solid var(--border);color:var(--muted2);border-radius:4px;width:20px;height:22px;padding:0;font-size:.62rem;font-weight:800;cursor:pointer;flex:none}
+  .avj-mini:hover{color:#10b981;border-color:#10b981}
   .avj-mx tfoot td{font-weight:900;border-top:2px solid #3b82f6;background:rgba(59,130,246,.1);padding:.55rem .6rem;font-size:.82rem}
   .avj-res{border:1px solid #ef444455;border-radius:9px;padding:.75rem;background:var(--panel2);display:flex;flex-direction:column;gap:.6rem;margin-bottom:.7rem}
   .avj-res-head{display:flex;justify-content:space-between;align-items:center;color:#f87171;font-size:.8rem}

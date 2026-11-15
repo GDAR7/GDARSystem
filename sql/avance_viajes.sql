@@ -38,6 +38,15 @@ create table if not exists public.avance_viajes (
 );
 create index if not exists avance_viajes_fecha on public.avance_viajes (fecha desc, turno);
 
+-- ── Versión 2: Avance / Reporte y viajes a capa o a acopio ─────────────────
+-- Si la tabla ya existe, aquí se agregan las columnas nuevas sin tocar los
+-- cortes guardados (los anteriores quedan como «Avance» y sin reparto).
+--   · tipo     : 'Avance' (a medio turno) o 'Reporte' (al cierre del turno).
+--   · destinos : [{origen, destino, material, capa}] por ruta: cuántos viajes
+--                fueron a capa; el resto de esa ruta fue a acopio.
+alter table public.avance_viajes add column if not exists tipo     text not null default 'Avance';
+alter table public.avance_viajes add column if not exists destinos jsonb not null default '[]'::jsonb;
+
 -- ── Seguridad ──────────────────────────────────────────────────────────────
 alter table public.avance_viajes enable row level security;
 drop policy if exists gdar_autenticado on public.avance_viajes;

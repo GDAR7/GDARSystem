@@ -281,6 +281,61 @@ console.log('\n== Detalle (lupa) de rutas cortas ==');
   es('hoja más alta que A4: se achica sin deformarse',/w2=h2>H\?W\*H\/h2:W/.test(srcA),true);
 }
 
+console.log('\n== Avance / Reporte y capa / acopio ==');
+{
+  const ev=s=>vm.runInContext(s,ctx);
+  es('Día 12:00 → Avance',ev('_avjTipoSugerido("Día","12:00")'),'Avance');
+  es('Día 19:00 → Reporte (cierre)',ev('_avjTipoSugerido("Día","19:00")'),'Reporte');
+  es('Noche 00:00 → Avance',ev('_avjTipoSugerido("Noche","00:00")'),'Avance');
+  es('Noche 07:00 → Reporte (cierre)',ev('_avjTipoSugerido("Noche","07:00")'),'Reporte');
+  ev('_avj=_avjNuevo("2026-11-15","Día")');
+  es('corte nuevo: Avance',ev('_avj.tipo'),'Avance');
+  ev('_avjSet("horaCorte","19:00")');
+  es('al poner la hora de cierre se sugiere Reporte',ev('_avj.tipo'),'Reporte');
+  ev('_avjSet("tipo","Avance");_avjSet("horaCorte","19:30")');
+  es('elegido a mano, ya no cambia solo',ev('_avj.tipo'),'Avance');
+  // Una ruta con 60 viajes: 20 a capa y 40 a acopio
+  ev('_avj.cols=[_avjColNueva({origen:"C. Huantajalla",destino:"R3 - Dique Auxiliar",material:"COM"}),_avjColNueva({origen:"A",destino:"B",material:"RCZ"})]');
+  ev('_avj.volquetes=_avj.volquetes.slice(0,2);_avj.volquetes.forEach(v=>{v.noOpera=false;v.c={};});');
+  ev('_avj.volquetes[0].c[_avj.cols[0].id]="35";_avj.volquetes[1].c[_avj.cols[0].id]="25";_avj.volquetes[1].c[_avj.cols[1].id]="10"');
+  ev('_avjCapa(0,"20")');
+  es('a capa 20 de 60 → acopio 40',ev('JSON.stringify(_avjRepartoTot(_avj.cols.map(c=>({capa:c.capa,tot:_avjTotCol(c)}))))'),'{"capa":20,"acopio":40,"sin":10,"hay":true}');
+  ev('_avjCapaTodo(1,0)');
+  es('«A» = todo a acopio',ev('_avj.cols[1].capa'),'0');
+  ev('_avjCapa(0,"99")');
+  es('más que el total: se toma el total',ev('_avjCapaDe(_avj.cols[0].capa,60)'),60);
+  ev('_avjCapa(0,"20")');
+  const Cp=ev('_avjCopia()');
+  es('se guarda el reparto por ruta',JSON.stringify(Cp.destinos),'[{"origen":"C. Huantajalla","destino":"R3 - Dique Auxiliar","material":"COM","capa":20},{"origen":"A","destino":"B","material":"RCZ","capa":0}]');
+  es('y el tipo',Cp.tipo,'Avance');
+  ctx.__cp=Cp;
+  const M=ev('_avjMatriz(__cp).cols.map(c=>c.tot+":"+c.capa).join(" ")');
+  es('al leerlo, cada ruta trae su reparto',M,'60:20 10:0');
+  const D=ev('_avjDocHtml(__cp)');
+  es('PDF: filas A CAPA y A ACOPIO bajo el total',/⬆ A CAPA/.test(D)&&/⬇ A ACOPIO/.test(D),true);
+  es('  totales: 20 a capa y 50 a acopio',/⬆ A CAPA[\s\S]*?>20<\/td>[\s\S]*?>0<\/td>[\s\S]*?>20<\/td>/.test(D)&&/⬇ A ACOPIO[\s\S]*?>40<\/td>[\s\S]*?>10<\/td>[\s\S]*?>50<\/td>/.test(D),true);
+  es('  título AVANCE DE VIAJES',/>AVANCE DE VIAJES</.test(D),true);
+  ctx.__cp.tipo='Reporte';
+  es('  con Reporte: REPORTE DE VIAJES',/>REPORTE DE VIAJES</.test(ev('_avjDocHtml(__cp)')),true);
+  es('  y el archivo se llama Reporte',/^Reporte de Viajes 2026-11-15/.test(ev('_avjNombreArchivo(__cp)')),true);
+  ctx.__cp.destinos=[];
+  es('sin reparto indicado no salen las filas',/A CAPA/.test(ev('_avjDocHtml(__cp)')),false);
+  // Editar un corte guardado: vuelve el reparto y el tipo
+  DB.avanceViajes=[{...ev('_avjCopia()'),id:777,tipo:'Reporte'}];
+  ev('_avjEditar(777)');
+  es('al editar vuelven el tipo y el reparto',ev('_avj.tipo+" · "+_avj.cols.map(c=>c.capa).join(",")'),'Reporte · 20,0');
+  // Sin el SQL nuevo: se guarda igual, sin las columnas nuevas
+  const filasAntes=filas.length;
+  const supaViejo=ctx.supa;
+  ctx.supa={...supaViejo,from:t=>t==='avance_motivos'?supaViejo.from(t):({...supaViejo.from(t),
+    upsert:async f=>('tipo' in f||'destinos' in f)?{error:{message:"Could not find the 'destinos' column of 'avance_viajes'"}}:supaViejo.from(t).upsert(f)})};
+  vm.runInContext('supa=globalThis.supa',ctx);
+  avisos.length=0;
+  await ev('_avjGuardar()');
+  es('sin el SQL nuevo: guarda igual y avisa',filas.length>=filasAntes&&avisos.some(a=>/avance_viajes\.sql/.test(a)),true);
+  ctx.supa=supaViejo;vm.runInContext('supa=globalThis.supa',ctx);
+}
+
 console.log('\n== Conexión ==');
 const I=fs.readFileSync(R+'index.html','utf8'),U=fs.readFileSync(R+'js/utils.js','utf8'),C=fs.readFileSync(R+'js/config.js','utf8');
 es('página y script en index.html',/id="page-avanceViajes"/.test(I)&&/js\/avanceViajes\.js\?v=\d+/.test(I),true);
