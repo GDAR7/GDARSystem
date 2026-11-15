@@ -204,7 +204,7 @@ function _ptrPintar(){
     </div>
     <div class="card" style="margin-bottom:.8rem"><div class="card-body" style="display:flex;flex-direction:column;gap:.7rem">
       <label class="ptr-f">Observaciones<textarea rows="2" maxlength="800" oninput="_ptrSet('observaciones',this.value,1)" placeholder="Opcional · recursos que faltan, coordinaciones, riesgos…">${_ptrEsc(_ptr.observaciones)}</textarea></label>
-      <label class="ptr-f">Nota fija al pie del plan <span style="text-transform:none;letter-spacing:0;font-weight:400">· se recuerda para los siguientes planes</span><textarea rows="2" maxlength="400" oninput="_ptrSet('nota',this.value,1)">${_ptrEsc(_ptr.nota)}</textarea></label>
+      <label class="ptr-f" title="Sale al pie del plan y se recuerda para los siguientes">Nota<textarea rows="2" maxlength="400" oninput="_ptrSet('nota',this.value,1)">${_ptrEsc(_ptr.nota)}</textarea></label>
     </div></div>
     <div style="display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap;margin-bottom:1.2rem">
       <button type="button" class="btn btn-out" onclick="_ptrVerDoc(_ptrCopia(),1)">👁 Vista previa</button>
