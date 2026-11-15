@@ -549,6 +549,12 @@ const _ptrIconoSvg=(k,px)=>{const i=_ptrIcono(k);
 // Puntos en % de la foto. Se dibujan en un SVG con la misma proporción de la
 // foto (100 × 100/asp), así un trazo mide lo mismo a lo ancho y a lo alto.
 function _ptrCentro(P){return{x:P.reduce((s,p)=>s+(+p.x),0)/P.length,y:P.reduce((s,p)=>s+(+p.y),0)/P.length};}
+// Foto de detalle: alto del recuadro en % del alto de la foto (respeta la
+// proporción de la foto de detalle)
+const _ptrDetAlto=(m,fotoAsp)=>(+m.caja.w)*(+fotoAsp||4/3)/(+m.asp||4/3);
+// Los archivos de las fotos de detalle todavía sin subir (fuera de las marcas,
+// para que deshacer/descartar —que copian las marcas como texto— no los pierdan)
+const _ptrDetArchivos={};
 function _ptrMarcasHtml(f,acts,opc){
   opc=opc||{};
   const asp=+f.asp||4/3, H=100/asp, tam=opc.tam||24;
@@ -571,6 +577,18 @@ function _ptrMarcasHtml(f,acts,opc){
       svg+=`<line x1="${n(A.x)}" y1="${n(A.y)}" x2="${n(bx)}" y2="${n(by)}" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><line x1="${n(A.x)}" y1="${n(A.y)}" x2="${n(bx)}" y2="${n(by)}" stroke="${a.col}" stroke-width=".7" stroke-linecap="round"/>
         <polygon points="${cab}" fill="${a.col}" stroke="#fff" stroke-width=".3" stroke-linejoin="round"/>`;
       num(m.pts[0],a);
+    }else if(m.tipo==='detalle'&&m.caja){
+      // Foto de detalle: recuadro con la foto, unido por una línea al punto
+      const B=m.caja, hp=_ptrDetAlto(m,asp), A={x:+m.pts[0].x,y:+m.pts[0].y};
+      const cx=Math.max(+B.x,Math.min(+B.x+ +B.w,A.x)), cy=Math.max(+B.y,Math.min(+B.y+hp,A.y));
+      const PA=v(A), PC=v({x:cx,y:cy});
+      if(Math.hypot(cx-A.x,(cy-A.y)/asp)>1)
+        svg+=`<line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="#fff" stroke-width="1" stroke-linecap="round"/><line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="#111" stroke-width=".55" stroke-linecap="round"/>`;
+      svg+=`<circle cx="${n(PA.x)}" cy="${n(PA.y)}" r="1.1" fill="${a.col}" stroke="#fff" stroke-width=".35"/>`;
+      const b=Math.max(14,Math.round(tam*.7));
+      nums+=`<div style="position:absolute;left:${n(+B.x)}%;top:${n(+B.y)}%;width:${n(+B.w)}%;height:${n(hp)}%;border:3px solid #111;box-sizing:border-box;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.55);overflow:hidden;pointer-events:none">
+        <img src="${_ptrEsc(m.url)}"${/^https?:/.test(String(m.url))?' crossorigin="anonymous"':''} alt="" style="display:block;width:100%;height:100%;object-fit:cover;max-width:none">
+        <span style="position:absolute;left:3px;top:3px;width:${b}px;height:${b}px;border-radius:50%;background:${a.col};border:1.5px solid #fff;color:#fff;font:900 ${Math.round(b*.6)}px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${a.n}</span></div>`;
     }else if(m.tipo==='icono'){
       // Recuadro blanco con el ícono, borde del color de la actividad y su número
       const p=m.pts[0], s=Math.round(tam*2), b=Math.max(14,Math.round(tam*.62));
@@ -620,13 +638,14 @@ function _ptrEdPintar(){
     flecha:_ptrEd.pend.length?'Ahora toque a dónde apunta la flecha':'Toque dónde empieza la flecha',
     numero:'Toque dónde va el número de la actividad',borrar:'Toque una marca para borrarla',
     icono:`Toque dónde va: <b>${_ptrEsc(_ptrIcono(_ptrEd.icono).n)}</b> (elija otro arriba)`,
+    detalle:'Toque el lugar de la actividad y elija la foto de detalle · después se mueve y se agranda con «✋ Editar»',
     editar:selM?'Arrastre los puntos blancos para cambiar la forma · <b>✥</b> mueve toda la marca · <b>＋</b> agrega un punto · clic derecho (o dedo sostenido) en un punto lo quita · toque otra actividad arriba para cambiarla'
-      :'Toque una marca (zona, flecha, número o ícono) para editarla'}[_ptrEd.tool];
+      :'Arrastre cualquier marca para moverla · o tóquela para cambiar su forma, tamaño o actividad'}[_ptrEd.tool];
   const sc=document.getElementById('ptrEdScroll');const pos=sc?{l:sc.scrollLeft,t:sc.scrollTop}:null;
   ov.innerHTML=`
     <div style="display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem;border-bottom:1px solid #ffffff18;color:#e2e8f0;flex-wrap:wrap">
       <b style="font-size:.9rem;margin-right:.3rem">✏️ Foto ${_ptrEd.k+1}</b>
-      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('icono','🧰 Íconos')}${tool('editar','✋ Editar')}${tool('borrar','🧽 Borrar')}
+      ${tool('zona','⬠ Zona')}${tool('flecha','➜ Flecha')}${tool('numero','① Número')}${tool('icono','🧰 Íconos')}${tool('detalle','🖼️ Foto detalle')}${tool('editar','✋ Editar')}${tool('borrar','🧽 Borrar')}
       <button type="button" onclick="_ptrEdDeshacer()" style="${bt}" title="Ctrl+Z">↶ Deshacer</button>
       <span style="flex:1"></span>
       <button type="button" onclick="_ptrEdZoom(-1)" style="${bt}">−</button><span style="font-size:.75rem;min-width:40px;text-align:center">${z}%</span><button type="button" onclick="_ptrEdZoom(1)" style="${bt}">+</button>
@@ -641,11 +660,12 @@ function _ptrEdPintar(){
       ${_ptr.actividades.map((a,i)=>`<button type="button" onclick="_ptrEdAct('${a.uid}')" title="${_ptrEsc(a.descripcion||'')}" style="${bt};display:flex;align-items:center;gap:.35rem;${a.uid===actVista?`border-color:${_ptrColor(i)};background:${_ptrColor(i)}33`:''}"><span style="width:20px;height:20px;border-radius:50%;background:${_ptrColor(i)};color:#fff;font-weight:900;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>${_ptrEsc((a.frente||'Actividad '+(i+1)).slice(0,28))}</button>`).join('')}
     </div>
     <div id="ptrEdScroll" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px">
-      <div id="ptrEdBox" onclick="_ptrEdToque(event)" style="position:relative;width:${z}%;max-width:${z===100?'1100px':'none'};margin:0 auto;aspect-ratio:${(+f.asp||4/3).toFixed(4)};cursor:crosshair">
+      <div id="ptrEdBox" onclick="_ptrEdToque(event)" onpointerdown="_ptrEdBoxDown(event)" style="${_ptrEd.tool==='editar'?'touch-action:none;':''}position:relative;width:${z}%;max-width:${z===100?'1100px':'none'};margin:0 auto;aspect-ratio:${(+f.asp||4/3).toFixed(4)};cursor:crosshair">
         <img src="${_ptrEsc(f.url)}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;pointer-events:none">
         <div id="ptrEdCapa" style="position:absolute;inset:0;pointer-events:none">${_ptrMarcasHtml(f,_ptr.actividades,{pend:{pts:_ptrEd.pend,col}})}</div>
         <div id="ptrEdAsas">${_ptrEdAsas(f)}</div>
       </div>
+      <input type="file" id="ptrEdDetFile" accept="image/*" style="display:none" onchange="_ptrEdDetalleArchivo(this)">
     </div>
     <div style="padding:.6rem .8rem;border-top:1px solid #ffffff18;display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;color:#cbd5e1">
       <span style="font-size:.8rem;flex:1;min-width:200px">${ayuda}</span>
@@ -695,6 +715,9 @@ function _ptrEdMarcaEn(f,p){
     if(m.tipo==='flecha'&&m.pts.length>1)cands.push({x:(m.pts[0].x+m.pts[1].x)/2,y:(m.pts[0].y+m.pts[1].y)/2});
     cands.forEach(q=>{const d=dist(p,q);if(d<dm){dm=d;mejor=i;}});
   });
+  // Dentro de una foto de detalle (las de arriba primero)
+  if(mejor<0)(f.marcas||[]).forEach((m,i)=>{if(m.tipo==='detalle'&&m.caja){const B=m.caja,hp=_ptrDetAlto(m,asp);
+    if(p.x>=B.x&&p.x<=B.x+B.w&&p.y>=B.y&&p.y<=B.y+hp)mejor=i;}});
   if(mejor<0)(f.marcas||[]).forEach((m,i)=>{if(mejor<0&&m.tipo==='zona'&&(m.pts||[]).length>=3&&_ptrDentro(p,m.pts,asp))mejor=i;});
   return mejor;
 }
@@ -709,6 +732,10 @@ function _ptrEdAsas(f){
   // ✥ mueve toda la marca
   if(P.length>1){const c=m.tipo==='zona'?_ptrCentro(P):{x:(+P[0].x+ +P[1].x)/2,y:(+P[0].y+ +P[1].y)/2};
     h+=`<div onpointerdown="_ptrEdAsaDown(event,-1)" onclick="event.stopPropagation()" title="Mover toda la marca" style="${pos(c)};width:26px;height:26px;border-radius:50%;background:#0f172acc;border:2px solid #fff;color:#fff;font:900 15px/22px Arial;text-align:center;cursor:move">✥</div>`;}
+  // Foto de detalle: ✥ mueve el recuadro, la esquina lo agranda
+  if(m.tipo==='detalle'&&m.caja){const B=m.caja,hp=_ptrDetAlto(m,f.asp);
+    h+=`<div onpointerdown="_ptrEdCajaDown(event,0)" onclick="event.stopPropagation()" title="Mover la foto" style="${pos({x:+B.x+B.w/2,y:+B.y+hp/2})};width:28px;height:28px;border-radius:50%;background:#0f172acc;border:2px solid #fff;color:#fff;font:900 16px/24px Arial;text-align:center;cursor:move">✥</div>`;
+    h+=`<div onpointerdown="_ptrEdCajaDown(event,1)" onclick="event.stopPropagation()" title="Agrandar / achicar" style="${pos({x:+B.x+ +B.w,y:+B.y+hp})};width:18px;height:18px;background:#fff;border:3px solid #111;cursor:nwse-resize"></div>`;}
   // Los puntos
   P.forEach((p,j)=>{h+=`<div onpointerdown="_ptrEdAsaDown(event,${j})" oncontextmenu="_ptrEdAsaMenu(event,${j})" onclick="event.stopPropagation()" title="${P.length>1?'Arrastre para mover este punto · clic derecho lo quita':'Arrastre para mover'}" style="${pos(p)};width:17px;height:17px;border-radius:50%;background:#fff;border:3.5px solid ${col};box-shadow:0 0 0 1.5px #000a;cursor:grab"></div>`;});
   return h;
@@ -766,6 +793,74 @@ function _ptrEdAsaMenu(ev,j){
   if(ev.preventDefault)ev.preventDefault();if(ev.stopPropagation)ev.stopPropagation();
   if(_ptrEdQuitarPunto(j))_ptrEdPintar();
 }
+// Arrastrar una marca directamente (sin elegirla antes):
+//  · en «Editar», cualquier marca;
+//  · con «Íconos», «Número» o «Foto detalle», los íconos, números y fotos ya puestos.
+// Mueve la marca entera; recién se mueve pasados unos px (un toque no la corre).
+function _ptrEdMoverMarca(m,o,dx,dy){
+  m.pts=o.pts.map(p=>({x:_ptrLim(+p.x+dx),y:_ptrLim(+p.y+dy)}));
+  if(o.caja){const f=_ptrEdFoto(), hp=_ptrDetAlto({caja:o.caja,asp:m.asp},f&&f.asp);
+    m.caja={...o.caja,x:_ptrLim(Math.max(0,Math.min(100-o.caja.w,+o.caja.x+dx))),y:_ptrLim(Math.max(0,Math.min(100-hp,+o.caja.y+dy)))};}
+}
+function _ptrEdBoxDown(ev){
+  if(!_ptrEd||(ev.button!=null&&ev.button!==0)||_ptrEd.pend.length)return;
+  const t=_ptrEd.tool;if(!['editar','icono','numero','detalle'].includes(t))return;
+  const box=document.getElementById('ptrEdBox'), f=_ptrEdFoto();if(!box||!f)return;
+  const r=box.getBoundingClientRect();if(!r.width||!r.height)return;
+  const p={x:(ev.clientX-r.left)/r.width*100,y:(ev.clientY-r.top)/r.height*100};
+  const i=_ptrEdMarcaEn(f,p);if(i<0)return;
+  const m=f.marcas[i];
+  if(t!=='editar'&&!['icono','numero','detalle'].includes(m.tipo))return;
+  const o=JSON.parse(JSON.stringify({pts:m.pts,caja:m.caja||null}));
+  const x0=ev.clientX, y0=ev.clientY;let movio=false;
+  const mover=e=>{
+    if(!movio){if(Math.hypot(e.clientX-x0,e.clientY-y0)<5)return;
+      movio=true;_ptrEdGuardarHist();if(t==='editar')_ptrEd.sel=i;}
+    _ptrEdMoverMarca(m,o,(e.clientX-x0)/r.width*100,(e.clientY-y0)/r.height*100);
+    _ptrEdCapa();
+  };
+  const soltar=()=>{document.removeEventListener('pointermove',mover);document.removeEventListener('pointerup',soltar);document.removeEventListener('pointercancel',soltar);
+    if(movio){_ptrEd.arrastro=Date.now();_ptrEdPintar();}};
+  document.addEventListener('pointermove',mover);document.addEventListener('pointerup',soltar);document.addEventListener('pointercancel',soltar);
+}
+// ── Foto de detalle ────────────────────────────────────────────────────────
+async function _ptrEdDetalleArchivo(input){
+  const file=input&&input.files&&input.files[0];if(input)input.value='';
+  if(!file||!_ptrEd)return;
+  const url=URL.createObjectURL(file);
+  const fid='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  _ptrDetArchivos[fid]=file;
+  _ptrEdDetalleAgregar(url,await _ptrAspecto(url),fid);
+}
+// Pone el recuadro al costado del punto (del lado con más espacio)
+function _ptrEdDetalleAgregar(url,asp,fid){
+  const f=_ptrEdFoto(), A=_ptrEd&&_ptrEd.detAncla;if(!f||!A)return;
+  const fa=+f.asp||4/3, w=30, hp=w*fa/(+asp||4/3);
+  const x=A.x>50?Math.max(1,A.x-w-8):Math.min(99-w,A.x+8);
+  const y=Math.max(1,Math.min(99-hp,A.y-hp/2));
+  _ptrEdGuardarHist();
+  (f.marcas=f.marcas||[]).push({tipo:'detalle',act:_ptrEd.act,pts:[{x:_ptrLim(A.x),y:_ptrLim(A.y)}],
+    caja:{x:_ptrLim(x),y:_ptrLim(y),w},url,asp:+(+asp||4/3).toFixed(4),...(fid?{fid}:{})});
+  // Queda elegido para acomodarlo enseguida
+  _ptrEd.tool='editar';_ptrEd.sel=f.marcas.length-1;_ptrEd.detAncla=null;
+  _ptrEdPintar();
+}
+// Mover (modo 0) o agrandar (modo 1) el recuadro
+function _ptrEdCajaMover(modo,dx,dy,o){
+  const m=_ptrEdSel(), f=_ptrEdFoto();if(!m||!m.caja||!f)return;
+  const hp=_ptrDetAlto({caja:o,asp:m.asp},f.asp);
+  if(modo===0)m.caja={...o,x:_ptrLim(Math.max(0,Math.min(100-o.w,o.x+dx))),y:_ptrLim(Math.max(0,Math.min(100-hp,o.y+dy)))};
+  else{
+    const maxW=Math.min(100-o.x,(100-o.y)*(+m.asp||4/3)/(+f.asp||4/3));
+    m.caja={...o,w:_ptrLim(Math.max(8,Math.min(maxW,o.w+dx)))};
+  }
+}
+function _ptrEdCajaDown(ev,modo){
+  const m=_ptrEdSel();if(!m||!m.caja||(ev.button!=null&&ev.button!==0))return;
+  _ptrEdGuardarHist();
+  const o={...m.caja};
+  _ptrEdArrastrar(ev,(dx,dy)=>_ptrEdCajaMover(modo,dx,dy,o));
+}
 function _ptrEdBorrarSel(){
   const f=_ptrEdFoto();if(!f||_ptrEd.sel==null)return;
   _ptrEdGuardarHist();f.marcas.splice(_ptrEd.sel,1);_ptrEd.sel=null;_ptrEdPintar();
@@ -780,14 +875,20 @@ function _ptrEdPunto(p){
   const asp=+f.asp||4/3, dist=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/asp);   // en % del ancho
   const t=_ptrEd.tool;
   _ptrEd.hist=_ptrEd.hist||[];
+  // El clic que termina un arrastre no pone otra marca ni cambia la elegida
+  if(_ptrEd.arrastro&&Date.now()-_ptrEd.arrastro<350){_ptrEd.arrastro=0;_ptrEdPintar();return;}
   if(t==='editar'){
-    // Un clic que termina un arrastre no cambia la marca elegida
-    if(_ptrEd.arrastro&&Date.now()-_ptrEd.arrastro<350){_ptrEdPintar();return;}
     const i=_ptrEdMarcaEn(f,p);_ptrEd.sel=i<0?null:i;
     if(i>=0)_ptrEd.act=f.marcas[i].act;
   }
   else if(t==='numero'){_ptrEdGuardarHist();f.marcas.push({tipo:'numero',act:_ptrEd.act,pts:[p]});}
   else if(t==='icono'){_ptrEdGuardarHist();f.marcas.push({tipo:'icono',icono:_ptrIcono(_ptrEd.icono).k,act:_ptrEd.act,pts:[p]});}
+  else if(t==='detalle'){
+    // Se recuerda el punto y se pide la foto (debe ser dentro del mismo toque)
+    _ptrEd.detAncla=p;
+    const inp=document.getElementById('ptrEdDetFile');if(inp&&inp.click)inp.click();
+    return;
+  }
   else if(t==='flecha'){
     if(!_ptrEd.pend.length)_ptrEd.pend=[p];
     else{_ptrEdGuardarHist();f.marcas.push({tipo:'flecha',act:_ptrEd.act,pts:[_ptrEd.pend[0],p]});_ptrEd.pend=[];}
@@ -854,9 +955,12 @@ function _ptrCopia(){
       descripcion:String(a.descripcion||'').trim(),meta:a.meta===''||a.meta==null?'':_ptrN(a.meta),unidad:String(a.unidad||'').trim(),
       eqIds:(a.eqIds||[]).map(Number),equipos:(a.eqIds||[]).map(_ptrCodigo).filter(Boolean),
       personal:a.personal===''||a.personal==null?'':_ptrN(a.personal),responsable:String(a.responsable||'').trim()})),
-    fotos:r.fotos.map(f=>f.subida?{url:f.subida.url,path:f.subida.path,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas:f.marcas||[]}
-      :f.file?{url:f.url,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas:f.marcas||[],local:1}
-      :{url:f.url,path:f.path,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas:f.marcas||[]}),
+    fotos:r.fotos.map(f=>{
+      // Fotos de detalle sin subir todavía: se ven en la vista previa, no se guardan
+      const marcas=(f.marcas||[]).map(m=>m.fid?{...m,local:1}:m);
+      return f.subida?{url:f.subida.url,path:f.subida.path,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas}
+        :f.file?{url:f.url,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas,local:1}
+        :{url:f.url,path:f.path,nombre:f.nombre,nota:f.nota||'',asp:+f.asp||4/3,marcas};}),
     observaciones:String(r.observaciones||'').trim(),autor:r.autor||_ptrQuien(),creadoEn:r.creadoEn||new Date().toISOString()};
 }
 async function _ptrSubirFotos(clave){
@@ -873,6 +977,19 @@ async function _ptrSubirFotos(clave){
       const{data:{publicUrl}}=supa.storage.from(bucket).getPublicUrl(path);
       f.subida={url:publicUrl,path};
     }catch(e){console.warn('[Plan fotos]',e);fallas.push(f.nombre);}
+  }
+  // Fotos de detalle puestas sobre las fotos
+  for(const f of _ptr.fotos)for(const m of (f.marcas||[])){
+    const file=m.fid&&_ptrDetArchivos[m.fid];if(!file)continue;
+    try{
+      const blob=typeof _otReducir==='function'?await _otReducir(file):file;
+      const ext=blob===file?((String(file.name).split('.').pop()||'jpg').toLowerCase()):'jpg';
+      const path=`plan-trabajo/${clave}/detalle_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const{error}=await supa.storage.from(bucket).upload(path,blob,{upsert:false,contentType:blob.type||file.type||'image/jpeg'});
+      if(error)throw error;
+      const{data:{publicUrl}}=supa.storage.from(bucket).getPublicUrl(path);
+      m.url=publicUrl;m.path=path;delete m.fid;
+    }catch(e){console.warn('[Plan foto detalle]',e);fallas.push('detalle '+(file.name||''));}
   }
   return fallas;
 }
@@ -896,6 +1013,7 @@ async function _ptrGuardar(){
     _ptr.actividades=_ptr.actividades.filter(a=>String(a.frente||'').trim()||String(a.descripcion||'').trim());
     const r=_ptrCopia();
     r.fotos=r.fotos.filter(f=>!f.local);
+    r.fotos.forEach(f=>{f.marcas=(f.marcas||[]).filter(m=>!m.local);});
     r.id=id;
     const ahora=new Date().toISOString();
     const fila={id,tipo:r.tipo,fecha:r.fecha,turno:r.turno,guardia:r.guardia||null,titulo:r.titulo||null,responsable:r.responsable||null,
@@ -1003,7 +1121,8 @@ function _ptrLeyenda(f,acts){
   return`<table style="width:100%;border-collapse:collapse;margin-top:6px">${usadas.map(i=>{const a=acts[i];
     // Íconos de esta actividad en la foto: «🚛 Volquete ×3»
     const cuenta={};(f.marcas||[]).filter(m=>m.tipo==='icono'&&m.act===a.uid).forEach(m=>{cuenta[m.icono]=(cuenta[m.icono]||0)+1;});
-    const iconos=Object.keys(cuenta).map(k=>`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">${_ptrIconoSvg(k,20)}${_ptrEsc(_ptrIcono(k).n)}${cuenta[k]>1?' <b>×'+cuenta[k]+'</b>':''}</span>`).join('');
+    const nDet=(f.marcas||[]).filter(m=>m.tipo==='detalle'&&m.act===a.uid).length;
+    const iconos=(nDet?`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">🖼️ Foto de detalle${nDet>1?' <b>×'+nDet+'</b>':''}</span>`:'')+Object.keys(cuenta).map(k=>`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">${_ptrIconoSvg(k,20)}${_ptrEsc(_ptrIcono(k).n)}${cuenta[k]>1?' <b>×'+cuenta[k]+'</b>':''}</span>`).join('');
     return`<tr><td style="width:28px;padding:4px 6px;border:1px solid #d6dbe3;text-align:center">${_ptrChip(i)}</td>
       <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;font-weight:700;width:150px">${_ptrEsc(a.frente||'—')}${a.sector?`<div style="font-weight:400;color:#475569">${_ptrEsc(a.sector)}</div>`:''}</td>
       <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px"><div style="white-space:pre-wrap">${_ptrEsc(String(a.descripcion||'').slice(0,220))}</div>${iconos?`<div style="display:flex;flex-wrap:wrap">${iconos}</div>`:''}</td>

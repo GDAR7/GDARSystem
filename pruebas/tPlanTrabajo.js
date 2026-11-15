@@ -138,6 +138,22 @@ ev('_ptrEdDeshacer();_ptrEdMoverPunto(-1,-10,-10,_ptrEdSel().pts.map(p=>({...p})
 es('  y se puede deshacer',ev('_ptr.fotos[0].marcas[0].act===_ptr.actividades[0].uid'),true);
 ev('_ptrEdPunto({x:90,y:90})');
 es('  tocar fuera la suelta',ev('_ptrEd.sel'),null);
+// 🖼️ Foto de detalle: un punto y su recuadro con la foto
+ev('_ptrEdHerr("detalle");_ptrEdPunto({x:70,y:50})');
+es('foto detalle: el toque guarda el punto y pide la foto',ev('JSON.stringify(_ptrEd.detAncla)'),'{"x":70,"y":50}');
+ev('_ptrEdDetalleAgregar("blob:det",3/4,"dPRUEBA")');
+const Md=JSON.parse(JSON.stringify(ev('_ptr.fotos[0].marcas[_ptr.fotos[0].marcas.length-1]')));
+es('  recuadro al lado con más espacio (izquierda), 30% de ancho',Md.tipo+' · '+Md.caja.x+' · '+Md.caja.w,'detalle · 32 · 30');
+es('  queda elegido para acomodarlo',ev('_ptrEd.tool+" · "+(_ptrEd.sel===_ptr.fotos[0].marcas.length-1)'),'editar · true');
+const Hd=ev('_ptrMarcasHtml(_ptr.fotos[0],_ptr.actividades,{W:712})');
+es('  se dibuja con borde negro, la foto y una línea al punto',/border:3px solid #111[^>]*>\s*<img src="blob:det"/.test(Hd)&&/<line[^>]+stroke="#111"/.test(Hd),true);
+ev('_ptrEdCajaMover(0,-10,5,{..._ptrEdSel().caja})');
+es('  ✥ mueve el recuadro',ev('_ptrEdSel().caja.x+","+_ptrEdSel().caja.y'),'22,'+(Md.caja.y+5));
+ev('_ptrEdCajaMover(1,10,0,{..._ptrEdSel().caja})');
+es('  la esquina lo agranda',ev('_ptrEdSel().caja.w'),40);
+const Cd=ev('_ptrCopia()');
+es('  sin subir: se marca local (no se guarda una foto que no está en el servidor)',Cd.fotos[0].marcas.filter(m=>m.tipo==='detalle').map(m=>m.local).join(),'1');
+ev('_ptrEdBorrarSel()');
 ev('_ptrEdCerrar(true)');
 ev('_ptrMarcar(0);_ptrEdHerr("numero");_ptrEdPunto({x:60,y:80});_ptrEdCerrar(false)');
 es('«Descartar cambios» deja las marcas como estaban',ev('_ptr.fotos[0].marcas.length'),2);
