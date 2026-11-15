@@ -146,14 +146,20 @@ const Md=JSON.parse(JSON.stringify(ev('_ptr.fotos[0].marcas[_ptr.fotos[0].marcas
 es('  recuadro al lado con más espacio (izquierda), 30% de ancho',Md.tipo+' · '+Md.caja.x+' · '+Md.caja.w,'detalle · 32 · 30');
 es('  queda elegido para acomodarlo',ev('_ptrEd.tool+" · "+(_ptrEd.sel===_ptr.fotos[0].marcas.length-1)'),'editar · true');
 const Hd=ev('_ptrMarcasHtml(_ptr.fotos[0],_ptr.actividades,{W:712})');
-es('  se dibuja con borde negro, la foto y una línea al punto',/border:3px solid #111[^>]*>\s*<img src="blob:det"/.test(Hd)&&/<line[^>]+stroke="#111"/.test(Hd),true);
+es('  se dibuja con marco azul claro, la foto y una línea al punto',/border:3px solid #38bdf8[^>]*>\s*<img src="blob:det"/.test(Hd)&&/<line[^>]+stroke="#38bdf8"/.test(Hd),true);
 ev('_ptrEdCajaMover(0,-10,5,{..._ptrEdSel().caja})');
 es('  ✥ mueve el recuadro',ev('_ptrEdSel().caja.x+","+_ptrEdSel().caja.y'),'22,'+(Md.caja.y+5));
 ev('_ptrEdCajaMover(1,10,0,{..._ptrEdSel().caja})');
 es('  la esquina lo agranda',ev('_ptrEdSel().caja.w'),40);
 const Cd=ev('_ptrCopia()');
 es('  sin subir: se marca local (no se guarda una foto que no está en el servidor)',Cd.fotos[0].marcas.filter(m=>m.tipo==='detalle').map(m=>m.local).join(),'1');
+es('  sin ✕ sobre la foto (se borra con 🧽 Borrar)',/>✕</.test(ev('_ptrEdAsas(_ptr.fotos[0])')),false);
 ev('_ptrEdBorrarSel()');
+// 🧽 Borrar: tocando dentro de la foto de detalle
+ev('_ptrEdHerr("detalle");_ptrEdPunto({x:70,y:50});_ptrEdDetalleAgregar("blob:det2",4/3,null)');
+ctx.__c=ev('_ptr.fotos[0].marcas[_ptr.fotos[0].marcas.length-1].caja');
+ev('_ptrEdHerr("borrar");_ptrEdPunto({x:__c.x+__c.w/2,y:__c.y+5})');
+es('  🧽 Borrar la elimina tocando dentro de la foto',ev('_ptr.fotos[0].marcas.some(m=>m.tipo==="detalle")'),false);
 // Arrastrar una marca entera (íconos, números, zonas…)
 ev('_ptrEdHerr("icono");_ptrEdIcono("volquete");_ptrEdPunto({x:10,y:80})');
 ctx.__mi=ev('_ptr.fotos[0].marcas[_ptr.fotos[0].marcas.length-1]');

@@ -551,6 +551,7 @@ const _ptrIconoSvg=(k,px)=>{const i=_ptrIcono(k);
 function _ptrCentro(P){return{x:P.reduce((s,p)=>s+(+p.x),0)/P.length,y:P.reduce((s,p)=>s+(+p.y),0)/P.length};}
 // Foto de detalle: alto del recuadro en % del alto de la foto (respeta la
 // proporción de la foto de detalle)
+const _PTR_DET_COL='#38bdf8';     // marco y línea de la foto de detalle (azul claro)
 const _ptrDetAlto=(m,fotoAsp)=>(+m.caja.w)*(+fotoAsp||4/3)/(+m.asp||4/3);
 // Los archivos de las fotos de detalle todavía sin subir (fuera de las marcas,
 // para que deshacer/descartar —que copian las marcas como texto— no los pierdan)
@@ -583,10 +584,10 @@ function _ptrMarcasHtml(f,acts,opc){
       const cx=Math.max(+B.x,Math.min(+B.x+ +B.w,A.x)), cy=Math.max(+B.y,Math.min(+B.y+hp,A.y));
       const PA=v(A), PC=v({x:cx,y:cy});
       if(Math.hypot(cx-A.x,(cy-A.y)/asp)>1)
-        svg+=`<line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="#fff" stroke-width="1" stroke-linecap="round"/><line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="#111" stroke-width=".55" stroke-linecap="round"/>`;
+        svg+=`<line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="#0f172a" stroke-opacity=".55" stroke-width="1" stroke-linecap="round"/><line x1="${n(PA.x)}" y1="${n(PA.y)}" x2="${n(PC.x)}" y2="${n(PC.y)}" stroke="${_PTR_DET_COL}" stroke-width=".55" stroke-linecap="round"/>`;
       svg+=`<circle cx="${n(PA.x)}" cy="${n(PA.y)}" r="1.1" fill="${a.col}" stroke="#fff" stroke-width=".35"/>`;
       const b=Math.max(14,Math.round(tam*.7));
-      nums+=`<div style="position:absolute;left:${n(+B.x)}%;top:${n(+B.y)}%;width:${n(+B.w)}%;height:${n(hp)}%;border:3px solid #111;box-sizing:border-box;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.55);overflow:hidden;pointer-events:none">
+      nums+=`<div style="position:absolute;left:${n(+B.x)}%;top:${n(+B.y)}%;width:${n(+B.w)}%;height:${n(hp)}%;border:3px solid ${_PTR_DET_COL};box-sizing:border-box;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.55);overflow:hidden;pointer-events:none">
         <img src="${_ptrEsc(m.url)}"${/^https?:/.test(String(m.url))?' crossorigin="anonymous"':''} alt="" style="display:block;width:100%;height:100%;object-fit:cover;max-width:none">
         <span style="position:absolute;left:3px;top:3px;width:${b}px;height:${b}px;border-radius:50%;background:${a.col};border:1.5px solid #fff;color:#fff;font:900 ${Math.round(b*.6)}px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${a.n}</span></div>`;
     }else if(m.tipo==='icono'){
@@ -735,7 +736,7 @@ function _ptrEdAsas(f){
   // Foto de detalle: ✥ mueve el recuadro, la esquina lo agranda
   if(m.tipo==='detalle'&&m.caja){const B=m.caja,hp=_ptrDetAlto(m,f.asp);
     h+=`<div onpointerdown="_ptrEdCajaDown(event,0)" onclick="event.stopPropagation()" title="Mover la foto" style="${pos({x:+B.x+B.w/2,y:+B.y+hp/2})};width:28px;height:28px;border-radius:50%;background:#0f172acc;border:2px solid #fff;color:#fff;font:900 16px/24px Arial;text-align:center;cursor:move">✥</div>`;
-    h+=`<div onpointerdown="_ptrEdCajaDown(event,1)" onclick="event.stopPropagation()" title="Agrandar / achicar" style="${pos({x:+B.x+ +B.w,y:+B.y+hp})};width:18px;height:18px;background:#fff;border:3px solid #111;cursor:nwse-resize"></div>`;}
+    h+=`<div onpointerdown="_ptrEdCajaDown(event,1)" onclick="event.stopPropagation()" title="Agrandar / achicar" style="${pos({x:+B.x+ +B.w,y:+B.y+hp})};width:18px;height:18px;background:#fff;border:3px solid ${_PTR_DET_COL};cursor:nwse-resize"></div>`;}
   // Los puntos
   P.forEach((p,j)=>{h+=`<div onpointerdown="_ptrEdAsaDown(event,${j})" oncontextmenu="_ptrEdAsaMenu(event,${j})" onclick="event.stopPropagation()" title="${P.length>1?'Arrastre para mover este punto · clic derecho lo quita':'Arrastre para mover'}" style="${pos(p)};width:17px;height:17px;border-radius:50%;background:#fff;border:3.5px solid ${col};box-shadow:0 0 0 1.5px #000a;cursor:grab"></div>`;});
   return h;
@@ -898,11 +899,8 @@ function _ptrEdPunto(p){
     _ptrEd.pend.push(p);
   }
   else if(t==='borrar'){
-    let mejor=-1,dm=5;
-    f.marcas.forEach((m,i)=>{
-      const cands=[...(m.pts||[]),...(m.tipo==='zona'?[_ptrCentro(m.pts)]:[])];
-      cands.forEach(q=>{const d=dist(p,q);if(d<dm){dm=d;mejor=i;}});
-    });
+    // La misma búsqueda de «Editar»: puntos, centro, dentro de una zona o de una foto de detalle
+    const mejor=_ptrEdMarcaEn(f,p);
     if(mejor>=0){_ptrEdGuardarHist();f.marcas.splice(mejor,1);}
   }
   _ptrEdPintar();
