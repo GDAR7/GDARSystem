@@ -1255,7 +1255,10 @@ function _avjPlanoRutasHtml(r,AZ){
         <td style="${TDl}">${_avjEsc(a.origen||'—')} → ${_avjEsc(a.destino||'—')}${a.pts?'':` <span style="color:#b45309;font-size:10px">· sin trazo en el plano</span>`}</td>
         <td style="${TDl};color:#334155">${_avjEsc(a.tramo?a.tramo.codigo:'—')}</td>
         <td style="${TDl};text-align:center;font-weight:900;color:${a.col}">${a.tot}</td></tr>`).join('')}
-    </table>`;
+    </table>
+    <div data-avj-leyenda style="margin-top:5px;display:flex;align-items:center;gap:6px;font:400 10.5px Arial,Helvetica,sans-serif;color:#475569">
+      <span style="display:inline-block;width:16px;height:16px;line-height:16px;border-radius:50%;background:${(A[0]&&A[0].col)||'#dc2626'};color:#fff;font-weight:900;font-size:9.5px;text-align:center;flex:none">1</span>
+      <span>El círculo con el número marca el <b style="color:#111">inicio del tramo</b>: ahí empieza el carguío.</span></div>`;
 }
 // Plano de restricciones: el mismo armado del Parte de Turno (imagen, recuadro
 // de detalle y marcas que no se pisan), pero con letras en vez de números.
@@ -1382,8 +1385,7 @@ function _avjDocHtml(r,opc){
           <td style="${MTD};background:${bg};text-align:center;font-weight:900;color:${col};font-size:${fs+1}px">${lbl.includes('CAPA')?Rp.capa:Rp.acopio}</td>
           <td style="${MTD};background:${bg};text-align:center;color:#334155">${c.viajes?((lbl.includes('CAPA')?Rp.capa:Rp.acopio)/c.viajes*100).toFixed(1)+'%':'–'}</td>
           ${hayFin?`<td style="${MTD};background:${bg}"></td>`:''}</tr>`;
-        return fila('⬆ A CAPA','#15803d','#ecfdf3',(k)=>k)+fila('⬇ A ACOPIO','#6d28d9','#f5f3ff',(k,t)=>t-k)
-          +(Rp.sin?`<tr><td colspan="${nC+3+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};font-size:${fs-1}px;color:#64748b;text-align:left">${Rp.sin} viaje(s) sin indicar si fueron a capa o a acopio</td></tr>`:'');
+        return fila('⬆ A CAPA','#15803d','#ecfdf3',(k)=>k)+fila('⬇ A ACOPIO','#6d28d9','#f5f3ff',(k,t)=>t-k);
       })()}
     </table>`;
   const R=r.restricciones||[];
@@ -1391,8 +1393,8 @@ function _avjDocHtml(r,opc){
   const filasRes=R.map((x,i)=>{
     const h=_avjHorasEntre(x.ini,x.fin);
     return`<tr>
-      <td style="${TD};text-align:center;font-weight:800;color:${AC}">${_avjLetra(i)}</td>
-      <td style="${TD};font-weight:700">${_avjCodDe(x)?`<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:10px;font-weight:900;letter-spacing:.04em;margin-right:5px">${_avjEsc(_avjCodDe(x))}</span>`:''}${_avjEsc(x.motivo)}${x.ubicacion?' <span style="color:#10b981">📍</span>':''}${(x.fotos||[]).length?` <span style="color:#64748b;font-weight:400;font-size:10.5px">📷 ${x.fotos.length}</span>`:''}${x.frente?`<div style="font-weight:400;font-size:10.5px;color:#475569">${_avjEsc(x.frente)}</div>`:''}</td>
+      <td style="${TD};text-align:center;white-space:nowrap">${(()=>{const c=_avjCodDe(x);if(!c)return`<b style="color:${AC}">${_avjLetra(i)}</b>`;const rep=R.filter(y=>_avjCodDe(y)===c).length>1;return`<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:10px;font-weight:900;letter-spacing:.04em">${_avjEsc(c)}${rep?"·"+_avjLetra(i):""}</span>`;})()}</td>
+      <td style="${TD};font-weight:700">${_avjEsc(x.motivo)}${x.ubicacion?' <span style="color:#10b981">📍</span>':''}${(x.fotos||[]).length?` <span style="color:#64748b;font-weight:400;font-size:10.5px">📷 ${x.fotos.length}</span>`:''}${x.frente?`<div style="font-weight:400;font-size:10.5px;color:#475569">${_avjEsc(x.frente)}</div>`:''}</td>
       <td style="${TD};white-space:nowrap">${x.ini||x.fin?_avjEsc((x.ini||'?')+' – '+(x.fin||'?')):'—'}${h?`<div style="color:#b91c1c;font-weight:700">${String(h).replace('.',',')} h</div>`:''}</td>
       <td style="${TD}">${x.todos?'Todos':_avjEsc((x.eqIds||[]).map(codDe).join(', ')||'—')}</td>
       <td style="${TD};white-space:pre-wrap">${_avjEsc(x.descripcion||'')}</td>
@@ -1418,7 +1420,7 @@ function _avjDocHtml(r,opc){
     ${tablaVol}
     ${_avjTit('Restricciones · '+R.length)}
     <table style="width:100%;border-collapse:collapse;margin-top:6px">
-      <tr><th style="${TH};width:24px;text-align:center">N°</th><th style="${TH};width:160px">Motivo</th><th style="${TH};width:86px">Horario</th><th style="${TH};width:110px">Volquetes</th><th style="${TH}">Descripción</th></tr>
+      <tr><th style="${TH};width:52px;text-align:center">Cód.</th><th style="${TH};width:160px">Motivo</th><th style="${TH};width:86px">Horario</th><th style="${TH};width:110px">Volquetes</th><th style="${TH}">Descripción</th></tr>
       ${filasRes||`<tr><td colspan="5" style="${TD};text-align:center;color:#15803d;font-weight:700">Sin restricciones al corte</td></tr>`}
     </table>
     ${mapa}

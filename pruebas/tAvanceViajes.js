@@ -151,7 +151,7 @@ es('  y la lista muestra «código · descripción»',/value="FL" selected>FL ·
 es('  la cabecera muestra la letra y el código',/Restricción C · <span class="avj-cod">FL</.test(nodos.avjRes.innerHTML),true);
 ev("_avj.restricciones.pop()");
 es('un corte viejo (sin código) lo recupera por el nombre',ev("_avjCodDe({motivo:'Voladura'})"),'VO');
-es('el PDF muestra el código en la tabla',/>VO<\/span>Voladura/.test(ev('_avjDocHtml')({volquetes:[],restricciones:[{motivo:'Voladura'}]})),true);
+es('el PDF muestra el código en su columna Cód. y el motivo aparte',(h=>/>Cód\.<\/th>/.test(h)&&/>VO<\/span><\/td>/.test(h)&&/>Voladura</.test(h))(ev('_avjDocHtml')({volquetes:[],restricciones:[{motivo:'Voladura'}]})),true);
 // Sin el SQL: se ven los de siempre y no deja agregar
 ev('_avjMotAbrir()');await espera();
 avisos=[];await ev('_avjMotGuardar()');
@@ -195,7 +195,9 @@ const Hres=H.split('Ubicación de las restricciones')[1].split('Plano de rutas')
 es('  y en el plano la marca lleva el código (PC), no número',/>PC<\/div>/.test(Hres)&&!/>1<\/div>/.test(Hres),true);
 es('  en forma de píldora para que entre el código',/border-radius:11px;white-space:nowrap/.test(Hres),true);
 es('código repetido: lleva también la letra',ev("(()=>{const R=[{codigo:'FL'},{codigo:'FL'},{codigo:'VO'}];return JSON.stringify(_avjEtiquetasRes(R,R));})()"),'["FL·A","FL·B","VO"]');
-es('restricciones con letras en la tabla (A y B)',/>A<\/td>/.test(H)&&/>B<\/td>/.test(H),true);
+es('restricciones: columna Cód. con el código (ya no N° con letra)',/>Cód\.<\/th>/.test(H)&&!/>N°<\/th><th[^>]*>Motivo/.test(H)&&/<\/span><\/td>\s*<td[^>]*>[^<]/.test(H),true);
+es('plano de rutas: leyenda del círculo numerado (inicio del tramo, carguío)',/data-avj-leyenda[\s\S]*inicio del tramo[\s\S]*carguío/.test(H),/Plano de rutas con viajes/.test(H));
+es('  código repetido en la tabla: lleva la letra (FL·A, FL·B)',(h=>/>FL·A<\/span>/.test(h)&&/>FL·B<\/span>/.test(h))(ev('_avjDocHtml')({volquetes:[],restricciones:[{codigo:'FL',motivo:'Falla'},{codigo:'FL',motivo:'Falla'}]})),true);
 es('letras después de la Z',ev('_avjLetra(0)')+' '+ev('_avjLetra(25)')+' '+ev('_avjLetra(26)'),'A Z A1');
 es('comparación con el parte final (21 + 15 = 36)',/Parte final/.test(H)&&/>36<\/td>/.test(H),true);
 es('el pie solo lleva quién registró (sin la nota de avance preliminar)',/Registró:/.test(H)&&!/no reemplaza el parte del turno/.test(H),true);
