@@ -317,11 +317,11 @@ console.log('\n== Avance / Reporte y capa / acopio ==');
   // Meta: se compara con los viajes a capa (20), no con el total (70)
   ev('_avj.meta=12;_avj.horaCorte="13:00"');
   const cm=ev('_avjCalc(_avj)');
-  es('meta del turno: el % se mide con los viajes a capa',cm.aCapa+' · '+cm.metaAlCorte+' · '+Math.round(cm.pctCorte),'20 · 12 · 167');
+  es('meta del turno: a capa sobre la meta de todo el turno (20/24)',cm.aCapa+' de '+cm.metaTurno+' · '+Math.round(cm.pctMeta),'20 de 24 · 83');
   ev('_avjPintarKpis()');
-  es('  la tarjeta lo dice',/a capa 20 de 12 esperados al corte · 167%/.test(nodos.avjKpis.innerHTML),true);
+  es('  la tarjeta lo dice',/a capa 20 de 24 · 83%/.test(nodos.avjKpis.innerHTML),true);
   const sinRep=ev('_avjCalc({..._avj,cols:_avj.cols.map(c=>({...c,capa:""}))})');
-  es('  sin reparto indicado: con el total, como antes',sinRep.aCapa+' · '+Math.round(sinRep.pctCorte),'null · 583');
+  es('  sin reparto indicado: con el total (70/24)',sinRep.aCapa+' · '+sinRep.hecho+' · '+Math.round(sinRep.pctMeta),'null · 70 · 292');
   es('  guardado: también con los viajes a capa',ev('_avjCalc(_avjCopia()).aCapa'),20);
   ev('_avj.meta=0;_avj.horaCorte="12:00"');
   const Cp=ev('_avjCopia()');

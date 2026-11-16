@@ -339,7 +339,10 @@ function _avjCalc(r){
   const aCapa=Rp.hay?Rp.capa:null, base=Rp.hay?Rp.capa:viajes;
   return{viajes,opera:opera.length,total:vol.length,conViajes,
     promedio:conViajes?viajes/conViajes:0,transc:valida?transc:null,proy,
+    // pctMeta: lo hecho (a capa) sobre la meta de todo el turno · pctCorte: el ritmo
+    // contra lo esperado a la hora del corte (solo decide el color)
     meta,metaTurno,metaAlCorte,pctCorte:metaAlCorte?base/metaAlCorte*100:null,aCapa,
+    hecho:base,pctMeta:metaTurno?base/metaTurno*100:null,
     horasPerdidas:Math.round(horasPerdidas*10)/10};
 }
 // Viajes por ruta (origen → destino · material)
@@ -476,7 +479,7 @@ function _avjPintarKpis(){
     k('promedio','Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes por volquete operativo'),
     k('proy','Proyección al cierre',c.proy!=null?c.proy:'—','#a855f7',c.proy!=null?'al ritmo actual':'hora de corte fuera del turno'),
     c.metaTurno?k('meta','Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#ef4444':'#10b981',
-      c.pctCorte!=null?(c.aCapa!=null?`a capa ${c.aCapa} de ${c.metaAlCorte} esperados al corte · ${Math.round(c.pctCorte)}%`:`al corte se esperaban ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`):''):'',
+      `${c.aCapa!=null?'a capa':'hechos'} ${c.hecho} de ${c.metaTurno} · ${Math.round(c.pctMeta)}%`):'',
     c.horasPerdidas?k('horas','Horas con restricción',String(c.horasPerdidas).replace('.',','),'#ef4444',(_avj.restricciones||[]).length+' restricción(es)'):''
   ].join('');
 }
@@ -1367,7 +1370,7 @@ function _avjDocHtml(r,opc){
     _avjVe('operando')?caja('Volquetes operativos',`${c.conViajes} de ${c.total}`,'#2563eb',c.total-c.opera?`${c.total-c.opera} no opera(n)`:'con viajes al corte'):'',
     _avjVe('promedio')?caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete operativo'):'',
     _avjVe('proy')?caja('Proyección al cierre',c.proy!=null?c.proy:'—','#7c3aed',c.proy!=null?'al ritmo actual':''):'',
-    c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?(c.aCapa!=null?`a capa ${c.aCapa} de ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`):''):'',
+    c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',`${c.aCapa!=null?'a capa':'hechos'} ${c.hecho} de ${c.metaTurno} · ${Math.round(c.pctMeta)}%`):'',
     c.horasPerdidas&&_avjVe('horas')?caja('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#b91c1c',(r.restricciones||[]).length+' restricción(es)'):''
   ].join('');
   const vol=(r.volquetes||[]);
