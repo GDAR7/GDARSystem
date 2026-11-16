@@ -257,6 +257,13 @@ ev('_ptrSetModoFotos("encabezado")');
 es('  se recuerda',ev('_ptrTablaInicial()'),false);
 es('  sin fotos, la tabla sale igual',/Actividades planificadas · 1/.test(ev('_ptrDocHtml({tipo:"Diario",fecha:"2026-11-15",turno:"Día",actividades:[{uid:"z",descripcion:"q"}],fotos:[]})')),true);
 ev('_ptrSetTablaInicial(true)');
+// Mayúsculas de la descripción
+const TXT='TRABAJAR LA CAPA #57 Y #58 CON APLUS Y KP.\nVER LA CAPA#13 EN R3 CON VOL ECOP-002';
+es('texto: tipo oración (respeta siglas y códigos)',ev('_ptrTextoFormato('+JSON.stringify(TXT)+',"oracion")'),'Trabajar la capa #57 y #58 con aplus y KP.\nVer la capa#13 en R3 con vol ECOP-002');
+es('  minúsculas',ev('_ptrTextoFormato("LIMPIEZA CON PERSONAL DE PISO. SEGREGACIÓN","minus")'),'limpieza con personal de piso. segregación');
+es('  MAYÚSCULAS',ev('_ptrTextoFormato("Segregación de material","mayus")'),'SEGREGACIÓN DE MATERIAL');
+es('  el botón Aa pasa MAYÚS → oración → minús → MAYÚS',ev('(()=>{_ptr.actividades=[{uid:"t",descripcion:"VER LA LIMPIEZA"}];const r=[];for(let k=0;k<3;k++){_ptrFormatoAct(0);r.push(_ptr.actividades[0].descripcion);}return r.join(" | ");})()'),'Ver la limpieza | ver la limpieza | VER LA LIMPIEZA');
+es('  «texto de todas» cambia todas las actividades',ev('(()=>{_ptr.actividades=[{uid:"a",descripcion:"UNO"},{uid:"b",descripcion:"DOS. TRES"},{uid:"c",descripcion:""}];_ptrFormatoTodo("oracion");return _ptr.actividades.map(a=>a.descripcion).join("|");})()'),'Uno|Dos. Tres|');
 // Semanal: agrupado por día
 ctx.__sem={tipo:'Semanal',fecha:'2026-11-09',turno:'Día y Noche',actividades:[
   {uid:'a',dia:'2026-11-11',frente:'F1',descripcion:'x'},{uid:'b',dia:'',frente:'F2',descripcion:'y'},{uid:'c',dia:'2026-11-09',frente:'F3',descripcion:'z'}],fotos:[]};

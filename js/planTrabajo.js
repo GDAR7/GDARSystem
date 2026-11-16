@@ -185,7 +185,10 @@ function _ptrPintar(){
     </div></div>
     <div class="card" style="margin-bottom:.8rem">
       <div class="card-head"><span class="card-title">🛠️ Actividades planificadas</span>
-        <button type="button" class="btn btn-a" style="--ba:#3b82f6" onclick="_ptrActAgregar()">＋ Actividad</button></div>
+        <span style="display:flex;gap:.4rem;align-items:center;margin-left:auto">
+        <select class="ptr-in" id="ptrFormatoTodo" style="width:auto" title="Cambia las mayúsculas de la descripción de todas las actividades" onchange="_ptrFormatoTodo(this.value);this.value=''">
+          <option value="">Aa Texto de todas…</option><option value="oracion">Tipo oración</option><option value="minus">minúsculas</option><option value="mayus">MAYÚSCULAS</option></select>
+        <button type="button" class="btn btn-a" style="--ba:#3b82f6" onclick="_ptrActAgregar()">＋ Actividad</button></span></div>
       <div class="card-body"><div id="ptrActs"></div></div>
     </div>
     <div class="card" style="margin-bottom:.8rem">
@@ -250,6 +253,7 @@ function _ptrPintarActs(){
           <option value="">Toda la semana</option>${dias.map(d=>`<option value="${d.iso}"${diaOk===d.iso?' selected':''}>${d.n} ${_ptrDMY(d.iso).slice(0,5)}</option>`).join('')}</select>`:''}
         <input class="ptr-in" list="ptrDlF" maxlength="80" placeholder="Frente (ej. R3 - Dique Auxiliar)" value="${_ptrEsc(a.frente)}" oninput="_ptrAct(${i},'frente',this.value,1)" style="flex:1;min-width:170px;font-weight:700">
         <input class="ptr-in" list="ptrDlS" maxlength="60" placeholder="Sector (ej. Estribo derecho)" value="${_ptrEsc(a.sector)}" oninput="_ptrAct(${i},'sector',this.value,1)" style="flex:1;min-width:150px">
+        <button type="button" class="ptr-x" title="Cambiar mayúsculas: MAYÚSCULAS → Oración → minúsculas" onclick="_ptrFormatoAct(${i})" style="font-weight:800;font-size:.75rem">Aa</button>
         <button type="button" class="ptr-x" title="Duplicar" onclick="_ptrActDuplicar(${i})">⧉</button>
         <button type="button" class="ptr-x" title="Quitar" onclick="_ptrActQuitar(${i})">✕</button>
       </div>
@@ -277,6 +281,38 @@ function _ptrSet(campo,v,soloDato){
   if(campo==='tipo'&&v==='Semanal')_ptr.fecha=_ptrLunes(_ptr.fecha);
   if(campo==='fecha'&&_ptr.tipo==='Semanal')_ptr.fecha=_ptrLunes(v);
   if(!soloDato)_ptrPintar();
+}
+// ── Mayúsculas de la descripción ──────────────────────────────────────────
+// Tipo oración: todo en minúsculas y en mayúscula la primera letra de cada
+// línea y después de un punto. Se respetan las siglas y códigos: palabras con
+// números (R3, ECOP-002, #57) o sin vocales (KP, RCZ).
+function _ptrTextoFormato(t,modo){
+  t=String(t||'');
+  if(modo==='mayus')return t.toLocaleUpperCase('es');
+  const sigla=w=>/\d/.test(w)||(/^[A-ZÑ]{2,}$/.test(w)&&!/[AEIOUÁÉÍÓÚ]/.test(w));
+  let s=t.replace(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\-]+/g,w=>sigla(w)?w:w.toLocaleLowerCase('es'));
+  if(modo==='oracion')s=s.replace(/(^|[\n.!?]\s*)([a-záéíóúüñ])/g,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+  return s;
+}
+// El estado actual del texto, para que el botón Aa pase al siguiente
+function _ptrFormatoDe(t){
+  const letras=String(t||'').replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g,'');
+  if(!letras)return'';
+  if(letras===letras.toLocaleUpperCase('es'))return'mayus';
+  if(t===_ptrTextoFormato(t,'oracion'))return'oracion';
+  return'minus';
+}
+function _ptrFormatoAct(i){
+  const a=_ptr&&_ptr.actividades[i];if(!a||!a.descripcion)return;
+  const sig={mayus:'oracion',oracion:'minus',minus:'mayus'}[_ptrFormatoDe(a.descripcion)]||'oracion';
+  a.descripcion=_ptrTextoFormato(a.descripcion,sig);
+  _ptrPintarActs();
+}
+function _ptrFormatoTodo(modo){
+  if(!_ptr||!modo)return;
+  _ptr.actividades.forEach(a=>{if(a.descripcion)a.descripcion=_ptrTextoFormato(a.descripcion,modo);});
+  _ptrPintarActs();
+  if(typeof toast==='function')toast('Texto de las actividades: '+({oracion:'tipo oración',minus:'minúsculas',mayus:'MAYÚSCULAS'}[modo]));
 }
 function _ptrAct(i,campo,v,soloDato){
   const a=_ptr&&_ptr.actividades[i];if(!a)return;
