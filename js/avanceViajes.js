@@ -222,7 +222,7 @@ function _avjSugerencias(){
 const _avjClaveRuta=x=>[x.origen||'',x.destino||'',x.material||''].join('|');
 let _avjColSeq=0;
 const _avjColNueva=x=>({id:'c'+(++_avjColSeq),origen:(x&&x.origen)||'',destino:(x&&x.destino)||'',material:(x&&x.material)||'',
-  capa:x&&x.capa!=null&&x.capa!==''?String(x.capa):''});
+  capa:x&&x.capa!=null&&x.capa!==''?String(x.capa):'',obs:(x&&x.obs)||''});
 // Las rutas del último día con partes de volquetes: las columnas de un corte nuevo
 function _avjRutasRecientes(){
   const ids=new Set(_avjVolquetesMaster().map(e=>+e.id));
@@ -266,7 +266,7 @@ function _avjMatriz(r){
   const cols=Object.values(m).sort((a,b)=>a.o-b.o);
   // Cuántos viajes de cada ruta fueron a capa (el resto, a acopio)
   cols.forEach(c=>{const d=(r.destinos||[]).find(x=>x&&x.nota==null&&_avjClaveRuta(x)===c.key);
-    c.capa=d&&d.capa!==''&&d.capa!=null?Math.min(c.tot,Math.max(0,_avjN(d.capa))):null;});
+    c.capa=d&&d.capa!==''&&d.capa!=null?Math.min(c.tot,Math.max(0,_avjN(d.capa))):null;c.obs=(d&&d.obs)||'';});
   const cel=(v,k)=>v.noOpera?0:_avjRutasVol(v).filter(x=>_avjClaveRuta(x)===k).reduce((s,x)=>s+_avjN(x.viajes),0);
   return{cols,cel};
 }
@@ -375,7 +375,7 @@ function _avjNuevo(fecha,turno){
     tipo:_avjTipoSugerido(turno,_AVJ_TURNOS[turno].corte),tipoManual:false,
     volquetes:_avjVolquetesMaster().map(e=>({eqId:+e.id,codigo:e.codigo,operador:_avjUltimoOperador(e.id),
       c:{},noOpera:false,motivo:''})),
-    restricciones:[],observaciones:'',notaReparto:''};
+    restricciones:[],observaciones:''};
 }
 
 // ── Página ─────────────────────────────────────────────────────────────────
@@ -519,41 +519,35 @@ function _avjPintarVol(){
       <tr class="avj-capa"><td style="white-space:nowrap" title="Viajes que fueron al área de acopio">⬇ A ACOPIO</td>
         ${C.map((c,j)=>`<td id="avjCA${j}" class="mono" style="text-align:center;color:#a78bfa">–</td>`).join('')}
         <td id="avjCAT" class="mono tr" style="color:#a78bfa">–</td><td></td><td></td><td></td>${hayFin?'<td></td>':''}</tr>
-      <tr class="avj-capa avj-nota"><td style="white-space:nowrap" title="Sale en el PDF debajo de A CAPA / A ACOPIO, con letra pequeña">📝 OBSERVACIÓN</td>
-        <td colspan="${C.length+4+(hayFin?1:0)}" style="text-align:left">${_avjNotaCampo()}</td></tr></tfoot>`:''}</table>`;
+      <tr class="avj-capa avj-nota"><td style="white-space:nowrap" title="Una por tramo · sale en el PDF debajo de A CAPA / A ACOPIO, con letra pequeña">📝 OBSERVACIÓN</td>
+        ${C.map((c,j)=>`<td style="text-align:center;vertical-align:top">${_avjObsCampo(c,j)}</td>`).join('')}
+        <td colspan="${4+(hayFin?1:0)}">${_avjNotasDl()}</td></tr></tfoot>`:''}</table>`;
   _avjRepartoVivo();
 }
-// ── Observación del reparto (debajo de A CAPA / A ACOPIO) ──────────────────
-// Se guarda dentro de «destinos» como {nota}, así no necesita otra columna.
-// Lo ya escrito queda como historial para elegirlo rápido.
+// ── Observación por tramo (debajo de A CAPA / A ACOPIO) ────────────────────
+// Cada ruta guarda la suya en «destinos» ({origen,destino,material,capa,obs}),
+// así no necesita otra columna. Lo ya escrito queda como historial.
 const _AVJ_NOTAS_KEY='gdar_avj_notas';
+// Nota general de una versión anterior (si existiera): solo se muestra
 function _avjNotaRep(r){const d=((r&&r.destinos)||[]).find(x=>x&&x.nota!=null);return d?String(d.nota||''):'';}
 function _avjNotasHist(){
   const L=[];const add=t=>{t=String(t||'').trim();if(t&&!L.some(x=>x.toLowerCase()===t.toLowerCase()))L.push(t);};
   try{(JSON.parse(localStorage.getItem(_AVJ_NOTAS_KEY)||'[]')||[]).forEach(add);}catch(e){}
-  (DB.avanceViajes||[]).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).forEach(r=>add(_avjNotaRep(r)));
+  (DB.avanceViajes||[]).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))
+    .forEach(r=>{(r.destinos||[]).forEach(d=>add(d&&d.obs));add(_avjNotaRep(r));});
   return L.slice(0,40);
 }
+function _avjNotasDl(){return`<datalist id="avjDlNota">${_avjNotasHist().map(x=>`<option value="${_avjEsc(x)}">`).join('')}</datalist>`;}
+function _avjObsCampo(c,j){
+  return`<input class="avj-in" id="avjOb${j}" list="avjDlNota" maxlength="120" value="${_avjEsc(c.obs||'')}" placeholder="Obs. (Test Fill…)"
+    oninput="_avjObs(${j},this.value)" title="Observación de este tramo · escriba o elija una ya usada" style="width:100%;min-width:110px;font-size:.7rem;padding:.25rem .4rem">`;
+}
+function _avjObs(j,v){const c=_avj&&_avj.cols[j];if(c)c.obs=String(v||'');}
 function _avjNotaRecordar(t){
   t=String(t||'').trim();if(!t)return;
   try{const L=(JSON.parse(localStorage.getItem(_AVJ_NOTAS_KEY)||'[]')||[]).filter(x=>String(x).toLowerCase()!==t.toLowerCase());
     L.unshift(t);localStorage.setItem(_AVJ_NOTAS_KEY,JSON.stringify(L.slice(0,40)));}catch(e){}
 }
-function _avjNotaCampo(){
-  const H=_avjNotasHist();
-  return`<datalist id="avjDlNota">${H.map(x=>`<option value="${_avjEsc(x)}">`).join('')}</datalist>
-    <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
-      <input class="avj-in" id="avjNota" list="avjDlNota" maxlength="200" value="${_avjEsc((_avj&&_avj.notaReparto)||'')}"
-        placeholder="Ej. 6 viajes no fueron a capa ni acopio: Test Fill / Eliminación / Soporte" oninput="_avjNotaSet(this.value)" style="flex:1;min-width:240px;font-size:.76rem">
-      ${(_avj&&_avj.notaReparto)?`<button type="button" class="avj-mini" onclick="_avjNotaSet('',1)" title="Borrar la observación">✕</button>`:''}
-      ${H.slice(0,5).map((x,k)=>`<button type="button" class="avj-mini" style="width:auto;max-width:220px;padding:0 .45rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="${_avjEsc(x)}" onclick="_avjNotaUsar(${k})">${_avjEsc(x)}</button>`).join('')}
-    </div>`;
-}
-function _avjNotaSet(v,repintar){
-  if(!_avj)return;_avj.notaReparto=String(v||'');
-  if(repintar)_avjPintarVol();
-}
-function _avjNotaUsar(k){const t=_avjNotasHist()[k];if(t!=null)_avjNotaSet(t,1);}
 // Capa / acopio: al escribir solo se actualizan los números (no se pierde el cursor)
 function _avjRepartoVivo(){
   if(!_avj)return;
@@ -842,7 +836,10 @@ function _avjCopia(){
   return{id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:_avjN(r.meta),tipo:_avjTipoDe(r),
     // Capa / acopio por ruta (solo las que tienen viajes y reparto indicado)
     destinos:(r.cols||[]).map(c=>{const tot=_avjTotCol(c), k=_avjCapaDe(c.capa,tot);
-      return tot&&k!=null?{origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),material:String(c.material||'').trim(),capa:k}:null;}).filter(Boolean).concat(String(r.notaReparto||'').trim()?[{nota:String(r.notaReparto).trim()}]:[]),
+      const obs=String(c.obs||'').trim();
+      if(!tot||(k==null&&!obs))return null;
+      const d={origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),material:String(c.material||'').trim()};
+      if(k!=null)d.capa=k;if(obs)d.obs=obs;return d;}).filter(Boolean),
     volquetes:r.volquetes.map(v=>{
       const rutas=v.noOpera?[]:(r.cols||[]).map((c,o)=>({origen:String(c.origen||'').trim(),destino:String(c.destino||'').trim(),
         material:String(c.material||'').trim(),viajes:_avjN((v.c||{})[c.id]),o})).filter(x=>x.viajes>0);
@@ -894,7 +891,7 @@ async function _avjGuardar(){
     }
     if(error){toast('No se pudo guardar el corte: '+error.message,true);return;}
     const rec=_avjDeFila(fila);
-    _avjNotaRecordar(_avjNotaRep(r));
+    (r.destinos||[]).forEach(d=>_avjNotaRecordar(d&&d.obs));
     DB.avanceViajes=(DB.avanceViajes||[]).filter(x=>x.id!==id);
     DB.avanceViajes.unshift(rec);
     toast(`✓ Corte guardado · ${c.viajes} viajes al ${r.horaCorte}`);
@@ -954,7 +951,7 @@ function _avjEditar(id){
   _avj={id:r.id,fecha:r.fecha,turno:r.turno,horaCorte:r.horaCorte,meta:r.meta,cols,volquetes:vol,
     tipo:_avjTipoDe(r),tipoManual:true,
     restricciones:(r.restricciones||[]).map(x=>({...x,eqIds:[...(x.eqIds||[])],fotos:[...(x.fotos||[])],_nuevas:[]})),
-    observaciones:r.observaciones||'',notaReparto:_avjNotaRep(r),autor:r.autor,creadoEn:r.creadoEn};
+    observaciones:r.observaciones||'',autor:r.autor,creadoEn:r.creadoEn};
   _avjPintar();
   const f=document.getElementById('avjForm');if(f&&f.scrollIntoView)f.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -1413,8 +1410,13 @@ function _avjDocHtml(r,opc){
       ${(()=>{
         // Capa / acopio: solo si se indicó en alguna ruta
         const Rp=_avjRepartoTot(C.map(col=>({capa:col.capa,tot:col.tot})));
-        const nota=_avjNotaRep(r);
-        const filaNota=nota?`<tr><td colspan="${nC+3+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};font-size:${Math.max(8,fs-1.5)}px;color:#334155;text-align:left;white-space:pre-wrap"><b style="color:#111">Obs.:</b> ${_avjEsc(nota)}</td></tr>`:'';
+        // Observación por tramo, con letra pequeña; la general (versión anterior) a todo lo ancho
+        const nota=_avjNotaRep(r), fsO=Math.max(7.5,fs-2);
+        const filaNota=(C.some(x=>x.obs)?`<tr>
+          <td colspan="${conOp?2:1}" style="${MTD};background:#f8fafc;color:#334155;font-weight:900;text-align:left;white-space:nowrap;font-size:${fs-1}px">OBS.</td>
+          ${C.map(x=>`<td style="${MTD};background:#f8fafc;font-size:${fsO}px;line-height:1.2;color:#334155;text-align:center;white-space:normal;word-break:break-word">${_avjEsc(x.obs||'')}</td>`).join('')}
+          <td colspan="${2+(hayFin?1:0)}" style="${MTD};background:#f8fafc"></td></tr>`:'')
+          +(nota?`<tr><td colspan="${nC+3+(conOp?1:0)+(hayFin?1:0)}" style="${MTD};font-size:${fsO}px;color:#334155;text-align:left;white-space:pre-wrap"><b style="color:#111">Obs.:</b> ${_avjEsc(nota)}</td></tr>`:'');
         if(!Rp.hay)return filaNota;
         const fila=(lbl,col,bg,f)=>`<tr>
           <td colspan="${conOp?2:1}" style="${MTD};background:${bg};color:${col};font-weight:900;text-align:left;white-space:nowrap">${lbl}</td>
