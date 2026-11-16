@@ -333,6 +333,24 @@ console.log('\n== Avance / Reporte y capa / acopio ==');
   DB.avanceViajes=[{...ev('_avjCopia()'),id:777,tipo:'Reporte'}];
   ev('_avjEditar(777)');
   es('al editar vuelven el tipo y el reparto',ev('_avj.tipo+" · "+_avj.cols.map(c=>c.capa).join(",")'),'Reporte · 20,0');
+  // Observación del reparto (debajo de A CAPA / A ACOPIO)
+  ev('_avjPintarVol()');
+  es('pantalla: fila de observación bajo A ACOPIO',/⬇ A ACOPIO[\s\S]*📝 OBSERVACIÓN[\s\S]*id="avjNota"/.test(nodos.avjVol.innerHTML),true);
+  ev('_avjNotaSet("10 viajes a Test Fill")');
+  const Cn=ev('_avjCopia()');ctx.__cn=Cn;
+  es('  se guarda dentro de destinos, sin tocar el reparto',JSON.stringify(Cn.destinos.slice(-1))+' · '+ev('_avjMatriz(__cn).cols.map(c=>c.capa).join(",")'),'[{"nota":"10 viajes a Test Fill"}] · 20,0');
+  const Dn=ev('_avjDocHtml(__cn)');
+  es('  PDF: fila con letra pequeña después de A ACOPIO',/⬇ A ACOPIO[\s\S]*Obs\.:<\/b> 10 viajes a Test Fill/.test(Dn),true);
+  ctx.__cs={...Cn,destinos:[{nota:'Soporte'}]};
+  es('  sale aunque no haya reparto',/Obs\.:<\/b> Soporte/.test(ev('_avjDocHtml(__cs)'))&&!/A CAPA/.test(ev('_avjDocHtml(__cs)')),true);
+  DB.avanceViajes=[{...Cn,id:778}];
+  ev('_avjEditar(778)');
+  es('  al editar vuelve',ev('_avj.notaReparto'),'10 viajes a Test Fill');
+  ev('_avjNotaRecordar("Eliminación")');
+  es('  historial: lo escrito y lo guardado, sin repetir',ev('_avjNotasHist().join(" | ")'),'Eliminación | 10 viajes a Test Fill');
+  ev('_avjNotaSet("");_avjNotaUsar(1)');
+  es('  elegir del historial lo pone',ev('_avj.notaReparto'),'10 viajes a Test Fill');
+  ev('_avjNotaSet("")');
   // Sin el SQL nuevo: se guarda igual, sin las columnas nuevas
   const filasAntes=filas.length;
   const supaViejo=ctx.supa;
