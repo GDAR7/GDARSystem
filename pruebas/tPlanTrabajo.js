@@ -247,7 +247,7 @@ es('tabla inicial: por defecto se muestra',ev('_ptrTablaInicial()')+' · '+/Acti
 ev('_ptrSetTablaInicial(false)');
 const Dn=ev('_ptrDocHtml(__rec,{sinFotos:true})');
 es('  oculta: sin la tabla completa',/Actividades planificadas/.test(Dn),false);
-es('  pero sale la actividad que no está en ninguna foto',/Actividades sin foto · 1/.test(Dn)&&/C\. Huantajalla/.test(Dn)&&!/Descarga de material capa 58/.test(Dn),true);
+es('  pero sale la actividad que no está en ninguna foto',/Actividades sin foto · 1/.test(Dn)&&(()=>{const t=Dn.split('Actividades sin foto')[1].split('Zonas de trabajo · Foto')[0];return/C\. Huantajalla/.test(t)&&!/Descarga de material capa 58/.test(t);})(),true);
 es('  la foto 1 con su encabezado va en la primera hoja',/Zonas de trabajo · Foto 1 de 1/.test(Dn)&&/<polygon/.test(Dn)&&!/en las hojas siguientes/.test(Dn),true);
 es('  la descripción no se duplica (sale una sola vez)',(Dn.match(/Descarga de material capa 58/g)||[]).length,1);
 es('  y no se repite en otra hoja',ev('_ptrHojasFotos(__rec).length'),0);
