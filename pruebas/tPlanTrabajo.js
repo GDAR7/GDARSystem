@@ -242,6 +242,21 @@ ev('_ptrSetModoFotos("solo")');
 es('modo «solo foto»: sin tabla',/<table/.test(hoja()),false);
 es('  se recuerda',ev('_ptrModoFotos()'),'solo');
 ev('_ptrSetModoFotos("encabezado")');
+// Tabla inicial: se puede ocultar; las actividades sin foto siguen saliendo
+es('tabla inicial: por defecto se muestra',ev('_ptrTablaInicial()')+' · '+/Actividades planificadas · 2/.test(ev('_ptrDocHtml(__rec,{sinFotos:true})')),'true · true');
+ev('_ptrSetTablaInicial(false)');
+const Dn=ev('_ptrDocHtml(__rec,{sinFotos:true})');
+es('  oculta: sin la tabla completa',/Actividades planificadas/.test(Dn),false);
+es('  pero sale la actividad que no está en ninguna foto',/Actividades sin foto · 1/.test(Dn)&&/C\. Huantajalla/.test(Dn)&&!/Descarga de material capa 58/.test(Dn),true);
+es('  la foto 1 con su encabezado va en la primera hoja',/Zonas de trabajo · Foto 1 de 1/.test(Dn)&&/<polygon/.test(Dn)&&!/en las hojas siguientes/.test(Dn),true);
+es('  la descripción no se duplica (sale una sola vez)',(Dn.match(/Descarga de material capa 58/g)||[]).length,1);
+es('  y no se repite en otra hoja',ev('_ptrHojasFotos(__rec).length'),0);
+ev('_ptrSetModoFotos("solo")');
+es('  aunque esté en «solo foto», el encabezado va (si no, se perdería)',/Descarga de material capa 58/.test(ev('_ptrDocHtml(__rec,{sinFotos:true})')),true);
+ev('_ptrSetModoFotos("encabezado")');
+es('  se recuerda',ev('_ptrTablaInicial()'),false);
+es('  sin fotos, la tabla sale igual',/Actividades planificadas · 1/.test(ev('_ptrDocHtml({tipo:"Diario",fecha:"2026-11-15",turno:"Día",actividades:[{uid:"z",descripcion:"q"}],fotos:[]})')),true);
+ev('_ptrSetTablaInicial(true)');
 // Semanal: agrupado por día
 ctx.__sem={tipo:'Semanal',fecha:'2026-11-09',turno:'Día y Noche',actividades:[
   {uid:'a',dia:'2026-11-11',frente:'F1',descripcion:'x'},{uid:'b',dia:'',frente:'F2',descripcion:'y'},{uid:'c',dia:'2026-11-09',frente:'F3',descripcion:'z'}],fotos:[]};

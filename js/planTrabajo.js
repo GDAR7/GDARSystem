@@ -1123,6 +1123,25 @@ function _ptrSetModoFotos(m){
   const wrap=document.getElementById('ptrDocWrap');if(wrap)wrap.innerHTML=_ptrDocHtml(_ptrDoc);
   _ptrAjustarVisor();
 }
+// ── La tabla inicial de actividades: se puede ocultar cuando ya va en las
+// fotos (se recuerda en este equipo). Solo aplica si el plan tiene fotos; las
+// actividades que no están marcadas en ninguna foto siguen saliendo, para que
+// nada se pierda.
+const _PTR_TABLA_KEY='gdar_ptr_tabla';
+function _ptrTablaInicial(){try{return localStorage.getItem(_PTR_TABLA_KEY)!=='no';}catch(e){}return true;}
+function _ptrSetTablaInicial(si){
+  try{localStorage.setItem(_PTR_TABLA_KEY,si?'si':'no');}catch(e){}
+  if(!_ptrDoc)return;
+  const wrap=document.getElementById('ptrDocWrap');if(wrap)wrap.innerHTML=_ptrDocHtml(_ptrDoc);
+  _ptrAjustarVisor();
+}
+function _ptrTablaBtn(si){_ptrSetTablaInicial(si);}
+// Números de actividad que no están marcados en ninguna foto
+function _ptrActsSinFoto(r){
+  const acts=r.actividades||[], usadas=new Set();
+  (r.fotos||[]).forEach(f=>_ptrActsDeFoto(f,acts).forEach(i=>usadas.add(i)));
+  return acts.map((a,i)=>i).filter(i=>!usadas.has(i));
+}
 // Las actividades marcadas en una foto, en orden de número
 function _ptrActsDeFoto(f,acts){
   return[...new Set((f.marcas||[]).map(m=>m.act))].map(u=>acts.findIndex(a=>a.uid===u)).filter(i=>i>=0).sort((a,b)=>a-b);
@@ -1172,7 +1191,8 @@ function _ptrTablaActs(r,idx){
 // Una foto con su encabezado (según el modo elegido)
 function _ptrBloqueFoto(r,f,k,n){
   const acts=r.actividades||[], idx=_ptrActsDeFoto(f,acts);
-  const enc=_ptrModoFotos()==='encabezado'&&idx.length;
+  // Con la tabla inicial oculta, el encabezado va siempre (si no, la descripción no saldría en ningún lado)
+  const enc=(_ptrModoFotos()==='encabezado'||!_ptrTablaInicial())&&idx.length;
   return`${_ptrTit('Zonas de trabajo · Foto '+(k+1)+' de '+n+(f.nota?' <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· '+_ptrEsc(f.nota)+'</span>':''))}
     ${enc?_ptrTablaActs(r,idx):''}
     <div style="margin-top:8px">${_ptrFotoDoc(f,acts,712)}</div>`;
@@ -1207,8 +1227,11 @@ function _ptrDocHtml(r,opc){
       ${personal?caja('Personal',personal,'#16a34a'):''}${caja('Restricciones',R.length||'0',R.length?'#dc2626':'#16a34a')}
       ${caja('Responsable',`<span style="font-size:13px">${_ptrEsc(r.responsable||'—')}</span>`,AC)}
     </div>
-    ${_ptrTit('Actividades planificadas · '+acts.length)}
-    ${_ptrTablaActs(r)}
+    ${(()=>{
+      if(!fotos.length||_ptrTablaInicial())return _ptrTit('Actividades planificadas · '+acts.length)+_ptrTablaActs(r);
+      const resto=_ptrActsSinFoto(r);
+      return resto.length?_ptrTit('Actividades sin foto · '+resto.length)+_ptrTablaActs(r,resto):'';
+    })()}
     ${R.length?`${_ptrTit('<span style="color:#dc2626">⛔ Restricciones · '+R.length+'</span>')}
     <table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">
       <colgroup><col style="width:52px"><col style="width:170px"><col style="width:120px"><col></colgroup>
@@ -1222,7 +1245,10 @@ function _ptrDocHtml(r,opc){
       <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em">Observaciones</div>
       <div style="font-size:12px;margin-top:3px;white-space:pre-wrap">${_ptrEsc(r.observaciones)}</div></div>`:''}
     ${fotos.length?(opc&&opc.sinFotos
-      ?`<div style="margin-top:12px;font-size:11.5px;color:#475569">📷 <b>Zonas de trabajo:</b> ${fotos.length} foto(s)${conMarcas?' con las actividades marcadas':''}, en las hojas siguientes.</div>`
+      ?(!_ptrTablaInicial()
+        // Tabla oculta: la foto 1 con su encabezado va en esta misma hoja; las demás, en las siguientes
+        ?_ptrBloqueFoto(r,fotos[0],0,fotos.length)
+        :`<div style="margin-top:12px;font-size:11.5px;color:#475569">📷 <b>Zonas de trabajo:</b> ${fotos.length} foto(s)${conMarcas?' con las actividades marcadas':''}, en las hojas siguientes.</div>`)
       :fotos.map((f,k)=>_ptrBloqueFoto(r,f,k,fotos.length)).join('')):''}
     ${r.nota?`<div style="margin-top:12px;padding:8px 12px;border:1px dashed #94a3b8;border-radius:6px;font-size:11px;color:#334155;background:#f8fafc"><b style="color:#111">NOTA:</b> ${_ptrEsc(r.nota)}</div>`:''}
     <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #d6dbe3;padding-top:9px;font-size:11px;color:#475569">
@@ -1234,8 +1260,10 @@ function _ptrDocHtml(r,opc){
 // Para el PDF: cada foto en su hoja. Con «encabezado», arriba la tabla de las
 // actividades marcadas en esa foto (los mismos números que se ven en ella).
 function _ptrHojasFotos(r){
-  const fotos=r.fotos||[], acts=r.actividades||[], enc=_ptrModoFotos()==='encabezado';
-  return fotos.map((f,k)=>{const idx=_ptrActsDeFoto(f,acts);
+  const fotos=r.fotos||[], acts=r.actividades||[], oculta=!_ptrTablaInicial();
+  const enc=_ptrModoFotos()==='encabezado'||oculta;
+  // Con la tabla oculta, la foto 1 ya va en la primera hoja
+  return fotos.map((f,k)=>{if(oculta&&k===0)return null;const idx=_ptrActsDeFoto(f,acts);
     return`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${_PTR_AZ};padding-bottom:8px">
       <div style="font-size:18px;font-weight:900;color:${_PTR_AZ}">ZONAS DE TRABAJO</div>
@@ -1244,7 +1272,7 @@ function _ptrHojasFotos(r){
     ${f.nota?`<div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#111">${_ptrEsc(f.nota)}</div>`:''}
     ${enc&&idx.length?_ptrTablaActs(r,idx):''}
     <div style="margin-top:10px">${_ptrFotoDoc(f,acts,712)}</div>
-  </div>`;});
+  </div>`;}).filter(Boolean);
 }
 
 // ── Visor y PDF (los mismos botones del Avance de Viajes) ──────────────────
@@ -1260,7 +1288,10 @@ function _ptrVerDoc(r,borrador){
       <b style="flex:1;color:#e2e8f0;font-size:.9rem">📋 Plan de trabajo${borrador?' · vista previa (sin guardar)':''}</b>
       ${(r.fotos||[]).length?`<span style="display:inline-flex;gap:.25rem;align-items:center;color:#94a3b8;font-size:.72rem">Fotos:
         <button type="button" id="ptrModoEnc" onclick="_ptrModoBtn('encabezado')" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Arriba la tabla de las actividades marcadas en la foto">📋 Con encabezado</button>
-        <button type="button" id="ptrModoSolo" onclick="_ptrModoBtn('solo')" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Solo la foto, con más espacio">🖼️ Solo foto</button></span>`:''}
+        <button type="button" id="ptrModoSolo" onclick="_ptrModoBtn('solo')" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Solo la foto, con más espacio">🖼️ Solo foto</button></span>
+      <span style="display:inline-flex;gap:.25rem;align-items:center;color:#94a3b8;font-size:.72rem">Tabla inicial:
+        <button type="button" id="ptrTablaSi" onclick="_ptrTablaBtn(true)" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Muestra la tabla de todas las actividades en la primera hoja">👁 Mostrar</button>
+        <button type="button" id="ptrTablaNo" onclick="_ptrTablaBtn(false)" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="La quita de la primera hoja (las actividades ya salen en cada foto)">🙈 Ocultar</button></span>`:''}
       <button type="button" id="ptrBtnDesc" onclick="_ptrDescargarPdf()" style="${bt};border:none;background:#3b82f6;color:#fff" title="Guarda el PDF en Descargas">⬇ Descargar PDF</button>
       <button type="button" id="ptrBtnCopiar" onclick="_ptrCopiarImagen()" style="${bt};border:none;background:#f59e0b;color:#111" title="Copia la hoja como imagen: luego Ctrl+V en WhatsApp, correo, Teams…">📋 Copiar imagen</button>
       <button type="button" id="ptrBtnPdf" onclick="_ptrCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir</button>
@@ -1278,8 +1309,8 @@ function _ptrAjustarVisor(){
     const disp=Math.min(794,window.innerWidth-24);
     if(disp<794){const h=wrap.firstElementChild;if(h){h.style.transform='scale('+(disp/794)+')';h.style.transformOrigin='top left';}wrap.style.width=disp+'px';}
   }
-  const m=_ptrModoFotos();
-  [['ptrModoEnc','encabezado'],['ptrModoSolo','solo']].forEach(([id,v])=>{const b=document.getElementById(id);if(!b)return;
+  const m=_ptrModoFotos(), t=_ptrTablaInicial()?'si':'no';
+  [['ptrModoEnc','encabezado',m],['ptrModoSolo','solo',m],['ptrTablaSi','si',t],['ptrTablaNo','no',t]].forEach(([id,v,act])=>{const b=document.getElementById(id);if(!b)return;const m=act;
     b.style.background=m===v?'#38bdf8':'none';b.style.color=m===v?'#0b1220':'#e2e8f0';b.style.border=m===v?'1px solid #38bdf8':'1px solid #ffffff30';});
 }
 function _ptrModoBtn(m){_ptrSetModoFotos(m);}
