@@ -210,7 +210,11 @@ function _avjSugerencias(){
     if(v.material)c.m[v.material]=(c.m[v.material]||0)+n;
   }));
   const top=o=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,40);
-  return{origenes:top(c.o),destinos:top(c.d),materiales:top(c.m)};
+  // Origen y destino: primero los más usados y luego todos los frentes de trabajo
+  const frentes=[...new Set((DB.frentesTrabajo||[]).map(x=>String((x&&(x.nombre||x.nom))||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'es'));
+  const conFrentes=l=>{const vistos=new Set(l.map(x=>x.toLowerCase()));return[...l,...frentes.filter(f=>!vistos.has(f.toLowerCase()))];};
+  return{origenes:conFrentes(top(c.o)),destinos:conFrentes(top(c.d)),materiales:top(c.m)};
 }
 // ── Rutas (las columnas de la tabla cruzada) ───────────────────────────────
 // Un volquete puede hacer viajes en varias rutas o frentes: cada ruta es una

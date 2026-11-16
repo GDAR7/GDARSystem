@@ -116,6 +116,13 @@ ev('_avjPintarVol()');
 es('pantalla: fila de totales por ruta',/TOTAL VIAJES/.test(nodos.avjVol.innerHTML)&&/id="avjCT1"[^>]*>7</.test(nodos.avjVol.innerHTML),true);
 ev("_avjCel(0,1,'');_avjCel(1,1,'')");
 ev("_avjColQuitar(1)");
+ev("DB.__ftAntes=DB.frentesTrabajo;DB.frentesTrabajo=[{nombre:'R3 - Dique Auxiliar'},{nombre:'c. huantajalla'},{nombre:'Botadero Sur'}]");
+const sg=ev('_avjSugerencias()');
+es('origen y destino ofrecen todos los frentes (sin repetir los ya usados)',
+  sg.origenes.includes('R3 - Dique Auxiliar')&&sg.origenes.includes('Botadero Sur')&&sg.destinos.includes('Botadero Sur')
+  &&sg.origenes.filter(x=>x.toLowerCase()==='c. huantajalla').length===1,true);
+es('  primero los más usados, luego los frentes',sg.origenes.indexOf('C. Huantajalla')<sg.origenes.indexOf('Botadero Sur'),true);
+ev('DB.frentesTrabajo=DB.__ftAntes');
 es('quitar la ruta deja una sola columna',ev('_avj.cols.length')+' · '+ev('_avjCalc(_avj).viajes'),'1 · 16');
 console.log('\n== Plano de rutas con viajes ==');
 const conRutas={fecha:'2026-11-12',turno:'Día',horaCorte:'12:00',restricciones:[],volquetes:[
