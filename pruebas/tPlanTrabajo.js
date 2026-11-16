@@ -111,7 +111,7 @@ ev('_ptrEdHerr("borrar");_ptrEdPunto({x:40.5,y:40.5})');
 es('  se borra con 🧽',ev('_ptr.fotos[0].marcas.some(m=>m.tipo==="icono")'),false);
 ev('_ptrEdIcono("volquete");_ptrEdPunto({x:44,y:44});_ptrEdPunto({x:46,y:46})');
 ctx.__fi={marcas:ev('_ptr.fotos[0].marcas.filter(m=>m.tipo==="icono")')};
-es('  la leyenda dice cuántos de cada uno',/Volquete <b>×2<\/b>/.test(ev('_ptrLeyenda(__fi,_ptr.actividades)')),true);
+es('  dos volquetes puestos',ctx.__fi.marcas.length,2);
 ev('_ptr.fotos[0].marcas=_ptr.fotos[0].marcas.filter(m=>m.tipo!=="icono")');
 ev('_ptrEdHerr("borrar");_ptrEdPunto({x:80.5,y:20.5})');
 es('borrar: quita la marca tocada',ev('_ptr.fotos[0].marcas.map(m=>m.tipo).join(",")'),'zona,flecha');
@@ -233,6 +233,15 @@ es('en el PDF: la hoja del plan avisa que las fotos siguen',/en las hojas siguie
 es('  una hoja por foto',ev('_ptrHojasFotos(__rec).length'),1);
 es('  la hoja de la foto lleva marcas y leyenda',/ZONAS DE TRABAJO/.test(ev('_ptrHojasFotos(__rec)[0]'))&&/<polygon/.test(ev('_ptrHojasFotos(__rec)[0]')),true);
 es('los títulos van pegados a lo que sigue (no quedan solos al pie)',/data-pt-tit/.test(D),true);
+// Fotos en el PDF: con encabezado (tabla de lo marcado arriba) o solo la foto
+const hoja=()=>ev('_ptrHojasFotos(__rec)[0]');
+es('modo por defecto: con encabezado',ev('_ptrModoFotos()'),'encabezado');
+es('  la hoja de la foto lleva arriba la tabla de lo marcado en ella',(()=>{const h=hoja();return h.indexOf('<table')>0&&h.indexOf('<table')<h.indexOf('<img')&&/Descarga de material capa 58/.test(h)&&!/C\. Huantajalla/.test(h);})(),true);
+es('  ya no lleva la leyenda de abajo',/Foto de detalle|×2/.test(hoja()),false);
+ev('_ptrSetModoFotos("solo")');
+es('modo «solo foto»: sin tabla',/<table/.test(hoja()),false);
+es('  se recuerda',ev('_ptrModoFotos()'),'solo');
+ev('_ptrSetModoFotos("encabezado")');
 // Semanal: agrupado por día
 ctx.__sem={tipo:'Semanal',fecha:'2026-11-09',turno:'Día y Noche',actividades:[
   {uid:'a',dia:'2026-11-11',frente:'F1',descripcion:'x'},{uid:'b',dia:'',frente:'F2',descripcion:'y'},{uid:'c',dia:'2026-11-09',frente:'F3',descripcion:'z'}],fotos:[]};

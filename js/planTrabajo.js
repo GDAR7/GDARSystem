@@ -1112,28 +1112,31 @@ function _ptrFotoDoc(f,acts,W){
     <img src="${_ptrEsc(f.url)}" alt="" crossorigin="anonymous" style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;max-width:none;display:block">
     ${_ptrMarcasHtml(f,acts,{W,tam:Math.max(20,Math.round(W/30))})}</div>`;
 }
-// Leyenda de una foto: las actividades marcadas en ella
-function _ptrLeyenda(f,acts){
-  const usadas=[...new Set((f.marcas||[]).map(m=>m.act))].map(u=>acts.findIndex(a=>a.uid===u)).filter(i=>i>=0).sort((a,b)=>a-b);
-  if(!usadas.length)return'';
-  return`<table style="width:100%;border-collapse:collapse;margin-top:6px">${usadas.map(i=>{const a=acts[i];
-    // Íconos de esta actividad en la foto: «🚛 Volquete ×3»
-    const cuenta={};(f.marcas||[]).filter(m=>m.tipo==='icono'&&m.act===a.uid).forEach(m=>{cuenta[m.icono]=(cuenta[m.icono]||0)+1;});
-    const nDet=(f.marcas||[]).filter(m=>m.tipo==='detalle'&&m.act===a.uid).length;
-    const iconos=(nDet?`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">🖼️ Foto de detalle${nDet>1?' <b>×'+nDet+'</b>':''}</span>`:'')+Object.keys(cuenta).map(k=>`<span style="display:inline-flex;align-items:center;gap:3px;margin:3px 10px 0 0;font-size:10.5px;color:#334155;white-space:nowrap">${_ptrIconoSvg(k,20)}${_ptrEsc(_ptrIcono(k).n)}${cuenta[k]>1?' <b>×'+cuenta[k]+'</b>':''}</span>`).join('');
-    return`<tr><td style="width:28px;padding:4px 6px;border:1px solid #d6dbe3;text-align:center">${_ptrChip(i)}</td>
-      <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;font-weight:700;width:150px">${_ptrEsc(a.frente||'—')}${a.sector?`<div style="font-weight:400;color:#475569">${_ptrEsc(a.sector)}</div>`:''}</td>
-      <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px"><div style="white-space:pre-wrap">${_ptrEsc(String(a.descripcion||'').slice(0,220))}</div>${iconos?`<div style="display:flex;flex-wrap:wrap">${iconos}</div>`:''}</td>
-      <td style="padding:4px 7px;border:1px solid #d6dbe3;font-size:11px;font-weight:800;text-align:right;white-space:nowrap;width:80px">${_ptrEsc(_ptrMetaTxt(a))}</td></tr>`;}).join('')}</table>`;
+// ── Cómo salen las fotos en el PDF (se recuerda en este equipo) ────────────
+//   encabezado: arriba la tabla de las actividades marcadas en esa foto, abajo la foto
+//   solo:       solo la foto (más espacio)
+const _PTR_MODO_KEY='gdar_ptr_fotos';
+function _ptrModoFotos(){try{const v=localStorage.getItem(_PTR_MODO_KEY);if(v==='solo'||v==='encabezado')return v;}catch(e){}return'encabezado';}
+function _ptrSetModoFotos(m){
+  try{localStorage.setItem(_PTR_MODO_KEY,m);}catch(e){}
+  if(!_ptrDoc)return;
+  const wrap=document.getElementById('ptrDocWrap');if(wrap)wrap.innerHTML=_ptrDocHtml(_ptrDoc);
+  _ptrAjustarVisor();
 }
-function _ptrDocHtml(r,opc){
-  const AZ=_PTR_AZ, AC=_PTR_AC;
-  const logo=(typeof EMPRESA!=='undefined'&&EMPRESA.logo)?EMPRESA.logo:'';
-  const acts=r.actividades||[], fotos=r.fotos||[], sem=r.tipo==='Semanal';
+// Las actividades marcadas en una foto, en orden de número
+function _ptrActsDeFoto(f,acts){
+  return[...new Set((f.marcas||[]).map(m=>m.act))].map(u=>acts.findIndex(a=>a.uid===u)).filter(i=>i>=0).sort((a,b)=>a-b);
+}
+// Tabla de actividades (agrupada por frente; en el semanal, por día y frente).
+// idx: los números de actividad a incluir (por defecto, todas). Las columnas
+// que nadie llenó no salen.
+function _ptrTablaActs(r,idx){
+  const AZ=_PTR_AZ, todasActs=r.actividades||[], sem=r.tipo==='Semanal';
+  const todos=(idx||todasActs.map((a,i)=>i)).map(i=>({a:todasActs[i],i})).filter(o=>o.a);
+  const acts=todos.map(o=>o.a);
   const TD='padding:6px 8px;border:1px solid #d6dbe3;font-size:11.5px;vertical-align:top;color:#111;white-space:normal';
   const TH=`padding:6px 8px;border:1px solid ${AZ};background:${AZ};color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.04em;text-align:left;white-space:normal`;
   const vacio=v=>v===''||v==null;
-  // Columnas que salen solo si alguna actividad las usa
   const C={sector:acts.some(a=>a.sector),material:acts.some(a=>a.material),meta:acts.some(a=>!vacio(a.meta)),
     equipos:acts.some(a=>_ptrEquiposTxt(a).length),personal:acts.some(a=>!vacio(a.personal)),resp:acts.some(a=>a.responsable)};
   const cols=[['N°',34,'center'],C.sector&&['Sector',104],['Actividad',0],C.material&&['Material',76,'center'],C.meta&&['Meta',76,'right'],
@@ -1149,20 +1152,36 @@ function _ptrDocHtml(r,opc){
     ${C.personal?`<td style="${TD};text-align:center">${!vacio(a.personal)?_ptrEsc(a.personal):'—'}</td>`:''}
     ${C.resp?`<td style="${TD};font-size:10.5px">${_ptrEsc(a.responsable||'—')}</td>`:''}</tr>`;
   const franja=(t,fondo,col)=>`<tr><td colspan="${nCol}" style="padding:5px 8px;border:1px solid #d6dbe3;background:${fondo};color:${col};font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.05em">${t}</td></tr>`;
-  // Agrupado por frente, en el orden en que se cargaron
   const porFrente=L=>{
     const fr=[];L.forEach(o=>{const k=o.a.frente||'';if(!fr.includes(k))fr.push(k);});
     return fr.map(k=>franja('▸ '+_ptrEsc(k||'Sin frente'),'#e8eef7',AZ)+L.filter(o=>(o.a.frente||'')===k).map(o=>fila(o.a,o.i)).join('')).join('');
   };
-  const todos=acts.map((a,i)=>({a,i}));
   let cuerpo='';
   if(sem){
-    // Por día (primero lo de toda la semana) y dentro, por frente
     ['',..._ptrSemana(r.fecha).map(d=>d.iso)].forEach(d=>{
       const L=todos.filter(o=>(o.a.dia||'')===d);if(!L.length)return;
       cuerpo+=franja(_ptrEsc(_ptrDiaTxt(r,d)),AZ,'#fff')+porFrente(L);
     });
   }else cuerpo=porFrente(todos);
+  return`<table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">
+      <colgroup>${cols.map(c=>c[1]?`<col style="width:${c[1]}px">`:'<col>').join('')}</colgroup>
+      <tr>${cols.map(c=>`<th style="${TH}${c[2]?';text-align:'+c[2]:''}">${c[0]}</th>`).join('')}</tr>
+      ${cuerpo||`<tr><td colspan="${nCol}" style="${TD};text-align:center;color:#64748b">Sin actividades</td></tr>`}
+    </table>`;
+}
+// Una foto con su encabezado (según el modo elegido)
+function _ptrBloqueFoto(r,f,k,n){
+  const acts=r.actividades||[], idx=_ptrActsDeFoto(f,acts);
+  const enc=_ptrModoFotos()==='encabezado'&&idx.length;
+  return`${_ptrTit('Zonas de trabajo · Foto '+(k+1)+' de '+n+(f.nota?' <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· '+_ptrEsc(f.nota)+'</span>':''))}
+    ${enc?_ptrTablaActs(r,idx):''}
+    <div style="margin-top:8px">${_ptrFotoDoc(f,acts,712)}</div>`;
+}
+function _ptrDocHtml(r,opc){
+  const AZ=_PTR_AZ, AC=_PTR_AC;
+  const logo=(typeof EMPRESA!=='undefined'&&EMPRESA.logo)?EMPRESA.logo:'';
+  const acts=r.actividades||[], fotos=r.fotos||[], sem=r.tipo==='Semanal';
+  const TD='padding:6px 8px;border:1px solid #d6dbe3;font-size:11.5px;vertical-align:top;color:#111;white-space:normal';
   const R=r.restricciones||[];
   const personal=acts.reduce((s,a)=>s+_ptrN(a.personal),0);
   const nEq=new Set(acts.flatMap(a=>(a.eqIds||[]).map(Number))).size+acts.reduce((s,a)=>s+(a.tipos||[]).length,0);
@@ -1189,11 +1208,7 @@ function _ptrDocHtml(r,opc){
       ${caja('Responsable',`<span style="font-size:13px">${_ptrEsc(r.responsable||'—')}</span>`,AC)}
     </div>
     ${_ptrTit('Actividades planificadas · '+acts.length)}
-    <table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">
-      <colgroup>${cols.map(c=>c[1]?`<col style="width:${c[1]}px">`:'<col>').join('')}</colgroup>
-      <tr>${cols.map(c=>`<th style="${TH}${c[2]?';text-align:'+c[2]:''}">${c[0]}</th>`).join('')}</tr>
-      ${cuerpo||`<tr><td colspan="${nCol}" style="${TD};text-align:center;color:#64748b">Sin actividades</td></tr>`}
-    </table>
+    ${_ptrTablaActs(r)}
     ${R.length?`${_ptrTit('<span style="color:#dc2626">⛔ Restricciones · '+R.length+'</span>')}
     <table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed">
       <colgroup><col style="width:52px"><col style="width:170px"><col style="width:120px"><col></colgroup>
@@ -1208,8 +1223,7 @@ function _ptrDocHtml(r,opc){
       <div style="font-size:12px;margin-top:3px;white-space:pre-wrap">${_ptrEsc(r.observaciones)}</div></div>`:''}
     ${fotos.length?(opc&&opc.sinFotos
       ?`<div style="margin-top:12px;font-size:11.5px;color:#475569">📷 <b>Zonas de trabajo:</b> ${fotos.length} foto(s)${conMarcas?' con las actividades marcadas':''}, en las hojas siguientes.</div>`
-      :fotos.map((f,k)=>`${_ptrTit('Zonas de trabajo · Foto '+(k+1)+' de '+fotos.length+(f.nota?' <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#64748b">· '+_ptrEsc(f.nota)+'</span>':''))}
-        <div style="margin-top:6px">${_ptrFotoDoc(f,acts,712)}</div>${_ptrLeyenda(f,acts)}`).join('')):''}
+      :fotos.map((f,k)=>_ptrBloqueFoto(r,f,k,fotos.length)).join('')):''}
     ${r.nota?`<div style="margin-top:12px;padding:8px 12px;border:1px dashed #94a3b8;border-radius:6px;font-size:11px;color:#334155;background:#f8fafc"><b style="color:#111">NOTA:</b> ${_ptrEsc(r.nota)}</div>`:''}
     <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #d6dbe3;padding-top:9px;font-size:11px;color:#475569">
       <span>Registró: <b style="color:#111">${_ptrEsc(r.autor||'—')}</b></span>
@@ -1217,18 +1231,20 @@ function _ptrDocHtml(r,opc){
     </div>
   </div>`;
 }
-// Para el PDF: cada foto en su hoja, grande, con la leyenda de lo marcado
+// Para el PDF: cada foto en su hoja. Con «encabezado», arriba la tabla de las
+// actividades marcadas en esa foto (los mismos números que se ven en ella).
 function _ptrHojasFotos(r){
-  const fotos=r.fotos||[], acts=r.actividades||[];
-  return fotos.map((f,k)=>`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
+  const fotos=r.fotos||[], acts=r.actividades||[], enc=_ptrModoFotos()==='encabezado';
+  return fotos.map((f,k)=>{const idx=_ptrActsDeFoto(f,acts);
+    return`<div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid ${_PTR_AZ};padding-bottom:8px">
       <div style="font-size:18px;font-weight:900;color:${_PTR_AZ}">ZONAS DE TRABAJO</div>
       <div style="font-size:11px;color:#334155;text-align:right">Plan ${_ptrEsc(String(r.tipo||'').toLowerCase())} · ${_ptrEsc(_ptrPeriodo(r))} · Turno ${_ptrEsc(r.turno||'')}<br>Foto ${k+1} de ${fotos.length}</div>
     </div>
     ${f.nota?`<div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#111">${_ptrEsc(f.nota)}</div>`:''}
-    <div style="margin-top:8px">${_ptrFotoDoc(f,acts,712)}</div>
-    ${_ptrLeyenda(f,acts)}
-  </div>`);
+    ${enc&&idx.length?_ptrTablaActs(r,idx):''}
+    <div style="margin-top:10px">${_ptrFotoDoc(f,acts,712)}</div>
+  </div>`;});
 }
 
 // ── Visor y PDF (los mismos botones del Avance de Viajes) ──────────────────
@@ -1242,6 +1258,9 @@ function _ptrVerDoc(r,borrador){
   ov.innerHTML=`
     <div style="display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #ffffff18;flex-wrap:wrap">
       <b style="flex:1;color:#e2e8f0;font-size:.9rem">📋 Plan de trabajo${borrador?' · vista previa (sin guardar)':''}</b>
+      ${(r.fotos||[]).length?`<span style="display:inline-flex;gap:.25rem;align-items:center;color:#94a3b8;font-size:.72rem">Fotos:
+        <button type="button" id="ptrModoEnc" onclick="_ptrModoBtn('encabezado')" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Arriba la tabla de las actividades marcadas en la foto">📋 Con encabezado</button>
+        <button type="button" id="ptrModoSolo" onclick="_ptrModoBtn('solo')" style="${bt};padding:.45rem .7rem;font-size:.75rem" title="Solo la foto, con más espacio">🖼️ Solo foto</button></span>`:''}
       <button type="button" id="ptrBtnDesc" onclick="_ptrDescargarPdf()" style="${bt};border:none;background:#3b82f6;color:#fff" title="Guarda el PDF en Descargas">⬇ Descargar PDF</button>
       <button type="button" id="ptrBtnCopiar" onclick="_ptrCopiarImagen()" style="${bt};border:none;background:#f59e0b;color:#111" title="Copia la hoja como imagen: luego Ctrl+V en WhatsApp, correo, Teams…">📋 Copiar imagen</button>
       <button type="button" id="ptrBtnPdf" onclick="_ptrCompartirPdf()" style="${bt};border:none;background:#10b981;color:#0b1220">📤 Compartir</button>
@@ -1250,12 +1269,20 @@ function _ptrVerDoc(r,borrador){
     <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px">
       <div id="ptrDocWrap" style="max-width:794px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5)">${_ptrDocHtml(r)}</div>
     </div>`;
+  _ptrAjustarVisor();
+}
+// Achica la hoja en pantallas angostas y marca el modo de fotos elegido
+function _ptrAjustarVisor(){
   const wrap=document.getElementById('ptrDocWrap');
   if(wrap&&typeof window!=='undefined'&&window.innerWidth){
     const disp=Math.min(794,window.innerWidth-24);
     if(disp<794){const h=wrap.firstElementChild;if(h){h.style.transform='scale('+(disp/794)+')';h.style.transformOrigin='top left';}wrap.style.width=disp+'px';}
   }
+  const m=_ptrModoFotos();
+  [['ptrModoEnc','encabezado'],['ptrModoSolo','solo']].forEach(([id,v])=>{const b=document.getElementById(id);if(!b)return;
+    b.style.background=m===v?'#38bdf8':'none';b.style.color=m===v?'#0b1220':'#e2e8f0';b.style.border=m===v?'1px solid #38bdf8':'1px solid #ffffff30';});
 }
+function _ptrModoBtn(m){_ptrSetModoFotos(m);}
 function _ptrCerrarDoc(){const ov=document.getElementById('ptrDocView');if(ov){ov.innerHTML='';ov.style.display='none';}_ptrDoc=null;}
 function _ptrNombreArchivo(r){
   const quien=String(r.autor||'').replace(/[\\/:*?"<>|]+/g,'').trim().slice(0,40);
