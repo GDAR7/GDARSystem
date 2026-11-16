@@ -939,7 +939,7 @@ async function gFPago(){
     if(ttl)ttl.textContent='🧾 Cargar Comprobante de Pago';
     closeM('mFPago');rFPago();rReq();toast('Comprobante actualizado: '+num);
   }else{
-    const newFpId=nid('fpago');
+    const newFpId=_fpNuevoId();
     DB.facturasPago.push({id:newFpId,...fields,pdfName,pdfUrl});
     if(reqIdRaw){
       const req=DB.requerimientos.find(r=>r.id===+reqIdRaw);
@@ -1002,13 +1002,37 @@ function _fpRefrescarActivo(){
 let _feFacturaId=null;
 
 // ¿La factura ya tiene ítems extraídos en Reembolsables/Gastos?
+// Solo cuenta lo que se extrajo con el botón 🔍 Extraer de ESTA factura: subirla
+// no la marca. Se exige que el ítem coincida con la factura (no basta el id,
+// que pudo quedar de una factura borrada, ni el N° solo, que puede repetirse
+// entre proveedores).
+function _fpNumNorm(s){
+  const m=/^\s*([A-Z0-9]+)\s*-\s*0*(\d+)\s*$/i.exec(String(s||''));
+  return m?m[1].toUpperCase()+'-'+m[2]:String(s||'').toUpperCase().replace(/\s/g,'');
+}
+function _fpMismoEmisor(f,r){
+  const rf=String(f.ruc||'').replace(/\D/g,''), rr=String(r.ruc||'').replace(/\D/g,'');
+  if(rf&&rr)return rf===rr;
+  const pf=String(f.prov||'').trim().toUpperCase(), pr=String(r.proveedor||'').trim().toUpperCase();
+  return !!(pf&&pr&&(pf===pr||pf.includes(pr)||pr.includes(pf)));
+}
 function _fpYaExtraida(f){
   const rs=DB.reembolsables||[];
-  if(rs.some(r=>r.facturaId===f.id))return true;
-  // Respaldo: comparar N° de comprobante (E001-1262) contra serie-correlativo guardados
-  const numNorm=(f.num||'').toUpperCase().replace(/[\s]/g,'');
-  if(!numNorm)return false;
-  return rs.some(r=>`${(r.serie||'').toUpperCase()}-${r.correlativo||''}`===numNorm);
+  const num=_fpNumNorm(f.num);
+  const mismoNum=r=>!!(r.serie||r.correlativo)&&_fpNumNorm(`${r.serie||''}-${r.correlativo||''}`)===num;
+  // Extraído de esta factura: su id y además el mismo N° o el mismo proveedor/RUC
+  const sinDatos=r=>!(r.serie||r.correlativo)&&!r.ruc&&!r.proveedor;
+  if(rs.some(r=>r.facturaId!=null&&+r.facturaId===+f.id&&(sinDatos(r)||mismoNum(r)||_fpMismoEmisor(f,r))))return true;
+  // Ítems antiguos sin factura vinculada: mismo N° y mismo proveedor/RUC
+  return !!num&&rs.some(r=>r.facturaId==null&&mismoNum(r)&&_fpMismoEmisor(f,r));
+}
+// Id para una factura nueva que no choque con facturas ni con ítems que
+// todavía apuntan a una factura borrada
+function _fpNuevoId(){
+  const max=Math.max(0,...(DB.facturasPago||[]).map(x=>+x.id||0),...(DB.reembolsables||[]).map(r=>+r.facturaId||0));
+  const id=Math.max(max+1,(DB.nx&&DB.nx.fpago)||1);
+  if(DB.nx)DB.nx.fpago=id+1;
+  return id;
 }
 
 // ── Catálogo de códigos de reembolsable (tabla codigo_reemb; fallback local si está vacía) ──
