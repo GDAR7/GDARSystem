@@ -274,6 +274,12 @@ function _avjMatriz(r){
 // Por ruta se indica cuántos viajes fueron A CAPA; el resto va A ACOPIO.
 // Sin indicar (null) no se reparte: se muestra «–».
 const _avjCapaDe=(capa,tot)=>capa===''||capa==null?null:Math.min(tot,Math.max(0,_avjN(capa)));
+// [{capa, tot}] por ruta: del formulario (cols + celdas) o de un corte guardado
+function _avjRepartoLista(r){
+  if(Array.isArray(r.cols))return r.cols.map(c=>({capa:c.capa,
+    tot:(r.volquetes||[]).reduce((s,v)=>s+(v.noOpera?0:_avjN((v.c||{})[c.id])),0)}));
+  return _avjMatriz(r).cols.map(c=>({capa:c.capa,tot:c.tot}));
+}
 function _avjRepartoTot(L){                 // L = [{capa, tot}]
   let capa=0,acopio=0,sin=0;
   L.forEach(x=>{if(!x.tot)return;const k=_avjCapaDe(x.capa,x.tot);if(k==null)sin+=x.tot;else{capa+=k;acopio+=x.tot-k;}});
@@ -328,9 +334,12 @@ function _avjCalc(r){
   const metaTurno=meta>0?meta*opera.length:0;
   const metaAlCorte=metaTurno&&valida?Math.round(metaTurno*transc/_AVJ_HORAS_TURNO):0;
   const horasPerdidas=(r.restricciones||[]).reduce((s,x)=>s+_avjHorasEntre(x.ini,x.fin),0);
+  // La meta se compara con los viajes A CAPA (si no se indicó el reparto, con el total)
+  const Rp=_avjRepartoTot(_avjRepartoLista(r));
+  const aCapa=Rp.hay?Rp.capa:null, base=Rp.hay?Rp.capa:viajes;
   return{viajes,opera:opera.length,total:vol.length,conViajes,
     promedio:conViajes?viajes/conViajes:0,transc:valida?transc:null,proy,
-    meta,metaTurno,metaAlCorte,pctCorte:metaAlCorte?viajes/metaAlCorte*100:null,
+    meta,metaTurno,metaAlCorte,pctCorte:metaAlCorte?base/metaAlCorte*100:null,aCapa,
     horasPerdidas:Math.round(horasPerdidas*10)/10};
 }
 // Viajes por ruta (origen → destino · material)
@@ -467,7 +476,7 @@ function _avjPintarKpis(){
     k('promedio','Promedio por volquete',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#06b6d4','viajes por volquete operativo'),
     k('proy','Proyección al cierre',c.proy!=null?c.proy:'—','#a855f7',c.proy!=null?'al ritmo actual':'hora de corte fuera del turno'),
     c.metaTurno?k('meta','Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#ef4444':'#10b981',
-      c.pctCorte!=null?`al corte se esperaban ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
+      c.pctCorte!=null?(c.aCapa!=null?`a capa ${c.aCapa} de ${c.metaAlCorte} esperados al corte · ${Math.round(c.pctCorte)}%`:`al corte se esperaban ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`):''):'',
     c.horasPerdidas?k('horas','Horas con restricción',String(c.horasPerdidas).replace('.',','),'#ef4444',(_avj.restricciones||[]).length+' restricción(es)'):''
   ].join('');
 }
@@ -558,6 +567,7 @@ function _avjRepartoVivo(){
   const a=$('avjCCT'), b=$('avjCAT');
   if(a)a.textContent=R.hay?R.capa:'–';
   if(b)b.textContent=R.hay?R.acopio:'–';
+  _avjPintarKpis();                          // la meta se mide con los viajes a capa
 }
 function _avjCapa(j,val){
   const c=_avj&&_avj.cols[j];if(!c)return;
@@ -1357,7 +1367,7 @@ function _avjDocHtml(r,opc){
     _avjVe('operando')?caja('Volquetes operativos',`${c.conViajes} de ${c.total}`,'#2563eb',c.total-c.opera?`${c.total-c.opera} no opera(n)`:'con viajes al corte'):'',
     _avjVe('promedio')?caja('Promedio',c.promedio?c.promedio.toFixed(1).replace('.',','):'0','#0891b2','viajes por volquete operativo'):'',
     _avjVe('proy')?caja('Proyección al cierre',c.proy!=null?c.proy:'—','#7c3aed',c.proy!=null?'al ritmo actual':''):'',
-    c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:''):'',
+    c.metaTurno&&_avjVe('meta')?caja('Meta del turno',c.metaTurno,c.pctCorte!=null&&c.pctCorte<85?'#b91c1c':'#15803d',c.pctCorte!=null?(c.aCapa!=null?`a capa ${c.aCapa} de ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`:`al corte: ${c.metaAlCorte} · ${Math.round(c.pctCorte)}%`):''):'',
     c.horasPerdidas&&_avjVe('horas')?caja('Horas con restricción',String(c.horasPerdidas).replace('.',','),'#b91c1c',(r.restricciones||[]).length+' restricción(es)'):''
   ].join('');
   const vol=(r.volquetes||[]);

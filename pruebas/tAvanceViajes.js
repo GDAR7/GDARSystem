@@ -314,6 +314,16 @@ console.log('\n== Avance / Reporte y capa / acopio ==');
   ev('_avjCapa(0,"99")');
   es('más que el total: se toma el total',ev('_avjCapaDe(_avj.cols[0].capa,60)'),60);
   ev('_avjCapa(0,"20")');
+  // Meta: se compara con los viajes a capa (20), no con el total (70)
+  ev('_avj.meta=12;_avj.horaCorte="13:00"');
+  const cm=ev('_avjCalc(_avj)');
+  es('meta del turno: el % se mide con los viajes a capa',cm.aCapa+' · '+cm.metaAlCorte+' · '+Math.round(cm.pctCorte),'20 · 12 · 167');
+  ev('_avjPintarKpis()');
+  es('  la tarjeta lo dice',/a capa 20 de 12 esperados al corte · 167%/.test(nodos.avjKpis.innerHTML),true);
+  const sinRep=ev('_avjCalc({..._avj,cols:_avj.cols.map(c=>({...c,capa:""}))})');
+  es('  sin reparto indicado: con el total, como antes',sinRep.aCapa+' · '+Math.round(sinRep.pctCorte),'null · 583');
+  es('  guardado: también con los viajes a capa',ev('_avjCalc(_avjCopia()).aCapa'),20);
+  ev('_avj.meta=0;_avj.horaCorte="12:00"');
   const Cp=ev('_avjCopia()');
   es('se guarda el reparto por ruta',JSON.stringify(Cp.destinos),'[{"origen":"C. Huantajalla","destino":"R3 - Dique Auxiliar","material":"COM","capa":20},{"origen":"A","destino":"B","material":"RCZ","capa":0}]');
   es('y el tipo',Cp.tipo,'Avance');
