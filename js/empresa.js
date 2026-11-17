@@ -44,7 +44,6 @@ const AUTH_MODO='supabase';
 const EMPRESA_USERS=A=>[
   {codigo:'EIBEL25',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(A)},
   {codigo:'NOEPAL',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
-  {codigo:'BELCRU',nombre:'Bella E. Cruz Olivares ',cargo:'Asistenta Social',areas:['bienestarSocial','administracion','seguridad'],areaModules:{administracion:['tareaje','resumenTareaje','roster']}},
   {codigo:'JON_GO',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
   {codigo:'ANDMAR',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad'],areaModules:{seguridad:['cursosSeguridad']}},
   {codigo:'YONMEL',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},

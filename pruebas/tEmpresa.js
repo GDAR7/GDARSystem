@@ -35,7 +35,7 @@ es('Supabase se creó con la URL de empresa.js',creado.u,SUPA_URL);
 es('  y con su llave',creado.k.startsWith('sb_publishable_'),true);
 
 console.log('\n== Los usuarios siguen intactos ==');
-es('cantidad',USERS.length,22);
+es('cantidad',USERS.length,21);   // Bella Cruz (BELCRU) salió el 17/11/2026
 const u=c=>USERS.find(x=>x.codigo===c);
 es('el suyo existe',!!u('EIBEL25'),true);
 es('  y ve todas las áreas',u('EIBEL25').areas.length,Object.keys(AREAS).length);

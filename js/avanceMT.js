@@ -31,6 +31,7 @@ function _amtRender(){
   else if(_amtTab===6) _amtRenderSemOperadores(body);
   else if(_amtTab===7) _amtRenderSemMatriz(body);
   else if(_amtTab===8) _amtRenderSemOrigen(body);
+  else if(_amtTab===9) _amtRenderDashboard(body);
   else _amtRenderAreas(body);
 }
 
@@ -1239,4 +1240,200 @@ function _amtOdTecla(e){if(e.key==='Escape')_amtOdCerrar();}
 function _amtOdCerrar(){
   const o=document.getElementById('amtOdOverlay');if(o)o.remove();
   document.removeEventListener('keydown',_amtOdTecla);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 9: PANEL MT — resumen gráfico de la semana y del periodo (mes / trimestre)
+// Mismos datos que Volumen Semanal: semana activa, filtro de material, cap. m³/viaje
+// y meta semanal (las comparten todas las pestañas semanales).
+// ══════════════════════════════════════════════════════════════════════════════
+let _amtDashPer='mes';
+try{if(localStorage.getItem('_amtDashPer')==='trim')_amtDashPer='trim';}catch(e){}
+function _amtDashSetPer(v){_amtDashPer=v==='trim'?'trim':'mes';try{localStorage.setItem('_amtDashPer',_amtDashPer);}catch(e){}_amtRender();}
+const _amtIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const _amtEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// Semanas del periodo, alineadas al día de inicio de la semana activa.
+// Cada semana: {ini,fin,lbl,t (m³, o null si aún no empieza),actual}
+function _amtDashSemanas(per,hoy){
+  const base=new Date(_amtSemIni+'T12:00:00');
+  const y=base.getFullYear(),m=base.getMonth();
+  const q=per==='trim'?Math.floor(m/3)*3:m;
+  const pIni=new Date(y,q,1,12),pFin=new Date(y,q+(per==='trim'?3:1),0,12);
+  const s=new Date(base);
+  while(s>pIni)s.setDate(s.getDate()-7);            // la semana que contiene el día 1
+  const out=[];
+  while(s<=pFin&&out.length<20){
+    const e=new Date(s);e.setDate(s.getDate()+6);
+    const ini=_amtIso(s),fin=_amtIso(e);
+    const t=ini>hoy?null:_amtSemViajes(ini,fin).filter(v=>v.destino).reduce((a,v)=>a+v.m3,0);
+    out.push({ini,fin,lbl:ini.slice(8,10)+'/'+ini.slice(5,7),t,actual:ini===_amtSemIni});
+    s.setDate(s.getDate()+7);
+  }
+  const nomMes=d=>d.toLocaleString('es-PE',{month:'long'});
+  const titulo=per==='trim'?`${nomMes(pIni)} – ${nomMes(pFin)} ${y}`:`${nomMes(pIni)} ${y}`;
+  return{sem:out,titulo};
+}
+
+// Rejilla horizontal y etiquetas del eje Y, común a las gráficas
+function _amtDashGrid(W,R,L,yMax,y){
+  let out='';
+  for(let g=0;g<=4;g++){
+    const v=yMax*g/4,yy=y(v);
+    out+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" style="stroke:var(--border)"/>`;
+    out+=`<text x="${L-8}" y="${yy+4}" text-anchor="end" class="amtd-t">${Math.round(v).toLocaleString('es-PE')}</text>`;
+  }
+  return out;
+}
+
+function _amtRenderDashboard(body){
+  const info=_amtSemInfo();
+  const{fechas,fIni,fFin,rango}=info;
+  const hoy=today(),meta=_amtMetaSem||0,fmt=v=>Math.round(v).toLocaleString('es-PE');
+  const AC='#2ec4a0',MC='#d4a017';
+  const vs=_amtSemViajes(fIni,fFin).filter(v=>v.destino);
+  const ip=_amtSemInfo(-7);
+  const prevM3=_amtSemViajes(ip.fIni,ip.fFin).filter(v=>v.destino).reduce((a,v)=>a+v.m3,0);
+
+  const daily=fechas.map(f=>vs.filter(v=>v.fecha===f.iso).reduce((a,v)=>a+v.m3,0));
+  const total=daily.reduce((a,b)=>a+b,0);
+  const viajes=vs.reduce((a,v)=>a+v.cant,0);
+  const byD={};vs.forEach(v=>{const d=byD[v.destino]||(byD[v.destino]={n:v.destino,t:0,v:0});d.t+=v.m3;d.v+=v.cant;});
+  const dest=Object.values(byD).sort((a,b)=>b.t-a.t||b.v-a.v).map((d,i)=>({...d,c:_AMT_COLORES[i%_AMT_COLORES.length]}));
+  const conM3=dest.filter(d=>d.t>0);
+
+  const kpis=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem;margin-bottom:.9rem">
+    ${_amtKpi('m³ de la semana','<b style="font-size:1.3rem">'+fmt(total)+' m³</b> '+_amtDelta(total,prevM3),AC)}
+    ${_amtKpi('Viajes','<b style="font-size:1.3rem">'+viajes.toLocaleString('es-PE')+'</b>','#3b82f6')}
+    ${_amtKpi('m³ por viaje','<b style="font-size:1.3rem">'+(viajes?(total/viajes).toFixed(1)+' m³':'—')+'</b>','#8b5cf6')}
+    ${_amtKpi('Destinos activos','<b style="font-size:1.3rem">'+dest.length+'</b>',MC)}
+  </div>`;
+
+  // ── Curva S de la semana vs meta lineal ──
+  let sSvg;
+  {
+    const W=560,H=300,L=56,R=16,T=22,B=40;
+    const yMax=Math.max(meta,total,1)*1.08;
+    const x=i=>L+(W-L-R)*i/6, y=v=>T+(H-T-B)*(1-v/yMax);
+    let o=_amtDashGrid(W,R,L,yMax,y);
+    fechas.forEach((f,i)=>{o+=`<text x="${x(i)}" y="${H-B+18}" text-anchor="middle" class="amtd-t"${f.iso===hoy?' style="font-weight:700;fill:var(--text)"':''}>${f.lbl} ${f.dm}</text>`;});
+    if(meta>0){
+      const pl=fechas.map((_,i)=>`${x(i)},${y(meta*(i+1)/7)}`).join(' ');
+      o+=`<polyline fill="none" style="stroke:var(--muted2)" stroke-dasharray="6 5" stroke-width="2" points="${pl}"/>`;
+    }
+    let cum=0;const pts=[];
+    fechas.forEach((f,i)=>{if(f.iso>hoy)return;cum+=daily[i];pts.push([x(i),y(cum),cum]);});
+    if(pts.length){
+      const area=`M${pts[0][0]},${y(0)} `+pts.map(p=>`L${p[0]},${p[1]}`).join(' ')+` L${pts[pts.length-1][0]},${y(0)} Z`;
+      o+=`<path d="${area}" fill="${AC}" opacity=".12"/>`;
+      o+=`<polyline fill="none" stroke="${AC}" stroke-width="2.5" points="${pts.map(p=>p[0]+','+p[1]).join(' ')}"/>`;
+      pts.forEach(p=>{o+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${AC}"><title>${fmt(p[2])} m³ acumulados</title></circle>`;});
+      const last=pts[pts.length-1];
+      o+=`<text x="${last[0]-8}" y="${last[1]-10}" text-anchor="end" style="fill:var(--text);font-weight:700;font-size:12px">${fmt(last[2])}</text>`;
+    }
+    o+=`<text x="${W-R}" y="${T-8}" text-anchor="end" class="amtd-t">${meta>0?`Avance: ${Math.round(total/meta*100)}% de la meta · punteada = meta lineal`:'Sin meta: escríbala en «🎯 Meta m³/sem»'}</text>`;
+    sSvg=`<svg viewBox="0 0 ${W} ${H}" width="100%">${o}</svg>`;
+  }
+
+  // ── Participación por destino (dona) ──
+  let dona='<div style="font-size:.78rem;color:var(--muted2);padding:2rem 0;text-align:center">Sin volumen en esta semana</div>';
+  if(total>0){
+    const Cf=2*Math.PI*90;let off=0,o='';
+    conM3.forEach(d=>{
+      const len=Cf*d.t/total;
+      o+=`<circle cx="120" cy="120" r="90" fill="none" stroke="${d.c}" stroke-width="30" stroke-dasharray="${len} ${Cf-len}" stroke-dashoffset="${-off}" transform="rotate(-90 120 120)"><title>${_amtEsc(d.n)}: ${fmt(d.t)} m³</title></circle>`;
+      off+=len;
+    });
+    o+=`<text x="120" y="118" text-anchor="middle" style="fill:var(--text);font-size:20px;font-weight:700">${fmt(total)}</text>`;
+    o+=`<text x="120" y="136" text-anchor="middle" class="amtd-t">m³ semana</text>`;
+    dona=`<svg viewBox="0 0 240 240" width="200" style="display:block;margin:0 auto">${o}</svg>
+      <div style="display:grid;gap:.35rem;margin-top:.7rem">${conM3.map(d=>`<div style="display:flex;align-items:center;gap:.5rem;font-size:.74rem">
+        <span style="width:10px;height:10px;border-radius:2px;background:${d.c};flex:none"></span><span style="flex:1">${_amtEsc(d.n)}</span>
+        <span style="font-variant-numeric:tabular-nums;font-family:monospace;color:var(--text)">${fmt(d.t)} · ${(d.t/total*100).toFixed(1)}%</span></div>`).join('')}</div>`;
+  }
+
+  // ── Periodo: histograma semanal + curva S acumulada ──
+  const P=_amtDashSemanas(_amtDashPer,hoy),S=P.sem,n=S.length;
+  let hist,sc;
+  {
+    const W=560,H=280,L=56,R=16,T=22,B=44;
+    const yMax=(Math.max(meta,...S.map(s=>s.t||0))*1.1)||1;
+    const y=v=>T+(H-T-B)*(1-v/yMax), bw=(W-L-R)/Math.max(n,1);
+    let o=_amtDashGrid(W,R,L,yMax,y);
+    S.forEach((s,i)=>{
+      const cx=L+bw*i+bw/2,w=bw*.6;
+      if(s.t!=null){
+        const yy=y(s.t);
+        o+=`<rect x="${cx-w/2}" y="${yy}" width="${w}" height="${Math.max(0,y(0)-yy)}" rx="3" fill="${AC}" opacity="${s.actual?1:.55}"><title>${s.lbl} → ${s.fin.slice(8,10)}/${s.fin.slice(5,7)}: ${fmt(s.t)} m³</title></rect>`;
+        o+=`<text x="${cx}" y="${yy-6}" text-anchor="middle" style="fill:var(--text);font-size:11px">${fmt(s.t)}</text>`;
+      }else o+=`<text x="${cx}" y="${y(0)-6}" text-anchor="middle" class="amtd-t">—</text>`;
+      o+=`<text x="${cx}" y="${H-B+16}" text-anchor="middle" class="amtd-t"${s.actual?' style="font-weight:700;fill:var(--text)"':''}>${s.lbl}</text>`;
+    });
+    if(meta>0){
+      const yy=y(meta);
+      o+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="${MC}" stroke-dasharray="6 5" stroke-width="2"/>`;
+      o+=`<text x="${W-R}" y="${yy-6}" text-anchor="end" style="fill:${MC};font-size:11px">meta semanal</text>`;
+    }
+    hist=`<svg viewBox="0 0 ${W} ${H}" width="100%">${o}</svg>`;
+
+    let cum=0;const real=[];
+    S.forEach((s,i)=>{if(s.t!=null){cum+=s.t;real.push({i,v:cum});}});
+    const yMax2=(Math.max(meta*n,cum)*1.1)||1;
+    const y2=v=>T+(H-T-B)*(1-v/yMax2), x2=i=>L+(W-L-R)*(n>1?i/(n-1):.5);
+    let o2=_amtDashGrid(W,R,L,yMax2,y2);
+    S.forEach((s,i)=>{o2+=`<text x="${x2(i)}" y="${H-B+16}" text-anchor="middle" class="amtd-t">${s.lbl}</text>`;});
+    if(meta>0)o2+=`<polyline fill="none" style="stroke:var(--muted2)" stroke-dasharray="6 5" stroke-width="2" points="${S.map((_,i)=>`${x2(i)},${y2(meta*(i+1))}`).join(' ')}"/>`;
+    if(real.length){
+      o2+=`<polyline fill="none" stroke="${AC}" stroke-width="2.5" points="${real.map(p=>x2(p.i)+','+y2(p.v)).join(' ')}"/>`;
+      real.forEach(p=>{o2+=`<circle cx="${x2(p.i)}" cy="${y2(p.v)}" r="3.5" fill="${AC}"><title>${fmt(p.v)} m³ acumulados</title></circle>`;});
+      const last=real[real.length-1];
+      o2+=`<text x="${x2(last.i)-8}" y="${y2(last.v)-10}" text-anchor="end" style="fill:var(--text);font-weight:700;font-size:12px">${fmt(last.v)}</text>`;
+      if(meta>0)o2+=`<text x="${W-R}" y="${T-8}" text-anchor="end" class="amtd-t">Acumulado: ${Math.round(last.v/(meta*n)*100)}% de la meta del periodo (${fmt(meta*n)} m³)</text>`;
+    }
+    sc=`<svg viewBox="0 0 ${W} ${H}" width="100%">${o2}</svg>`;
+  }
+
+  // ── Ranking de destinos ──
+  const mx=Math.max(1,...dest.map(d=>d.t));
+  const rank=dest.length?dest.map(d=>`<div style="display:flex;align-items:center;gap:.6rem;font-size:.75rem;min-width:420px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${d.c};flex:none"></span>
+      <span style="width:200px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_amtEsc(d.n)}">${_amtEsc(d.n)}</span>
+      <div style="height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;flex:1;min-width:60px"><i style="display:block;height:100%;width:${d.t/mx*100}%;background:${d.c}"></i></div>
+      <span style="font-family:monospace;font-variant-numeric:tabular-nums;min-width:150px;text-align:right">${fmt(d.t)} m³ · ${d.v.toLocaleString('es-PE')} v</span></div>`).join('')
+    :'<div style="font-size:.78rem;color:var(--muted2)">Sin viajes en esta semana</div>';
+
+  const card='background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;min-width:0';
+  const h2='font-size:.8rem;font-weight:700;margin:0 0 .7rem;color:var(--text)';
+  const selS='font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)';
+
+  _amtSemExportData={name:'panel_mt_'+fIni+'.xlsx',aoa:[
+    ['PANEL MT — semana '+rango],
+    ['Día',...fechas.map(f=>f.lbl+' '+f.dm),'Total'],
+    ['m³',...daily.map(v=>+v.toFixed(1)),+total.toFixed(1)],
+    [],['Destino','m³','Viajes','%'],
+    ...dest.map(d=>[d.n,+d.t.toFixed(1),d.v,total?+(d.t/total*100).toFixed(1):0]),
+    [],['Periodo: '+P.titulo],['Semana desde','Hasta','m³','Meta'],
+    ...S.map(s=>[s.ini,s.fin,s.t==null?'':+s.t.toFixed(1),meta||''])
+  ]};
+
+  body.innerHTML=`<style>.amtd-t{fill:var(--muted2);font-size:11px}</style>
+    ${_amtSemBar({rango,meta:true})}
+    ${kpis}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:.9rem">
+      <div style="${card}"><h2 style="${h2}">Curva S de la semana vs. meta</h2>${sSvg}</div>
+      <div style="${card}"><h2 style="${h2}">Participación por destino</h2>${dona}</div>
+      <div style="${card};grid-column:1/-1">
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.7rem">
+          <h2 style="${h2};margin:0">Avance por semana: histograma y curva S del periodo</h2>
+          <select onchange="_amtDashSetPer(this.value)" style="${selS}">
+            <option value="mes"${_amtDashPer==='mes'?' selected':''}>Mes</option>
+            <option value="trim"${_amtDashPer==='trim'?' selected':''}>Trimestre</option>
+          </select>
+          <span style="font-size:.72rem;color:var(--muted2);text-transform:capitalize">${P.titulo}</span>
+          <span style="font-size:.66rem;color:var(--muted2)">· la barra fuerte es la semana elegida arriba</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:.9rem">${hist}${sc}</div>
+      </div>
+      <div style="${card};grid-column:1/-1"><h2 style="${h2}">Ranking de destinos (m³ de la semana)</h2><div style="display:grid;gap:.5rem;overflow-x:auto">${rank}</div></div>
+    </div>`;
 }
