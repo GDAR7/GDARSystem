@@ -364,6 +364,16 @@ function _vTramoChange(i){
   _recalcViajes();
 }
 
+// Opciones de «Uso» del viaje: Capa, Acopio y lo que ya se escribió antes (Test Fill, Eliminación…)
+function _vUsoOpts(){
+  const base=['Capa','Acopio'],vistos=new Set(base.map(x=>x.toLowerCase())),otros=[];
+  (DB.partes||[]).forEach(p=>(p.viajes||[]).forEach(v=>{
+    const u=String(v.uso||'').trim();if(u&&!vistos.has(u.toLowerCase())){vistos.add(u.toLowerCase());otros.push(u);}
+  }));
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  return [...base,...otros.sort((a,b)=>a.localeCompare(b))].map(u=>`<option value="${esc(u)}">`).join('');
+}
+
 function addViaje(){
   viajeCount++;
   const nombres=['PRIMER','SEGUNDO','TERCER','CUARTO','QUINTO'];
@@ -386,7 +396,7 @@ function addViaje(){
         </select>
       </div>
     </div>
-    <div class="fg-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+    <div class="fg-grid" style="grid-template-columns:1fr 1fr .7fr 1fr 1fr">
       <div class="fg"><label>Origen</label>
         <input id="vOrigen${vi}" placeholder="Autocompletado" readonly style="opacity:.7;cursor:default">
       </div>
@@ -397,6 +407,10 @@ function addViaje(){
       <div class="fg"><label>Material</label>
         <input id="vMat${vi}" list="matData${vi}" placeholder="Tipo de material" oninput="_recalcViajes()">
         <datalist id="matData${vi}">${_matOpts}</datalist>
+      </div>
+      <div class="fg"><label>Uso</label>
+        <input id="vUso${vi}" list="usoData${vi}" placeholder="Capa / Acopio / otro" title="¿A dónde fue el material? Elija de la lista o escriba otro (Test Fill, Eliminación, Soporte…)">
+        <datalist id="usoData${vi}">${_vUsoOpts()}</datalist>
       </div>
     </div>`;
   c.appendChild(div);
@@ -580,6 +594,7 @@ function editParte(id){
       document.getElementById('vDestino'+viajeCount).value=v.destino||'';
       document.getElementById('vCant'+viajeCount).value=v.cant||0;
       document.getElementById('vMat'+viajeCount).value=v.material||'';
+      const uEl=document.getElementById('vUso'+viajeCount);if(uEl)uEl.value=v.uso||'';
     });
     _recalcViajes();
   }
@@ -604,6 +619,9 @@ async function gReporte(){
       cant:   +document.getElementById('vCant'+i)?.value||0,
       material:document.getElementById('vMat'+i)?.value||''
     };
+    // Uso (Capa / Acopio / otro): solo se guarda si se llenó, así los partes antiguos no cambian
+    const uso=(document.getElementById('vUso'+i)?.value||'').trim();
+    if(uso)v.uso=/^capa$/i.test(uso)?'Capa':/^acopio$/i.test(uso)?'Acopio':uso;
     if(!v.tramoId&&!v.cant&&!v.material.trim())continue; // bloque en blanco: no se guarda
     viajes.push(v);
   }

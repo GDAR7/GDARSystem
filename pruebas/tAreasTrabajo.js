@@ -154,7 +154,7 @@ es('utils: la página se pinta (con flecha perezosa)',/areasTrabajo:\(\)=>rAreas
 es('index: página, tabla y modal',
   /id="page-areasTrabajo"/.test(html)&&/id="tbAreasTrabajo"/.test(html)&&/id="mAreaTrabajo"/.test(html),true);
 es('index: script cargado',/<script src="js\/areasTrabajo\.js\?v=\d+"><\/script>/.test(html),true);
-es('index: partesDiarios.js con versión nueva',/partesDiarios\.js\?v=6/.test(html),true);
+es('index: partesDiarios.js con versión nueva',/partesDiarios\.js\?v=([6-9]|\d\d)/.test(html),true);
 es('SQL: RLS con la política de siempre',
   /enable row level security/.test(sql)&&/create policy gdar_autenticado on public\.areas_trabajo/.test(sql),true);
 es('SQL: nombre único sin importar mayúsculas',/on public\.areas_trabajo \(lower\(trim\(nombre\)\)\)/.test(sql),true);
