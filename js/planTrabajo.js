@@ -1172,6 +1172,21 @@ function _ptrSetTablaInicial(si){
   _ptrAjustarVisor();
 }
 function _ptrTablaBtn(si){_ptrSetTablaInicial(si);}
+// ── Qué tarjetas salen en el PDF (se recuerda en este equipo) ──────────────
+// Por defecto no salen Equipos ni Personal.
+const _PTR_TARJ_KEY='gdar_ptr_tarjetas', _PTR_TARJ_OCULTAS_DEF=['equipos','personal'];
+function _ptrTarjetasOcultas(){
+  try{const v=JSON.parse(localStorage.getItem(_PTR_TARJ_KEY)||'null');if(Array.isArray(v))return v;}catch(e){}
+  return _PTR_TARJ_OCULTAS_DEF.slice();
+}
+function _ptrTarjetaVe(k){return!_ptrTarjetasOcultas().includes(k);}
+function _ptrTarjetaSet(k,ve){
+  const L=_ptrTarjetasOcultas().filter(x=>x!==k);if(!ve)L.push(k);
+  try{localStorage.setItem(_PTR_TARJ_KEY,JSON.stringify(L));}catch(e){}
+  if(!_ptrDoc)return;
+  const wrap=document.getElementById('ptrDocWrap');if(wrap)wrap.innerHTML=_ptrDocHtml(_ptrDoc);
+  _ptrAjustarVisor();
+}
 // Números de actividad que no están marcados en ninguna foto
 function _ptrActsSinFoto(r){
   const acts=r.actividades||[], usadas=new Set();
@@ -1242,9 +1257,15 @@ function _ptrDocHtml(r,opc){
   const personal=acts.reduce((s,a)=>s+_ptrN(a.personal),0);
   const nEq=new Set(acts.flatMap(a=>(a.eqIds||[]).map(Number))).size+acts.reduce((s,a)=>s+(a.tipos||[]).length,0);
   const nFr=new Set(acts.map(a=>a.frente).filter(Boolean)).size;
-  const caja=(l,v,col)=>`<div style="flex:1;border:2px solid ${col};border-radius:8px;padding:7px 10px;min-width:0">
+  // Tarjetas: en la vista previa cada una lleva su casilla «PDF»; las
+  // desmarcadas se ven tenues y no salen en el PDF ni en la imagen.
+  const enVista=!opc;
+  const caja=(key,l,v,col)=>{const ve=_ptrTarjetaVe(key);
+    if(!ve&&!enVista)return'';
+    return`<div style="flex:1;border:2px solid ${col};border-radius:8px;padding:${enVista?'19px':'7px'} 10px 7px;min-width:0;position:relative${ve?'':';opacity:.35'}">
+      ${enVista?`<label data-ptr-chk title="Mostrar en el PDF" style="position:absolute;top:4px;right:6px;display:flex;align-items:center;gap:3px;font-size:8.5px;font-weight:800;color:#15803d;cursor:pointer"><input type="checkbox"${ve?' checked':''} onchange="_ptrTarjetaSet('${key}',this.checked)" style="margin:0;width:12px;height:12px;cursor:pointer">PDF</label>`:''}
       <div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em">${l}</div>
-      <div style="font-size:19px;font-weight:900;color:${col};margin-top:1px">${v}</div></div>`;
+      <div style="font-size:19px;font-weight:900;color:${col};margin-top:1px">${v}</div></div>`;};
   const conMarcas=fotos.filter(f=>(f.marcas||[]).length).length;
   return`<div style="width:794px;box-sizing:border-box;padding:34px 40px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid ${AZ};padding-bottom:10px">
@@ -1258,11 +1279,10 @@ function _ptrDocHtml(r,opc){
         ${logo?`<img src="${_ptrEsc(logo)}" alt="" style="height:52px;max-width:170px;object-fit:contain">`:''}
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:12px">
-      ${caja('Frentes',nFr||'—',AZ)}${caja('Actividades',acts.length,'#0f766e')}${caja('Equipos',nEq||'—','#0891b2')}
-      ${personal?caja('Personal',personal,'#16a34a'):''}${caja('Restricciones',R.length||'0',R.length?'#dc2626':'#16a34a')}
-      ${caja('Responsable',`<span style="font-size:13px">${_ptrEsc(r.responsable||'—')}</span>`,AC)}
-    </div>
+    ${(()=>{const cs=[caja('frentes','Frentes',nFr||'—',AZ),caja('actividades','Actividades',acts.length,'#0f766e'),caja('equipos','Equipos',nEq||'—','#0891b2'),
+      personal?caja('personal','Personal',personal,'#16a34a'):'',caja('restricciones','Restricciones',R.length||'0',R.length?'#dc2626':'#16a34a'),
+      caja('responsable','Responsable',`<span style="font-size:13px">${_ptrEsc(r.responsable||'—')}</span>`,AC)].join('');
+      return cs?`<div style="display:flex;gap:10px;margin-top:12px">${cs}</div>`:'';})()}
     ${(()=>{
       if(!fotos.length||_ptrTablaInicial())return _ptrTit('Actividades planificadas · '+acts.length)+_ptrTablaActs(r);
       const resto=_ptrActsSinFoto(r);

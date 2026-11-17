@@ -242,6 +242,20 @@ ev('_ptrSetModoFotos("solo")');
 es('modo «solo foto»: sin tabla',/<table/.test(hoja()),false);
 es('  se recuerda',ev('_ptrModoFotos()'),'solo');
 ev('_ptrSetModoFotos("encabezado")');
+// Tarjetas: casilla PDF en cada una; por defecto no salen Equipos ni Personal
+const Dv=ev('_ptrDocHtml(__rec)'), Dp=ev('_ptrDocHtml(__rec,{sinFotos:true})');
+es('tarjetas: la vista previa trae una casilla PDF por tarjeta',(Dv.match(/data-ptr-chk/g)||[]).length,6);
+es('  el PDF no lleva casillas',/data-ptr-chk/.test(Dp),false);
+es('  por defecto el PDF no trae Equipos ni Personal',/>Equipos<\/div>|>Personal<\/div>/.test(Dp)+' · '+/>Frentes<\/div>/.test(Dp),'false · true');
+es('  en la vista previa se ven tenues (para poder marcarlas)',/opacity:\.35[\s\S]{0,700}>Equipos<\/div>/.test(Dv),true);
+ev('_ptrTarjetaSet("equipos",true);_ptrTarjetaSet("frentes",false)');
+const Dp2=ev('_ptrDocHtml(__rec,{sinFotos:true})');
+es('  marcar Equipos y desmarcar Frentes cambia el PDF',/>Equipos<\/div>/.test(Dp2)+' · '+/>Frentes<\/div>/.test(Dp2),'true · false');
+es('  se recuerda',ev('_ptrTarjetasOcultas().sort().join(",")'),'frentes,personal');
+ev('["frentes","actividades","equipos","personal","restricciones","responsable"].forEach(k=>_ptrTarjetaSet(k,false))');
+es('  todas desmarcadas: no queda la fila vacía',/display:flex;gap:10px;margin-top:12px/.test(ev('_ptrDocHtml(__rec,{sinFotos:true})')),false);
+ev('localStorage.setItem("gdar_ptr_tarjetas","null")');
+es('  vuelve a lo de siempre (sin Equipos ni Personal)',ev('_ptrTarjetasOcultas().join(",")'),'equipos,personal');
 // Tabla inicial: se puede ocultar; las actividades sin foto siguen saliendo
 es('tabla inicial: por defecto se muestra',ev('_ptrTablaInicial()')+' · '+/Actividades planificadas · 2/.test(ev('_ptrDocHtml(__rec,{sinFotos:true})')),'true · true');
 ev('_ptrSetTablaInicial(false)');
