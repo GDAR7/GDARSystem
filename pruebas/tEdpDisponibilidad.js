@@ -170,7 +170,8 @@ console.log('\n== Cada módulo mide contra su propio compromiso ==');
 const ce=fs.readFileSync(R+'js/corteEquipos.js','utf8');
 es('Corte de Equipos ya no usa el calendario',/per\.dias\*24/.test(ce),false);
 es('  sigue midiendo contra las horas del cliente',/const baseDisp=hminMes/.test(ce),true);
-es('  que salen de Hrs Mín. Venta',/const hminMes=\+eq\.hrsMinVenta/.test(ce),true);
+// (con rango de fechas el mínimo se prorratea, pero siempre sale de Hrs Mín. Venta)
+es('  que salen de Hrs Mín. Venta',/\(\+eq\.hrsMinVenta\|\|0\)/.test(ce)&&!/eq\.horasMinimas/.test(ce.replace(/\/\/.*$/gm,'')),true);
 es('el EDP mide contra las del contrato con el proveedor',/const baseDisp=\+horasMinimas\|\|0/.test(src),true);
 // Con el mismo equipo, las dos bases dan porcentajes distintos.
 // Se rearman las 66.2 h inoperativas del caso real (las pruebas anteriores

@@ -70,13 +70,15 @@ function _ceInop(cond,texto,im){
   if(_CE_RE_NEG.test(t))return false;
   return _CE_RE_INOP.test(t);
 }
-// Columna "Horas Minimas" del formato:
-//   SUP → el equipo supero las horas minimas del dia
+// Columna "Horas Minimas" del formato. Cada fila es UN TURNO, así que se mide
+// contra el mínimo del turno = mínimo del día ÷ 2 (300 h/mes → 10 h/día → 5 h/turno):
+//   SUP → el turno supero las horas minimas del turno
 //   SI  → no llego al minimo pero trabajo sin inoperatividad → se le reconoce
 //   NO  → no llego al minimo por estar inoperativo o con falla mecanica
+const _ceHminTurno=hminDia=>hminDia/2;
 function _ceMarcaHmin(horas,hminDia,hayInop){
   if(hminDia<=0)return'—';
-  if(horas>=hminDia)return'SUP';
+  if(horas>=_ceHminTurno(hminDia))return'SUP';
   return hayInop?'NO':'SI';
 }
 
@@ -92,10 +94,36 @@ function _cePeriodo(){
   const ini=new Date(iniY,iniM,21),fin=new Date(iniY,iniM+1,20);
   const fmtD=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
   const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return{desde:fmtD(ini),hasta:fmtD(fin),ini,fin,label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,
+  const P={desde:fmtD(ini),hasta:fmtD(fin),ini,fin,label:`${MESES[fin.getMonth()]} ${fin.getFullYear()}`,
     dias:Math.round((fin-ini)/864e5)+1};
+  return _ceRango?_ceConRango(P,_ceRango):P;
 }
-function _ceNav(d){_ceOffset+=d;rCorteEquipos();}
+
+// ── Rango de fechas elegido (p. ej. 12/11 → 20/11) ─────────────────────────
+// Corta solo esos días, pero el mínimo DIARIO sigue siendo el del período
+// 21→20 que contiene el rango (300 h ÷ 31 días), no 300 h ÷ los días del
+// rango: así un turno se marca SUP/SI/NO igual que en el corte del mes. El
+// Hmin del cuadro pasa a ser el del rango (mínimo diario × días del rango).
+let _ceRango=null;               // {desde,hasta} en ISO, o null = período completo
+function _ceConRango(P,R){
+  const p=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+  const ini=p(R.desde),fin=p(R.hasta);
+  // período 21→20 al que pertenece el inicio del rango
+  let bY=ini.getFullYear(),bM=ini.getMonth();
+  if(ini.getDate()<21){bM--;if(bM<0){bM=11;bY--;}}
+  const diasBase=Math.round((new Date(bY,bM+1,20)-new Date(bY,bM,21))/864e5)+1;
+  const dm=s=>s.slice(8,10)+'/'+s.slice(5,7);
+  return{desde:R.desde,hasta:R.hasta,ini,fin,label:`${dm(R.desde)} → ${dm(R.hasta)}`,
+    dias:Math.round((fin-ini)/864e5)+1,diasBase,rango:true};
+}
+function _ceSetRango(desde,hasta){
+  if(!desde||!hasta){_ceRango=null;rCorteEquipos();return;}
+  if(desde>hasta){toast('La fecha «Desde» no puede ser posterior a «Hasta»',true);rCorteEquipos();return;}
+  _ceRango={desde,hasta};rCorteEquipos();
+}
+function _ceSinRango(){_ceRango=null;rCorteEquipos();}
+// ‹ › vuelven a los períodos 21→20 completos
+function _ceNav(d){if(_ceRango){_ceRango=null;}else _ceOffset+=d;rCorteEquipos();}
 function _ceSelTipo(t){if(_ceTipo===t){_ceTipo=null;_ceSub=null;_ceEqId=null;}else{_ceTipo=t;_ceSub=null;_ceEqId=null;}rCorteEquipos();}
 function _ceSelSub(s){if(_ceSub===s){_ceSub=null;_ceEqId=null;}else{_ceSub=s;_ceEqId=null;}rCorteEquipos();}
 function _ceSelEq(id){_ceEqId=_ceEqId===id?null:id;rCorteEquipos();}
@@ -118,8 +146,10 @@ function _ceDatos(eq,per){
   // Horas minimas de VENTA al cliente (campo "Hrs Min. Venta" del Master).
   // No se usa eq.horasMinimas: ese es el minimo del contrato con el PROVEEDOR y
   // sirve para el EDP, no para valorizarle al cliente.
-  const hminMes=+eq.hrsMinVenta||0;
-  const hminDia=per.dias>0?hminMes/per.dias:0;
+  // Con un rango elegido: mínimo diario del período 21→20 y Hmin del rango
+  const diasBase=per.diasBase||per.dias;
+  const hminDia=diasBase>0?(+eq.hrsMinVenta||0)/diasBase:0;
+  const hminMes=per.rango?+(hminDia*per.dias).toFixed(2):(+eq.hrsMinVenta||0);
 
   // El 2.º parte de una misma fecha es doble turno (D.T.) — así lo separa el cliente
   const vistos={};
@@ -326,13 +356,13 @@ function _ceHojaHtml(eq,per,num){
     cierre=`
     <table style="border-collapse:collapse;margin-top:10px">
       <thead><tr>
-        <th style="${TH}">Dias</th><th style="${TH}">Hmin.</th><th style="${TH}">Hmin Mes</th>
+        <th style="${TH}">Dias</th><th style="${TH}">Hmin.</th><th style="${TH}">${per.rango?'Hmin Rango':'Hmin Mes'}</th>
         <th style="${TH}">H. Inoper.</th>
         <th style="${TH}">Disp. Meca</th><th style="${TH}">Conclusión</th>
       </tr></thead>
       <tbody><tr>
         <td style="${TD};text-align:center">${per.dias}</td>
-        <td style="${TD};text-align:center">${_ceN2(D.hminDia)}</td>
+        <td style="${TD};text-align:center" title="Mínimo del turno: ${_ceN2(_ceHminTurno(D.hminDia))} h">${_ceN2(D.hminDia)}<div style="font-size:9px;color:#64748b">${_ceN2(_ceHminTurno(D.hminDia))} / turno</div></td>
         <td style="${TD};text-align:center">${_ceN2(D.hminMes)}</td>
         <td style="${TD};text-align:center;font-weight:700;color:${D.horasInop?_CE_ROJO:'#111'}">${_ceN2(D.horasInop)}</td>
         <td style="${TD};text-align:center;font-weight:700;color:${D.cumpleDisp?'#166534':_CE_ROJO}">${D.sinBaseDisp?'—':D.dispMec.toFixed(2)+'%'}</td>
@@ -481,7 +511,7 @@ function _ceExportXls(){
     aoa.push([]);
     let rCuadro=-1,rEfec=-1,rStandby=-1,rTot=-1;
     if(esHora){
-      aoa.push(['Dias','Hmin.','Hmin Mes','H. Inoper.','Disp. Meca','Conclusión']);
+      aoa.push(['Dias','Hmin.',per.rango?'Hmin Rango':'Hmin Mes','H. Inoper.','Disp. Meca','Conclusión']);
       rCuadro=aoa.length;
       aoa.push([per.dias,+D.hminDia.toFixed(4),+D.hminMes.toFixed(2),+D.horasInop.toFixed(2),
         D.sinBaseDisp?'':+(D.dispMec/100).toFixed(4),D.conclusion]);
@@ -511,7 +541,8 @@ function _ceExportXls(){
         const cHr=ws[addr(rHdr+1+i,6)];
         if(cHr)cHr.f=`F${R}-E${R}`;                      // Horas Trabajadas
         const cMi=ws[addr(rHdr+1+i,7)];
-        if(cMi&&D.hminDia>0)cMi.f=`IF(G${R}>=$E$5,"SUP",IF(L${R}=1,"NO","SI"))`;
+        // Mínimo del turno = E5 (mínimo del día) ÷ 2
+        if(cMi&&D.hminDia>0)cMi.f=`IF(G${R}>=$E$5/2,"SUP",IF(L${R}=1,"NO","SI"))`;
       });
       const cTot=ws[addr(rFin,6)];
       if(cTot)cTot.f=`SUM(G${xr0}:G${xrN})`;
@@ -648,11 +679,22 @@ function rCorteEquipos(){
     <div class="ph"><div class="ph-title" style="color:#059669">✂️ Corte de Equipos</div><div class="ph-sub">Valorización de partes diarios por período — formato de horas para línea amarilla y blanca, y de días para coasters, camionetas y cisternas</div></div>
     ${_ceTabBar()}
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem">
-      <div style="font-size:.78rem;color:var(--muted2)">Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días</div>
+      <div style="font-size:.78rem;color:var(--muted2)">${per.rango
+        ?`<b style="color:#059669">Rango elegido</b> · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días <span style="font-size:.7rem">· mín. diario del período 21→20 (${per.diasBase} días)</span>`
+        :`Período 21→20 · <span class="mono">${per.desde}</span> al <span class="mono">${per.hasta}</span> · ${per.dias} días`}</div>
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.35rem;background:var(--panel2);border:1px solid ${per.rango?'#059669':'var(--border)'};border-radius:8px;padding:.25rem .5rem">
+        <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">📅 Desde</span>
+        <input type="date" id="ceRgD" value="${per.desde}" onchange="_ceSetRango(this.value,document.getElementById('ceRgH').value)" style="font-size:.74rem;padding:.15rem .3rem;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+        <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Hasta</span>
+        <input type="date" id="ceRgH" value="${per.hasta}" onchange="_ceSetRango(document.getElementById('ceRgD').value,this.value)" style="font-size:.74rem;padding:.15rem .3rem;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text)">
+        ${per.rango?`<button onclick="_ceSinRango()" title="Volver al período 21→20 completo" style="font-size:.68rem;padding:.2rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:#ef4444;cursor:pointer">✕ Período completo</button>`:''}
+      </div>
       <div style="display:flex;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
         <button onclick="_ceNav(-1)" style="background:none;border:none;border-right:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">‹</button>
         <span style="font-weight:800;font-size:.88rem;color:var(--text);min-width:130px;text-align:center;padding:0 .5rem">${per.label}</span>
         <button onclick="_ceNav(1)" style="background:none;border:none;border-left:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1.1rem;padding:.35rem .7rem;line-height:1">›</button>
+      </div>
       </div>
     </div>
     <div class="kpi-row">${kpis.map(k=>`<div class="kpi" style="--kc:${k.c}"${k.t?` title="${_ceEsc(k.t)}"`:''}><div class="kpi-lbl">${k.l}</div><div class="kpi-val" style="font-size:${String(k.v).length>10?'1.1rem':'1.6rem'}">${k.v}</div></div>`).join('')}</div>

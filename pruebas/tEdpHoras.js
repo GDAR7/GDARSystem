@@ -41,6 +41,24 @@ es('encontrados / faltan',[A.ok,A.falta],[2,1]);
 es('lista de no encontrados',Array.from(A.noEnc),['ECOP-777']);
 es('columna forzada',ev('_edhAnalizar(__f,3)').col,3);
 
+console.log('\n== Formato real del EDP (título largo arriba) ==');
+ctx.DB.equipos.push({id:3,codigo:'EXC ECOP-002'});
+ctx.__f=[
+  ['ECOSERMO','','',''],
+  ['','','',''],
+  ['PROYECTO:','','"RELAVERA R3 COTA 4416: RECRECIMIENTO DEL DIQUE"','','','','FECHA:','Tue Nov 17 2026'],
+  ['FECHA','TURNO','TIPO DE EQUIPO','CODIGO','HORA INICIAL','HORA FINAL','HORAS TRABAJADAS','HORAS MINIMAS','AREA DEL TRABAJO'],
+  ['21/09/2026','DIA','Excavadora','EXC ECOP-002',1246.5,1255,8.5,'SUP','R3'],
+  ['21/09/2026','NOCHE','Excavadora','EXC ECOP-002',1255,1261.6,6.6,'SUP','R3']
+];
+const B=ev('_edhAnalizar(__f,-1)');
+es('encabezado = fila FECHA/TURNO/CODIGO (4ta), no el título',B.h,3);
+es('columna del equipo = CODIGO',B.enc[B.col],'CODIGO');
+es('las 2 filas encontradas',[B.ok,B.falta],[2,0]);
+es('un horómetro (número) no es equipo',eq(1246.5),null);
+es('hoja «EXC ECOP-002» = equipo',(ev('_edhEquipoHoja("EXC ECOP-002")')||{}).codigo,'EXC ECOP-002');
+es('hoja «RESUMEN TOTAL» = no es equipo',ev('_edhEquipoHoja("RESUMEN TOTAL")'),null);
+
 console.log('\n== Conexión ==');
 es('menú Cost Control tiene «EDP»',/key:'edpHoras',label:'EDP'/.test(CFG),true);
 es('render registrado',/edpHoras:rEdpHoras/.test(UT),true);

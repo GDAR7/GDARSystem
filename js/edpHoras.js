@@ -22,14 +22,26 @@ function _edhIndice(){
   });
   return m;
 }
-function _edhEquipo(v,ix){const n=_edhNorm(v);return n.length>=3?(ix.get(n)||null):null;}
+// Un número (horómetro, horas…) nunca es un código de equipo
+function _edhEquipo(v,ix){
+  if(typeof v==='number'||v instanceof Date)return null;
+  const n=_edhNorm(v);return n.length>=3&&/[A-Z]/.test(n)?(ix.get(n)||null):null;
+}
 
-// Fila de encabezados: la primera (de las 15 primeras) con 3 o más celdas llenas
+// Fila de encabezados, entre las 20 primeras: la que más parece encabezado.
+// Cuenta celdas de texto y suma mucho por palabras típicas (FECHA, CÓDIGO,
+// HORA…). Así no se confunde con el título del proyecto que va arriba.
+const _EDH_CLAVES=/^(fecha|turno|c[oó]digo|equipo|hora|horas|hor[oó]metro|tipo|[aá]rea|operador|placa|item|d[ií]a)\b/i;
 function _edhEncabezado(filas){
-  for(let i=0;i<Math.min(15,filas.length);i++){
-    if((filas[i]||[]).filter(c=>String(c==null?'':c).trim()!=='').length>=3)return i;
+  let mejor=0,max=-1;
+  for(let i=0;i<Math.min(20,filas.length);i++){
+    const f=filas[i]||[];
+    const txt=f.filter(c=>typeof c==='string'&&c.trim()!==''&&isNaN(+c)&&c.trim().length<=40);
+    if(txt.length<3)continue;
+    const p=txt.length+txt.filter(c=>_EDH_CLAVES.test(c.trim())).length*5;
+    if(p>max){max=p;mejor=i;}
   }
-  return 0;
+  return mejor;
 }
 
 // Columna con más coincidencias contra el Máster de Equipos (-1 si ninguna)
@@ -61,6 +73,8 @@ function _edhAnalizar(filas,colForzada){
   });
   return{h,enc,datos,col,ok,falta,noEnc:[...noEnc],marcas};
 }
+// El EDP trae una hoja por equipo con el código como nombre (EXC ECOP-002)
+function _edhEquipoHoja(nombre){return _edhEquipo(nombre,_edhIndice());}
 
 function _edhLeer(input){
   const f=input.files&&input.files[0];if(!f)return;
@@ -114,7 +128,8 @@ function rEdpHoras(){
 
   const chips=`<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem">
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Hoja</span>
-    ${hojas.map(n=>`<button onclick="_edhSetHoja(${_edhEsc(JSON.stringify(n))})" style="font-size:.72rem;padding:.22rem .6rem;border-radius:6px;cursor:pointer;border:1px solid ${n===_edhHoja?AC:'var(--border)'};background:${n===_edhHoja?AC+'22':'transparent'};color:${n===_edhHoja?AC:'var(--text)'};font-weight:${n===_edhHoja?700:400}">${_edhEsc(n)}</button>`).join('')}
+    ${hojas.map(n=>{const eqH=_edhEquipoHoja(n);return`<button onclick="_edhSetHoja(${_edhEsc(JSON.stringify(n))})" title="${eqH?'Hoja del equipo '+_edhEsc(eqH.codigo):'Hoja sin equipo'}" style="font-size:.72rem;padding:.22rem .6rem;border-radius:6px;cursor:pointer;border:1px solid ${n===_edhHoja?AC:'var(--border)'};background:${n===_edhHoja?AC+'22':'transparent'};color:${n===_edhHoja?AC:'var(--text)'};font-weight:${n===_edhHoja?700:400}">${eqH?'🚜 ':''}${_edhEsc(n)}</button>`;}).join('')}
+    <span style="font-size:.64rem;color:var(--muted2)">🚜 = hoja de un equipo del Máster (${hojas.filter(n=>_edhEquipoHoja(n)).length} de ${hojas.length})</span>
     <span style="width:1px;height:18px;background:var(--border);margin:0 .3rem"></span>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Columna del equipo</span>
     <select onchange="_edhSetCol(this.value)" style="font-size:.72rem;padding:.2rem .4rem;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">
