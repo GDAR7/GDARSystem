@@ -40,6 +40,26 @@ const H=(nodos.amtTramoOv||{}).innerHTML||'';
 es('abre la ventana',!!nodos.amtTramoOv,true);
 es('  con el tramo y los equipos',H.includes('TMO-002')&&H.includes('VOL ECOP-001')&&H.includes('EXC ECOP-002'),true);
 es('  sin undefined ni NaN',/undefined|NaN/.test(H),false);
+es('  trae el gráfico de viajes por día',H.includes('Viajes por día'),true);
+es('  trabajó 2 de 19 días',/Trabajó <b[^>]*>2<\/b> de 19 días/.test(H),true);
+es('  y el botón de Excel',H.includes('_amtTramoExcel('),true);
+
+console.log('\n== Excel del tramo ==');
+const hojas={};let archivo='';
+ctx.XLSX={utils:{book_new:()=>({}),aoa_to_sheet:a=>({__aoa:a,'!ref':'A1:A1'}),book_append_sheet:(wb,ws,n)=>{hojas[n]=ws.__aoa;},
+  encode_cell:()=>'A1',decode_range:()=>({e:{r:0}})},writeFile:(wb,n)=>{archivo=n;}};
+ctx.toast=()=>{};
+ev('_amtTramoExcel(2)');
+es('nombre del archivo',archivo,'Tramo_TMO-002_2026-10-31_2026-11-18.xlsx');
+es('tres hojas',Object.keys(hojas),['Resumen','Por día','Detalle']);
+es('Resumen: VOL-001 con 16 viajes',hojas.Resumen[4].slice(0,3),['VOL ECOP-001','Volquete Volvo',16]);
+es('  incluye la excavadora de apoyo',JSON.stringify(hojas.Resumen).includes('EXC ECOP-002'),true);
+es('Por día: los 19 días + total',hojas['Por día'].length-4,20);
+const d0211=hojas['Por día'].find(f=>f[0]==='02/11/2026');
+es('  02/11: VOL-001 6 · VOL-002 4 · total 10',d0211.slice(1,4),[6,4,10]);
+es('  un día sin trabajo queda en cero',hojas['Por día'].find(f=>f[0]==='05/11/2026')[3],0);
+es('Detalle: 3 registros, ordenados por fecha',hojas.Detalle.slice(4).map(f=>f[0]+' '+f[2]),
+  ['01/11/2026 VOL ECOP-001','02/11/2026 VOL ECOP-001','02/11/2026 VOL ECOP-002']);
 ev('_amtTramoCerrar()');
 es('se cierra',!!nodos.amtTramoOv,false);
 es('la fila abre con doble clic',/ondblclick="_amtTramoDetalle\(/.test(SRC),true);

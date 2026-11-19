@@ -191,7 +191,7 @@ function _amtRenderTramos(body){
 // viajes; los equipos de Línea Amarilla con el tramo en el parte (sin viajes)
 // aparecen aparte con sus partes y horas.
 function _amtTramoDatos(tramoId){
-  const vol={},apoyo={};
+  const vol={},apoyo={},porDia={},detalle=[];
   _amtPartesFiltradas().forEach(function(p){
     const vs=(p.viajes||[]).filter(function(v){
       return String(v.tramoId)===String(tramoId)&&(!_amtMatFiltro.size||_amtMatFiltro.has(v.material));
@@ -199,12 +199,16 @@ function _amtTramoDatos(tramoId){
     if(vs.length){
       const k=p.eqId;
       const r=vol[k]||(vol[k]={eqId:k,viajes:0,m3:0,partes:new Set(),dias:new Set(),ult:'',mats:{}});
+      const dd=porDia[p.fecha]||(porDia[p.fecha]={viajes:0,m3:0,eqs:{}});
       vs.forEach(function(v){
         const c=parseFloat(v.cant)||0;
+        const m3=_amtMatOk(v.material)?c*_amtCapM3:0;
         r.viajes+=c;
-        r.m3+=_amtMatOk(v.material)?c*_amtCapM3:0;
+        r.m3+=m3;
         const m=String(v.material||'Sin material').trim()||'Sin material';
         r.mats[m]=(r.mats[m]||0)+c;
+        dd.viajes+=c;dd.m3+=m3;dd.eqs[k]=(dd.eqs[k]||0)+c;
+        detalle.push({fecha:p.fecha,turno:p.turno||'',eqId:k,material:m,viajes:c,m3:m3});
       });
       r.partes.add(p.id);r.dias.add(p.fecha);
       if(p.fecha>r.ult)r.ult=p.fecha;
@@ -217,7 +221,108 @@ function _amtTramoDatos(tramoId){
     }
   });
   const ord=function(a,b){return (b.viajes||b.horas||0)-(a.viajes||a.horas||0);};
-  return{vol:Object.values(vol).sort(ord),apoyo:Object.values(apoyo).sort(ord)};
+  detalle.sort(function(a,b){return a.fecha.localeCompare(b.fecha)||String(a.turno).localeCompare(String(b.turno));});
+  // Todos los días del período, trabajados o no, para ver los huecos
+  const dias=[];
+  if(_amtFechaD&&_amtFechaH){
+    const pa=function(s){const x=s.split('-').map(Number);return new Date(x[0],x[1]-1,x[2]);};
+    for(let d=pa(_amtFechaD),f=pa(_amtFechaH),i=0;d<=f&&i<400;d.setDate(d.getDate()+1),i++){
+      dias.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+    }
+  }
+  return{vol:Object.values(vol).sort(ord),apoyo:Object.values(apoyo).sort(ord),porDia,dias,detalle};
+}
+
+// Gráfico de barras: viajes por día del período (los días sin viajes quedan vacíos)
+function _amtTramoGrafico(D){
+  if(!D.dias.length)return'';
+  const max=Math.max(1,...D.dias.map(function(f){return (D.porDia[f]||{}).viajes||0;}));
+  const trab=D.dias.filter(function(f){return (D.porDia[f]||{}).viajes>0;}).length;
+  const prom=trab?D.vol.reduce(function(s,r){return s+r.viajes;},0)/trab:0;
+  const barras=D.dias.map(function(f){
+    const v=(D.porDia[f]||{}).viajes||0;
+    const h=v?Math.max(4,Math.round(v/max*100)):0;
+    const lbl=f.slice(8,10)+'/'+f.slice(5,7);
+    return '<div title="'+lbl+': '+v+' viaje(s)" style="flex:1;min-width:6px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">'
+      +(v?'<div style="font-size:.5rem;color:#93c5fd;margin-bottom:1px">'+v+'</div>':'')
+      +'<div style="width:100%;height:'+h+'%;background:'+(v?'#3b82f6':'transparent')+';border-radius:2px 2px 0 0;'+(v?'':'border-bottom:2px solid var(--border)')+'"></div></div>';
+  }).join('');
+  const ejes=D.dias.map(function(f,i){
+    const mostrar=D.dias.length<=20||i%Math.ceil(D.dias.length/15)===0;
+    return '<div style="flex:1;min-width:6px;text-align:center;font-size:.5rem;color:var(--muted2);white-space:nowrap;overflow:visible">'+(mostrar?f.slice(8,10)+'/'+f.slice(5,7):'')+'</div>';
+  }).join('');
+  return '<div style="border:1px solid var(--border);border-radius:8px;padding:.6rem .7rem;margin-bottom:.8rem">'
+    +'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem;font-size:.7rem;margin-bottom:.4rem">'
+    +'<b style="color:#3b82f6">📊 Viajes por día</b>'
+    +'<span style="color:var(--muted2)">Trabajó <b style="color:var(--text)">'+trab+'</b> de '+D.dias.length+' días · promedio '+prom.toFixed(1)+' viajes por día trabajado</span></div>'
+    +'<div style="display:flex;align-items:flex-end;gap:2px;height:110px">'+barras+'</div>'
+    +'<div style="display:flex;gap:2px;margin-top:3px">'+ejes+'</div></div>';
+}
+
+// Excel del tramo: resumen por equipo, matriz fecha × equipo y detalle de viajes
+function _amtTramoExcel(tramoId){
+  if(typeof XLSX==='undefined'){toast('Librería Excel no disponible',true);return;}
+  const tr=(DB.tramos||[]).find(function(t){return String(t.id)===String(tramoId);})||{};
+  const D=_amtTramoDatos(tramoId);
+  if(!D.vol.length&&!D.apoyo.length){toast('Este tramo no tiene datos en el período',true);return;}
+  const cod=function(id){const e=(DB.equipos||[]).find(function(x){return +x.id===+id;})||{};return e.codigo||('#'+id);};
+  const nom=function(id){const e=(DB.equipos||[]).find(function(x){return +x.id===+id;})||{};return e.nombre||'';};
+  const dmy=function(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';};
+  const r1=function(v){return +(+v||0).toFixed(1);};
+  const titulo='TRAMO '+(tr.codigo||'')+' · '+(tr.inicio||'')+(tr.fin?' → '+tr.fin:'');
+  const sub='Período '+dmy(_amtFechaD)+' al '+dmy(_amtFechaH)+' · '+_amtCapM3+' m³/viaje'
+    +(_amtMatFiltro.size?' · material: '+[..._amtMatFiltro].join(', '):'');
+  const wb=XLSX.utils.book_new();
+  const BOR={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+  const estilar=function(ws,filaHdr,nCols){
+    const a=function(r,c){return XLSX.utils.encode_cell({r:r,c:c});};
+    if(ws[a(0,0)])ws[a(0,0)].s={font:{bold:true,sz:12,color:{rgb:'1E3A5F'}}};
+    for(let c=0;c<nCols;c++){const cl=ws[a(filaHdr,c)];if(cl)cl.s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center'},border:BOR};}
+    const rg=XLSX.utils.decode_range(ws['!ref']);
+    for(let r=filaHdr+1;r<=rg.e.r;r++)for(let c=0;c<nCols;c++){const cl=ws[a(r,c)];if(cl)cl.s=Object.assign({},cl.s||{},{border:BOR});}
+  };
+
+  // 1) Resumen por equipo
+  const totV=D.vol.reduce(function(s,r){return s+r.viajes;},0),totM=D.vol.reduce(function(s,r){return s+r.m3;},0);
+  const hR=['Equipo','Descripción','Viajes','% Viajes','m³','Días','Partes','Materiales','Último parte'];
+  const aR=[[titulo],[sub],[],hR].concat(D.vol.map(function(r){
+    return[cod(r.eqId),nom(r.eqId),r.viajes,totV?+(r.viajes/totV*100).toFixed(1):0,r1(r.m3),r.dias.size,r.partes.size,
+      Object.entries(r.mats).sort(function(a,b){return b[1]-a[1];}).map(function(m){return m[0]+' ('+m[1]+')';}).join(', '),dmy(r.ult)];
+  }));
+  aR.push(['TOTAL',D.vol.length+' volquete(s)',totV,100,r1(totM)]);
+  if(D.apoyo.length){
+    aR.push([],['EQUIPOS DE CARGA / APOYO (sin viajes)'],['Equipo','Descripción','Horas','Días','Partes','Último parte']);
+    D.apoyo.forEach(function(r){aR.push([cod(r.eqId),nom(r.eqId),r1(r.horas),r.dias.size,r.partes.size,dmy(r.ult)]);});
+  }
+  const wsR=XLSX.utils.aoa_to_sheet(aR);
+  wsR['!cols']=[{wch:16},{wch:26},{wch:9},{wch:9},{wch:10},{wch:7},{wch:8},{wch:40},{wch:12}];
+  estilar(wsR,3,hR.length);
+  XLSX.utils.book_append_sheet(wb,wsR,'Resumen');
+
+  // 2) Por día: fecha × equipo (viajes), con los días sin trabajo en cero
+  const eqs=D.vol.map(function(r){return r.eqId;});
+  const hD=['Fecha'].concat(eqs.map(cod),['Total viajes','m³']);
+  const aD=[[titulo],[sub],[],hD].concat(D.dias.map(function(f){
+    const d=D.porDia[f]||{viajes:0,m3:0,eqs:{}};
+    return[dmy(f)].concat(eqs.map(function(id){return d.eqs[id]||0;}),[d.viajes,r1(d.m3)]);
+  }));
+  aD.push(['TOTAL'].concat(eqs.map(function(id){return (D.vol.find(function(r){return r.eqId===id;})||{}).viajes||0;}),[totV,r1(totM)]));
+  const wsD=XLSX.utils.aoa_to_sheet(aD);
+  wsD['!cols']=[{wch:12}].concat(eqs.map(function(){return{wch:13};}),[{wch:12},{wch:10}]);
+  estilar(wsD,3,hD.length);
+  XLSX.utils.book_append_sheet(wb,wsD,'Por día');
+
+  // 3) Detalle de cada registro de viajes
+  const hX=['Fecha','Turno','Equipo','Material','Viajes','m³'];
+  const aX=[[titulo],[sub],[],hX].concat(D.detalle.map(function(x){return[dmy(x.fecha),x.turno,cod(x.eqId),x.material,x.viajes,r1(x.m3)];}));
+  const wsX=XLSX.utils.aoa_to_sheet(aX);
+  wsX['!cols']=[{wch:12},{wch:9},{wch:16},{wch:22},{wch:8},{wch:10}];
+  estilar(wsX,3,hX.length);
+  XLSX.utils.book_append_sheet(wb,wsX,'Detalle');
+
+  const limpio=String(tr.codigo||'Tramo').replace(/[\\/:*?"<>|]/g,'-');
+  XLSX.writeFile(wb,'Tramo_'+limpio+'_'+(_amtFechaD||'')+'_'+(_amtFechaH||'')+'.xlsx');
+  toast('✓ Excel del tramo '+(tr.codigo||'')+' descargado');
 }
 function _amtTramoDetalle(tramoId){
   const tr=(DB.tramos||[]).find(function(t){return String(t.id)===String(tramoId);})||{};
@@ -236,10 +341,12 @@ function _amtTramoDetalle(tramoId){
     +'<div style="flex:1"><div style="font-size:1.05rem;font-weight:800;color:var(--text)">🚚 '+esc(tr.codigo||'Tramo')+'</div>'
     +'<div style="font-size:.7rem;color:var(--muted2)">'+esc((tr.inicio||'')+(tr.fin?' → '+tr.fin:''))+' · '+dmy(_amtFechaD)+' al '+dmy(_amtFechaH)
     +(_amtMatFiltro.size?' · material: '+esc([..._amtMatFiltro].join(', ')):'')+'</div></div>'
+    +((D.vol.length||D.apoyo.length)?'<button onclick="_amtTramoExcel('+esc(JSON.stringify(tramoId)).replace(/"/g,'&quot;')+')" class="btn" style="font-size:.75rem;background:#059669;color:#fff">⬇ Excel</button>':'')
     +'<button onclick="_amtTramoCerrar()" class="btn btn-out" style="font-size:.75rem">✕ Cerrar</button></div>';
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:.8rem">'
     +kpi('Equipos',D.vol.length+D.apoyo.length,'#8b5cf6')+kpi('Viajes',n(totV,0),'#3b82f6')
     +kpi('m³',n(totM),'#10b981')+kpi('m³ / viaje',totV?(totM/totV).toFixed(1):'—','#f59e0b')+'</div>';
+  if(D.vol.length)html+=_amtTramoGrafico(D);
 
   if(D.vol.length){
     html+='<div style="font-size:.7rem;font-weight:700;color:#3b82f6;margin:.2rem 0 .3rem">Volquetes · viajes en el tramo</div>'
