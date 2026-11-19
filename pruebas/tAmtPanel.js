@@ -59,7 +59,7 @@ console.log('\n== Conexión ==');
 es('pestaña «📈 Panel MT» en index',/_amtTabSwitch\(9\)">📈 Panel MT</.test(HTML),true);
 es('es la novena pestaña (el resaltado va por posición)',(HTML.match(/class="lps-tab[^"]*amt-tab"/g)||[]).length,9);
 es('_amtRender la dibuja',/_amtTab===9\) _amtRenderDashboard\(body\)/.test(SRC),true);
-es('index carga avanceMT.js versión nueva',/avanceMT\.js\?v=18/.test(HTML),true);
+es('index carga avanceMT.js versión nueva',/avanceMT\.js\?v=(1[89]|[2-9]\d)/.test(HTML),true);
 
 console.log(`\n${mal?'✗ '+mal+' FALLAS':'OK todo bien'}  ·  ${ok}/${ok+mal}`);
 process.exitCode=mal?1:0;

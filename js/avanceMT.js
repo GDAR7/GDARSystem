@@ -163,10 +163,10 @@ function _amtRenderTramos(body){
         const maxM3=Math.max(...Object.values(byTramo).map(function(x){return x.m3;}),1);
         const barPct=Math.round(m3/maxM3*100);
         const nombre=(tr.inicio||tr.codigo||'')+(tr.fin?' → '+tr.fin:'');
-        return `<tr style="border-bottom:1px solid var(--border)${d?'':';opacity:.45'}">
+        return `<tr ondblclick="_amtTramoDetalle(${JSON.stringify(tr.id).replace(/"/g,'&quot;')})" title="Doble clic: equipos que trabajaron en este tramo" style="border-bottom:1px solid var(--border);cursor:pointer${d?'':';opacity:.45'}">
           <td style="padding:.4rem .6rem;text-align:center;font-size:.9rem" title="${st.label}">${st.dot}</td>
           <td style="padding:.4rem .6rem">
-            <div style="font-weight:700;color:var(--text)">${tr.codigo||'—'}</div>
+            <div style="font-weight:700;color:var(--text)">${tr.codigo||'—'}${d?` <span onclick="event.stopPropagation();_amtTramoDetalle(${JSON.stringify(tr.id).replace(/"/g,'&quot;')})" title="Ver equipos" style="font-size:.65rem;cursor:pointer;opacity:.7">🔍</span>`:''}</div>
             <div style="font-size:.6rem;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${nombre}</div>
           </td>
           <td style="padding:.4rem .6rem;text-align:right;font-weight:700;color:#3b82f6">${viajes||'—'}</td>
@@ -184,6 +184,111 @@ function _amtRenderTramos(body){
     </table>
     </div>
   </div>`;
+}
+
+// ── Detalle de un tramo: qué equipos trabajaron y cuántos viajes ─────────────
+// Mismo período y filtro de material que la tabla. Los volquetes cuentan sus
+// viajes; los equipos de Línea Amarilla con el tramo en el parte (sin viajes)
+// aparecen aparte con sus partes y horas.
+function _amtTramoDatos(tramoId){
+  const vol={},apoyo={};
+  _amtPartesFiltradas().forEach(function(p){
+    const vs=(p.viajes||[]).filter(function(v){
+      return String(v.tramoId)===String(tramoId)&&(!_amtMatFiltro.size||_amtMatFiltro.has(v.material));
+    });
+    if(vs.length){
+      const k=p.eqId;
+      const r=vol[k]||(vol[k]={eqId:k,viajes:0,m3:0,partes:new Set(),dias:new Set(),ult:'',mats:{}});
+      vs.forEach(function(v){
+        const c=parseFloat(v.cant)||0;
+        r.viajes+=c;
+        r.m3+=_amtMatOk(v.material)?c*_amtCapM3:0;
+        const m=String(v.material||'Sin material').trim()||'Sin material';
+        r.mats[m]=(r.mats[m]||0)+c;
+      });
+      r.partes.add(p.id);r.dias.add(p.fecha);
+      if(p.fecha>r.ult)r.ult=p.fecha;
+    }else if(String(p.tramoId||'')===String(tramoId)&&!(p.viajes&&p.viajes.length)){
+      const k=p.eqId;
+      const r=apoyo[k]||(apoyo[k]={eqId:k,horas:0,partes:new Set(),dias:new Set(),ult:''});
+      const h=(+p.ef>0)?+p.ef:Math.max(0,(+p.hrFin||0)-(+p.hrIni||0));
+      r.horas+=h;r.partes.add(p.id);r.dias.add(p.fecha);
+      if(p.fecha>r.ult)r.ult=p.fecha;
+    }
+  });
+  const ord=function(a,b){return (b.viajes||b.horas||0)-(a.viajes||a.horas||0);};
+  return{vol:Object.values(vol).sort(ord),apoyo:Object.values(apoyo).sort(ord)};
+}
+function _amtTramoDetalle(tramoId){
+  const tr=(DB.tramos||[]).find(function(t){return String(t.id)===String(tramoId);})||{};
+  const D=_amtTramoDatos(tramoId);
+  const eqDe=function(id){return (DB.equipos||[]).find(function(e){return +e.id===+id;})||{};};
+  const esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  const dmy=function(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';};
+  const n=function(v,d){return (+v||0).toLocaleString('es-PE',{maximumFractionDigits:d==null?1:d});};
+  const TH='padding:.4rem .55rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);background:var(--panel2);text-align:left;white-space:nowrap';
+  const TD='padding:.38rem .55rem;border-bottom:1px solid var(--border);font-size:.74rem;white-space:nowrap';
+  const totV=D.vol.reduce(function(s,r){return s+r.viajes;},0);
+  const totM=D.vol.reduce(function(s,r){return s+r.m3;},0);
+  const kpi=function(l,v,c){return '<div style="border:2px solid '+c+';border-radius:9px;padding:.45rem .7rem;background:var(--panel)"><div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2)">'+l+'</div><div style="font-size:1.15rem;font-weight:800;color:'+c+'">'+v+'</div></div>';};
+
+  let html='<div style="display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.7rem">'
+    +'<div style="flex:1"><div style="font-size:1.05rem;font-weight:800;color:var(--text)">🚚 '+esc(tr.codigo||'Tramo')+'</div>'
+    +'<div style="font-size:.7rem;color:var(--muted2)">'+esc((tr.inicio||'')+(tr.fin?' → '+tr.fin:''))+' · '+dmy(_amtFechaD)+' al '+dmy(_amtFechaH)
+    +(_amtMatFiltro.size?' · material: '+esc([..._amtMatFiltro].join(', ')):'')+'</div></div>'
+    +'<button onclick="_amtTramoCerrar()" class="btn btn-out" style="font-size:.75rem">✕ Cerrar</button></div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:.8rem">'
+    +kpi('Equipos',D.vol.length+D.apoyo.length,'#8b5cf6')+kpi('Viajes',n(totV,0),'#3b82f6')
+    +kpi('m³',n(totM),'#10b981')+kpi('m³ / viaje',totV?(totM/totV).toFixed(1):'—','#f59e0b')+'</div>';
+
+  if(D.vol.length){
+    html+='<div style="font-size:.7rem;font-weight:700;color:#3b82f6;margin:.2rem 0 .3rem">Volquetes · viajes en el tramo</div>'
+      +'<div style="overflow:auto;max-height:46vh;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse">'
+      +'<thead><tr><th style="'+TH+'">Equipo</th><th style="'+TH+';text-align:right">Viajes</th><th style="'+TH+';text-align:right">%</th><th style="'+TH+';text-align:right">m³</th><th style="'+TH+';text-align:right">Días</th><th style="'+TH+'">Materiales</th><th style="'+TH+'">Último</th></tr></thead><tbody>'
+      +D.vol.map(function(r){
+        const e=eqDe(r.eqId);
+        const pct=totV?r.viajes/totV*100:0;
+        const mats=Object.entries(r.mats).sort(function(a,b){return b[1]-a[1];}).map(function(m){return esc(m[0])+' ('+n(m[1],0)+')';}).join(', ');
+        return '<tr><td style="'+TD+'"><b style="color:var(--text)">'+esc(e.codigo||('#'+r.eqId))+'</b> <span style="color:var(--muted2);font-size:.66rem">'+esc(e.nombre||'')+'</span></td>'
+          +'<td style="'+TD+';text-align:right;font-weight:800;color:#3b82f6">'+n(r.viajes,0)+'</td>'
+          +'<td style="'+TD+';text-align:right;color:var(--muted2)">'+pct.toFixed(1)+'%</td>'
+          +'<td style="'+TD+';text-align:right;color:#10b981;font-weight:700">'+n(r.m3)+'</td>'
+          +'<td style="'+TD+';text-align:right">'+r.dias.size+'</td>'
+          +'<td style="'+TD+';white-space:normal;font-size:.66rem;color:var(--muted2);min-width:160px">'+mats+'</td>'
+          +'<td style="'+TD+';font-size:.68rem">'+dmy(r.ult)+'</td></tr>';
+      }).join('')
+      +'<tr style="background:var(--panel2);font-weight:800"><td style="'+TD+'">TOTAL · '+D.vol.length+' volquete(s)</td><td style="'+TD+';text-align:right;color:#3b82f6">'+n(totV,0)+'</td><td style="'+TD+'"></td><td style="'+TD+';text-align:right;color:#10b981">'+n(totM)+'</td><td colspan="3" style="'+TD+'"></td></tr>'
+      +'</tbody></table></div>';
+  }
+  if(D.apoyo.length){
+    html+='<div style="font-size:.7rem;font-weight:700;color:#f59e0b;margin:.8rem 0 .3rem">Equipos de carga / apoyo · parte con este tramo (sin viajes)</div>'
+      +'<div style="overflow:auto;max-height:30vh;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse">'
+      +'<thead><tr><th style="'+TH+'">Equipo</th><th style="'+TH+';text-align:right">Partes</th><th style="'+TH+';text-align:right">Días</th><th style="'+TH+';text-align:right">Horas</th><th style="'+TH+'">Último</th></tr></thead><tbody>'
+      +D.apoyo.map(function(r){
+        const e=eqDe(r.eqId);
+        return '<tr><td style="'+TD+'"><b style="color:var(--text)">'+esc(e.codigo||('#'+r.eqId))+'</b> <span style="color:var(--muted2);font-size:.66rem">'+esc(e.nombre||'')+'</span></td>'
+          +'<td style="'+TD+';text-align:right">'+r.partes.size+'</td><td style="'+TD+';text-align:right">'+r.dias.size+'</td>'
+          +'<td style="'+TD+';text-align:right;color:#f59e0b;font-weight:700">'+n(r.horas)+'</td><td style="'+TD+';font-size:.68rem">'+dmy(r.ult)+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  if(!D.vol.length&&!D.apoyo.length)
+    html+='<div style="text-align:center;padding:1.5rem;color:var(--muted2);font-size:.8rem">Ningún equipo trabajó en este tramo en el período elegido.</div>';
+
+  let ov=document.getElementById('amtTramoOv');
+  if(!ov){
+    ov=document.createElement('div');ov.id='amtTramoOv';
+    ov.onclick=function(e){if(e.target===ov)_amtTramoCerrar();};
+    document.body.appendChild(ov);
+    document.addEventListener('keydown',_amtTramoEsc);
+  }
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:var(--panel);border:2px solid #3b82f6;border-radius:12px;padding:1rem 1.1rem;width:min(860px,100%);max-height:90vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.6)">'+html+'</div>';
+}
+// Esc cierra la ventana: el listener vive solo mientras está abierta
+function _amtTramoEsc(e){if(e.key==='Escape')_amtTramoCerrar();}
+function _amtTramoCerrar(){
+  const ov=document.getElementById('amtTramoOv');if(ov&&ov.remove)ov.remove();
+  document.removeEventListener('keydown',_amtTramoEsc);
 }
 
 // ── TAB 2: VOLUMEN POR FRENTE DE TRABAJO ──────────────────────────────────────────────────
