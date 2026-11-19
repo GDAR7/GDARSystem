@@ -63,5 +63,32 @@ ev('_ccaMgToggle("comb")');
 es('se puede sumar el combustible a los costos',mg(),+(S.venta-S.alquiler-S.comb).toFixed(2));
 es('la elección de Full no se mezcla',ev('_ccaMgSel.full'),undefined);
 
+console.log('\n== Margen líquido (equipos propios ECOSERMO) ==');
+DB.equipos.push({id:2,codigo:'EXC-02',nombre:'Excavadora 02',sub:'EXCAVADORA',tipo:'Línea Amarilla',
+  proveedor:'ECOSERMO',tarifa:100,tarifaUn:'HM',proyecto:'EPY-001-26'});
+DB.partes.push({id:3,eqId:2,fecha:'2026-02-03',ef:10});
+ev('_ccTarifaModo="full";_ccaMgSel={};_ccaCache=null;_ccaLiquido=false');
+const sinL=ev('_ccaFiltrar(_ccaCalcular(2026,"full"))')[0];
+const pro0=sinL.equipos.find(a=>a.eq.codigo==='EXC-02'),ter0=sinL.equipos.find(a=>a.eq.codigo==='EXC-01');
+es('apagado: el propio paga alquiler',pro0.meses[FEB].alquiler>0,true);
+ev('_ccaToggleLiquido()');
+const conL=ev('_ccaFiltrar(_ccaCalcular(2026,"full"))')[0];
+const pro1=conL.equipos.find(a=>a.eq.codigo==='EXC-02'),ter1=conL.equipos.find(a=>a.eq.codigo==='EXC-01');
+es('encendido: alquiler del propio en cero',pro1.meses[FEB].alquiler,0);
+es('  su margen sube en lo que era el alquiler',
+  +pro1.meses[FEB].margen.toFixed(2),+(pro0.meses[FEB].margen+pro0.meses[FEB].alquiler).toFixed(2));
+es('  el total del año también',pro1.tot.alquiler,0);
+es('el equipo de un tercero no cambia',ter1.meses[FEB].alquiler,ter0.meses[FEB].alquiler);
+es('la familia suma el margen nuevo',
+  +conL.meses[FEB].margen.toFixed(2),+(sinL.meses[FEB].margen+pro0.meses[FEB].alquiler).toFixed(2));
+es('el motor no se tocó',ev('_ccaCalcular(2026,"full")').grupos[0].equipos.find(a=>a.eq.codigo==='EXC-02').meses[FEB].alquiler,pro0.meses[FEB].alquiler);
+const HL=ev('_ccaPanel()');
+es('el pie dice MARGEN LÍQUIDO',HL.includes('MARGEN LÍQUIDO'),true);
+es('  el equipo lleva su marca',HL.includes('propio · alquiler 0'),true);
+es('  sin undefined ni NaN',/undefined|NaN/.test(HL),false);
+es('se recuerda en el navegador',store.ccaLiquido,'1');
+ev('_ccaToggleLiquido()');
+es('apagarlo vuelve a MARGEN TOTAL',ev('_ccaPanel()').includes('MARGEN TOTAL'),true);
+
 console.log(`\n${mal?'✗ '+mal+' FALLAS':'OK todo bien'}  ·  ${ok}/${ok+mal}`);
 process.exitCode=mal?1:0;

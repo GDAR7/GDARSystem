@@ -191,11 +191,29 @@ function _ccaCalcular(anio,KEY){
   return _ccaCache;
 }
 
+// ── Margen líquido ──────────────────────────────────────────────────────────
+// Los equipos propios (contratista ECOSERMO) no se le pagan a nadie: con este
+// botón su Alquiler pasa a cero y el margen sube en lo mismo. Solo cambia la
+// vista; el motor y la pestaña Equipos siguen igual.
+let _ccaLiquido=(()=>{try{return localStorage.getItem('ccaLiquido')==='1';}catch(e){return false;}})();
+const _ccaEsPropio=eq=>/ecosermo/i.test(String(eq&&eq.proveedor||''));
+function _ccaToggleLiquido(){
+  _ccaLiquido=!_ccaLiquido;
+  try{localStorage.setItem('ccaLiquido',_ccaLiquido?'1':'0');}catch(e){}
+  _ccaPintar();
+}
+// Copia del equipo con el alquiler en cero (el margen del motor ya lo restaba
+// en los dos modos, así que se le devuelve)
+function _ccaSinAlquiler(a){
+  const z=m=>Object.assign({},m,{alquiler:0,margen:(+m.margen||0)+(+m.alquiler||0),est:false});
+  return{...a,meses:a.meses.map(z),tot:z(a.tot),nEst:0,liquido:true};
+}
+
 // ── Filtros ─────────────────────────────────────────────────────────────────
 function _ccaFiltrar(D){
   const q=_ccaBuscar.trim().toLowerCase();
   return D.grupos.map(G=>{
-    const equipos=G.equipos.filter(a=>{
+    const equipos=G.equipos.map(a=>_ccaLiquido&&_ccaEsPropio(a.eq)?_ccaSinAlquiler(a):a).filter(a=>{
       if(_ccaLinea&&String(a.eq.tipo||'')!==_ccaLinea)return false;
       if(_ccaTipo&&G.nombre!==_ccaTipo)return false;
       if(_ccaContratista&&String(a.eq.proveedor||'—')!==_ccaContratista)return false;
@@ -268,13 +286,15 @@ function _ccaPanel(){
   // esto se pierde de vista de qué equipo es cada fila.
   const STICKY=`position:sticky;left:0;z-index:2;background:var(--panel)`;
   const mgDef=_ccaMgEsDef(), mgTxt=_ccaMgTexto();
+  const nPropios=grupos.reduce((s,G)=>s+G.equipos.filter(a=>a.liquido).length,0);
+  const lblMg=_ccaLiquido?'MARGEN LÍQUIDO':'MARGEN TOTAL';
 
   let filas='';
   grupos.forEach(G=>{
     // Cabecera de familia: el margen del grupo mes a mes (igual que el Excel)
     filas+=`<tr style="background:rgba(16,185,129,.07)">
       <td style="${TDn};${STICKY};background:#0f2a22;text-align:left;font-weight:800;color:#10b981;font-size:.72rem;letter-spacing:.04em">${_ccaEsc(G.nombre)}
-        <span style="font-weight:600;color:var(--muted2);font-size:.62rem;letter-spacing:0"> · ${G.equipos.length} eq. · margen${mgDef?'':' ('+_ccaEsc(mgTxt)+')'}</span></td>
+        <span style="font-weight:600;color:var(--muted2);font-size:.62rem;letter-spacing:0"> · ${G.equipos.length} eq. · margen${_ccaLiquido?' líquido':''}${mgDef?'':' ('+_ccaEsc(mgTxt)+')'}</span></td>
       ${G.meses.map(m=>{const v=_ccaMg(m);return`<td style="${TDn};font-weight:800;color:${v<0?'#ef4444':'#10b981'}">${_ccaFmt(v)}</td>`;}).join('')}
       <td style="${TDn};font-weight:900;color:${_ccaMg(G.tot)<0?'#ef4444':'#10b981'};background:rgba(16,185,129,.1)">${_ccaFmt(_ccaMg(G.tot))}</td>
     </tr>`;
@@ -288,6 +308,7 @@ function _ccaPanel(){
           <span style="font-weight:800;font-size:.76rem;color:#60a5fa">${nom}</span>
           <span style="color:var(--muted2);font-size:.68rem"> · ${prov}</span>
           <span style="margin-left:.4rem;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;background:${a.moneda==='SOLES'?'rgba(100,116,139,.2)':'rgba(180,83,9,.25)'};color:${a.moneda==='SOLES'?'var(--muted2)':'#f59e0b'}">${mon}</span>
+          ${a.liquido?`<span title="Margen líquido: equipo propio, su Alquiler se pone en cero" style="margin-left:.3rem;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid #22d3ee;color:#22d3ee">💧 propio · alquiler 0</span>`:''}
           ${a.nEst?`<span title="${a.nEst} mes(es) con el alquiler estimado por horas × tarifa del Máster, sin EDP emitido" style="margin-left:.3rem;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:#f97316">${a.nEst} estimado${a.nEst===1?'':'s'}</span>`:''}
         </td>
       </tr>`;
@@ -364,7 +385,10 @@ function _ccaPanel(){
     ${mgChips}
     <span style="color:#10b981;font-weight:700;margin-left:.3rem">= ${_ccaEsc(mgTxt)}</span>
     ${mgDef?'':`<button onclick="_ccaMgTodos()" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:6px;padding:.22rem .6rem;font-size:.68rem;cursor:pointer">↺ Margen completo</button>`}
+    <button id="ccaBtnLiquido" onclick="_ccaToggleLiquido()" title="Pone en cero el Alquiler de los equipos propios (contratista ECOSERMO) y recalcula el margen"
+      style="margin-left:auto;border:1px solid #22d3ee;background:${_ccaLiquido?'rgba(34,211,238,.18)':'transparent'};color:${_ccaLiquido?'#22d3ee':'var(--muted2)'};border-radius:6px;padding:.22rem .7rem;font-size:.68rem;font-weight:800;cursor:pointer">💧 ${_ccaLiquido?'✓ Margen líquido':'Margen líquido'}</button>
   </div>
+  ${_ccaLiquido?`<div style="font-size:.66rem;color:#22d3ee;margin:-.3rem 0 .6rem">💧 Margen líquido · Alquiler en cero para ${nPropios} equipo(s) propio(s) de ECOSERMO</div>`:''}
 
   <!-- Matriz -->
   <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
@@ -376,7 +400,7 @@ function _ccaPanel(){
       </tr></thead>
       <tbody>${filas}</tbody>
       <tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
-        <td style="${TDn};${STICKY};background:var(--panel2);text-align:left;font-weight:800;font-family:inherit;font-size:.72rem;color:var(--text)">MARGEN TOTAL${mgDef?'':`<div style="font-weight:600;font-size:.6rem;color:var(--muted2)">${_ccaEsc(mgTxt)}</div>`}</td>
+        <td style="${TDn};${STICKY};background:var(--panel2);text-align:left;font-weight:800;font-family:inherit;font-size:.72rem;color:var(--text)">${lblMg}${mgDef?'':`<div style="font-weight:600;font-size:.6rem;color:var(--muted2)">${_ccaEsc(mgTxt)}</div>`}</td>
         ${tMes.map(v=>`<td style="${TDn};font-weight:800;color:${v<0?'#ef4444':'#10b981'}">${_ccaFmt(v)}</td>`).join('')}
         <td style="${TDn};font-weight:900;font-size:.78rem;color:${tAn<0?'#ef4444':'#10b981'}">${_ccaFmt(tAn)}</td>
       </tr></tfoot>
@@ -418,6 +442,7 @@ function _ccaExcel(){
        +`${_ccSinIgv?' · combustible sin IGV':''}${_ccPrecioManual?(typeof _ccpcActivo==='function'&&_ccpcActivo()?' · precio de combustible manual de cada período':' · precio de combustible manual'):''}`
        +`${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?' · solo proyecto '+_ccProyecto:''}`
        +`${_ccaMgEsDef()?'':' · margen = '+_ccaMgTexto()}`
+       +`${_ccaLiquido?' · MARGEN LÍQUIDO (alquiler de equipos propios ECOSERMO en cero)':''}`
        +` · ${grupos.reduce((s,G)=>s+G.equipos.length,0)} equipo(s)`,
       {bg:'EEF2F8',col:'475569',al:'center'}),...Array(NC-1).fill(S('',{bg:'EEF2F8'}))],
     HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'}))
@@ -443,7 +468,7 @@ function _ccaExcel(){
 
   // Total general por mes (margen), al pie
   const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+_ccaMg(G.meses[i]),0));
-  aoa.push([S('MARGEN TOTAL',{b:1,bg:'EEF2F8'}),...Array(5).fill(S('',{bg:'EEF2F8'})),
+  aoa.push([S(_ccaLiquido?'MARGEN LÍQUIDO':'MARGEN TOTAL',{b:1,bg:'EEF2F8'}),...Array(5).fill(S('',{bg:'EEF2F8'})),
     ...tMes.map(v=>S(+v.toFixed(2),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'047857'})),
     S(+tMes.reduce((s,v)=>s+v,0).toFixed(2),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'047857'})]);
 
@@ -511,6 +536,7 @@ function _ccaPdf(){
   if(_ccaContratista)ctx.push('contratista: '+_ccaContratista);
   if(_ccaBuscar.trim())ctx.push('búsqueda: '+_ccaBuscar.trim());
   if(!_ccaMgEsDef())ctx.push('margen = '+_ccaMgTexto());
+  if(_ccaLiquido)ctx.push('MARGEN LÍQUIDO: alquiler de equipos propios ECOSERMO en cero');
   ctx.push(grupos.reduce((s,G)=>s+G.equipos.length,0)+' equipo(s)');
 
   const cuerpo=`<div style="font-size:9.5px;color:#475569;text-align:center;margin:-6px 0 8px">Resultado operativo por equipo · año ${_ccaAnio}</div>
@@ -521,7 +547,7 @@ function _ccaPdf(){
       <th style="background:#0f2942;color:#fff;padding:3px 4px;font-size:7px;text-align:right;border:1px solid #fff">Total ${_ccaAnio}</th>
     </tr></thead><tbody>${body}</tbody>
     <tfoot><tr style="background:#e2e8f0;font-weight:900">
-      <td style="${TD}">MARGEN TOTAL</td>
+      <td style="${TD}">${_ccaLiquido?'MARGEN LÍQUIDO':'MARGEN TOTAL'}</td>
       ${tMes.map(v=>`<td style="${der};color:${v<0?'#b91c1c':'#047857'}">${n(v)}</td>`).join('')}
       <td style="${der};color:${tAn<0?'#b91c1c':'#047857'}">${n(tAn)}</td>
     </tr></tfoot></table>`;
