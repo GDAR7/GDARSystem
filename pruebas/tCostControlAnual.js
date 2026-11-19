@@ -63,7 +63,7 @@ es('Margen ← margen',/m\.margen=r\.margen/.test(ca),true);
 
 console.log('\n== Agrupación y columnas planas ==');
 es('agrupa por el subtipo del Máster',/a\.eq\.sub\|\|a\.eq\.tipo/.test(ca),true);
-es('la fila de familia es el margen del grupo',/margen<0\?'#ef4444':'#10b981'/.test(ca),true);
+es('la fila de familia es el margen del grupo',/G\.meses\.map\(m=>\{const v=_ccaMg\(m\);return`<td[^`]*v<0\?'#ef4444':'#10b981'/.test(ca),true);
 ['TIPO DE EQUIPO','CONTRATISTA','EQUIPO CODIGO','CONCEPTO','MONEDA'].forEach(c=>
   es('  el Excel lleva la columna '+c,ca.includes("'"+c+"'"),true));
 es('cada fila repite tipo/contratista/equipo',

@@ -49,6 +49,51 @@ let _ccaLinea='';
 const _CCA_LINEAS=['Línea Amarilla','Línea Blanca','Vehículo Menor','Equipos Menores'];
 let _ccaCache=null;                      // {clave, grupos, meses, totales}
 
+// ── Qué conceptos entran al margen ──────────────────────────────────────────
+// Por defecto el margen es el del motor (Full: venta − alquiler − combustible ·
+// Seca: venta − alquiler). El usuario puede elegir solo algunos conceptos para
+// ver, por ejemplo, Venta Comb. − Combustible o Venta Equipo − Alquiler.
+// Las ventas suman y los costos restan. Solo cambia el margen; los importes de
+// cada concepto quedan iguales.
+const _CCA_INGRESOS=['venta','ventaEq','ventaComb'];
+const _CCA_MG_OPC={seca:['alquiler','comb','venta'],full:['alquiler','comb','ventaEq','ventaComb']};
+const _CCA_MG_DEF={seca:['alquiler','venta'],full:['alquiler','comb','ventaEq','ventaComb']};
+const _CCA_CORTO={alquiler:'Alquiler',comb:'Combustible',venta:'Venta',ventaEq:'Venta Equipo',ventaComb:'Venta Comb.'};
+let _ccaMgSel=(()=>{try{const o=JSON.parse(localStorage.getItem('ccaMgSel')||'null');
+  if(o&&typeof o==='object')return o;}catch(e){}return{};})();
+function _ccaMgKey(){return _ccTarifaModo==='seca'?'seca':'full';}
+function _ccaMgLista(){
+  const k=_ccaMgKey(),s=_ccaMgSel[k];
+  const l=Array.isArray(s)?_CCA_MG_OPC[k].filter(x=>s.includes(x)):[];
+  return l.length?l:_CCA_MG_DEF[k];
+}
+function _ccaMgEsDef(){
+  const l=_ccaMgLista(),d=_CCA_MG_DEF[_ccaMgKey()];
+  return l.length===d.length&&d.every(x=>l.includes(x));
+}
+// Margen de un mes, de un total o de una familia (todos tienen los mismos campos)
+function _ccaMg(o){
+  if(_ccaMgEsDef())return +o.margen||0;
+  return _ccaMgLista().reduce((s,k)=>s+(_CCA_INGRESOS.includes(k)?1:-1)*(+o[k]||0),0);
+}
+function _ccaVal(o,k){return k==='margen'?_ccaMg(o):(+o[k]||0);}
+function _ccaMgTexto(){
+  const l=_ccaMgLista();
+  const ing=l.filter(k=>_CCA_INGRESOS.includes(k)).map(k=>_CCA_CORTO[k]);
+  const cos=l.filter(k=>!_CCA_INGRESOS.includes(k)).map(k=>_CCA_CORTO[k]);
+  return (ing.length?ing.join(' + '):'0')+(cos.length?' − '+cos.join(' − '):'');
+}
+function _ccaMgGuardar(){try{localStorage.setItem('ccaMgSel',JSON.stringify(_ccaMgSel));}catch(e){}}
+function _ccaMgToggle(k){
+  const key=_ccaMgKey(),l=[..._ccaMgLista()],i=l.indexOf(k);
+  if(i>=0){
+    if(l.length===1){toast('Deje al menos un concepto en el margen',true);return;}
+    l.splice(i,1);
+  }else l.push(k);
+  _ccaMgSel[key]=l;_ccaMgGuardar();_ccaPintar();
+}
+function _ccaMgTodos(){delete _ccaMgSel[_ccaMgKey()];_ccaMgGuardar();_ccaPintar();}
+
 function _ccaFmt(v){
   const n=+v||0;
   if(Math.abs(n)<0.005) return '–';
@@ -222,15 +267,16 @@ function _ccaPanel(){
   // La primera columna se queda fija: con doce meses la tabla se desplaza y sin
   // esto se pierde de vista de qué equipo es cada fila.
   const STICKY=`position:sticky;left:0;z-index:2;background:var(--panel)`;
+  const mgDef=_ccaMgEsDef(), mgTxt=_ccaMgTexto();
 
   let filas='';
   grupos.forEach(G=>{
     // Cabecera de familia: el margen del grupo mes a mes (igual que el Excel)
     filas+=`<tr style="background:rgba(16,185,129,.07)">
       <td style="${TDn};${STICKY};background:#0f2a22;text-align:left;font-weight:800;color:#10b981;font-size:.72rem;letter-spacing:.04em">${_ccaEsc(G.nombre)}
-        <span style="font-weight:600;color:var(--muted2);font-size:.62rem;letter-spacing:0"> · ${G.equipos.length} eq. · margen</span></td>
-      ${G.meses.map(m=>`<td style="${TDn};font-weight:800;color:${m.margen<0?'#ef4444':'#10b981'}">${_ccaFmt(m.margen)}</td>`).join('')}
-      <td style="${TDn};font-weight:900;color:${G.tot.margen<0?'#ef4444':'#10b981'};background:rgba(16,185,129,.1)">${_ccaFmt(G.tot.margen)}</td>
+        <span style="font-weight:600;color:var(--muted2);font-size:.62rem;letter-spacing:0"> · ${G.equipos.length} eq. · margen${mgDef?'':' ('+_ccaEsc(mgTxt)+')'}</span></td>
+      ${G.meses.map(m=>{const v=_ccaMg(m);return`<td style="${TDn};font-weight:800;color:${v<0?'#ef4444':'#10b981'}">${_ccaFmt(v)}</td>`;}).join('')}
+      <td style="${TDn};font-weight:900;color:${_ccaMg(G.tot)<0?'#ef4444':'#10b981'};background:rgba(16,185,129,.1)">${_ccaFmt(_ccaMg(G.tot))}</td>
     </tr>`;
 
     G.equipos.forEach(a=>{
@@ -247,15 +293,15 @@ function _ccaPanel(){
       </tr>`;
       _ccaConceptos().forEach(C=>{
         filas+=`<tr onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-          <td style="${TDn};${STICKY};text-align:left;color:${C.col};font-weight:700;font-family:inherit;font-size:.7rem;padding-left:1.4rem">${C.lab}</td>
+          <td style="${TDn};${STICKY};text-align:left;color:${C.col};font-weight:700;font-family:inherit;font-size:.7rem;padding-left:1.4rem">${C.lab}${C.k==='margen'&&!mgDef?` <span title="${_ccaEsc(mgTxt)}" style="color:var(--muted2);font-weight:600;font-size:.6rem">*</span>`:''}</td>
           ${a.meses.map(m=>{
-            const v=m[C.k];
+            const v=_ccaVal(m,C.k);
             const neg=v<0;
             // Solo el alquiler puede ser estimado; los otros tres no dependen del EDP
             const est=C.k==='alquiler'&&m.hay&&m.est&&Math.abs(v)>=0.005;
             return`<td style="${TDn};color:${neg?'#ef4444':(Math.abs(v)<0.005?'var(--muted)':C.col)}${est?';font-style:italic;border-bottom:1px dotted '+C.col:''}"${est?' title="Estimado: horas × tarifa del Máster (aún sin EDP emitido)"':''}>${_ccaFmt(v)}</td>`;
           }).join('')}
-          <td style="${TDn};font-weight:800;background:var(--panel2);color:${a.tot[C.k]<0?'#ef4444':C.col}">${_ccaFmt(a.tot[C.k])}</td>
+          <td style="${TDn};font-weight:800;background:var(--panel2);color:${_ccaVal(a.tot,C.k)<0?'#ef4444':C.col}">${_ccaFmt(_ccaVal(a.tot,C.k))}</td>
         </tr>`;
       });
     });
@@ -265,8 +311,17 @@ function _ccaPanel(){
     Sin movimientos en ${_ccaAnio}${(_ccaTipo||_ccaLinea||_ccaContratista||_ccaBuscar)?' con los filtros aplicados':''}</td></tr>`;
 
   // Totales generales, sobre lo visible
-  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+G.meses[i].margen,0));
-  const tAn=grupos.reduce((s,G)=>s+G.tot.margen,0);
+  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+_ccaMg(G.meses[i]),0));
+  const tAn=grupos.reduce((s,G)=>s+_ccaMg(G.tot),0);
+
+  // Botones para elegir qué conceptos entran al margen
+  const mgSel=_ccaMgLista();
+  const mgChips=_CCA_MG_OPC[_ccaMgKey()].map(k=>{
+    const C=_ccaConceptos().find(c=>c.k===k)||{col:'#64748b'};
+    const on=mgSel.includes(k);
+    return`<button onclick="_ccaMgToggle('${k}')" title="${_CCA_INGRESOS.includes(k)?'Venta: suma':'Costo: resta'}"
+      style="border:1px solid ${on?C.col:C.col+'55'};background:${on?C.col+'26':'transparent'};color:${on?C.col:'var(--muted2)'};border-radius:6px;padding:.22rem .6rem;font-size:.68rem;font-weight:700;cursor:pointer">${on?'✓ ':''}${_CCA_CORTO[k]} <span style="opacity:.7">${_CCA_INGRESOS.includes(k)?'+':'−'}</span></button>`;
+  }).join('');
 
   const combo=(id,campo,val,opts,ph)=>`<select id="${id}" onchange="_ccaSet('${campo}',this.value)"
     style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:.3rem .55rem;font-size:.74rem;max-width:190px">
@@ -303,6 +358,14 @@ function _ccaPanel(){
     <span>Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}${_ccSinIgv?' · comb. sin IGV':''}${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?` · <strong style="color:#a78bfa">solo ${_ccaEsc(_ccProyecto)}</strong>`:''}</span>
   </div>
 
+  <!-- Qué entra al margen -->
+  <div id="ccaMargenSel" style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem;font-size:.68rem">
+    <span style="color:var(--muted2);font-weight:700">🧮 Calcular margen con:</span>
+    ${mgChips}
+    <span style="color:#10b981;font-weight:700;margin-left:.3rem">= ${_ccaEsc(mgTxt)}</span>
+    ${mgDef?'':`<button onclick="_ccaMgTodos()" style="background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:6px;padding:.22rem .6rem;font-size:.68rem;cursor:pointer">↺ Margen completo</button>`}
+  </div>
+
   <!-- Matriz -->
   <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
     <table style="width:100%;border-collapse:collapse;min-width:1180px">
@@ -313,7 +376,7 @@ function _ccaPanel(){
       </tr></thead>
       <tbody>${filas}</tbody>
       <tfoot><tr style="background:var(--panel2);border-top:2px solid var(--border)">
-        <td style="${TDn};${STICKY};background:var(--panel2);text-align:left;font-weight:800;font-family:inherit;font-size:.72rem;color:var(--text)">MARGEN TOTAL</td>
+        <td style="${TDn};${STICKY};background:var(--panel2);text-align:left;font-weight:800;font-family:inherit;font-size:.72rem;color:var(--text)">MARGEN TOTAL${mgDef?'':`<div style="font-weight:600;font-size:.6rem;color:var(--muted2)">${_ccaEsc(mgTxt)}</div>`}</td>
         ${tMes.map(v=>`<td style="${TDn};font-weight:800;color:${v<0?'#ef4444':'#10b981'}">${_ccaFmt(v)}</td>`).join('')}
         <td style="${TDn};font-weight:900;font-size:.78rem;color:${tAn<0?'#ef4444':'#10b981'}">${_ccaFmt(tAn)}</td>
       </tr></tfoot>
@@ -354,6 +417,7 @@ function _ccaExcel(){
     [S(`Año ${_ccaAnio} · períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`
        +`${_ccSinIgv?' · combustible sin IGV':''}${_ccPrecioManual?(typeof _ccpcActivo==='function'&&_ccpcActivo()?' · precio de combustible manual de cada período':' · precio de combustible manual'):''}`
        +`${(typeof _ccProyecto!=='undefined'&&_ccProyecto)?' · solo proyecto '+_ccProyecto:''}`
+       +`${_ccaMgEsDef()?'':' · margen = '+_ccaMgTexto()}`
        +` · ${grupos.reduce((s,G)=>s+G.equipos.length,0)} equipo(s)`,
       {bg:'EEF2F8',col:'475569',al:'center'}),...Array(NC-1).fill(S('',{bg:'EEF2F8'}))],
     HDR.map(h=>S(h,{b:1,bg:'334155',col:'FFFFFF',al:'center'}))
@@ -364,21 +428,21 @@ function _ccaExcel(){
       const mon=a.moneda==='SOLES'?'S/':a.moneda;
       _ccaConceptos().forEach(C=>{
         // Un mes con alquiler estimado sale en cursiva, igual que en pantalla
-        const cel=a.meses.map(m=>S(+(m[C.k]||0).toFixed(2),{
+        const cel=a.meses.map(m=>S(+_ccaVal(m,C.k).toFixed(2),{
           al:'right',numFmt:'#,##0.00',col:XL_COL[C.k],
           it:C.k==='alquiler'&&m.hay&&m.est&&Math.abs(m[C.k])>=0.005}));
         aoa.push([
           S(G.nombre),S(a.eq.proveedor||'—'),S(a.eq.codigo||'',{b:1}),S(a.eq.nombre||''),
           S(C.lab,{b:1,col:XL_COL[C.k]}),S(mon,{al:'center'}),
           ...cel,
-          S(+(a.tot[C.k]||0).toFixed(2),{al:'right',numFmt:'#,##0.00',b:1,col:XL_COL[C.k]})
+          S(+_ccaVal(a.tot,C.k).toFixed(2),{al:'right',numFmt:'#,##0.00',b:1,col:XL_COL[C.k]})
         ]);
       });
     });
   });
 
   // Total general por mes (margen), al pie
-  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+G.meses[i].margen,0));
+  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+_ccaMg(G.meses[i]),0));
   aoa.push([S('MARGEN TOTAL',{b:1,bg:'EEF2F8'}),...Array(5).fill(S('',{bg:'EEF2F8'})),
     ...tMes.map(v=>S(+v.toFixed(2),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'047857'})),
     S(+tMes.reduce((s,v)=>s+v,0).toFixed(2),{b:1,bg:'EEF2F8',al:'right',numFmt:'#,##0.00',col:'047857'})]);
@@ -419,8 +483,8 @@ function _ccaPdf(){
   grupos.forEach(G=>{
     body+=`<tr style="background:#ecfdf5"><td style="${TD};font-weight:800;color:#047857">${_ccaEsc(G.nombre)}
       <span style="font-weight:400;color:#64748b">· ${G.equipos.length} eq. · margen</span></td>
-      ${G.meses.map(m=>`<td style="${der};font-weight:800;color:${m.margen<0?'#b91c1c':'#047857'}">${n(m.margen)}</td>`).join('')}
-      <td style="${der};font-weight:800;background:#d1fae5;color:${G.tot.margen<0?'#b91c1c':'#047857'}">${n(G.tot.margen)}</td></tr>`;
+      ${G.meses.map(m=>{const v=_ccaMg(m);return`<td style="${der};font-weight:800;color:${v<0?'#b91c1c':'#047857'}">${n(v)}</td>`;}).join('')}
+      <td style="${der};font-weight:800;background:#d1fae5;color:${_ccaMg(G.tot)<0?'#b91c1c':'#047857'}">${n(_ccaMg(G.tot))}</td></tr>`;
     G.equipos.forEach(a=>{
       body+=`<tr><td colspan="14" style="${TD};background:#f8fafc;border-top:1px solid #94a3b8">
         <strong style="color:#1e3a5f">${_ccaEsc(`${a.eq.codigo||''} – ${a.eq.nombre||''}`)}</strong>
@@ -428,15 +492,15 @@ function _ccaPdf(){
         ${a.nEst?`<span style="color:#c2410c"> · ${a.nEst} mes(es) estimado(s)</span>`:''}</td></tr>`;
       CON.forEach(C=>{
         body+=`<tr><td style="${TD};padding-left:14px;color:${XC[C.k]};font-weight:700">${C.lab}</td>
-          ${a.meses.map(m=>{const v=m[C.k];
+          ${a.meses.map(m=>{const v=_ccaVal(m,C.k);
             const est=C.k==='alquiler'&&m.hay&&m.est&&Math.abs(v)>=0.005;
             return`<td style="${der};color:${v<0?'#b91c1c':XC[C.k]}${est?';font-style:italic':''}">${n(v)}</td>`;
           }).join('')}
-          <td style="${der};font-weight:800;background:#f1f5f9;color:${a.tot[C.k]<0?'#b91c1c':XC[C.k]}">${n(a.tot[C.k])}</td></tr>`;
+          <td style="${der};font-weight:800;background:#f1f5f9;color:${_ccaVal(a.tot,C.k)<0?'#b91c1c':XC[C.k]}">${n(_ccaVal(a.tot,C.k))}</td></tr>`;
       });
     });
   });
-  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+G.meses[i].margen,0));
+  const tMes=D.periodos.map((_,i)=>grupos.reduce((s,G)=>s+_ccaMg(G.meses[i]),0));
   const tAn=tMes.reduce((s,v)=>s+v,0);
   const ctx=[`Períodos 21→20 · ${_ccTarifaModo==='seca'?'Máq. Seca':'Tarifa Full'}`];
   if(_ccSinIgv)ctx.push('combustible sin IGV');
@@ -446,6 +510,7 @@ function _ccaPdf(){
   if(_ccaTipo)ctx.push('subtipo: '+_ccaTipo);
   if(_ccaContratista)ctx.push('contratista: '+_ccaContratista);
   if(_ccaBuscar.trim())ctx.push('búsqueda: '+_ccaBuscar.trim());
+  if(!_ccaMgEsDef())ctx.push('margen = '+_ccaMgTexto());
   ctx.push(grupos.reduce((s,G)=>s+G.equipos.length,0)+' equipo(s)');
 
   const cuerpo=`<div style="font-size:9.5px;color:#475569;text-align:center;margin:-6px 0 8px">Resultado operativo por equipo · año ${_ccaAnio}</div>
