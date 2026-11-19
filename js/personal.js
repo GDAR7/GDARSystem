@@ -762,8 +762,8 @@ async function procesarQR(texto){
   }
 
   try{
-    // El escáner SOLO marca la hora de entrada.
-    // El tareo (TD/TN/A5) se registra en lote con el botón "Registrar Tareo" del módulo Asistencia.
+    // El escáner marca la hora de entrada y el tareo del día: TD en la mañana, TN en la noche (A5 si es ingreso nuevo).
+    // El botón "Registrar Tareo" sigue disponible para recalcular en lote (TD/TN por hora).
     const fecha=document.getElementById('asiDate')?.value||today();
     await loadAsistenciaFecha(fecha);
     const ahora=new Date().toTimeString().slice(0,5);
@@ -783,10 +783,27 @@ async function procesarQR(texto){
       if(data){newRec.id=data.id;DB.asistencia.push(newRec);}
     }
 
+    // ── Tareo al escanear: TD de 05:00 a 16:59 · TN en otro horario (A5 en sus primeros días) ──
+    // Misma regla que "Registrar Tareo". Solo si el día aún no tiene tareo: DL, vacaciones, etc. se respetan.
+    let tarMsg='';
+    const tarExist=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
+    if(tarExist){tarMsg=' · tareo '+tarExist.tipo;}
+    else{
+      const hEnt=parseInt(String(asiExist?.horaEntrada||ahora).slice(0,2),10);
+      const turno=(hEnt>=5&&hEnt<17)?'TD':'TN';
+      const prevDias=(DB.tareaje||[]).filter(r=>r.personalId===p.id&&r.fecha&&r.fecha<fecha&&['TD','TN','DLT','A5'].includes(r.tipo));
+      const tipo=prevDias.length<AM_DIAS_A5?'A5':turno;
+      const rec={id:nid('tar'),personalId:p.id,fecha,tipo,proy:p.proy||''};
+      DB.tareaje.push(rec);
+      const e=await supaUpsert('tareaje',rec);
+      if(e){DB.tareaje=DB.tareaje.filter(r=>r!==rec);tarMsg=' · ⚠ tareo no guardado';}
+      else tarMsg=' · '+tipo;
+    }
+
     // ── Feedback y reinicio ──
     const nombreCorto=(p.ape||'').split(' ')[0]+', '+(p.nom||'').split(' ')[0];
     _hablar('Registrado');
-    setScannerStatus(`✓ ${nombreCorto} · ${asiExist?'ya tenía hora '+asiExist.horaEntrada:'hora '+ahora}`,'ok');
+    setScannerStatus(`✓ ${nombreCorto} · ${asiExist?'ya tenía hora '+asiExist.horaEntrada:'hora '+ahora}${tarMsg}`,'ok');
     if(AP==='tareaje')rTareaje();
     if(AP==='asistencia')rAsistencia();
     document.getElementById('scanWorkerPanel').style.display='none';
