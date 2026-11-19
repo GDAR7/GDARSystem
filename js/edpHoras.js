@@ -82,7 +82,8 @@ function _edhLeer(input){
   const rd=new FileReader();
   rd.onload=ev=>{
     try{
-      _edhLibro=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+      _edhBytes=new Uint8Array(ev.target.result);
+      _edhLibro=XLSX.read(_edhBytes,{type:'array',cellDates:true});
       _edhArchivo=f.name;_edhHoja=_edhLibro.SheetNames[0]||'';_edhCol=-1;
       rEdpHoras();
       toast('✓ Excel leído: '+_edhLibro.SheetNames.length+' hoja(s)');
@@ -93,7 +94,68 @@ function _edhLeer(input){
 }
 function _edhSetHoja(n){_edhHoja=n;_edhCol=-1;rEdpHoras();}
 function _edhSetCol(c){_edhCol=+c;rEdpHoras();}
-function _edhQuitar(){_edhLibro=null;_edhArchivo='';_edhHoja='';_edhCol=-1;rEdpHoras();}
+function _edhQuitar(){_edhLibro=null;_edhBytes=null;_edhArchivo='';_edhHoja='';_edhCol=-1;rEdpHoras();}
+
+// ── Llenar el EDP con los datos del sistema ─────────────────────────────────
+// Toma el Excel subido y reemplaza cada hoja de equipo (🚜) por la hoja del
+// período elegido, armada con el mismo motor de Corte de Equipos (_ceHojaXls):
+// mismas columnas, la celda E5 con el mínimo diario y las fórmulas SUP/SI/NO.
+// Las demás hojas (ACTA, RESUMEN, EDP-06…) quedan como vienen. No se guarda
+// nada en la base: solo se descarga un Excel nuevo.
+let _edhBytes=null, _edhDesde='', _edhHasta='';
+function _edhIsoLocal(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// Período 21→20 que contiene la fecha (hoy 19/11 → 21/10 al 20/11)
+function _edhPeriodoDe(fecha){
+  const p=String(fecha).split('-').map(Number);
+  let y=p[0],m=p[1]-1;
+  if(p[2]<21){m--;if(m<0){m=11;y--;}}
+  return{desde:_edhIsoLocal(new Date(y,m,21)),hasta:_edhIsoLocal(new Date(y,m+1,20))};
+}
+function _edhRango(){
+  if(!_edhDesde||!_edhHasta){const P=_edhPeriodoDe(today());_edhDesde=_edhDesde||P.desde;_edhHasta=_edhHasta||P.hasta;}
+  return{desde:_edhDesde,hasta:_edhHasta};
+}
+function _edhSetFecha(campo,v){if(campo==='d')_edhDesde=v;else _edhHasta=v;rEdpHoras();}
+// El objeto período que entiende _ceDatos. Si es un 21→20 completo va como
+// período (Hmin Mes = Hrs Mín. Venta); si no, como rango con el mínimo
+// diario del período que lo contiene.
+function _edhPer(desde,hasta){
+  const P=_edhPeriodoDe(desde);
+  const pa=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+  if(P.desde===desde&&P.hasta===hasta){
+    const ini=pa(desde),fin=pa(hasta);
+    return{desde,hasta,ini,fin,label:desde+' → '+hasta,dias:Math.round((fin-ini)/864e5)+1};
+  }
+  return _ceConRango(null,{desde,hasta});
+}
+// Qué se va a hacer con cada hoja (sirve para la vista y para generar)
+function _edhPlan(per){
+  return(_edhLibro?_edhLibro.SheetNames:[]).map(n=>{
+    const eq=_edhEquipoHoja(n);
+    if(!eq)return{hoja:n,eq:null,n:0};
+    const n2=(DB.partes||[]).filter(p=>+p.eqId===+eq.id&&p.fecha>=per.desde&&p.fecha<=per.hasta).length;
+    return{hoja:n,eq,n:n2};
+  });
+}
+function _edhGenerar(){
+  if(!_edhLibro||!_edhBytes){toast('Primero suba el Excel del EDP',true);return;}
+  if(typeof _ceHojaXls!=='function'){toast('El módulo Corte de Equipos no está cargado',true);return;}
+  const R=_edhRango();
+  if(R.desde>R.hasta){toast('La fecha «Desde» no puede ser posterior a «Hasta»',true);return;}
+  const per=_edhPer(R.desde,R.hasta);
+  const plan=_edhPlan(per).filter(x=>x.eq);
+  if(!plan.length){toast('El Excel no tiene hojas con el código de un equipo del Máster',true);return;}
+  try{
+    // Se vuelve a leer el archivo original con sus estilos, para no arrastrar
+    // cambios de la vista previa y conservar el formato de las otras hojas
+    const wb=XLSX.read(_edhBytes,{type:'array',cellStyles:true,cellDates:true});
+    plan.forEach((x,i)=>{wb.Sheets[x.hoja]=_ceHojaXls(x.eq,per,i);});
+    const base=String(_edhArchivo||'EDP').replace(/\.[^.]+$/,'');
+    XLSX.writeFile(wb,`${base} - ${R.desde} al ${R.hasta}.xlsx`);
+    const vacias=plan.filter(x=>!x.n).length;
+    toast(`✓ EDP generado · ${plan.length} hoja(s) de equipo llenadas${vacias?` · ${vacias} sin partes en el período`:''}`);
+  }catch(e){console.error('[EDP generar]',e);toast('No se pudo generar el Excel: '+e.message,true);}
+}
 
 function _edhCelda(v){
   if(v instanceof Date&&!isNaN(v))return v.toISOString().slice(0,10);
@@ -109,7 +171,7 @@ function rEdpHoras(){
     <div style="font-size:1.35rem;font-weight:800;color:${c};font-family:monospace">${v}</div></div>`;
 
   const cab=`<div class="ph"><div class="ph-title" style="color:${AC}">📊 EDP</div>
-    <div class="ph-sub">Importar el Excel del EDP de horas de equipos · por ahora solo vista previa, no se guarda nada</div></div>`;
+    <div class="ph-sub">Suba el Excel del EDP y llénelo con los partes del período · se descarga un Excel nuevo, no se guarda nada en el sistema</div></div>`;
 
   const subir=`<label style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.8rem 1rem;border:2px dashed ${AC};border-radius:10px;background:var(--panel2);cursor:pointer;margin-bottom:.9rem">
       <span style="font-size:1.4rem">📥</span>
@@ -120,6 +182,28 @@ function rEdpHoras(){
     </label>`;
 
   if(!_edhLibro){pg.innerHTML=cab+subir;return;}
+
+  // Panel para llenar el EDP con los partes del período elegido
+  const RG=_edhRango();
+  const perG=RG.desde<=RG.hasta?_edhPer(RG.desde,RG.hasta):null;
+  const planG=perG?_edhPlan(perG).filter(x=>x.eq):[];
+  const conP=planG.filter(x=>x.n), sinP=planG.filter(x=>!x.n);
+  const inpF=(c,v)=>`<input type="date" value="${v}" onchange="_edhSetFecha('${c}',this.value)" style="font-size:.76rem;padding:.25rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">`;
+  const llenar=`<div style="border:2px solid #3b82f6;border-radius:10px;padding:.75rem .9rem;margin-bottom:.9rem;background:var(--panel)">
+    <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
+      <b style="color:#3b82f6;font-size:.82rem">📤 Llenar el EDP con los datos del sistema</b>
+      <span style="font-size:.72rem;color:var(--muted2)">📅 Desde</span>${inpF('d',RG.desde)}
+      <span style="font-size:.72rem;color:var(--muted2)">Hasta</span>${inpF('h',RG.hasta)}
+      <button onclick="_edhGenerar()" class="btn" style="background:#3b82f6;color:#fff;font-size:.76rem;font-weight:700"${perG&&planG.length?'':' disabled'}>⬇ Generar Excel del EDP</button>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted2);margin-top:.45rem;line-height:1.5">
+      ${!perG?'<span style="color:#ef4444">La fecha «Desde» es posterior a «Hasta».</span>'
+        :`Se reemplazan las <b style="color:var(--text)">${planG.length}</b> hojas 🚜 con los partes del ${_edhEsc(RG.desde)} al ${_edhEsc(RG.hasta)}${perG.rango?' (rango: mínimo diario del período 21→20)':''} ·
+        <b style="color:#10b981">${conP.length} con partes</b>${sinP.length?` · <b style="color:#f59e0b">${sinP.length} sin partes</b> (${sinP.slice(0,12).map(x=>_edhEsc(x.hoja)).join(', ')}${sinP.length>12?'…':''}) quedan solo con el encabezado`:''} ·
+        las demás hojas quedan como vienen.`}
+      <br>⚠ Las fórmulas de otras hojas que apunten a celdas fijas de las hojas de equipo (p. ej. el RESUMEN) pueden quedar desfasadas si cambia el número de filas: revíselas.
+    </div>
+  </div>`;
 
   const hojas=_edhLibro.SheetNames;
   const ws=_edhLibro.Sheets[_edhHoja];
@@ -162,5 +246,5 @@ function rEdpHoras(){
       }).join('')}</tbody>
     </table></div></div>`;
 
-  pg.innerHTML=cab+subir+chips+kpis+aviso+tabla;
+  pg.innerHTML=cab+subir+llenar+chips+kpis+aviso+tabla;
 }

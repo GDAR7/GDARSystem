@@ -475,8 +475,27 @@ function _ceExportXls(){
   // auxiliares al final (Inop. y Standby) con las banderas que usa el sistema.
   // Los totales y el desglose por área también quedan con SUM / SUMIFS.
   const usados={};
-  const CL=c=>XLSX.utils.encode_col(c);
   eqs.forEach((eq,idx)=>{
+    const ws=_ceHojaXls(eq,per,idx);
+    // Excel no admite / \ ? * [ ] : en el nombre de la hoja
+    let nom=String(eq.codigo||('Equipo'+(idx+1))).replace(/[\/\\?*\[\]:]/g,'-').substring(0,28);
+    if(usados[nom]){usados[nom]++;nom=`${nom} (${usados[nom]})`;}else usados[nom]=1;
+    XLSX.utils.book_append_sheet(wb,ws,nom.substring(0,31));
+  });
+
+  XLSX.writeFile(wb,_ceNombreArchivo(eqs[0],per)+'.xlsx');
+  toast(`✓ ${eqs.length} equipo${eqs.length!==1?'s':''} exportado${eqs.length!==1?'s':''}`);
+}
+
+// Hoja de un equipo (formato del corte / EDP). La usan el Excel de Corte de
+// Equipos y el módulo EDP de Cost Control, que reemplaza con ella las hojas
+// de cada equipo del Excel del EDP.
+function _ceHojaXls(eq,per,idx){
+    const AZ='1E3A5F';
+    const sTit=_CE_XF.tit,sLbl=_CE_XF.lbl,sTh=_CE_XF.th;
+    const sTdN=_CE_XF.tdNoche,sTdD=_CE_XF.tdDia,sTot=_CE_XF.tot;
+    const addr=(r,c)=>XLSX.utils.encode_cell({r,c});
+    const CL=c=>XLSX.utils.encode_col(c);
     const D=_ceDatos(eq,per);
     const esHora=_ceEsHora(eq);
     const proyecto=eq.proyecto||((DB.proyectos||[])[0]||{}).nombre||'OPERACIONES ECOSERMO';
@@ -581,15 +600,7 @@ function _ceExportXls(){
       hdr.forEach((__,c)=>{const cl=ws[addr(r,c)];if(cl)cl.s=est;});
     }
     if(esHora&&D.filas.length){[5,6].forEach(c=>{const cl=ws[addr(rFin,c)];if(cl)cl.s=sTot;});}
-
-    // Excel no admite / \ ? * [ ] : en el nombre de la hoja
-    let nom=String(eq.codigo||('Equipo'+(idx+1))).replace(/[\/\\?*\[\]:]/g,'-').substring(0,28);
-    if(usados[nom]){usados[nom]++;nom=`${nom} (${usados[nom]})`;}else usados[nom]=1;
-    XLSX.utils.book_append_sheet(wb,ws,nom.substring(0,31));
-  });
-
-  XLSX.writeFile(wb,_ceNombreArchivo(eqs[0],per)+'.xlsx');
-  toast(`✓ ${eqs.length} equipo${eqs.length!==1?'s':''} exportado${eqs.length!==1?'s':''}`);
+    return ws;
 }
 
 // ── Pantalla ───────────────────────────────────────────────────────────────
