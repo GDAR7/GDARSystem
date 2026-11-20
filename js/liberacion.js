@@ -34,7 +34,7 @@ const LIB_FIRMANTES={
   CLI:[]
 };
 // Coordinadores: firman en cualquier área (PCO / Residente)
-const LIB_COORD=['EIBEL25','ANDMAR'];
+const LIB_COORD=['EIBEL25','AND_RM'];
 
 let _libTab=1,_libSem=null,_libQ='',_libFrente='',_libSoloPend=false;
 let _libModalAct=null,_libAreaVista='';

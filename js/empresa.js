@@ -45,7 +45,7 @@ const EMPRESA_USERS=A=>[
   {codigo:'EIBEL25',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(A)},
   {codigo:'NOEPAL',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
   {codigo:'JON_GO',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
-  {codigo:'ANDMAR',nombre:'Andres Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad','operaciones','mantenimiento','controlEquipos'],areaModules:{seguridad:['cursosSeguridad'],mantenimiento:['flotaKpi','masterEquipos'],controlEquipos:['dashEquipos','reporteMensual','avanceViajes']},masterTabs:['venc']},
+  {codigo:'AND_RM',nombre:'Andres Rodriguez Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad','operaciones','mantenimiento','controlEquipos'],areaModules:{seguridad:['cursosSeguridad'],mantenimiento:['flotaKpi','masterEquipos'],controlEquipos:['dashEquipos','reporteMensual','avanceViajes']},masterTabs:['venc']},
   {codigo:'YONMEL',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
   {codigo:'ELIDA',nombre:'Elida Solano',cargo:'Jefa de Operaciones',areas:['mantenimiento','controlEquipos','administracion','seguridad'],areaModules:{mantenimiento:['masterEquipos'],controlEquipos:['reporteEquipos','panelHoras'],administracion:['resumenTareaje'],seguridad:['cursosSeguridad']}},
   {codigo:'CA-R-ZE',nombre:'Carlos Zelada',cargo:'Jefe de mantenimiento',areas:['general','mantenimiento','controlEquipos'], areaModules:{controlEquipos:['reporteEquipos']}},
