@@ -75,15 +75,15 @@ es('  selector de turno Todo / Día / Noche',["_arcSetTurno('')","_arcSetTurno('
 
 ev('_arcVer()');
 es('reporte: título y fecha',html.includes('ASISTENCIA DEL DÍA POR CARGO')&&html.includes('20/11/2026'),true);
-es('  lista: fila del cargo con total 2 · presentes 2 · ausentes 0',
-  /Operador de Volquete<\/a><\/td><td class="c">2<\/td><td[^>]*>2<\/td><td[^>]*>0<\/td>/.test(html),true);
-es('  una fila por cargo',(html.match(/<tr><td><a href="#c/g)||[]).length,3);
-es('  % de asistencia 100%',/>100%<\/span>/.test(html),true);
-es('  fila TOTAL',/<tfoot><tr><td>TOTAL<\/td><td class="c">4<\/td>/.test(html),true);
+es('  sin la tabla de resumen',/class="rs"|TOTAL<\/td>/.test(html),false);
+es('  un bloque por cargo',(html.match(/class="grp"/g)||[]).length,3);
+es('  barra de % en el encabezado del cargo: 100% · 0% · 100%',
+  (html.match(/<span style="color:#[0-9a-f]+">\d+%<\/span>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')),['100%','0%','100%']);
+es('  sin columna Estado',/<th>Estado<\/th>/.test(html),false);
+es('  el ausente va en rojo',/<tr class="au"><td class="n">1<\/td><td>444/.test(html),true);
 es('  avisa los no incluidos',html.includes('No incluidos (no programados ese día): DL 1 · F 1'),true);
 es('  ya no hay tarjetas',/class="tj"/.test(html),false);
 es('  sin columnas Salida ni Horas',/<th>Salida<\/th>|<th>Horas<\/th>/.test(html),false);
-es('  estado PRESENTE / AUSENTE',html.includes('PRESENTE')&&html.includes('AUSENTE')&&!html.includes('EN TURNO'),true);
 es('  nombres escapados',html.includes('&lt;JUAN&gt;')&&!html.includes('<JUAN>'),true);
 es('  sin undefined ni NaN',/undefined|NaN/.test(html),false);
 es('  se adapta al celular',/name="viewport"/.test(html)&&/max-width:700px/.test(html),true);

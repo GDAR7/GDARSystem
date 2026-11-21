@@ -6,7 +6,7 @@
 //
 //  El botón abre un menú:
 //    · Ver / Imprimir      → pestaña nueva, imprimible o "Guardar como PDF"
-//    · Enviar como imagen  → PNG del resumen (encabezado + cantidad por cargo)
+//    · Enviar como imagen  → PNG con todo el reporte
 //    · Enviar como PDF     → A4 con todo el detalle, sin cortar filas
 //    · Excel               → hojas "Resumen por cargo" y "Detalle"
 //  En el celular, "Enviar" abre el menú de compartir del teléfono (WhatsApp,
@@ -112,16 +112,12 @@ function _arcCss(){
     +'.arc h2{margin:0;font-size:16px;color:#1e3a6e}.arc .sub{font-size:10px;color:#555;margin-top:2px}'
     +'.arc .kp{display:flex;gap:8px}.arc .k{border:2px solid;border-radius:6px;padding:4px 10px;text-align:center;min-width:78px}'
     +'.arc .k b{display:block;font-size:17px}.arc .k span{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#555}'
-    +'.arc .rs{margin-bottom:6px;border:2px solid #1e3a6e}'
-    +'.arc .rs th{background:#1e3a6e;color:#fff;font-size:9.5px;padding:5px 6px}'
-    +'.arc .rs td{padding:3px 6px;font-size:10.5px}.arc .rs td a{color:#111;text-decoration:none;font-weight:700}'
-    +'.arc .rs tfoot td{background:#e8edf5;font-weight:800;color:#1e3a6e;border-top:2px solid #1e3a6e;font-size:11px}'
-    +'.arc .c{text-align:center;width:72px}'
-    +'.arc .bw{display:flex;align-items:center;gap:6px}.arc .bw span{font-weight:700;font-size:10px;min-width:30px}'
+    +'.arc .bw{display:flex;align-items:center;gap:6px;width:130px}.arc .bw span{font-weight:700;font-size:10px;min-width:30px}'
+    +'.arc tr.au td{color:#dc2626}'
     +'.arc .bb{flex:1;height:7px;background:#eee;border-radius:4px;overflow:hidden}.arc .bb div{height:100%}'
     +'.arc .grp{margin-top:10px}'
     +'.arc .gh{display:flex;justify-content:space-between;align-items:center;background:#1e3a6e;color:#fff;padding:5px 8px;font-weight:700;font-size:11.5px;border-radius:4px 4px 0 0}'
-    +'.arc .gc{font-weight:400;font-size:10px;background:#fff;color:#111;padding:1px 7px;border-radius:3px}'
+    +'.arc .gc{display:flex;align-items:center;gap:10px;font-weight:400;font-size:10px;background:#fff;color:#111;padding:2px 8px;border-radius:3px}'
     +'.arc table{width:100%;border-collapse:collapse}.arc th{background:#e8edf5;color:#1e3a6e;padding:4px;text-align:left;font-size:9.5px}'
     +'.arc td{padding:3px 4px;border-bottom:1px solid #e5e5e5;font-size:10px}.arc tr:nth-child(even) td{background:#fafafa}'
     +'.arc .n{color:#888;width:22px}.arc .m{font-family:Consolas,monospace}'
@@ -129,53 +125,43 @@ function _arcCss(){
     +'.arc .foot{margin-top:10px;font-size:8.5px;color:#888;text-align:right}';
 }
 const _arcAncla=c=>'c'+String(c).replace(/[^A-Za-z0-9]/g,'_');
-// Encabezado + lista de cantidad por cargo (una fila por cargo)
+// % de asistencia como barra: verde completo · naranja parcial · rojo nadie
+function _arcBarra(pres,total){
+  const p=total?Math.round(pres/total*100):0, c=pres===total?'#059669':pres?'#d97706':'#dc2626';
+  return'<div class="bw"><div class="bb"><div style="width:'+p+'%;background:'+c+'"></div></div>'
+    +'<span style="color:'+c+'">'+p+'%</span></div>';
+}
+// Encabezado del reporte: título, filtros y totales
 function _arcResumenHtml(D){
-  const pct=(a,b)=>b?Math.round(a/b*100):0;
-  const fila=g=>{
-    const p=pct(g.pres,g.total), c=g.pres===g.total?'#059669':g.pres?'#d97706':'#dc2626';
-    return'<tr><td><a href="#'+_arcAncla(g.cargo)+'">'+_arcEsc(g.cargo)+'</a></td>'
-      +'<td class="c">'+g.total+'</td>'
-      +'<td class="c" style="color:#059669;font-weight:700">'+g.pres+'</td>'
-      +'<td class="c" style="color:'+(g.aus?'#dc2626':'#999')+';font-weight:700">'+g.aus+'</td>'
-      +'<td><div class="bw"><div class="bb"><div style="width:'+p+'%;background:'+c+'"></div></div>'
-      +'<span style="color:'+c+'">'+p+'%</span></div></td></tr>';
-  };
-  const tarjetas='<table class="rs"><thead><tr><th>Cargo</th><th class="c">Total</th><th class="c">Presentes</th>'
-    +'<th class="c">Ausentes</th><th style="width:130px">% Asistencia</th></tr></thead><tbody>'
-    +D.grupos.map(fila).join('')+'</tbody>'
-    +'<tfoot><tr><td>TOTAL</td><td class="c">'+D.total+'</td><td class="c" style="color:#059669">'+D.pres+'</td>'
-    +'<td class="c" style="color:#dc2626">'+D.aus+'</td><td>'+pct(D.pres,D.total)+'%</td></tr></tfoot></table>';
   return'<div class="hdr"><div><h2>ASISTENCIA DEL DÍA POR CARGO'+(D.turno?' · '+_ARC_TURNO_LBL[D.turno].toUpperCase():'')+'</h2>'
     +'<div class="sub">Fecha: <b>'+_arcDMY(D.fecha)+'</b> · '+_arcEsc(_arcFiltrosTxt(D))+' · '+D.grupos.length+' cargos'
     +(D.sinTurno?' · '+D.sinTurno+' de otro turno no incluidos':'')
     +(_arcFueraTxt(D)?'<br>'+_arcEsc(_arcFueraTxt(D)):'')+'</div></div>'
     +'<div class="kp"><div class="k" style="border-color:#1e3a6e"><b>'+D.total+'</b><span>Total</span></div>'
     +'<div class="k" style="border-color:#059669"><b style="color:#059669">'+D.pres+'</b><span>Presentes</span></div>'
-    +'<div class="k" style="border-color:#dc2626"><b style="color:#dc2626">'+D.aus+'</b><span>Ausentes</span></div></div></div>'
-    +tarjetas;
+    +'<div class="k" style="border-color:#dc2626"><b style="color:#dc2626">'+D.aus+'</b><span>Ausentes</span></div></div></div>';
 }
 // Un bloque de un cargo (filas desde..hasta). En el PDF, un cargo con mucha
 // gente se parte en varios bloques; el segundo y siguientes dicen "(cont.)".
 function _arcGrupoHtml(g,desde,hasta){
-  const colEst={AUSENTE:'#dc2626',PRESENTE:'#059669'};
   const tt=t=>{
     const v=t&&typeof _TARE_T!=='undefined'?_TARE_T[t]:null;
     return v?'<span class="tr" style="background:'+v.bg+';color:'+v.tx+'">'+t+'</span>':(t||'—');
   };
   const sub=g.filas.slice(desde,hasta);
-  const filas=sub.map((f,i)=>'<tr><td class="n">'+(desde+i+1)+'</td><td>'+_arcEsc(f.p.dni)+'</td>'
+  // Sin columna Estado: el ausente se ve con el nombre en rojo y sin hora
+  const filas=sub.map((f,i)=>'<tr'+(f.ent?'':' class="au"')+'><td class="n">'+(desde+i+1)+'</td><td>'+_arcEsc(f.p.dni)+'</td>'
     +'<td><b>'+_arcEsc(f.nombre)+'</b></td><td>'+_arcEsc(f.p.tipo||'—')+'</td>'
     +'<td>'+(f.p.guardia?'Grd.'+_arcEsc(f.p.guardia):'—')+'</td>'
     +'<td class="m" style="color:#059669">'+(f.ent||'—')+'</td>'
-    +'<td>'+tt(f.tareo)+'</td>'
-    +'<td style="color:'+colEst[f.estado]+';font-weight:700">'+f.estado+'</td></tr>').join('');
+    +'<td>'+tt(f.tareo)+'</td></tr>').join('');
+  // El % del cargo va en su encabezado, en lugar de la columna Estado
   return'<div class="grp"'+(desde?'':' id="'+_arcAncla(g.cargo)+'"')+'>'
     +'<div class="gh"><span>'+_arcEsc(g.cargo)+(desde?' (cont.)':'')+'</span>'
-    +'<span class="gc">Total '+g.total+' · <b style="color:#059669">Presentes '+g.pres+'</b>'
-    +(g.aus?' · <b style="color:#dc2626">Ausentes '+g.aus+'</b>':'')+'</span></div>'
+    +'<span class="gc"><span>Total '+g.total+' · <b style="color:#059669">Presentes '+g.pres+'</b>'
+    +(g.aus?' · <b style="color:#dc2626">Ausentes '+g.aus+'</b>':'')+'</span>'+_arcBarra(g.pres,g.total)+'</span></div>'
     +'<table><thead><tr><th>N°</th><th>DNI</th><th>Apellidos y nombres</th><th>Tipo</th><th>Guardia</th>'
-    +'<th>Entrada</th><th>Tareo</th><th>Estado</th></tr></thead>'
+    +'<th>Entrada</th><th>Tareo</th></tr></thead>'
     +'<tbody>'+filas+'</tbody></table></div>';
 }
 const _arcPie=()=>'<div class="foot">Generado el '+new Date().toLocaleString('es-PE')+'</div>';
@@ -210,8 +196,8 @@ function asiReporteCargo(){
     }).join('')+'</div>'
     +(D.total?'':'<div style="font-size:.78rem;color:#f59e0b;margin-bottom:.6rem">No hay personal en '+_ARC_TURNO_LBL[_arcTurno].toLowerCase()+' con estos filtros.</div>')
     +'<div style="display:flex;flex-direction:column;gap:.5rem'+(D.total?'':';opacity:.4;pointer-events:none')+'">'
-    +op('🖼️','Enviar como imagen','Resumen con la cantidad por cargo. Ideal para WhatsApp','_arcEnviar(\'img\',this)','#10b981')
-    +op('📄','Enviar como PDF','Reporte completo con el detalle de cada cargo','_arcEnviar(\'pdf\',this)','#ef4444')
+    +op('🖼️','Enviar como imagen','Todo el reporte en una sola imagen. Ideal para WhatsApp','_arcEnviar(\'img\',this)','#10b981')
+    +op('📄','Enviar como PDF','Todo el reporte en hojas A4','_arcEnviar(\'pdf\',this)','#ef4444')
     +op('👁️','Ver / Imprimir','Abre el reporte en una pestaña nueva','_arcVer()','#3b82f6')
     +op('⬇','Excel','Resumen por cargo y detalle','asiReporteCargoXls()','#22c55e')
     +'</div></div>';
@@ -230,7 +216,7 @@ function _arcVer(){
   const css=_arcCss()+'body{margin:0;background:#fff}'
     +'.bar{position:sticky;top:0;background:#fff;padding:8px 18px;display:flex;gap:6px;border-bottom:1px solid #ddd}'
     +'.bar button{padding:6px 14px;border-radius:6px;border:1px solid #1e3a6e;background:#1e3a6e;color:#fff;font-weight:700;cursor:pointer}'
-    +'@media (max-width:700px){.arc{padding:10px}.arc .c{width:auto}.arc .rs th:last-child,.arc .rs td:last-child{width:90px}}'
+    +'@media (max-width:700px){.arc{padding:10px}.arc .gh{flex-wrap:wrap;gap:4px}.arc .gc{flex-wrap:wrap}}'
     +'@media print{.bar{display:none}@page{size:A4 portrait;margin:10mm}.arc{padding:0}'
     +'.arc .grp{break-inside:auto}.arc .gh{break-after:avoid}.arc tr{break-inside:avoid}'
     +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
@@ -267,7 +253,7 @@ async function _arcCanvas(html){
 }
 async function _arcImagen(D){
   await _arcLib(_ARC_LIB_H2C,()=>typeof window.html2canvas==='function');
-  const cv=await _arcCanvas(_arcResumenHtml(D)+_arcPie());
+  const cv=await _arcCanvas(_arcResumenHtml(D)+D.grupos.map(g=>_arcGrupoHtml(g,0,g.filas.length)).join('')+_arcPie());
   return new Promise((ok,mal)=>cv.toBlob(b=>b?ok(b):mal(new Error('no se pudo crear la imagen')),'image/png'));
 }
 // PDF por bloques: resumen, y cada cargo en tandas de _ARC_FILAS_BLOQUE filas.
