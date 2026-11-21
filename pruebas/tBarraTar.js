@@ -23,7 +23,7 @@ es('el rótulo "O RANGO" tampoco',/o rango/i.test(barra),false);
 const botones=(barra.match(/<button/g)||[]).length;
 const campos=(barra.match(/<select|<input/g)||[]).length;
 es('quedan 4 botones',botones,4);
-es('  y 3 campos',campos,3);
+es('  y 4 campos (proyecto, buscar, mes y "Cargado")',campos,4);
 
 console.log('\n== Los IDs que otros archivos usan siguen ahí ==');
 ['tareProy','tareBuscar','tareMes','tareRangoBar','tarROBadge'].forEach(id=>

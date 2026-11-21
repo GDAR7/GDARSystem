@@ -71,6 +71,7 @@ function _cisTareo(proy,periodo){
   // Última fecha con marca de este proyecto dentro del período
   const proyDe=new Map((DB.personal||[]).map(p=>[+p.id,p.proy]));
   let ultima='';
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(r=>{
     const f=String(r.fecha||'');
     if(f<desde||f>hasta)return;

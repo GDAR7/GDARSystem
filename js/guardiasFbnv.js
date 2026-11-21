@@ -8,7 +8,7 @@
 const _GD_GUARDIAS=['A','B','C'];
 const _GD_EN_OBRA=['TD','TN','DLT','A5'];
 const _GD_LIBRE=['DL'];
-const _GD_AUSENTES=['F','DM','P','V','LP','LM','LF'];
+const _GD_AUSENTES=['F','S','DM','P','V','LP','LM','LF'];
 // Color del nombre: azul puro para turno día, azul noche para turno noche,
 // naranja para Anexo 5, plomo oscuro para día libre y rojo para faltas / licencias.
 const _GD_A5='ED7D31';
@@ -159,6 +159,7 @@ function _gdResumenTxt(c,plano){
 function rGuardiasFbnv(){
   _gdModo='tareaje';
   if(typeof _tarPgInitFiltros==='function')_tarPgInitFiltros();
+  if(typeof tarAsegurarPeriodo==='function')tarAsegurarPeriodo(document.getElementById('tarPgFecha')?.value,rGuardiasFbnv);
   _gdRender('gdBody');
 }
 // Tab del Roster: el mismo cuadro pero con la programación del ciclo

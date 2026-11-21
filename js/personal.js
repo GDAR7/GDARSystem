@@ -336,6 +336,14 @@ function gPersonal(){
       const oldProy=DB.personal[idx].proy;
       if(oldProy&&rec.proy&&oldProy!==rec.proy){
         DB.tareaje.filter(r=>r.personalId===_editPersonalId&&!r.proy).forEach(r=>{r.proy=oldProy;syncSheet('saveTareaje',r);});
+        // Tareaje por tramos: lo antiguo no está en memoria; se le pone el
+        // proyecto anterior en la base, igual que a lo cargado arriba.
+        if(typeof tarTodoCargado==='function'&&!tarTodoCargado()&&typeof supa!=='undefined'){
+          const pid=_editPersonalId;
+          supa.from('tareaje').update({proy:oldProy}).eq('personal_id',pid).is('proy',null)
+            .lt('fecha',_tarCargaDesde)
+            .then(({error})=>{if(error)console.warn('[tareaje] proyecto en marcas antiguas',error.message);});
+        }
       }
       Object.assign(DB.personal[idx],rec);syncSheet('savePersonal',DB.personal[idx]);
     }
@@ -791,8 +799,11 @@ async function procesarQR(texto){
     else{
       const hEnt=parseInt(String(asiExist?.horaEntrada||ahora).slice(0,2),10);
       const turno=(hEnt>=5&&hEnt<17)?'TD':'TN';
-      const prevDias=(DB.tareaje||[]).filter(r=>r.personalId===p.id&&r.fecha&&r.fecha<fecha&&['TD','TN','DLT','A5'].includes(r.tipo));
-      const tipo=prevDias.length<AM_DIAS_A5?'A5':turno;
+      // Con el tareaje por tramos, tarDiasObraAntes completa con lo no cargado
+      const nPrev=typeof tarDiasObraAntes==='function'
+        ?await tarDiasObraAntes(p.id,fecha,AM_DIAS_A5)
+        :(DB.tareaje||[]).filter(r=>r.personalId===p.id&&r.fecha&&r.fecha<fecha&&['TD','TN','DLT','A5'].includes(r.tipo)).length;
+      const tipo=nPrev<AM_DIAS_A5?'A5':turno;
       const rec={id:nid('tar'),personalId:p.id,fecha,tipo,proy:p.proy||''};
       DB.tareaje.push(rec);
       const e=await supaUpsert('tareaje',rec);
@@ -832,11 +843,14 @@ async function registrarTareoAsistencia(){
     if(!p){err++;fallidos.push('#'+a.personalId);continue;}
     const h=parseInt(String(a.horaEntrada).slice(0,2),10);
     const turno=(h>=5&&h<17)?'TD':'TN';
-    const prevDias=(DB.tareaje||[]).filter(r=>
-      r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
-      ['TD','TN','DLT','A5'].includes(r.tipo)
-    );
-    const tipo=prevDias.length<AM_DIAS_A5?'A5':turno;
+    // Con el tareaje por tramos, tarDiasObraAntes completa con lo no cargado
+    const nPrev=typeof tarDiasObraAntes==='function'
+      ?await tarDiasObraAntes(p.id,fecha,AM_DIAS_A5)
+      :(DB.tareaje||[]).filter(r=>
+        r.personalId===p.id&&r.fecha&&r.fecha<fecha&&
+        ['TD','TN','DLT','A5'].includes(r.tipo)
+      ).length;
+    const tipo=nPrev<AM_DIAS_A5?'A5':turno;
     const existente=DB.tareaje.find(r=>r.personalId===p.id&&r.fecha===fecha);
     let e;
     if(existente){
@@ -1161,6 +1175,7 @@ const _ROSTER_TIPOS=[
   {t:'A5', ic:'🟠', l:'Anexo 5',            g:'jor'},
   {t:'P',  ic:'📄', l:'Permiso',            g:'aus'},
   {t:'F',  ic:'❌', l:'Falta',              g:'aus'},
+  {t:'S',  ic:'⛔', l:'Suspensión',         g:'aus'},
   {t:'DM', ic:'🏥', l:'Descanso Médico',    g:'aus'},
   {t:'V',  ic:'🏖️', l:'Vacaciones',         g:'aus'},
   {t:'LP', ic:'👶', l:'Lic. Paternidad',    g:'aus'},

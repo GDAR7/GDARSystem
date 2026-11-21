@@ -866,6 +866,7 @@ function _phResumenDoc(){
 
   // Personal de la semana (tareaje: TD/TN/DLT trabajado · A5 ingreso nuevo)
   const TIPOS_ASIS=['TD','TN','DLT','A5'];
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   const tarSem=(DB.tareaje||[]).filter(r=>r.fecha>=fIni&&r.fecha<=fFin&&TIPOS_ASIS.includes(r.tipo));
   const perDia={};fechas.forEach(f=>perDia[f.iso]=new Set());
   tarSem.forEach(r=>{if(perDia[r.fecha])perDia[r.fecha].add(r.personalId);});
@@ -978,7 +979,7 @@ function _phResumenDoc(){
   // Gráfico apilado: tipos de tareaje por día (TD, TN, DL, DM, etc.) con etiquetas por segmento
   const imgTipos=(()=>{
     if(typeof Chart==='undefined')return'';
-    const ORD=['TD','TN','DLT','A5','DL','P','F','DM','LP','LM','LF','V','R'];
+    const ORD=['TD','TN','DLT','A5','DL','P','F','S','DM','LP','LM','LF','V','R'];
     const tipos=ORD.filter(t=>tiposDia[t]).concat(Object.keys(tiposDia).filter(t=>!ORD.includes(t)).sort());
     if(!tipos.length)return'';
     const TT=typeof _TARE_T!=='undefined'?_TARE_T:{};

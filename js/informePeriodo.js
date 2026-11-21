@@ -87,6 +87,7 @@ function _ipDatos(){
   });
 
   // ── 2. PERSONAL (tareaje) ──
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   const tar=(DB.tareaje||[]).filter(r=>enRango(r.fecha));
   const ct=t=>tar.filter(r=>r.tipo===t).length;
   const idsPers=new Set(tar.map(r=>r.personalId));

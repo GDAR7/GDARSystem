@@ -413,6 +413,7 @@ function rRosterTransporte(){
   if(typeof _rosterNormOvr==='function')_rosterNormOvr();
   if(!_rtLeida){_rtLeida=true;_rtLeerFlota();}
   const dias=_rtDias();
+  if(typeof tarAsegurar==='function'&&dias.length)tarAsegurar(dias[0],rRosterTransporte);   // tareaje por tramos
   cont.innerHTML=`${_rtEstilos()}
     <div class="rt-nav">
       <button type="button" onclick="_rtNavegar(-7)" title="Semana anterior">◀</button>

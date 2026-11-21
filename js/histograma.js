@@ -313,6 +313,7 @@ function _hgRealData(cols){
   const perById={};(DB.personal||[]).forEach(x=>{perById[x.id]=x;});
   // Personal: cuenta también los días libres (DL) — la persona sigue asignada al proyecto esa semana
   const TRAB={TD:1,TN:1,DLT:1,A5:1,DL:1};
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(r=>{
     if(!r.fecha||!TRAB[r.tipo])return;
     const c=colDe(r.fecha);if(!c)return;

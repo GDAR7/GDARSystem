@@ -25,6 +25,7 @@ const _TAC_COLS=[
   {k:'A5',l:'A5',tit:'Anexo 5',c:'#f97316'},
   {k:'DL',l:'DL',tit:'Día Libre',c:'#9ca3af'},
   {k:'F',l:'F',tit:'Falta',c:'#ef4444',alerta:true},
+  {k:'S',l:'S',tit:'Suspensión',c:'#b45309',alerta:true},
   {k:'DM',l:'DM',tit:'Descanso Médico',c:'#a78bfa'},
   {k:'P',l:'P',tit:'Permiso',c:'#f59e0b'},
   {k:'V',l:'V',tit:'Vacaciones',c:'#0ea5e9'},
@@ -55,6 +56,9 @@ const _tacNorm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/
 // Se rehace solo si cambian el proyecto, el corte o los datos cargados.
 let _tacIdx=null;
 function _tacIndice(hasta,proy){
+  // Cuenta desde el inicio: si el tareaje está cargado por tramos, pide todo y
+  // vuelve a dibujar el resumen al llegar.
+  if(typeof tarHistorial==='function')tarHistorial(()=>{if(typeof rTarAcum==='function')rTarAcum();});
   const tar=DB.tareaje||[], pers=DB.personal||[];
   const clave=[hasta,proy,tar.length,pers.length,tar.length?tar[tar.length-1].id:0].join('|');
   if(_tacIdx&&_tacIdx.clave===clave&&_tacIdx.tar===tar&&_tacIdx.pers===pers)return _tacIdx.dias;
@@ -89,7 +93,7 @@ function _tacDatos(){
     const fechas=Object.keys(m).sort();
     const inicio=fechas[0], ultima=fechas[fechas.length-1];
     const fin=inact?ultima:hasta;
-    const c={TD:0,TN:0,DLT:0,A5:0,DL:0,F:0,DM:0,P:0,V:0,LIC:0,R:0,otro:0};
+    const c={TD:0,TN:0,DLT:0,A5:0,DL:0,F:0,S:0,DM:0,P:0,V:0,LIC:0,R:0,otro:0};
     fechas.forEach(f=>{
       const t=m[f];
       if(c[t]!==undefined)c[t]++;

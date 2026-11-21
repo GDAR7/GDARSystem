@@ -17,7 +17,7 @@
 
 const _TC_OBRA=['TD','TN','DLT','A5'];
 const _TC_LIBRE=['DL'];
-const _TC_AUS=['F','DM','P','V','LP','LM','LF'];
+const _TC_AUS=['F','S','DM','P','V','LP','LM','LF'];
 const _TC_VENTA={TD:1,TN:1,A5:1,DL:1,DLT:2.5};
 const _TC_MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
 const _TC_PALETA=['#10b981','#3b82f6','#f59e0b','#a855f7','#06b6d4','#ec4899','#84cc16','#f97316'];
@@ -199,6 +199,7 @@ function _tcRanking(D,tit,tipos,c,vacio){
 function rTarCorte(){
   const body=document.getElementById('tcBody');if(!body)return;
   if(typeof _tarPgInitFiltros==='function')_tarPgInitFiltros();
+  if(typeof tarAsegurarPeriodo==='function')tarAsegurarPeriodo(document.getElementById('tarPgFecha')?.value,rTarCorte);
   const D=_tcDatos(_tcLeer());
   const {C,gente}=D;
   const grupos=_tcOrdenGrupos([...new Set(gente.map(r=>r.grupo))],_tcAgrup);

@@ -88,6 +88,7 @@ function _vlMesHombre(cargo,desde,hasta){
     return pc===c||pc.startsWith(c)||c.startsWith(pc);
   }).map(p=>p.id));
   if(!ids.size)return{cant:0,dias:0,personas:0};
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   const dias=(DB.tareaje||[]).filter(r=>
     ids.has(r.personalId)&&r.fecha>=desde&&r.fecha<=hasta&&_VL_TRAB.includes(r.tipo)).length;
   return{cant:+(dias/VAL_DIAS_MES).toFixed(4),dias,personas:ids.size};

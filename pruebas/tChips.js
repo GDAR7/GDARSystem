@@ -23,16 +23,16 @@ const muchos={TD:new Set([1]),TN:new Set([1]),DL:new Set([1]),F:new Set([1]),P:n
 console.log('\n== La fila se adapta a lo que hay ==');
 const h1=api._tmnLeyendaHTML(pocos,null);
 es('un proyecto con 2 tipos activos → 2 chips',cuenta(h1),2);
-es('  los 11 restantes van a Otros',/Otros 11 ▾/.test(h1),true);
+es('  los 12 restantes van a Otros (incluye S - Suspensión)',/Otros 12 ▾/.test(h1),true);
 es('  con el rótulo de sección',/Jornadas/i.test(h1),true);
 
 const h2=api._tmnLeyendaHTML(muchos,null);
 es('con 9 activos → 9 chips',cuenta(h2),9);
-es('  y 4 en Otros',/Otros 4 ▾/.test(h2),true);
+es('  y 5 en Otros',/Otros 5 ▾/.test(h2),true);
 
 const h0=api._tmnLeyendaHTML({},null);
 es('sin ningún dato, ningún chip suelto',cuenta(h0),0);
-es('  y los 13 en Otros',/Otros 13 ▾/.test(h0),true);
+es('  y los 14 en Otros',/Otros 14 ▾/.test(h0),true);
 
 console.log('\n== Solo cuatro llevan color ==');
 es('los que pintan celdas en la grilla',api._TMN_CON_COLOR.join(),'TD,TN,DL,F');
@@ -47,7 +47,7 @@ console.log('\n== El filtro no puede quedar atrapado ==');
 // no debe esconderse: no habría forma de quitar el filtro.
 const h3=api._tmnLeyendaHTML(pocos,'V');
 es('un tipo en cero con filtro sigue visible',/V – Vacaciones/.test(h3),true);
-es('  y ya no cuenta en Otros',/Otros 10 ▾/.test(h3),true);
+es('  y ya no cuenta en Otros',/Otros 11 ▾/.test(h3),true);
 es('  aparece el botón de quitar',/Quitar filtro/.test(h3),true);
 es('sin filtro no aparece ese botón',/Quitar filtro/.test(h1),false);
 

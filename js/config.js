@@ -358,12 +358,23 @@ async function loadSheetsData(){
       }
       return{data:all,error:err};
     };
-    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen');
+    // Tareaje: solo los últimos meses (js/tareajeCarga.js). Si ese archivo no
+    // está o la carga por tramos falla, se trae todo como siempre.
+    const _tarPorTramos=typeof tarCargaInicial==='function';
+    const _tarProm=_tarPorTramos?tarCargaInicial().then(()=>true).catch(e=>{
+      console.warn('[tareaje por tramos] se carga todo:',e&&e.message||e);return false;}):null;
+    const simpleKeys=Object.keys(SUPA_TABLES).filter(k=>k!=='requerimientos'&&k!=='asistencia'&&k!=='almacen'
+      &&!(_tarPorTramos&&k==='tareaje'));
     const results=await Promise.all(
       simpleKeys.map(dbKey=>
         cargarPaginado(SUPA_TABLES[dbKey]).then(({data,error})=>({dbKey,data,error}))
       )
     );
+    if(_tarProm&&!(await _tarProm)){
+      _tarCargaDesde=null;
+      const r=await cargarPaginado('tareaje');
+      results.push({dbKey:'tareaje',data:r.data,error:r.error});
+    }
     const nxMap={personal:'personal',social:'social',residencia:'res',
       alimentacion:'ali',hospedaje:'hosp',lavanderia:'lav',almacen:'alm',
       combustible:'comb',supervision:'super',incidentes:'inc',petar:'pet',

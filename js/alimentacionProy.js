@@ -196,6 +196,7 @@ function _apyDatos(){
 
   // Marcas del mes, por persona y ordenadas por fecha
   const porPers=new Map();
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(r=>{
     if(!r||!dentro.has(r.fecha))return;
     const k=+r.personalId;

@@ -99,6 +99,7 @@ function _thChart(cv,labels,porGrupo,horizontal){
 
 function rTarHist(){
   if(typeof _tarPgInitFiltros==='function')_tarPgInitFiltros();
+  if(typeof tarAsegurarPeriodo==='function')tarAsegurarPeriodo(document.getElementById('tarPgFecha')?.value,rTarHist);
   const cont=document.getElementById('thBody');if(!cont)return;
   const d=_thDatos();
 

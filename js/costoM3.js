@@ -515,6 +515,7 @@ function _cm3Diario(){
   const tarPers={};
   hhVentaPeriodo(per.desde,per.hasta).filas.forEach(f=>{tarPers[f.p.id]=f.tarifa;});
   const marca={};
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(t=>{if(dia[t.fecha])marca[t.personalId+'|'+t.fecha]=t.tipo;});
   Object.entries(marca).forEach(([k,tipo])=>{
     const[pid,fecha]=k.split('|');

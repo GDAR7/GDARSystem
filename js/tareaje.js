@@ -5,6 +5,7 @@ const _TARE_T={
   DL:{l:'Día Libre',       bg:'#6b7280',tx:'#fff'},
   P: {l:'Permiso',         bg:'#f59e0b',tx:'#000'},
   F: {l:'Falta',           bg:'#ef4444',tx:'#fff'},
+  S: {l:'Suspensión',      bg:'#92400e',tx:'#fff'},   // sanción: no se paga ni cuenta en obra
   DM:{l:'Descanso Médico', bg:'#8b5cf6',tx:'#fff'},
   LP:{l:'Lic. Paternidad', bg:'#3b82f6',tx:'#fff'},
   LM:{l:'Lic. Maternidad', bg:'#ec4899',tx:'#fff'},
@@ -620,6 +621,16 @@ function rTareaje(){
   const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const _MESC=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
   const FECHAS=_tarFechas();
+  // Tareaje por tramos (tareajeCarga.js): si el período elegido es anterior a
+  // lo cargado, se trae primero. Mientras llega no se dibuja la grilla: con el
+  // mes a medias, marcar una celda crearía un duplicado de la marca guardada.
+  if(typeof _tcgPintarSel==='function')_tcgPintarSel();
+  if(typeof tarAsegurar==='function'&&FECHAS.length&&!tarAsegurar(FECHAS[0],rTareaje)){
+    const tb=document.getElementById('tbTareaje');
+    if(tb)tb.innerHTML='<tbody><tr><td style="padding:2rem;text-align:center;color:var(--muted2);font-size:.85rem">'
+      +'⏳ Cargando el tareaje de '+_tarPeriodoLbl().toLowerCase()+'…</td></tr></tbody>';
+    return;
+  }
   const _multiMes=FECHAS.length>0&&FECHAS[0].slice(0,7)!==FECHAS[FECHAS.length-1].slice(0,7);
   const proyEl=document.getElementById('tareProy');
   if(proyEl){const cur=proyEl.value;proyEl.innerHTML='<option value="">— Todos los proyectos —</option>'+(DB.proyectos||[]).map(p=>`<option value="${p.codigo}">[${p.codigo}] ${p.nombre}</option>`).join('');if(cur)proyEl.value=cur;}
@@ -1064,7 +1075,7 @@ function _buildTareResumen(ids,colFilter){
   const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
   const tarMap={};
   tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
-  const _COL_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+  const _COL_ORDER=['DL','TD','TN','DLT','A5','P','F','S','DM','LP','LM','LF','V','R'];
   const _tiposSet=new Set(Object.values(tarMap));
   const tiposAll=_COL_ORDER.filter(t=>_tiposSet.has(t));
   const tiposPresentes=colFilter?tiposAll.filter(t=>colFilter.has(t)):tiposAll;
@@ -1379,6 +1390,8 @@ function _tarPgInitFiltros(){
 }
 function rTareResumenPg(){
   _tarPgInitFiltros();
+  // Tareaje por tramos: si la fecha elegida es antigua, se trae y se redibuja
+  if(typeof tarAsegurarPeriodo==='function')tarAsegurarPeriodo(document.getElementById('tarPgFecha')?.value,rTareResumenPg);
   // La página comparte fecha y proyecto con el tab de Guardias FBNV
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='guardias'){rGuardiasFbnv();return;}
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='hist'){rTarHist();return;}

@@ -128,6 +128,7 @@ function _calcPlanRow(p,det){
   const r2=n=>Math.round(n*100)/100;
 
   // Días desde Tareaje
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   const tr=DB.tareaje.filter(r=>r.personalId===p.id&&r.fecha&&String(r.fecha).startsWith(monthStr));
   // Se cuentan FECHAS ÚNICAS, no registros: si un día quedó marcado dos veces
   // (pasa al corregir el tareaje a mano) contaba doble y pagaba de más.

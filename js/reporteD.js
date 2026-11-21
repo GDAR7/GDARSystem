@@ -3,6 +3,7 @@ function rDailyReport(){
   const elD=document.getElementById('drFecha');
   if(elD&&!elD.value)elD.value=today();
   const fecha=elD?elD.value:today();
+  if(typeof tarAsegurar==='function')tarAsegurar(fecha,rDailyReport);   // tareaje por tramos
 
   // Proyectos (solo DB.proyectos, no frentes)
   const drProyEl=document.getElementById('drProy');
@@ -81,7 +82,7 @@ function rDailyReport(){
     return null;
   };
   // Orden canónico de tipos
-  const _TIPO_ORDER=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+  const _TIPO_ORDER=['DL','TD','TN','DLT','A5','P','F','S','DM','LP','LM','LF','V','R'];
 
   const groups={MOI:{},MOD:{},opLA:{},condEM:{}};
   tarDia.forEach(r=>{
@@ -139,8 +140,8 @@ function rDailyReport(){
   const ptCount={};
   Object.values(groups).forEach(grp=>Object.values(grp).forEach(tipos=>Object.entries(tipos).forEach(([t,n])=>{ptCount[t]=(ptCount[t]||0)+n;})));
   const ptTotal=Object.values(ptCount).reduce((s,v)=>s+v,0);
-  const _TIPO_LBL={DL:'P.T. Libre',TD:'P.T. Día',TN:'P.T. Noche',A5:'Anexo 5',P:'Permiso',F:'Falta',DM:'Descanso M.',DLT:'DL c/Trabajo',LP:'Lic. Paternidad',LM:'Lic. Maternidad',LF:'Lic. Fallecim.',V:'Vacaciones',R:'Retiro'};
-  const _TIPO_COL={DL:'#ef4444',TD:'#f59e0b',TN:'#8b5cf6',A5:'#06b6d4',P:'#10b981',F:'#dc2626',DM:'#64748b',DLT:'#0ea5e9',LP:'#ec4899',LM:'#ec4899',LF:'#475569',V:'#14b8a6',R:'#f97316'};
+  const _TIPO_LBL={DL:'P.T. Libre',TD:'P.T. Día',TN:'P.T. Noche',A5:'Anexo 5',P:'Permiso',F:'Falta',S:'Suspensión',DM:'Descanso M.',DLT:'DL c/Trabajo',LP:'Lic. Paternidad',LM:'Lic. Maternidad',LF:'Lic. Fallecim.',V:'Vacaciones',R:'Retiro'};
+  const _TIPO_COL={DL:'#ef4444',TD:'#f59e0b',TN:'#8b5cf6',A5:'#06b6d4',P:'#10b981',F:'#dc2626',S:'#92400e',DM:'#64748b',DLT:'#0ea5e9',LP:'#ec4899',LM:'#ec4899',LF:'#475569',V:'#14b8a6',R:'#f97316'};
   const ptItems=_TIPO_ORDER.filter(t=>ptCount[t]>0).map(t=>({l:_TIPO_LBL[t]||t,v:ptCount[t],c:_TIPO_COL[t]||'#94a3b8'}));
   if(_el('drSummary'))_el('drSummary').innerHTML=`<div style="display:flex;gap:.5rem;flex-wrap:wrap">
     ${[...ptItems,{l:'Total',v:ptTotal,c:'#10b981'}]

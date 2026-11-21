@@ -310,6 +310,7 @@ function _hrDatos(){
   const set=new Set(F);
   // Marcas del período, indexadas por persona
   const porPers=new Map();
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(r=>{
     if(!set.has(r.fecha))return;
     if(_hrProy&&r.proy&&r.proy!==_hrProy)return;
@@ -383,6 +384,7 @@ function hhVentaPeriodo(desde,hasta,proy){
 
   // Una marca por persona y fecha: dos registros el mismo día no cuentan doble
   const porPers=new Map();
+  if(typeof tarHistorial==='function')tarHistorial();   // tareaje por tramos: pide lo antiguo si falta
   (DB.tareaje||[]).forEach(r=>{
     if(!set.has(r.fecha))return;
     if(proy&&!(r.proy===proy||(!r.proy&&_proyDe.get(+r.personalId)===proy)))return;
