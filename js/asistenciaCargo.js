@@ -35,7 +35,7 @@ const _ARC_TRABAJA=['TD','TN','A5','DLT'];
 function _arcFueraTxt(D){
   const k=Object.keys(D.fuera||{}).sort((a,b)=>D.fuera[b]-D.fuera[a]);
   if(!k.length)return'';
-  return'No incluidos (no programados ese día): '+k.map(t=>t+' '+D.fuera[t]).join(' · ');
+  return'No incluidos (de libre): '+k.map(t=>t+' '+D.fuera[t]).join(' · ');
 }
 function _arcSetTurno(t){_arcTurno=t||'';asiReporteCargo();}
 
@@ -65,17 +65,16 @@ function _arcDatos(){
       nombre:(p.ape||'')+', '+(p.nom||''),ent,sal,
       horas:ent&&sal&&typeof calcHoras==='function'?calcHoras(ent,sal):'',
       tareo:tarDe[p.id]||'',
-      turno:_arcTurnoDe(ent,tarDe[p.id]||''),
-      estado:ent?'PRESENTE':'AUSENTE'};   // sin salida ni horas: solo si vino o no
+      turno:_arcTurnoDe(ent,tarDe[p.id]||'')};
   });
-  // Solo quienes trabajan ese día: TD, TN, A5 y DLT, o cualquiera que marcó
-  // entrada. DL, vacaciones, descanso médico, faltas… se entiende que no
-  // estaban programados y se cuentan aparte, por tipo.
+  // Presente: marcó entrada y su tareo es de trabajo (TD, TN, A5, DLT) o aún
+  // no tiene tareo. Ausente: todo lo demás (TD/TN sin entrada, sin tareo,
+  // DM, P, F, S, V…). Solo el DL queda fuera: está de libre.
+  filas.forEach(f=>{f.estado=f.ent&&(!f.tareo||_ARC_TRABAJA.includes(f.tareo))?'PRESENTE':'AUSENTE';});
   const fuera={};
   for(let i=filas.length-1;i>=0;i--){
-    const f=filas[i];
-    if(f.ent||_ARC_TRABAJA.includes(f.tareo))continue;
-    const k=f.tareo||'sin tareo';fuera[k]=(fuera[k]||0)+1;
+    if(filas[i].tareo!=='DL')continue;
+    fuera.DL=(fuera.DL||0)+1;
     filas.splice(i,1);
   }
   // Por turno: solo quienes son de ese turno
@@ -87,10 +86,10 @@ function _arcDatos(){
   filas.forEach(f=>{if(!mapa.has(f.cargo))mapa.set(f.cargo,[]);mapa.get(f.cargo).push(f);});
   const grupos=[...mapa.entries()].map(([cargo,g])=>{
     g.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
-    const pres=g.filter(f=>f.ent).length;
+    const pres=g.filter(f=>f.estado==='PRESENTE').length;
     return{cargo,filas:g,total:g.length,pres,aus:g.length-pres};
   }).sort((a,b)=>b.total-a.total||a.cargo.localeCompare(b.cargo,'es'));
-  const pres=filas.filter(f=>f.ent).length;
+  const pres=filas.filter(f=>f.estado==='PRESENTE').length;
   return{fecha,guardia,tareoFilt,q,turno,sinTurno,fuera,grupos,total:filas.length,pres,aus:filas.length-pres};
 }
 function _arcFiltrosTxt(D){
@@ -119,8 +118,9 @@ function _arcCss(){
     +'.arc .gh{display:flex;justify-content:space-between;align-items:center;background:#1e3a6e;color:#fff;padding:5px 8px;font-weight:700;font-size:11.5px;border-radius:4px 4px 0 0}'
     +'.arc .gc{display:flex;align-items:center;gap:10px;font-weight:400;font-size:10px;background:#fff;color:#111;padding:2px 8px;border-radius:3px}'
     +'.arc table{width:100%;border-collapse:collapse}.arc th{background:#e8edf5;color:#1e3a6e;padding:4px;text-align:left;font-size:9.5px}'
-    +'.arc td{padding:3px 4px;border-bottom:1px solid #e5e5e5;font-size:10px}.arc tr:nth-child(even) td{background:#fafafa}'
-    +'.arc .n{color:#888;width:22px}.arc .m{font-family:Consolas,monospace}'
+    +'.arc td{padding:2px 4px;border-bottom:1px solid #e5e5e5;font-size:10px}.arc tr:nth-child(even) td{background:#fafafa}'
+    +'.arc .n{color:#888;width:26px}.arc .m{font-family:Consolas,monospace}'
+    +'.arc .cd{width:78px}.arc .cg{width:62px}.arc .ct{width:48px}'
     +'.arc .tr{display:inline-block;padding:0 5px;border-radius:3px;font-size:9px;font-weight:700}'
     +'.arc .foot{margin-top:10px;font-size:8.5px;color:#888;text-align:right}';
 }
@@ -149,19 +149,18 @@ function _arcGrupoHtml(g,desde,hasta){
     return v?'<span class="tr" style="background:'+v.bg+';color:'+v.tx+'">'+t+'</span>':(t||'—');
   };
   const sub=g.filas.slice(desde,hasta);
-  // Sin columna Estado: el ausente se ve con el nombre en rojo y sin hora
-  const filas=sub.map((f,i)=>'<tr'+(f.ent?'':' class="au"')+'><td class="n">'+(desde+i+1)+'</td><td>'+_arcEsc(f.p.dni)+'</td>'
-    +'<td><b>'+_arcEsc(f.nombre)+'</b></td><td>'+_arcEsc(f.p.tipo||'—')+'</td>'
+  // Columnas mínimas (sin Tipo ni Entrada): el ausente va con la fila en rojo
+  const filas=sub.map((f,i)=>'<tr'+(f.estado==='PRESENTE'?'':' class="au"')+'><td class="n">'+(desde+i+1)+'</td><td class="m">'+_arcEsc(f.p.dni)+'</td>'
+    +'<td><b>'+_arcEsc(f.nombre)+'</b></td>'
     +'<td>'+(f.p.guardia?'Grd.'+_arcEsc(f.p.guardia):'—')+'</td>'
-    +'<td class="m" style="color:#059669">'+(f.ent||'—')+'</td>'
     +'<td>'+tt(f.tareo)+'</td></tr>').join('');
   // El % del cargo va en su encabezado, en lugar de la columna Estado
   return'<div class="grp"'+(desde?'':' id="'+_arcAncla(g.cargo)+'"')+'>'
     +'<div class="gh"><span>'+_arcEsc(g.cargo)+(desde?' (cont.)':'')+'</span>'
     +'<span class="gc"><span>Total '+g.total+' · <b style="color:#059669">Presentes '+g.pres+'</b>'
     +(g.aus?' · <b style="color:#dc2626">Ausentes '+g.aus+'</b>':'')+'</span>'+_arcBarra(g.pres,g.total)+'</span></div>'
-    +'<table><thead><tr><th>N°</th><th>DNI</th><th>Apellidos y nombres</th><th>Tipo</th><th>Guardia</th>'
-    +'<th>Entrada</th><th>Tareo</th></tr></thead>'
+    +'<table><thead><tr><th class="n">N°</th><th class="cd">DNI</th><th>Apellidos y nombres</th>'
+    +'<th class="cg">Guardia</th><th class="ct">Tareo</th></tr></thead>'
     +'<tbody>'+filas+'</tbody></table></div>';
 }
 const _arcPie=()=>'<div class="foot">Generado el '+new Date().toLocaleString('es-PE')+'</div>';
@@ -213,7 +212,7 @@ function _arcVer(){
   if(!win){toast('Active ventanas emergentes para ver el reporte',true);return;}
   _arcCerrarMenu();
   const S='<'+'/';
-  const css=_arcCss()+'body{margin:0;background:#fff}'
+  const css=_arcCss()+'body{margin:0;background:#fff}.arc{max-width:820px;margin:0 auto}'
     +'.bar{position:sticky;top:0;background:#fff;padding:8px 18px;display:flex;gap:6px;border-bottom:1px solid #ddd}'
     +'.bar button{padding:6px 14px;border-radius:6px;border:1px solid #1e3a6e;background:#1e3a6e;color:#fff;font-weight:700;cursor:pointer}'
     +'@media (max-width:700px){.arc{padding:10px}.arc .gh{flex-wrap:wrap;gap:4px}.arc .gc{flex-wrap:wrap}}'
@@ -325,13 +324,13 @@ function asiReporteCargoXls(){
   const res=[tit,[],['Cargo','Total','Presentes','Ausentes','% Asistencia']];
   D.grupos.forEach(g=>res.push([g.cargo,g.total,g.pres,g.aus,g.total?+(g.pres/g.total*100).toFixed(1):0]));
   res.push(['TOTAL',D.total,D.pres,D.aus,D.total?+(D.pres/D.total*100).toFixed(1):0]);
-  const det=[tit,[],['Cargo','N°','DNI','Apellidos y nombres','Tipo','Guardia','Entrada','Tareo','Estado']];
-  D.grupos.forEach(g=>g.filas.forEach((f,i)=>det.push([g.cargo,i+1,f.p.dni||'',f.nombre,f.p.tipo||'',
-    f.p.guardia?'Grd.'+f.p.guardia:'',f.ent,f.tareo,f.estado])));
+  const det=[tit,[],['Cargo','N°','DNI','Apellidos y nombres','Guardia','Tareo','Estado']];
+  D.grupos.forEach(g=>g.filas.forEach((f,i)=>det.push([g.cargo,i+1,f.p.dni||'',f.nombre,
+    f.p.guardia?'Grd.'+f.p.guardia:'',f.tareo,f.estado])));
   const wb=XLSX.utils.book_new();
   const w1=XLSX.utils.aoa_to_sheet(res);w1['!cols']=[{wch:34},{wch:8},{wch:10},{wch:10},{wch:13}];
   const w2=XLSX.utils.aoa_to_sheet(det);
-  w2['!cols']=[{wch:30},{wch:5},{wch:11},{wch:36},{wch:9},{wch:9},{wch:8},{wch:7},{wch:11}];
+  w2['!cols']=[{wch:30},{wch:5},{wch:11},{wch:36},{wch:9},{wch:7},{wch:11}];
   XLSX.utils.book_append_sheet(wb,w1,'Resumen por cargo');
   XLSX.utils.book_append_sheet(wb,w2,'Detalle');
   XLSX.writeFile(wb,'Asistencia_por_cargo_'+D.fecha+(D.turno?'_'+(D.turno==='D'?'Dia':'Noche'):'')+'.xlsx');

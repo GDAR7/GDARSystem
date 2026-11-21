@@ -34,14 +34,16 @@ vm.createContext(ctx);vm.runInContext(SRC,ctx);
 const ev=s=>vm.runInContext(s,ctx);
 
 let D=ev('_arcDatos()');
-es('solo quienes trabajan: TD, TN, A5 o con entrada',D.grupos.flatMap(g=>g.filas.map(f=>f.p.id)).sort(),[1,3,4,7]);
-es('  fuera: la falta y el DL (y el inactivo)',D.fuera,{DL:1,F:1});
+es('todos menos el DL (la falta entra como ausente)',D.grupos.flatMap(g=>g.filas.map(f=>f.p.id)).sort(),[1,2,3,4,7]);
+es('  fuera: solo el DL',D.fuera,{DL:1});
 es('3 presentes (la asistencia de ayer no cuenta)',D.pres,3);
 es('cargos, el de más gente primero',D.grupos.map(g=>[g.cargo,g.total,g.pres]),
-  [['Operador de Volquete',2,2],['Ing. Residente',1,0],['Vigía',1,1]]);
-es('dentro del cargo, por apellido',D.grupos[0].filas.map(f=>f.p.ape),['DIAZ','PEREZ']);
+  [['Operador de Volquete',3,2],['Ing. Residente',1,0],['Vigía',1,1]]);
+es('dentro del cargo, por apellido',D.grupos[0].filas.map(f=>f.p.ape),['DIAZ','PEREZ','ROJAS']);
 es('TN sin entrada = ausente',D.grupos[1].filas[0].estado,'AUSENTE');
-es('texto de no incluidos',ev('_arcFueraTxt(_arcDatos())'),'No incluidos (no programados ese día): DL 1 · F 1');
+es('F = ausente',D.grupos[0].filas[2].estado,'AUSENTE');
+es('entrada sin tareo y A5 con entrada = presentes',[D.grupos[0].filas[0].estado,D.grupos[2].filas[0].estado],['PRESENTE','PRESENTE']);
+es('texto de no incluidos',ev('_arcFueraTxt(_arcDatos())'),'No incluidos (de libre): DL 1');
 
 console.log('\n== Por turno ==');
 es('turno por hora: 06:00 día · 19:55 noche',[ev('_arcTurnoDe("06:00","")'),ev('_arcTurnoDe("19:55","")')],['D','N']);
@@ -49,7 +51,7 @@ es('  sin hora, por tareo TD/TN',[ev('_arcTurnoDe("","TD")'),ev('_arcTurnoDe("",
 ev('_arcTurno="D"');
 let T=ev('_arcDatos()');
 es('turno día: los 2 que entraron de día',T.grupos.flatMap(g=>g.filas.map(f=>f.p.id)).sort(),[1,3]);
-es('  los 2 de noche cuentan aparte',T.sinTurno,2);
+es('  los de noche y la falta sin turno cuentan aparte',T.sinTurno,3);
 ev('_arcTurno="N"');
 es('turno noche: el TN (ausente) y el A5 que entró 19:30',ev('_arcDatos()').grupos.flatMap(g=>g.filas.map(f=>f.p.id)).sort(),[4,7]);
 ev('_arcTurno=""');
@@ -77,13 +79,15 @@ ev('_arcVer()');
 es('reporte: título y fecha',html.includes('ASISTENCIA DEL DÍA POR CARGO')&&html.includes('20/11/2026'),true);
 es('  sin la tabla de resumen',/class="rs"|TOTAL<\/td>/.test(html),false);
 es('  un bloque por cargo',(html.match(/class="grp"/g)||[]).length,3);
-es('  barra de % en el encabezado del cargo: 100% · 0% · 100%',
-  (html.match(/<span style="color:#[0-9a-f]+">\d+%<\/span>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')),['100%','0%','100%']);
+es('  barra de % en el encabezado del cargo: 67% · 0% · 100%',
+  (html.match(/<span style="color:#[0-9a-f]+">\d+%<\/span>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')),['67%','0%','100%']);
 es('  sin columna Estado',/<th>Estado<\/th>/.test(html),false);
-es('  el ausente va en rojo',/<tr class="au"><td class="n">1<\/td><td>444/.test(html),true);
-es('  avisa los no incluidos',html.includes('No incluidos (no programados ese día): DL 1 · F 1'),true);
+es('  el ausente va en rojo',/<tr class="au"><td class="n">1<\/td><td class="m">444/.test(html),true);
+es('  avisa los no incluidos',html.includes('No incluidos (de libre): DL 1'),true);
 es('  ya no hay tarjetas',/class="tj"/.test(html),false);
 es('  sin columnas Salida ni Horas',/<th>Salida<\/th>|<th>Horas<\/th>/.test(html),false);
+es('  sin columnas Tipo ni Entrada',/<th>Tipo<\/th>|<th>Entrada<\/th>/.test(html),false);
+es('  la falta va en rojo',/<tr class="au"><td class="n">3<\/td><td class="m">222/.test(html),true);
 es('  nombres escapados',html.includes('&lt;JUAN&gt;')&&!html.includes('<JUAN>'),true);
 es('  sin undefined ni NaN',/undefined|NaN/.test(html),false);
 es('  se adapta al celular',/name="viewport"/.test(html)&&/max-width:700px/.test(html),true);
@@ -116,7 +120,7 @@ console.log('\n== Enviar desde el celular ==');
   await ev('_arcEnviar("img")');
   es('imagen: se comparte un PNG',compartido&&[compartido.files[0].name,compartido.files[0].type],
     ['Asistencia por cargo 2026-11-20.png','image/png']);
-  es('  con texto de presentes',compartido&&compartido.text,'Asistencia del 20/11/2026 · Presentes 3 de 4');
+  es('  con texto de presentes',compartido&&compartido.text,'Asistencia del 20/11/2026 · Presentes 3 de 5');
   compartido=null;
   await ev('_arcEnviar("pdf")');
   es('PDF: se comparte',compartido&&compartido.files[0].type,'application/pdf');
@@ -132,9 +136,10 @@ function fin(){
 ev('asiReporteCargoXls()');
 es('Excel: nombre',archivo,'Asistencia_por_cargo_2026-11-20.xlsx');
 es('  hojas',Object.keys(hojas),['Resumen por cargo','Detalle']);
-es('  fila del cargo',hojas['Resumen por cargo'][3],['Operador de Volquete',2,2,0,100]);
-es('  total',hojas['Resumen por cargo'].slice(-1)[0],['TOTAL',4,3,1,75]);
-es('  detalle: 4 personas (sin DL ni F)',hojas.Detalle.length-3,4);
+es('  fila del cargo',hojas['Resumen por cargo'][3],['Operador de Volquete',3,2,1,66.7]);
+es('  total',hojas['Resumen por cargo'].slice(-1)[0],['TOTAL',5,3,2,60]);
+es('  detalle: 5 personas (sin DL)',hojas.Detalle.length-3,5);
+es('  detalle sin Tipo ni Entrada',hojas.Detalle[2],['Cargo','N°','DNI','Apellidos y nombres','Guardia','Tareo','Estado']);
 
 const HTML=fs.readFileSync(R+'index.html','utf8');
 es('botón en la Asistencia',/onclick="asiReporteCargo\(\)"/.test(HTML),true);
