@@ -3,14 +3,23 @@
 //  Agrupa al personal por cargo. Arriba, un cuadro con la cantidad por cargo
 //  (presentes / total) para verlo de un vistazo; debajo, el detalle de cada
 //  cargo. Respeta los filtros de la pantalla: fecha, guardia, tareo y búsqueda.
-//  Se imprime o guarda en PDF desde el navegador, y se puede bajar en Excel.
-//  Prefijo _arc.
+//
+//  El botón abre un menú:
+//    · Ver / Imprimir      → pestaña nueva, imprimible o "Guardar como PDF"
+//    · Enviar como imagen  → PNG del resumen (encabezado + cantidad por cargo)
+//    · Enviar como PDF     → A4 con todo el detalle, sin cortar filas
+//    · Excel               → hojas "Resumen por cargo" y "Detalle"
+//  En el celular, "Enviar" abre el menú de compartir del teléfono (WhatsApp,
+//  correo…); donde no se puede compartir, el archivo se descarga.
+//  Las librerías de imagen/PDF (html2canvas, jsPDF) se cargan recién al usarlas,
+//  igual que en el Parte de Turno. Prefijo _arc.
 // ══════════════════════════════════════════════════════════════════════════
 
 const _arcEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _arcDMY=f=>{const p=String(f||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:f;};
+const _ARC_FILAS_BLOQUE=32;   // filas por bloque en el PDF: un bloque nunca pasa de una hoja
 
-// Los datos, con los mismos filtros que rAsistencia()
+// ── Los datos, con los mismos filtros que rAsistencia() ─────────────────────
 function _arcDatos(){
   const val=id=>(typeof document!=='undefined'&&document.getElementById(id)?.value)||'';
   const fecha=val('asiDate')||today();
@@ -49,7 +58,6 @@ function _arcDatos(){
   const pres=filas.filter(f=>f.ent).length;
   return{fecha,guardia,tareoFilt,q,grupos,total:filas.length,pres,aus:filas.length-pres};
 }
-
 function _arcFiltrosTxt(D){
   const t=[];
   if(D.guardia)t.push('Guardia '+D.guardia);
@@ -58,82 +66,210 @@ function _arcFiltrosTxt(D){
   return t.length?t.join(' · '):'Todas las guardias';
 }
 
-// ── Reporte imprimible ─────────────────────────────────────────────────────
-function asiReporteCargo(){
-  const D=_arcDatos();
-  if(!D.total){toast('No hay personal con los filtros elegidos',true);return;}
-  const win=window.open('','_blank');
-  if(!win){toast('Active ventanas emergentes para ver el reporte',true);return;}
-  const S='<'+'/';
+// ── HTML del reporte ───────────────────────────────────────────────────────
+// Todo cuelga de .arc: así se puede dibujar dentro del sistema (para la imagen
+// y el PDF) sin que estos estilos toquen el resto de la página.
+function _arcCss(){
+  return'.arc{font-family:Arial,sans-serif;font-size:11px;color:#111;background:#fff;padding:18px;box-sizing:border-box}'
+    +'.arc *{box-sizing:border-box}'
+    +'.arc .hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e3a6e;padding-bottom:8px;margin-bottom:10px;gap:12px;flex-wrap:wrap}'
+    +'.arc h2{margin:0;font-size:16px;color:#1e3a6e}.arc .sub{font-size:10px;color:#555;margin-top:2px}'
+    +'.arc .kp{display:flex;gap:8px}.arc .k{border:2px solid;border-radius:6px;padding:4px 10px;text-align:center;min-width:78px}'
+    +'.arc .k b{display:block;font-size:17px}.arc .k span{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#555}'
+    +'.arc .tjs-w{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px}'
+    +'.arc .tj{display:block;text-decoration:none;color:inherit;border:2px solid;border-radius:6px;padding:5px 8px;break-inside:avoid}'
+    +'.arc .tjc{font-size:9.5px;font-weight:700;text-transform:uppercase;color:#1e3a6e;min-height:24px;line-height:1.2}'
+    +'.arc .tjn b{font-size:18px}.arc .tjn span{font-size:11px;color:#555;margin-left:3px}.arc .tjs{font-size:8.5px;color:#666}'
+    +'.arc .grp{margin-top:10px}'
+    +'.arc .gh{display:flex;justify-content:space-between;align-items:center;background:#1e3a6e;color:#fff;padding:5px 8px;font-weight:700;font-size:11.5px;border-radius:4px 4px 0 0}'
+    +'.arc .gc{font-weight:400;font-size:10px;background:#fff;color:#111;padding:1px 7px;border-radius:3px}'
+    +'.arc table{width:100%;border-collapse:collapse}.arc th{background:#e8edf5;color:#1e3a6e;padding:4px;text-align:left;font-size:9.5px}'
+    +'.arc td{padding:3px 4px;border-bottom:1px solid #e5e5e5;font-size:10px}.arc tr:nth-child(even) td{background:#fafafa}'
+    +'.arc .n{color:#888;width:22px}.arc .m{font-family:Consolas,monospace}'
+    +'.arc .tr{display:inline-block;padding:0 5px;border-radius:3px;font-size:9px;font-weight:700}'
+    +'.arc .foot{margin-top:10px;font-size:8.5px;color:#888;text-align:right}';
+}
+const _arcAncla=c=>'c'+String(c).replace(/[^A-Za-z0-9]/g,'_');
+// Encabezado + cuadro de cantidad por cargo
+function _arcResumenHtml(D){
+  const tarjetas=D.grupos.map(g=>{
+    const c=g.pres===g.total?'#059669':g.pres?'#d97706':'#dc2626';
+    return'<a class="tj" href="#'+_arcAncla(g.cargo)+'" style="border-color:'+c+'">'
+      +'<div class="tjc">'+_arcEsc(g.cargo)+'</div>'
+      +'<div class="tjn"><b style="color:'+c+'">'+g.pres+'</b><span>/ '+g.total+'</span></div>'
+      +'<div class="tjs">'+(g.aus?g.aus+' ausente'+(g.aus>1?'s':''):'completo')+'</div></a>';
+  }).join('');
+  return'<div class="hdr"><div><h2>ASISTENCIA DEL DÍA POR CARGO</h2>'
+    +'<div class="sub">Fecha: <b>'+_arcDMY(D.fecha)+'</b> · '+_arcEsc(_arcFiltrosTxt(D))+' · '+D.grupos.length+' cargos</div></div>'
+    +'<div class="kp"><div class="k" style="border-color:#1e3a6e"><b>'+D.total+'</b><span>Total</span></div>'
+    +'<div class="k" style="border-color:#059669"><b style="color:#059669">'+D.pres+'</b><span>Presentes</span></div>'
+    +'<div class="k" style="border-color:#dc2626"><b style="color:#dc2626">'+D.aus+'</b><span>Ausentes</span></div></div></div>'
+    +'<div class="tjs-w">'+tarjetas+'</div>';
+}
+// Un bloque de un cargo (filas desde..hasta). En el PDF, un cargo con mucha
+// gente se parte en varios bloques; el segundo y siguientes dicen "(cont.)".
+function _arcGrupoHtml(g,desde,hasta){
   const colEst={AUSENTE:'#dc2626','EN TURNO':'#d97706',COMPLETO:'#059669'};
   const tt=t=>{
     const v=t&&typeof _TARE_T!=='undefined'?_TARE_T[t]:null;
     return v?'<span class="tr" style="background:'+v.bg+';color:'+v.tx+'">'+t+'</span>':(t||'—');
   };
-  // Cuadro resumen: una tarjeta por cargo
-  const tarjetas=D.grupos.map(g=>{
-    const c=g.pres===g.total?'#059669':g.pres?'#d97706':'#dc2626';
-    return'<a class="tj" href="#c'+_arcEsc(g.cargo).replace(/[^A-Za-z0-9]/g,'_')+'" style="border-color:'+c+'">'
-      +'<div class="tjc">'+_arcEsc(g.cargo)+'</div>'
-      +'<div class="tjn"><b style="color:'+c+'">'+g.pres+'</b><span>/ '+g.total+'</span></div>'
-      +'<div class="tjs">'+(g.aus?g.aus+' ausente'+(g.aus>1?'s':''):'completo')+'</div></a>';
-  }).join('');
-  const bloques=D.grupos.map(g=>{
-    let n=0;
-    const filas=g.filas.map(f=>'<tr><td class="n">'+(++n)+'</td><td>'+_arcEsc(f.p.dni)+'</td>'
-      +'<td><b>'+_arcEsc(f.nombre)+'</b></td><td>'+_arcEsc(f.p.tipo||'—')+'</td>'
-      +'<td>'+(f.p.guardia?'Grd.'+_arcEsc(f.p.guardia):'—')+'</td>'
-      +'<td class="m" style="color:#059669">'+(f.ent||'—')+'</td>'
-      +'<td class="m" style="color:#d97706">'+(f.sal||'—')+'</td>'
-      +'<td class="m">'+(f.horas||'—')+'</td><td>'+tt(f.tareo)+'</td>'
-      +'<td style="color:'+colEst[f.estado]+';font-weight:700">'+f.estado+'</td></tr>').join('');
-    return'<div class="grp" id="c'+_arcEsc(g.cargo).replace(/[^A-Za-z0-9]/g,'_')+'">'
-      +'<div class="gh"><span>'+_arcEsc(g.cargo)+'</span>'
-      +'<span class="gc">Total '+g.total+' · <b style="color:#059669">Presentes '+g.pres+'</b>'
-      +(g.aus?' · <b style="color:#dc2626">Ausentes '+g.aus+'</b>':'')+'</span></div>'
-      +'<table><thead><tr><th>N°</th><th>DNI</th><th>Apellidos y nombres</th><th>Tipo</th><th>Guardia</th>'
-      +'<th>Entrada</th><th>Salida</th><th>Horas</th><th>Tareo</th><th>Estado</th></tr></thead>'
-      +'<tbody>'+filas+'</tbody></table></div>';
-  }).join('');
-  const css='*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:18px;color:#111;margin:0}'
-    +'.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e3a6e;padding-bottom:8px;margin-bottom:10px;gap:12px;flex-wrap:wrap}'
-    +'h2{margin:0;font-size:16px;color:#1e3a6e}.sub{font-size:10px;color:#555;margin-top:2px}'
-    +'.kp{display:flex;gap:8px}.k{border:2px solid;border-radius:6px;padding:4px 10px;text-align:center;min-width:78px}'
-    +'.k b{display:block;font-size:17px}.k span{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#555}'
-    +'.tjs-w{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:14px}'
-    +'.tj{display:block;text-decoration:none;color:inherit;border:2px solid;border-radius:6px;padding:5px 8px;break-inside:avoid}'
-    +'.tjc{font-size:9.5px;font-weight:700;text-transform:uppercase;color:#1e3a6e;min-height:24px;line-height:1.2}'
-    +'.tjn b{font-size:18px}.tjn span{font-size:11px;color:#555;margin-left:3px}.tjs{font-size:8.5px;color:#666}'
-    +'.grp{margin-bottom:12px;break-inside:auto}'
-    +'.gh{display:flex;justify-content:space-between;background:#1e3a6e;color:#fff;padding:5px 8px;font-weight:700;font-size:11.5px;border-radius:4px 4px 0 0;break-after:avoid}'
-    +'.gc{font-weight:400;font-size:10px;background:#fff;color:#111;padding:1px 7px;border-radius:3px}'
-    +'table{width:100%;border-collapse:collapse}th{background:#e8edf5;color:#1e3a6e;padding:4px;text-align:left;font-size:9.5px}'
-    +'td{padding:3px 4px;border-bottom:1px solid #e5e5e5;font-size:10px}tr:nth-child(even) td{background:#fafafa}'
-    +'.n{color:#888;width:22px}.m{font-family:Consolas,monospace}'
-    +'.tr{display:inline-block;padding:0 5px;border-radius:3px;font-size:9px;font-weight:700}'
-    +'.bar{position:sticky;top:0;background:#fff;padding:6px 0 10px;display:flex;gap:6px}'
+  const sub=g.filas.slice(desde,hasta);
+  const filas=sub.map((f,i)=>'<tr><td class="n">'+(desde+i+1)+'</td><td>'+_arcEsc(f.p.dni)+'</td>'
+    +'<td><b>'+_arcEsc(f.nombre)+'</b></td><td>'+_arcEsc(f.p.tipo||'—')+'</td>'
+    +'<td>'+(f.p.guardia?'Grd.'+_arcEsc(f.p.guardia):'—')+'</td>'
+    +'<td class="m" style="color:#059669">'+(f.ent||'—')+'</td>'
+    +'<td class="m" style="color:#d97706">'+(f.sal||'—')+'</td>'
+    +'<td class="m">'+(f.horas||'—')+'</td><td>'+tt(f.tareo)+'</td>'
+    +'<td style="color:'+colEst[f.estado]+';font-weight:700">'+f.estado+'</td></tr>').join('');
+  return'<div class="grp"'+(desde?'':' id="'+_arcAncla(g.cargo)+'"')+'>'
+    +'<div class="gh"><span>'+_arcEsc(g.cargo)+(desde?' (cont.)':'')+'</span>'
+    +'<span class="gc">Total '+g.total+' · <b style="color:#059669">Presentes '+g.pres+'</b>'
+    +(g.aus?' · <b style="color:#dc2626">Ausentes '+g.aus+'</b>':'')+'</span></div>'
+    +'<table><thead><tr><th>N°</th><th>DNI</th><th>Apellidos y nombres</th><th>Tipo</th><th>Guardia</th>'
+    +'<th>Entrada</th><th>Salida</th><th>Horas</th><th>Tareo</th><th>Estado</th></tr></thead>'
+    +'<tbody>'+filas+'</tbody></table></div>';
+}
+const _arcPie=()=>'<div class="foot">Generado el '+new Date().toLocaleString('es-PE')+'</div>';
+
+// ── Menú del botón ─────────────────────────────────────────────────────────
+function asiReporteCargo(){
+  const D=_arcDatos();
+  if(!D.total){toast('No hay personal con los filtros elegidos',true);return;}
+  let ov=document.getElementById('arcMenu');
+  if(ov)ov.remove();
+  ov=document.createElement('div');
+  ov.id='arcMenu';
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const op=(ic,t,s,fn,col)=>'<button onclick="'+fn+'" style="display:flex;gap:.7rem;align-items:center;width:100%;text-align:left;'
+    +'background:var(--panel2);border:2px solid '+col+';border-radius:9px;padding:.7rem .85rem;color:var(--text);cursor:pointer">'
+    +'<span style="font-size:1.4rem">'+ic+'</span><span><b style="display:block;font-size:.9rem">'+t+'</b>'
+    +'<span style="font-size:.72rem;color:var(--muted2)">'+s+'</span></span></button>';
+  ov.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem;width:100%;max-width:380px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem">'
+    +'<b style="font-size:1rem">👷 Reporte por cargo</b>'
+    +'<button onclick="document.getElementById(\'arcMenu\').remove()" style="background:none;border:none;color:var(--muted2);font-size:1.2rem;cursor:pointer">✕</button></div>'
+    +'<div style="font-size:.74rem;color:var(--muted2);margin-bottom:.8rem">'+_arcDMY(D.fecha)+' · '+_arcEsc(_arcFiltrosTxt(D))
+    +' · '+D.total+' personas en '+D.grupos.length+' cargos</div>'
+    +'<div style="display:flex;flex-direction:column;gap:.5rem">'
+    +op('🖼️','Enviar como imagen','Resumen con la cantidad por cargo. Ideal para WhatsApp','_arcEnviar(\'img\',this)','#10b981')
+    +op('📄','Enviar como PDF','Reporte completo con el detalle de cada cargo','_arcEnviar(\'pdf\',this)','#ef4444')
+    +op('👁️','Ver / Imprimir','Abre el reporte en una pestaña nueva','_arcVer()','#3b82f6')
+    +op('⬇','Excel','Resumen por cargo y detalle','asiReporteCargoXls()','#22c55e')
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+function _arcCerrarMenu(){const m=document.getElementById('arcMenu');if(m)m.remove();}
+
+// ── Ver / Imprimir ─────────────────────────────────────────────────────────
+function _arcVer(){
+  const D=_arcDatos();
+  const win=window.open('','_blank');
+  if(!win){toast('Active ventanas emergentes para ver el reporte',true);return;}
+  _arcCerrarMenu();
+  const S='<'+'/';
+  const css=_arcCss()+'body{margin:0;background:#fff}'
+    +'.bar{position:sticky;top:0;background:#fff;padding:8px 18px;display:flex;gap:6px;border-bottom:1px solid #ddd}'
     +'.bar button{padding:6px 14px;border-radius:6px;border:1px solid #1e3a6e;background:#1e3a6e;color:#fff;font-weight:700;cursor:pointer}'
-    +'.bar button.o{background:#fff;color:#1e3a6e}'
-    +'.foot{margin-top:12px;font-size:8.5px;color:#888;text-align:right}'
-    +'@media print{.bar{display:none}body{padding:8px}@page{size:A4 portrait;margin:10mm}'
+    +'@media (max-width:700px){.arc .tjs-w{grid-template-columns:repeat(2,1fr)}.arc table{font-size:9px}}'
+    +'@media print{.bar{display:none}@page{size:A4 portrait;margin:10mm}.arc{padding:0}'
+    +'.arc .grp{break-inside:auto}.arc .gh{break-after:avoid}.arc tr{break-inside:avoid}'
     +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
-  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Asistencia por cargo '+_arcDMY(D.fecha)+S+'title>'
-    +'<style>'+css+S+'style>'+S+'head><body>'
-    +'<div class="bar"><button onclick="print()">🖨 Imprimir / PDF'+S+'button>'
-    +'<button class="o" onclick="opener&&opener.asiReporteCargoXls&&opener.asiReporteCargoXls()">⬇ Excel'+S+'button>'+S+'div>'
-    +'<div class="hdr"><div><h2>ASISTENCIA DEL DÍA POR CARGO'+S+'h2>'
-    +'<div class="sub">Fecha: <b>'+_arcDMY(D.fecha)+'</b> · '+_arcEsc(_arcFiltrosTxt(D))+' · '+D.grupos.length+' cargos'+S+'div>'+S+'div>'
-    +'<div class="kp"><div class="k" style="border-color:#1e3a6e"><b>'+D.total+'</b><span>Total'+S+'span>'+S+'div>'
-    +'<div class="k" style="border-color:#059669"><b style="color:#059669">'+D.pres+'</b><span>Presentes'+S+'span>'+S+'div>'
-    +'<div class="k" style="border-color:#dc2626"><b style="color:#dc2626">'+D.aus+'</b><span>Ausentes'+S+'span>'+S+'div>'+S+'div>'+S+'div>'
-    +'<div class="tjs-w">'+tarjetas+S+'div>'
-    +bloques
-    +'<div class="foot">Generado el '+new Date().toLocaleString('es-PE')+S+'div>'
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8">'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Asistencia por cargo '+_arcDMY(D.fecha)+S+'title><style>'+css+S+'style>'+S+'head><body>'
+    +'<div class="bar"><button onclick="print()">🖨 Imprimir / PDF'+S+'button>'+S+'div>'
+    +'<div class="arc">'+_arcResumenHtml(D)+D.grupos.map(g=>_arcGrupoHtml(g,0,g.filas.length)).join('')+_arcPie()+S+'div>'
     +S+'body>'+S+'html>');
   win.document.close();
 }
 
-// ── Excel: hoja Resumen (cantidad por cargo) y hoja Detalle ──
+// ── Imagen y PDF ───────────────────────────────────────────────────────────
+const _ARC_LIB_H2C='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const _ARC_LIB_PDF='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+function _arcLib(src,listo){
+  if(typeof _ptCargarLib==='function')return _ptCargarLib(src,listo);
+  return new Promise((ok,mal)=>{
+    if(listo())return ok();
+    const s=document.createElement('script');s.src=src;
+    s.onload=()=>listo()?ok():mal(new Error('no se cargó la librería'));
+    s.onerror=()=>mal(new Error('sin conexión para cargar la librería'));
+    document.head.appendChild(s);
+  });
+}
+// Dibuja un trozo de HTML fuera de la pantalla, a 794 px (ancho de un A4)
+async function _arcCanvas(html){
+  const caja=document.createElement('div');
+  caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+  caja.innerHTML='<style>'+_arcCss()+'</style><div class="arc">'+html+'</div>';
+  document.body.appendChild(caja);
+  try{return await window.html2canvas(caja.querySelector('.arc'),{scale:2,backgroundColor:'#ffffff'});}
+  finally{caja.remove();}
+}
+async function _arcImagen(D){
+  await _arcLib(_ARC_LIB_H2C,()=>typeof window.html2canvas==='function');
+  const cv=await _arcCanvas(_arcResumenHtml(D)+_arcPie());
+  return new Promise((ok,mal)=>cv.toBlob(b=>b?ok(b):mal(new Error('no se pudo crear la imagen')),'image/png'));
+}
+// PDF por bloques: resumen, y cada cargo en tandas de _ARC_FILAS_BLOQUE filas.
+// Si un bloque no entra en lo que queda de la hoja, pasa entero a la siguiente.
+async function _arcPdf(D){
+  await _arcLib(_ARC_LIB_H2C,()=>typeof window.html2canvas==='function');
+  await _arcLib(_ARC_LIB_PDF,()=>!!(window.jspdf&&window.jspdf.jsPDF));
+  const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  const W=210,H=297,M=8;
+  let y=M,primera=true;
+  const poner=cv=>{
+    let h=cv.height*W/cv.width, w=W;
+    if(h>H-2*M){w=W*(H-2*M)/h;h=H-2*M;}        // por si acaso: se achica, nunca se corta
+    if(!primera&&y+h>H-M){pdf.addPage();y=M;}
+    pdf.addImage(cv.toDataURL('image/jpeg',0.9),'JPEG',(W-w)/2,y,w,h);
+    y+=h;primera=false;
+  };
+  poner(await _arcCanvas(_arcResumenHtml(D)));
+  for(const g of D.grupos)
+    for(let i=0;i<g.filas.length;i+=_ARC_FILAS_BLOQUE)
+      poner(await _arcCanvas(_arcGrupoHtml(g,i,Math.min(g.filas.length,i+_ARC_FILAS_BLOQUE))));
+  poner(await _arcCanvas(_arcPie()));
+  return pdf.output('blob');
+}
+function _arcBajar(blob,nombre){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+// Celular: menú de compartir del teléfono. PC o navegador sin compartir: descarga.
+async function _arcEnviar(tipo,btn){
+  const D=_arcDatos();
+  const esImg=tipo==='img';
+  const nombre='Asistencia por cargo '+D.fecha+(D.guardia?' Grd '+D.guardia:'')+(esImg?'.png':'.pdf');
+  const txtBtn=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.style.opacity=.6;}
+  toast(esImg?'Generando imagen…':'Generando PDF…');
+  try{
+    const blob=esImg?await _arcImagen(D):await _arcPdf(D);
+    const archivo=new File([blob],nombre,{type:esImg?'image/png':'application/pdf'});
+    if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+      try{
+        await navigator.share({files:[archivo],title:'Asistencia por cargo',
+          text:'Asistencia del '+_arcDMY(D.fecha)+' · Presentes '+D.pres+' de '+D.total});
+        _arcCerrarMenu();
+      }catch(e){
+        if(e&&e.name==='AbortError')return;           // canceló el menú de compartir
+        // Algunos teléfonos no dejan compartir si tardó en generarse: se descarga
+        _arcBajar(blob,nombre);toast('Descargado: '+nombre);_arcCerrarMenu();
+      }
+    }else{
+      _arcBajar(blob,nombre);toast('Descargado: '+nombre);_arcCerrarMenu();
+    }
+  }catch(e){
+    toast('No se pudo generar '+(esImg?'la imagen':'el PDF')+': '+((e&&e.message)||e),true);
+  }finally{
+    if(btn&&document.body.contains(btn)){btn.disabled=false;btn.style.opacity=1;btn.innerHTML=txtBtn;}
+  }
+}
+
+// ── Excel: hoja Resumen (cantidad por cargo) y hoja Detalle ────────────────
 function asiReporteCargoXls(){
   if(typeof XLSX==='undefined'){toast('No se cargó la librería de Excel',true);return;}
   const D=_arcDatos();
@@ -152,5 +288,6 @@ function asiReporteCargoXls(){
   XLSX.utils.book_append_sheet(wb,w1,'Resumen por cargo');
   XLSX.utils.book_append_sheet(wb,w2,'Detalle');
   XLSX.writeFile(wb,'Asistencia_por_cargo_'+D.fecha+'.xlsx');
+  if(typeof _arcCerrarMenu==='function'&&typeof document!=='undefined'&&document.getElementById)_arcCerrarMenu();
   toast('Excel descargado');
 }

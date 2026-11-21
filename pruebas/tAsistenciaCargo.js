@@ -45,12 +45,64 @@ campos.asiTareo='__sin__';
 es('filtro sin tareo',ev('_arcDatos()').total,3);
 campos.asiTareo='';
 
+// Menú del botón
+const nodos=[];
+ctx.document.createElement=()=>({style:{},remove(){}});
+ctx.document.body={appendChild:n=>nodos.push(n),contains:()=>true};
 ev('asiReporteCargo()');
+const menu=(nodos[0]||{}).innerHTML||'';
+es('el botón abre el menú',!!nodos[0],true);
+es('  con imagen, PDF, ver y Excel',['Enviar como imagen','Enviar como PDF','Ver / Imprimir','Excel'].every(t=>menu.includes(t)),true);
+es('  opciones con borde de color',(menu.match(/border:2px solid #/g)||[]).length,4);
+
+ev('_arcVer()');
 es('reporte: título y fecha',html.includes('ASISTENCIA DEL DÍA POR CARGO')&&html.includes('20/11/2026'),true);
 es('  tarjeta del cargo con presentes / total',/Operador de Volquete<\/div><div class="tjn"><b[^>]*>2<\/b><span>\/ 3/.test(html),true);
 es('  tarjetas con borde de color',(html.match(/class="tj"[^>]*style="border-color:/g)||[]).length,3);
 es('  nombres escapados',html.includes('&lt;JUAN&gt;')&&!html.includes('<JUAN>'),true);
 es('  sin undefined ni NaN',/undefined|NaN/.test(html),false);
+es('  se adapta al celular',/name="viewport"/.test(html)&&/max-width:700px/.test(html),true);
+es('  estilos encerrados en .arc (no tocan el sistema)',
+  ev('_arcCss()').split('}').filter(r=>r.trim()&&!/^\s*\.arc/.test(r)).length,0);
+
+console.log('\n== PDF por bloques ==');
+{
+  const g={cargo:'Ayudante',total:70,pres:70,aus:0,
+    filas:Array.from({length:70},(_,i)=>({p:{dni:String(i)},nombre:'P'+i,ent:'06:00',sal:'',horas:'',tareo:'',estado:'EN TURNO'}))};
+  ctx.__g=g;
+  const b2=ev('_arcGrupoHtml(__g,32,64)');
+  es('el 2.º bloque dice (cont.)',b2.includes('Ayudante (cont.)'),true);
+  es('  numeración sigue: 33 a 64',[/<td class="n">33</.test(b2),/<td class="n">64</.test(b2),/<td class="n">65</.test(b2)],[true,true,false]);
+  es('  el 1.º bloque lleva el ancla del cargo',ev('_arcGrupoHtml(__g,0,32)').includes('id="cAyudante"'),true);
+}
+
+console.log('\n== Enviar desde el celular ==');
+(async()=>{
+  let compartido=null,bajado=null;
+  const canvas={width:794,height:400,toBlob:cb=>cb({tam:1}),toDataURL:()=>'data:'};
+  let paginas=1,imagenes=0;
+  ctx.window.html2canvas=async()=>canvas;
+  ctx.window.jspdf={jsPDF:function(){return{addImage(){imagenes++;},addPage(){paginas++;},output:()=>({pdf:1})};}};
+  ctx.File=function(b,n,o){this.name=n;this.type=o.type;};
+  ctx.navigator={canShare:()=>true,share:async d=>{compartido=d;}};
+  ctx.URL={createObjectURL:()=>'blob:',revokeObjectURL(){}};
+  ctx.setTimeout=()=>{};
+  ctx.document.createElement=()=>({style:{},remove(){},querySelector:()=>({})});
+  await ev('_arcEnviar("img")');
+  es('imagen: se comparte un PNG',compartido&&[compartido.files[0].name,compartido.files[0].type],
+    ['Asistencia por cargo 2026-11-20.png','image/png']);
+  es('  con texto de presentes',compartido&&compartido.text,'Asistencia del 20/11/2026 · Presentes 2 de 5');
+  compartido=null;
+  await ev('_arcEnviar("pdf")');
+  es('PDF: se comparte',compartido&&compartido.files[0].type,'application/pdf');
+  es('  resumen + 3 cargos + pie = 5 bloques',imagenes,5);
+  ctx.navigator={};
+  ctx.document.createElement=()=>({style:{},click(){bajado=true;},remove(){},querySelector:()=>({})});
+  await ev('_arcEnviar("pdf")');
+  es('sin compartir (PC): se descarga',bajado,true);
+  fin();
+})();
+function fin(){
 
 ev('asiReporteCargoXls()');
 es('Excel: nombre',archivo,'Asistencia_por_cargo_2026-11-20.xlsx');
@@ -66,3 +118,4 @@ es('filtro de tareo incluye Suspensión',/<option value="S">S – Suspensión/.t
 
 console.log(`\n${mal?'✗ '+mal+' FALLAS':'OK todo bien'}  ·  ${ok}/${ok+mal}`);
 process.exitCode=mal?1:0;
+}
