@@ -35,7 +35,7 @@ const _ARC_TRABAJA=['TD','TN','A5','DLT'];
 function _arcFueraTxt(D){
   const k=Object.keys(D.fuera||{}).sort((a,b)=>D.fuera[b]-D.fuera[a]);
   if(!k.length)return'';
-  return'No incluidos (de libre): '+k.map(t=>t+' '+D.fuera[t]).join(' · ');
+  return'No incluidos: '+k.map(t=>t+' '+D.fuera[t]).join(' · ');
 }
 function _arcSetTurno(t){_arcTurno=t||'';asiReporteCargo();}
 
@@ -67,14 +67,15 @@ function _arcDatos(){
       tareo:tarDe[p.id]||'',
       turno:_arcTurnoDe(ent,tarDe[p.id]||'')};
   });
-  // Presente: marcó entrada y su tareo es de trabajo (TD, TN, A5, DLT) o aún
-  // no tiene tareo. Ausente: todo lo demás (TD/TN sin entrada, sin tareo,
-  // DM, P, F, S, V…). Solo el DL queda fuera: está de libre.
-  filas.forEach(f=>{f.estado=f.ent&&(!f.tareo||_ARC_TRABAJA.includes(f.tareo))?'PRESENTE':'AUSENTE';});
+  // Presente: marcó entrada y su tareo es de trabajo (TD, TN, A5, DLT).
+  // Ausente: TD/TN/A5/DLT sin entrada, DM, P, F, S, V… Quedan fuera del
+  // reporte el DL (está de libre) y quien aún no tiene tareo ese día.
+  filas.forEach(f=>{f.estado=f.ent&&_ARC_TRABAJA.includes(f.tareo)?'PRESENTE':'AUSENTE';});
   const fuera={};
   for(let i=filas.length-1;i>=0;i--){
-    if(filas[i].tareo!=='DL')continue;
-    fuera.DL=(fuera.DL||0)+1;
+    const t=filas[i].tareo;
+    if(t&&t!=='DL')continue;
+    const k=t||'sin tareo';fuera[k]=(fuera[k]||0)+1;
     filas.splice(i,1);
   }
   // Por turno: solo quienes son de ese turno
