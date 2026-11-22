@@ -1284,18 +1284,18 @@ function _tarHistoCargoHojaHtml(porCargo,tipos){
   if(!filas.length)return'';
   const max=Math.max(...filas.map(x=>x.tot),1);
   const fila=x=>`<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
-      <div style="width:38%;font-size:6px;line-height:1.1;color:#334155;text-align:right;word-break:break-word">${x.cargo}</div>
+      <div style="width:38%;font-size:6px;line-height:1.1;color:#000;text-align:right;word-break:break-word">${x.cargo}</div>
       <div style="flex:1;display:flex;align-items:center;gap:3px">
         <div style="display:flex;height:9px;width:${Math.max(2,x.tot/max*88)}%;border-radius:0 2px 2px 0;overflow:hidden">
           ${tipos.filter(t=>x.d[t]).map(t=>`<div style="flex:${x.d[t]} 1 0;background:${_TARE_T[t]?.bg||'#666'}"></div>`).join('')}
         </div>
-        <b style="font-size:6.5px;color:#111">${x.tot}</b>
+        <b style="font-size:6.5px;color:#000">${x.tot}</b>
       </div></div>`;
   const ley=tipos.filter(t=>filas.some(x=>x.d[t])).map(t=>
-    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:5.5px;color:#475569"><span style="width:7px;height:7px;border-radius:1px;background:${_TARE_T[t]?.bg||'#666'}"></span>${t} ${_TARE_T[t]?.l||''}</span>`).join('');
-  return`<div style="font-size:7.5px;font-weight:800;color:#1e3a5f;margin-bottom:5px;letter-spacing:.04em">HISTOGRAMA POR CARGO</div>
+    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:5.5px;color:#000"><span style="width:7px;height:7px;border-radius:1px;background:${_TARE_T[t]?.bg||'#666'}"></span>${t} ${_TARE_T[t]?.l||''}</span>`).join('');
+  return`<div style="font-size:7.5px;font-weight:800;color:#000;margin-bottom:5px;letter-spacing:.04em">HISTOGRAMA POR CARGO</div>
     ${filas.map(fila).join('')}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;border-top:1px solid #e2e8f0;padding-top:4px">${ley}</div>`;
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;border-top:.5px solid #000;padding-top:4px">${ley}</div>`;
 }
 function _printTareResumen(ids){
   const d=_tarResumenDoc(ids);if(!d)return;
@@ -1322,7 +1322,9 @@ async function imgTareResumenPg(btn){
     const css=d.css.replace(/@page\{[^}]*\}/,'').replace(/@media print\{.*\}\s*$/s,'')
       .replace(/(^|\})\s*\*\{/g,'$1 .trimg *{').replace(/(^|\})\s*body\{/g,'$1 .trimg{')
       .replace(/(^|\})\s*th,td\{/g,'$1 .trimg th,.trimg td{')
-      .replace(/(^|\})\s*(table|tr|\.kpis|\.histo)/g,'$1 .trimg $2');
+      // td{color:#000} también va encerrado y le gana al td{color:var(--text)}
+      // del tema oscuro: sin esto los números salían blancos sobre blanco.
+      .replace(/(^|\})\s*(table|tr|td|\.kpis|\.histo|\.hoja2)/g,'$1 .trimg $2');
     caja.innerHTML=`<style>${css}</style><div class="trimg" style="padding:10px;background:#fff">${d.body}</div>`;
     document.body.appendChild(caja);
     const cv=await window.html2canvas(caja.querySelector('.trimg'),{scale:3,backgroundColor:'#ffffff',useCORS:true});
@@ -1365,8 +1367,9 @@ function _tarResumenDoc(ids){
   const css=`@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}
   table{width:100%;border-collapse:collapse;table-layout:auto}
   table *{font-size:6.5px!important}
-  th,td{border:1px solid #94a3b8!important;padding:1.5px 3px!important;white-space:normal!important;word-break:break-word;vertical-align:middle}
-  tr{border-bottom:1px solid #94a3b8!important}
+  th,td{border:.5px solid #000!important;padding:1.5px 3px!important;white-space:normal!important;word-break:break-word;vertical-align:middle}
+  td{color:#000}
+  tr{border-bottom:.5px solid #000!important}
   tr:nth-child(even) td{background:#f8fafc}
   .kpis{display:flex;gap:3px;margin-bottom:4px;flex-wrap:nowrap}
   .kpis>div{padding:2px 4px!important;min-width:unset!important;flex:1!important;border-radius:4px!important}
@@ -1375,7 +1378,7 @@ function _tarResumenDoc(ids){
   .hoja2{display:flex;gap:6px;align-items:flex-start}
   .hoja2 .izq{flex:0 0 58%;min-width:0}
   .hoja2 .kpis{flex-wrap:wrap}.hoja2 .kpis>div{flex:1 1 30%!important}
-  .histo{flex:1;min-width:0;border:1px solid #94a3b8;border-radius:4px;padding:6px;break-inside:avoid;page-break-inside:avoid}
+  .histo{flex:1;min-width:0;border:.5px solid #000;border-radius:4px;color:#000;padding:6px;break-inside:avoid;page-break-inside:avoid}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   const body=`
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:5px">

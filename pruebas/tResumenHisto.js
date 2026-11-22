@@ -73,6 +73,11 @@ es('  el histograma va de arriba hacia abajo (cargo y su barra)',
 es('  barra de PEON con sus 3 tipos',(hoja.split('PEON')[1]||'').split('</b>')[0].match(/flex:1 1 0;background/g).length,3);
 es('  sin variables del tema oscuro',/var\(--/.test(hoja),false);
 es('  no se parte entre hojas',/\.histo\{[^}]*break-inside:avoid/.test(abierto),true);
+es('  líneas de la tabla en negro (antes plomo)',/th,td\{border:\.5px solid #000!important/.test(abierto)&&!/#94a3b8!important/.test(abierto),true);
+es('  texto de las celdas en negro',/\btd\{color:#000\}/.test(abierto),true);
+es('  marco del histograma en negro',/\.histo\{[^}]*border:\.5px solid #000/.test(abierto),true);
+es('  textos del histograma en negro',!/color:#(334155|475569|1e3a5f)/.test(hoja),true);
+es('imagen: el negro de las celdas le gana al tema oscuro',/\(table\|tr\|td\|/.test(TAR),true);
 console.log('\n== Opciones antes del PDF ==');
 const LS={};ctx.localStorage={getItem:k=>LS[k]??null,setItem:(k,v)=>{LS[k]=String(v);}};
 LS.gdar_tarres_hoja=JSON.stringify({kpis:true,histo:true});abierto='';ev('_printTareResumen('+IDS+')');

@@ -43,7 +43,7 @@ const AUTH_MODO='supabase';
 // un usuario pueda pedir todas las áreas con Object.keys(A).
 const EMPRESA_USERS=A=>[
   {codigo:'EIBEL25',nombre:'Abel Rodríguez A.',cargo:'PCO',areas:Object.keys(A)},
-  {codigo:'NOEPAL',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad']}},
+  {codigo:'NOEPAL',nombre:'Noelia Palomino',cargo:'Asist. Administración',areas:['general','administracion','almacenLogistica','seguridad','remuneraciones','bienestarSocial'],areaModules:{almacenLogistica:['kardexEpp'],seguridad:['cursosSeguridad'],bienestarSocial:['viaticos']}},
   {codigo:'JON_GO',nombre:'Jonatan Gonzales',cargo:'Jefe de Contabilidad',areas:['otros']},
   {codigo:'AND_RM',nombre:'Andres Rodriguez Martines',cargo:'Ing. Residente',areas:['general','administracion','seguridad','operaciones','mantenimiento','controlEquipos'],areaModules:{seguridad:['cursosSeguridad'],mantenimiento:['flotaKpi','masterEquipos'],controlEquipos:['dashEquipos','reporteMensual','avanceViajes']},masterTabs:['venc']},
   {codigo:'YONMEL',nombre:'Yonder Melendrez',cargo:'Supervisor de Almacén',areas:['almacenLogistica']},
