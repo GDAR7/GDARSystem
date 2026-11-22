@@ -1163,8 +1163,10 @@ function _buildTareResumen(ids,colFilter){
   if(chartEl){
     if(!tiposPresentes.length){
       chartEl.innerHTML='';
-      const h=ids.histo?document.getElementById(ids.histo):null;if(h)h.innerHTML='';
-      return;
+      const h=ids.histo?document.getElementById(ids.histo):null;if(h){h.innerHTML='';_tarHistoUltimo=null;}
+      // Se devuelve el estado igual: antes salía undefined y el PDF y el menú
+      // de columnas fallaban en una fecha sin registros.
+      return {fecha,proy,guardia,tiposPresentes,tiposAll,totalGral,totalPersonas};
     }
     const maxVal=Math.max(...tiposPresentes.map(t=>totalGral[t]||0),1);
     chartEl.innerHTML=`<div style="font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.8rem;letter-spacing:.04em;text-transform:uppercase">Distribución por Tipo</div>
@@ -1204,6 +1206,7 @@ function _buildTareResumen(ids,colFilter){
       tiposPresentes.forEach(t=>{if(cc[t])d[t]=(d[t]||0)+cc[t];});
     }));
     histoEl.innerHTML=_tarHistoCargoHtml(porCargo,tiposPresentes);
+    _tarHistoUltimo={porCargo,tipos:tiposPresentes.slice()};
   }
   return {fecha,proy,guardia,tiposPresentes,tiposAll,totalGral,totalPersonas};
 }
@@ -1233,6 +1236,32 @@ function _tarHistoCargoHtml(porCargo,tipos){
     `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.62rem;color:var(--muted2)"><span style="width:10px;height:10px;border-radius:2px;background:${_TARE_T[t]?.bg||'#666'}"></span>${t} ${_TARE_T[t]?.l||''}</span>`).join('');
   return tit+`<div style="display:flex;gap:4px;align-items:flex-end">${filas.map(col).join('')}</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:.6rem">${ley}</div>`;
+}
+// Datos del último histograma dibujado (para la hoja del PDF / imagen)
+let _tarHistoUltimo=null;
+// Versión para la hoja: los cargos de arriba hacia abajo y la barra hacia la
+// derecha, para ocupar la columna derecha de la hoja junto a la tabla.
+// Colores fijos de hoja blanca.
+function _tarHistoCargoHojaHtml(porCargo,tipos){
+  const filas=Object.entries(porCargo)
+    .map(([cargo,d])=>({cargo,d,tot:tipos.reduce((s,t)=>s+(d[t]||0),0)}))
+    .filter(x=>x.tot>0)
+    .sort((a,b)=>b.tot-a.tot||a.cargo.localeCompare(b.cargo,'es'));
+  if(!filas.length)return'';
+  const max=Math.max(...filas.map(x=>x.tot),1);
+  const fila=x=>`<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+      <div style="width:38%;font-size:6px;line-height:1.1;color:#334155;text-align:right;word-break:break-word">${x.cargo}</div>
+      <div style="flex:1;display:flex;align-items:center;gap:3px">
+        <div style="display:flex;height:9px;width:${Math.max(2,x.tot/max*88)}%;border-radius:0 2px 2px 0;overflow:hidden">
+          ${tipos.filter(t=>x.d[t]).map(t=>`<div style="flex:${x.d[t]} 1 0;background:${_TARE_T[t]?.bg||'#666'}"></div>`).join('')}
+        </div>
+        <b style="font-size:6.5px;color:#111">${x.tot}</b>
+      </div></div>`;
+  const ley=tipos.filter(t=>filas.some(x=>x.d[t])).map(t=>
+    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:5.5px;color:#475569"><span style="width:7px;height:7px;border-radius:1px;background:${_TARE_T[t]?.bg||'#666'}"></span>${t} ${_TARE_T[t]?.l||''}</span>`).join('');
+  return`<div style="font-size:7.5px;font-weight:800;color:#1e3a5f;margin-bottom:5px;letter-spacing:.04em">HISTOGRAMA POR CARGO</div>
+    ${filas.map(fila).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;border-top:1px solid #e2e8f0;padding-top:4px">${ley}</div>`;
 }
 function _printTareResumen(ids){
   const d=_tarResumenDoc(ids);if(!d)return;
@@ -1292,8 +1321,7 @@ function _tarResumenDoc(ids){
     .replace(/ondblclick="[^"]*"/g,'');
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
-  const histoEl=ids.histo?document.getElementById(ids.histo):null;
-  const histoHTML=_fix(histoEl?histoEl.innerHTML:'').replace(/\.(\d+)rem/g,(m,n)=>(+('0.'+n)*11).toFixed(1)+'px').replace(/ title="[^"]*"/g,'');
+  const histoHTML=ids.histo&&_tarHistoUltimo?_tarHistoCargoHojaHtml(_tarHistoUltimo.porCargo,_tarHistoUltimo.tipos):'';
   const cat=_tarPgCatVal(ids.cat);
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
@@ -1308,7 +1336,10 @@ function _tarResumenDoc(ids){
   .kpis>div{padding:2px 4px!important;min-width:unset!important;flex:1!important;border-radius:4px!important}
   .kpis>div>div:first-child{font-size:5px!important;margin-bottom:0!important;white-space:nowrap!important}
   .kpis>div>div:last-child{font-size:9px!important;line-height:1.1!important}
-  .histo{margin-top:8px;border:1px solid #94a3b8;border-radius:4px;padding:6px;break-inside:avoid;page-break-inside:avoid}
+  .hoja2{display:flex;gap:6px;align-items:flex-start}
+  .hoja2 .izq{flex:0 0 58%;min-width:0}
+  .hoja2 .kpis{flex-wrap:wrap}.hoja2 .kpis>div{flex:1 1 30%!important}
+  .histo{flex:1;min-width:0;border:1px solid #94a3b8;border-radius:4px;padding:6px;break-inside:avoid;page-break-inside:avoid}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   const body=`
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:5px">
@@ -1321,9 +1352,10 @@ function _tarResumenDoc(ids){
       <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
     </div>
   </div>
-  <div class="kpis">${kpisHTML}</div>
-  ${tableHTML}
-  ${histoHTML?`<div class="histo">${histoHTML}</div>`:''}`;
+  ${histoHTML
+    // Izquierda: indicadores y tabla · derecha: el histograma de arriba hacia abajo
+    ?`<div class="hoja2"><div class="izq"><div class="kpis">${kpisHTML}</div>${tableHTML}</div><div class="histo">${histoHTML}</div></div>`
+    :`<div class="kpis">${kpisHTML}</div>${tableHTML}`}`;
   return{fecha,cat,css,body};
 }
 // Popup detalle doble-clic

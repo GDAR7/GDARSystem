@@ -62,10 +62,19 @@ campos.tarPgFecha='2026-11-22';
 
 console.log('\n== PDF ==');
 ev('_printTareResumen('+IDS+')');
-es('el PDF incluye el histograma',/class="histo"[\s\S]*Histograma por cargo/.test(abierto),true);
-es('  sin variables del tema oscuro',/var\(--/.test(abierto.split('class="histo"')[1]||''),false);
+es('el PDF incluye el histograma',/class="histo"[\s\S]*HISTOGRAMA POR CARGO/.test(abierto),true);
+es('  dos columnas: izquierda KPIs + tabla, derecha histograma',
+  /<div class="hoja2"><div class="izq"><div class="kpis">[\s\S]*<table[\s\S]*<\/div><div class="histo">/.test(abierto),true);
+const hoja=abierto.split('class="histo"')[1]||'';
+es('  el histograma va de arriba hacia abajo (cargo y su barra)',
+  [...hoja.matchAll(/text-align:right;word-break:break-word">([^<]+)<[\s\S]*?<b[^>]*>(\d+)<\/b>/g)].map(m=>[m[1],+m[2]]),
+  [['PEON',3],['ING. RESIDENTE',1],['OP. VOLQUETE',1],['VIGIA',1]]);
+es('  barra de PEON con sus 3 tipos',(hoja.split('PEON')[1]||'').split('</b>')[0].match(/flex:1 1 0;background/g).length,3);
+es('  sin variables del tema oscuro',/var\(--/.test(hoja),false);
 es('  no se parte entre hojas',/\.histo\{[^}]*break-inside:avoid/.test(abierto),true);
-es('  y sigue con tabla y KPIs',/class="kpis"/.test(abierto)&&/<table/.test(abierto),true);
+campos.tarPgFecha='2026-01-01';abierto='';ev('_printTareResumen('+IDS+')');
+es('sin datos: hoja de una columna, sin histograma viejo',/class="hoja2"|class="histo"/.test(abierto),false);
+campos.tarPgFecha='2026-11-22';
 
 console.log('\n== Conexión ==');
 es('contenedor del histograma en la página',/id="tarPgHisto"/.test(HTML),true);
