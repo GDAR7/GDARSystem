@@ -17,7 +17,7 @@
 
 const _arcEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _arcDMY=f=>{const p=String(f||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:f;};
-const _ARC_FILAS_BLOQUE=40;   // filas por tanda en el PDF (A4 horizontal): una tanda nunca pasa de una hoja
+const _ARC_FILAS_BLOQUE=50;   // filas por tanda en el PDF (A4): una tanda nunca pasa de una hoja
 // Turno del reporte: '' = todo · 'D' = día · 'N' = noche (se elige en el menú)
 let _arcTurno='';
 const _ARC_TURNO_LBL={'':'Todo el día',D:'Turno Día',N:'Turno Noche'};
@@ -115,20 +115,17 @@ function _arcCss(){
     +'.arc .bw{display:flex;align-items:center;gap:6px;width:130px}.arc .bw span{font-weight:700;font-size:10px;min-width:30px}'
     +'.arc tr.au td{color:#dc2626}'
     +'.arc .bb{flex:1;height:7px;background:#eee;border-radius:4px;overflow:hidden}.arc .bb div{height:100%}'
-    // Cuadros por guardia (formato Guardias FBNV)
+    // Tabla única (formato Guardias FBNV)
     +'.arc th,.arc td{color:#111}'
-    +'.arc .gq{display:grid;gap:8px;align-items:start}'
-    +'.arc .gtab{width:100%;border-collapse:collapse;table-layout:fixed}'
-    +'.arc .gtab th,.arc .gtab td{border:1px solid #000;padding:1px 3px}'
-    +'.arc .gtab th{font-size:7.5px;font-weight:800;text-align:center;line-height:1.15}'
-    +'.arc .gtab th.gg{font-size:10px;letter-spacing:.06em}'
-    +'.arc .gn{font-size:8px;text-align:center}'
-    +'.arc .gcg{font-size:7.5px;text-align:center;font-weight:700;vertical-align:middle;line-height:1.2;word-wrap:break-word}'
-    +'.arc .gcc{display:block;font-weight:400;color:#555;font-size:7px;margin-top:1px}'
-    +'.arc .gp{font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-    +'.arc .gt{font-size:7.5px;font-weight:800;text-align:center}'
-    +'.arc .gft{background:#f1f5f9;font-size:8px}.arc td.gft{display:table-cell}'
-    +'.arc .gft>span{margin-right:8px}.arc .gft .bw{display:inline-flex;vertical-align:middle;width:110px}'
+    +'.arc .gtab{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:6px}'
+    +'.arc .gtab th,.arc .gtab td{border:1px solid #000;padding:2px 4px}'
+    +'.arc .gtab th{background:#1F4E79;color:#fff;font-size:8.5px;font-weight:800;text-align:center;letter-spacing:.03em}'
+    +'.arc .gn{font-size:9px;text-align:center}'
+    +'.arc .gcg{font-size:8.5px;text-align:center;font-weight:700;vertical-align:middle;line-height:1.2;word-wrap:break-word}'
+    +'.arc .gcc{display:block;font-weight:400;color:#555;font-size:8px;margin-top:1px}'
+    +'.arc .gp{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'.arc .gd{font-size:9px;text-align:center;font-weight:700}'
+    +'.arc .gt{font-size:9px;font-weight:800;text-align:center}'
     +'.arc .grs{margin:10px auto 0;border-collapse:collapse}'
     +'.arc .grs th,.arc .grs td{border:1px solid #000;padding:2px 10px;font-size:8.5px;text-align:center}'
     +'.arc .grs th{background:#1F4E79;color:#fff;font-size:8px}.arc .grs td.grl{text-align:left;font-weight:700;background:#f8fafc}'
@@ -153,65 +150,50 @@ function _arcResumenHtml(D){
     +'<div class="k" style="border-color:#059669"><b style="color:#059669">'+D.pres+'</b><span>Presentes</span></div>'
     +'<div class="k" style="border-color:#dc2626"><b style="color:#dc2626">'+D.aus+'</b><span>Ausentes</span></div></div></div>';
 }
-// ── Formato Guardias FBNV: un cuadro por guardia, lado a lado ──────────────
-// Cada cargo ocupa tantas filas como la guardia que más gente tenga en ese
-// puesto, así los cuadros quedan alineados fila por fila. El nombre y el
-// tareo van del color de su marca; el ausente, en rojo.
+// ── Formato Guardias FBNV en una sola tabla ────────────────────────────────
+// ITEM · CARGO (celda unida) · APELLIDOS Y NOMBRES · GUARDIA · TAREO.
+// El nombre y el tareo van del color de su marca; el ausente, en rojo.
 const _ARC_GCOL={A:'#FCE4D6',B:'#E4DFEC',C:'#D9D9D9','—':'#e2e8f0'};
 function _arcColor(f){
   if(f.estado!=='PRESENTE')return'#C00000';
   return f.tareo==='TN'?'#002060':f.tareo==='A5'?'#ED7D31':'#0000FF';
 }
+const _arcGDe=f=>{const g=String(f.p.guardia||'').trim().toUpperCase();return['A','B','C'].includes(g)?g:'—';};
 function _arcMatriz(D){
   const filas=D.grupos.flatMap(g=>g.filas);
-  const gDe=f=>{const g=String(f.p.guardia||'').trim().toUpperCase();return['A','B','C'].includes(g)?g:'—';};
+  // Guardias para el resumen final
   let GS=D.guardia?[String(D.guardia).toUpperCase()]:['A','B','C'];
-  if(!D.guardia&&filas.some(f=>gDe(f)==='—'))GS=GS.concat('—');
-  const porG={},cuenta={};
-  GS.forEach(g=>{porG[g]={};cuenta[g]={total:0,pres:0};});
-  filas.forEach(f=>{
-    const g=gDe(f);if(!porG[g])return;
-    (porG[g][f.cargo]=porG[g][f.cargo]||[]).push(f);
-    cuenta[g].total++;if(f.estado==='PRESENTE')cuenta[g].pres++;
-  });
-  // Presentes primero, después los ausentes; dentro, por apellido
-  GS.forEach(g=>Object.values(porG[g]).forEach(a=>a.sort((x,y)=>
-    (x.estado==='PRESENTE'?0:1)-(y.estado==='PRESENTE'?0:1)||x.nombre.localeCompare(y.nombre,'es'))));
-  // Orden de cargos: el mismo de Guardias FBNV si está cargado; si no, por cantidad
+  if(!D.guardia&&filas.some(f=>_arcGDe(f)==='—'))GS=GS.concat('—');
+  const cuenta={};
+  GS.forEach(g=>{cuenta[g]={total:0,pres:0};});
+  filas.forEach(f=>{const c=cuenta[_arcGDe(f)];if(!c)return;c.total++;if(f.estado==='PRESENTE')c.pres++;});
+  // Orden de cargos: el mismo de Guardias FBNV si está cargado; si no, por cantidad.
+  // Dentro del cargo: por guardia, presentes primero y por apellido.
   const ord=typeof _gdOrdenIdx==='function'?_gdOrdenIdx:()=>900;
-  const cargos=D.grupos.map(g=>g.cargo).sort((a,b)=>ord(a)-ord(b));
-  const bloques=cargos.map(c=>({cargo:c,n:Math.max(...GS.map(g=>(porG[g][c]||[]).length))})).filter(b=>b.n>0);
-  return{GS,porG,cuenta,bloques};
+  const bloques=D.grupos.slice().sort((a,b)=>ord(a.cargo)-ord(b.cargo)).map(g=>({cargo:g.cargo,
+    pres:g.pres,n:g.filas.length,
+    filas:g.filas.slice().sort((x,y)=>_arcGDe(x).localeCompare(_arcGDe(y))
+      ||(x.estado==='PRESENTE'?0:1)-(y.estado==='PRESENTE'?0:1)||x.nombre.localeCompare(y.nombre,'es'))}));
+  return{GS,cuenta,bloques};
 }
-// Los cuadros con los cargos 'bloques' (todos o una tanda, para el PDF).
+// La tabla con los cargos 'bloques' (todos o una tanda, para el PDF).
 // 'item0' = número de fila con que empieza la tanda.
 function _arcCuadrosHtml(M,bloques,item0){
-  const cuadro=g=>{
-    let n=item0||0;
-    const filas=bloques.map(b=>{
-      const lista=M.porG[g][b.cargo]||[];
-      const pres=lista.filter(f=>f.estado==='PRESENTE').length;
-      return Array.from({length:b.n},(_,i)=>{
-        n++;
-        const f=lista[i],col=f?_arcColor(f):'';
-        return'<tr><td class="gn">'+n+'</td>'
-          +(i===0?'<td class="gcg" rowspan="'+b.n+'">'+_arcEsc(b.cargo.toUpperCase())
-            +(lista.length?'<span class="gcc">'+pres+'/'+lista.length+'</span>':'')+'</td>':'')
-          +'<td class="gp" style="color:'+col+'">'+(f?_arcEsc(f.nombre.toUpperCase()):'')+'</td>'
-          +'<td class="gt" style="color:'+col+'">'+(f?_arcEsc(f.tareo):'')+'</td></tr>';
-      }).join('');
-    }).join('');
-    const bg=_ARC_GCOL[g]||'#eee',c=M.cuenta[g];
-    return'<table class="gtab"><thead>'
-      +'<tr><th colspan="4" class="gg" style="background:'+bg+'">'+(g==='—'?'SIN GUARDIA':'GUARDIA '+g)+'</th></tr>'
-      +'<tr><th style="background:'+bg+';width:30px">ITEM</th><th style="background:'+bg+';width:24%">CARGO</th>'
-      +'<th style="background:'+bg+'">APELLIDOS Y NOMBRES</th><th style="background:'+bg+';width:38px">TAREO</th></tr></thead>'
-      +'<tbody>'+filas+'</tbody>'
-      +'<tfoot><tr><td colspan="4" class="gft"><span><b style="color:#0000FF">PRESENTES '+c.pres+'</b>'
-      +(c.total-c.pres?' · <b style="color:#C00000">AUSENTES '+(c.total-c.pres)+'</b>':'')+'</span>'
-      +_arcBarra(c.pres,c.total)+'</td></tr></tfoot></table>';
-  };
-  return'<div class="gq" style="grid-template-columns:repeat('+M.GS.length+',1fr)">'+M.GS.map(cuadro).join('')+'</div>';
+  let n=item0||0;
+  const filas=bloques.map(b=>b.filas.map((f,i)=>{
+    n++;
+    const col=_arcColor(f),g=_arcGDe(f);
+    return'<tr><td class="gn">'+n+'</td>'
+      +(i===0?'<td class="gcg" rowspan="'+b.n+'">'+_arcEsc(b.cargo.toUpperCase())
+        +'<span class="gcc">'+b.pres+'/'+b.n+'</span></td>':'')
+      +'<td class="gp" style="color:'+col+'">'+_arcEsc(f.nombre.toUpperCase())+'</td>'
+      +'<td class="gd" style="background:'+(_ARC_GCOL[g]||'#fff')+'">'+(g==='—'?'—':g)+'</td>'
+      +'<td class="gt" style="color:'+col+'">'+_arcEsc(f.tareo)+'</td></tr>';
+  }).join('')).join('');
+  return'<table class="gtab"><thead><tr>'
+    +'<th style="width:38px">ITEM</th><th style="width:24%">CARGO</th>'
+    +'<th>APELLIDOS Y NOMBRES</th><th style="width:62px">GUARDIA</th><th style="width:52px">TAREO</th>'
+    +'</tr></thead><tbody>'+filas+'</tbody></table>';
 }
 // Resumen final por guardia y leyenda
 function _arcResumenGuardiasHtml(D,M){
@@ -265,7 +247,7 @@ function asiReporteCargo(){
     +(D.total?'':'<div style="font-size:.78rem;color:#f59e0b;margin-bottom:.6rem">No hay personal en '+_ARC_TURNO_LBL[_arcTurno].toLowerCase()+' con estos filtros.</div>')
     +'<div style="display:flex;flex-direction:column;gap:.5rem'+(D.total?'':';opacity:.4;pointer-events:none')+'">'
     +op('🖼️','Enviar como imagen','Todo el reporte en una sola imagen. Ideal para WhatsApp','_arcEnviar(\'img\',this)','#10b981')
-    +op('📄','Enviar como PDF','Todo el reporte en hojas A4 horizontales','_arcEnviar(\'pdf\',this)','#ef4444')
+    +op('📄','Enviar como PDF','Todo el reporte en hojas A4','_arcEnviar(\'pdf\',this)','#ef4444')
     +op('👁️','Ver / Imprimir','Abre el reporte en una pestaña nueva','_arcVer()','#3b82f6')
     +op('⬇','Excel','Resumen por cargo y detalle','asiReporteCargoXls()','#22c55e')
     +'</div></div>';
@@ -281,12 +263,12 @@ function _arcVer(){
   if(!win){toast('Active ventanas emergentes para ver el reporte',true);return;}
   _arcCerrarMenu();
   const S='<'+'/';
-  const css=_arcCss()+'body{margin:0;background:#fff}.arc{max-width:1200px;margin:0 auto}'
+  const css=_arcCss()+'body{margin:0;background:#fff}.arc{max-width:860px;margin:0 auto}'
     +'.bar{position:sticky;top:0;background:#fff;padding:8px 18px;display:flex;gap:6px;border-bottom:1px solid #ddd}'
     +'.bar button{padding:6px 14px;border-radius:6px;border:1px solid #1e3a6e;background:#1e3a6e;color:#fff;font-weight:700;cursor:pointer}'
-    // En el celular los cuadros van uno debajo del otro
-    +'@media (max-width:700px){.arc{padding:10px}.arc .gq{grid-template-columns:1fr!important}}'
-    +'@media print{.bar{display:none}@page{size:A4 landscape;margin:8mm}.arc{padding:0}'
+    // En el celular: menos margen y la columna CARGO más angosta
+    +'@media (max-width:700px){.arc{padding:8px}.arc .gtab th:nth-child(2){width:28%}}'
+    +'@media print{.bar{display:none}@page{size:A4 portrait;margin:8mm}.arc{padding:0}'
     +'.arc tr{break-inside:avoid}'
     +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
   win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8">'
@@ -311,9 +293,8 @@ function _arcLib(src,listo){
     document.head.appendChild(s);
   });
 }
-// Dibuja un trozo de HTML fuera de la pantalla, a 1123 px (ancho de un A4
-// horizontal): los tres cuadros de guardia entran lado a lado.
-const _ARC_ANCHO=1123;
+// Dibuja un trozo de HTML fuera de la pantalla, a 794 px (ancho de un A4)
+const _ARC_ANCHO=794;
 async function _arcCanvas(html){
   const caja=document.createElement('div');
   caja.style.cssText='position:fixed;left:-10000px;top:0;width:'+_ARC_ANCHO+'px;background:#fff';
@@ -338,13 +319,13 @@ function _arcTandas(bloques){
   if(act.length)out.push(act);
   return out;
 }
-// PDF (A4 horizontal): encabezado, los cuadros en tandas de cargos y el resumen.
+// PDF (A4 vertical): encabezado, la tabla en tandas de cargos y el resumen.
 // Si un bloque no entra en lo que queda de la hoja, pasa entero a la siguiente.
 async function _arcPdf(D){
   await _arcLib(_ARC_LIB_H2C,()=>typeof window.html2canvas==='function');
   await _arcLib(_ARC_LIB_PDF,()=>!!(window.jspdf&&window.jspdf.jsPDF));
-  const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-  const W=297,H=210,M=8;
+  const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  const W=210,H=297,M=8;
   let y=M,primera=true;
   const poner=cv=>{
     let h=cv.height*W/cv.width, w=W;

@@ -77,35 +77,35 @@ es('  selector de turno Todo / Día / Noche',["_arcSetTurno('')","_arcSetTurno('
 
 ev('_arcVer()');
 es('reporte: título y fecha',html.includes('ASISTENCIA DEL DÍA POR CARGO')&&html.includes('20/11/2026'),true);
-es('  formato FBNV: un cuadro por guardia A · B · C',(html.match(/class="gtab"/g)||[]).length,3);
-es('  encabezados GUARDIA A/B/C',['GUARDIA A','GUARDIA B','GUARDIA C'].every(t=>html.includes(t)),true);
-es('  columnas ITEM · CARGO · APELLIDOS Y NOMBRES · TAREO',
-  ['ITEM</th>','CARGO</th>','APELLIDOS Y NOMBRES</th>','TAREO</th>'].every(t=>html.includes(t)),true);
-es('  el cargo en una celda unida, con presentes/total',/<td class="gcg" rowspan="1">OPERADOR DE VOLQUETE<span class="gcc">1\/1<\/span>/.test(html),true);
-es('  presente TD en azul',/<td class="gp" style="color:#0000FF">PEREZ, ANA<\/td><td class="gt" style="color:#0000FF">TD</.test(html),true);
+es('  formato FBNV en una sola tabla',(html.match(/class="gtab"/g)||[]).length,1);
+es('  columnas ITEM · CARGO · APELLIDOS Y NOMBRES · GUARDIA · TAREO',
+  ((html.match(/<table class="gtab"><thead>.*?<\/thead>/)||[''])[0].match(/>([A-Z ]+)<\/th>/g)||[]).map(x=>x.slice(1,-5)),
+  ['ITEM','CARGO','APELLIDOS Y NOMBRES','GUARDIA','TAREO']);
+es('  el cargo en una celda unida, con presentes/total',/<td class="gcg" rowspan="2">OPERADOR DE VOLQUETE<span class="gcc">1\/2<\/span>/.test(html),true);
+es('  presente TD en azul, con su guardia',/<td class="gp" style="color:#0000FF">PEREZ, ANA<\/td><td class="gd"[^>]*>A<\/td><td class="gt" style="color:#0000FF">TD</.test(html),true);
 es('  A5 presente en naranja',/color:#ED7D31">VEGA, RAUL/.test(html),true);
-es('  la falta en rojo',/color:#C00000">ROJAS, LUIS<\/td><td class="gt" style="color:#C00000">F</.test(html),true);
+es('  la falta en rojo, guardia B',/color:#C00000">ROJAS, LUIS<\/td><td class="gd"[^>]*>B<\/td><td class="gt" style="color:#C00000">F</.test(html),true);
 es('  TN sin entrada (ausente) en rojo',/color:#C00000">SOTO, &lt;JUAN&gt;/.test(html),true);
-es('  % por guardia al pie: A 100% · B 0% · C 0%',
-  (html.match(/<span style="color:#[0-9a-f]+">\d+%<\/span>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')),['100%','0%','0%']);
 es('  resumen por guardia con % de asistencia',/<td class="grl">% ASISTENCIA<\/td><td>100%<\/td><td>0%<\/td><td>0%<\/td><td><b>50%/.test(html),true);
 es('  avisa los no incluidos',html.includes('No incluidos: DL 1 · sin tareo 1'),true);
 es('  sin columnas Tipo, Entrada, Salida, Horas ni Estado',/<th[^>]*>(Tipo|Entrada|Salida|Horas|Estado)<\/th>/i.test(html),false);
 es('  nombres escapados',html.includes('&lt;JUAN&gt;')&&!html.includes('<JUAN>'),true);
 es('  sin undefined ni NaN',/undefined|NaN/.test(html),false);
-es('  se adapta al celular (cuadros uno debajo del otro)',/name="viewport"/.test(html)&&/max-width:700px\)\{.*?\.gq\{grid-template-columns:1fr/.test(html),true);
-es('  imprime en A4 horizontal',/size:A4 landscape/.test(html),true);
+es('  se adapta al celular',/name="viewport"/.test(html)&&/max-width:700px/.test(html),true);
+es('  imprime en A4 vertical',/size:A4 portrait/.test(html),true);
 es('  estilos encerrados en .arc (no tocan el sistema)',
   ev('_arcCss()').split('}').filter(r=>r.trim()&&!/^\s*\.arc/.test(r)).length,0);
 campos.asiGuardia='B';
-es('filtro guardia B: solo el cuadro B',(ev('_arcCuerpoHtml(_arcDatos())').match(/class="gtab"/g)||[]).length,1);
+{const h=ev('_arcCuerpoHtml(_arcDatos())');
+es('filtro guardia B: solo gente de la B',[/PEREZ/.test(h),/ROJAS/.test(h)],[false,true]);
+es('  y el resumen solo con la guardia B',/<th>GUARDIA B<\/th><th>TOTAL/.test(h)&&!/GUARDIA A/.test(h),true);}
 campos.asiGuardia='';
 
 console.log('\n== PDF por tandas de cargos ==');
-es('tandas de hasta 40 filas sin partir cargos',
-  ev('_arcTandas([{n:30},{n:8},{n:5},{n:45},{n:2}])').map(t=>t.map(b=>b.n)),[[30,8],[5],[45],[2]]);
+es('tandas de hasta 50 filas sin partir cargos',
+  ev('_arcTandas([{n:30},{n:8},{n:5},{n:45},{n:2}])').map(t=>t.map(b=>b.n)),[[30,8,5],[45,2]]);
 {
-  ctx.__M={GS:['A'],porG:{A:{X:[{nombre:'P',tareo:'TD',estado:'PRESENTE',p:{}}]}},cuenta:{A:{total:1,pres:1}},bloques:[{cargo:'X',n:1}]};
+  ctx.__M={GS:['A'],cuenta:{A:{total:1,pres:1}},bloques:[{cargo:'X',n:1,pres:1,filas:[{nombre:'P',tareo:'TD',estado:'PRESENTE',p:{guardia:'A'}}]}]};
   es('  la numeración sigue entre tandas',/<td class="gn">41</.test(ev('_arcCuadrosHtml(__M,__M.bloques,40)')),true);
 }
 
