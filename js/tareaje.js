@@ -1066,12 +1066,21 @@ function _doExportTareaje(){
 }
 
 // ── RESUMEN DIARIO DE TAREAJE ──
+// Filtro Categoría (Obrero / Staff): la misma regla con que la tabla agrupa
+// (tipo 'Staff' es STAFF; cualquier otro, OBRERO). Sin selector = todos.
+function _tarPgCatVal(id){return(id&&document.getElementById(id)?.value)||'';}
+function _tarPgFiltrarCat(pers,id){
+  const cat=_tarPgCatVal(id);
+  if(!cat)return pers;
+  return pers.filter(p=>cat==='Staff'?p.tipo==='Staff':p.tipo!=='Staff');
+}
 function _buildTareResumen(ids,colFilter){
   const fecha=document.getElementById(ids.fecha)?.value||today();
   const proy=document.getElementById(ids.proy)?.value||'';
   const guardia=document.getElementById(ids.guardia)?.value||'';
   let persF=(DB.personal||[]).filter(p=>p.est==='Activo');
   if(guardia)persF=persF.filter(p=>p.guardia===guardia);
+  persF=_tarPgFiltrarCat(persF,ids.cat);
   const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
   const tarMap={};
   tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
@@ -1221,7 +1230,7 @@ function _printTareResumen(ids){
     <div style="font-size:6px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
     <div style="text-align:right;font-size:6px;color:#64748b">
       <div>Proyecto: <strong>${proyNombre}</strong></div>
-      <div>Guardia: <strong>${guardia||'Todas'}</strong></div>
+      <div>Guardia: <strong>${guardia||'Todas'}</strong>${_tarPgCatVal(ids.cat)?` · Categoría: <strong>${_tarPgCatVal(ids.cat)}</strong>`:''}</div>
       <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
     </div>
   </div>
@@ -1369,7 +1378,7 @@ function _tarColSelAll(state){
   allKeys.forEach(k=>{const cb=document.getElementById(`tarCol_${k}`);if(cb)cb.checked=state;});
   const btnLbl=document.getElementById('tarPgColBtnLbl');
   if(btnLbl)btnLbl.textContent=state?'Todas las columnas':'0 columnas';
-  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
 }
 function _onTarColChange(){
   const allKeys=[..._tarPgColsAvail,'EO','TG'];
@@ -1378,7 +1387,7 @@ function _onTarColChange(){
   const btnLbl=document.getElementById('tarPgColBtnLbl');
   const cnt=_tarPgColVis?_tarPgColVis.size:allKeys.length;
   if(btnLbl)btnLbl.textContent=cnt===allKeys.length?'Todas las columnas':`${cnt} / ${allKeys.length} columnas`;
-  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
 }
 // Página completa
 // Fecha y lista de proyectos: son de la página, las comparten ambos tabs
@@ -1397,10 +1406,10 @@ function rTareResumenPg(){
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='hist'){rTarHist();return;}
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='corte'){rTarCorte();return;}
   _tarPgColVis=null;
-  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
+  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
   _buildTarColMenu(_st.tiposAll||[]);
 }
-function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
+function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
 function exportTareResumenXLSX(){
   const fecha=document.getElementById('tarPgFecha')?.value||today();
   const proy=document.getElementById('tarPgProy')?.value||'';
@@ -1408,12 +1417,14 @@ function exportTareResumenXLSX(){
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'Todos los proyectos';
   let persF=(DB.personal||[]).filter(p=>p.est==='Activo');
   if(guardia)persF=persF.filter(p=>p.guardia===guardia);
+  const cat=_tarPgCatVal('tarPgCat');
+  persF=_tarPgFiltrarCat(persF,'tarPgCat');
   const tarDia=(DB.tareaje||[]).filter(r=>r.fecha===fecha&&(!proy||r.proy===proy||!r.proy));
   const tarMap={};
   tarDia.forEach(r=>{if(persF.find(p=>p.id===r.personalId))tarMap[r.personalId]=r.tipo;});
   if(!Object.keys(tarMap).length){toast('Sin registros de tareaje para esta fecha',true);return;}
-  // Recomputar grupos
-  const _CO=['DL','TD','TN','DLT','A5','P','F','DM','LP','LM','LF','V','R'];
+  // Recomputar grupos (mismo orden de columnas que la pantalla, con la S)
+  const _CO=['DL','TD','TN','DLT','A5','P','F','S','DM','LP','LM','LF','V','R'];
   const _ts=new Set(Object.values(tarMap));
   const tiposAll=_CO.filter(t=>_ts.has(t));
   const tiposP=_tarPgColVis?tiposAll.filter(t=>_tarPgColVis.has(t)):tiposAll;
@@ -1439,7 +1450,7 @@ function exportTareResumenXLSX(){
   // Construir AOA
   const wsData=[];
   wsData.push([`RESUMEN DIARIO DE TAREAJE – ${fechaFmt.toUpperCase()}`,...Array(nC-1).fill('')]);
-  wsData.push([`Proyecto: ${proyNombre}   |   Guardia: ${guardia||'Todas'}   |   Generado: ${new Date().toLocaleString('es-PE')}`,...Array(nC-1).fill('')]);
+  wsData.push([`Proyecto: ${proyNombre}   |   Guardia: ${guardia||'Todas'}${cat?`   |   Categoría: ${cat}`:''}   |   Generado: ${new Date().toLocaleString('es-PE')}`,...Array(nC-1).fill('')]);
   wsData.push(Array(nC).fill(''));
   wsData.push(['DESCRIPCIÓN',...tiposP,...(showEO?['EN OBRA']:[]),...(showTG?['TOTAL GENERAL']:[])]);
   const rowTypes=['title','info','empty','header'];

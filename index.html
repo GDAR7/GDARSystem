@@ -1037,6 +1037,10 @@
       <select id="tarPgGuardia" onchange="rTareResumenPg()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem">
         <option value="">— Todas —</option><option>A</option><option>B</option><option>C</option>
       </select></div>
+    <div id="tarPgCatWrap"><label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Categoría</label>
+      <select id="tarPgCat" onchange="rTareResumenPg()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .65rem;font-size:.8rem">
+        <option value="">— Todos —</option><option value="Obrero">Obrero</option><option value="Staff">Staff</option>
+      </select></div>
     <div style="position:relative" id="tarPgColWrap">
       <label style="font-size:.65rem;color:var(--muted2);display:block;margin-bottom:.2rem;text-transform:uppercase;letter-spacing:.05em">Columnas</label>
       <button id="tarPgColBtn" onclick="_toggleTarColMenu(event)" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.3rem .75rem;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;white-space:nowrap"><span id="tarPgColBtnLbl">Todas las columnas</span> <span style="opacity:.5;font-size:.7rem">▾</span></button>
@@ -3431,7 +3435,7 @@
 <script src="js/insumosAux.js?v=1"></script>
 <script src="js/informePeriodo.js?v=4"></script>
 <script src="js/cursosSeguridad.js?v=3"></script>
-<script src="js/guardiasFbnv.js?v=20"></script>
+<script src="js/guardiasFbnv.js?v=21"></script>
 <script src="js/rosterTurnos.js?v=2"></script>
 <script src="js/combustible.js?v=12"></script>
 <script src="js/requerimientos.js?v=23"></script>
@@ -3442,7 +3446,7 @@
 <script src="js/masterResumen.js?v=7"></script>
 <script src="js/historialMaster.js?v=2"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
-<script src="js/tareaje.js?v=30"></script>
+<script src="js/tareaje.js?v=31"></script>
 <script src="js/tareajeCarga.js?v=1"></script>
 <script src="js/tareajeHist.js?v=3"></script>
 <script src="js/tareajeCorte.js?v=3"></script>
