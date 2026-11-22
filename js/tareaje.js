@@ -1315,19 +1315,11 @@ async function imgTareResumenPg(btn){
   try{
     const cargar=typeof _arcLib==='function'?_arcLib:_ptCargarLib;
     await cargar('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',()=>typeof window.html2canvas==='function');
-    // La hoja del PDF está pensada para A4 (letra muy chica): en la imagen se
-    // dibuja a 794 px y con escala 3 para que se lea bien al hacer zoom.
-    caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
-    // Los estilos de la hoja se encierran en .trimg para no tocar el sistema
-    const css=d.css.replace(/@page\{[^}]*\}/,'').replace(/@media print\{.*\}\s*$/s,'')
-      .replace(/(^|\})\s*\*\{/g,'$1 .trimg *{').replace(/(^|\})\s*body\{/g,'$1 .trimg{')
-      .replace(/(^|\})\s*th,td\{/g,'$1 .trimg th,.trimg td{')
-      // td{color:#000} también va encerrado y le gana al td{color:var(--text)}
-      // del tema oscuro: sin esto los números salían blancos sobre blanco.
-      .replace(/(^|\})\s*(table|tr|td|\.kpis|\.histo|\.hoja2)/g,'$1 .trimg $2');
-    caja.innerHTML=`<style>${css}</style><div class="trimg" style="padding:10px;background:#fff">${d.body}</div>`;
+    const caja2=_tarImgHoja(d);
+    caja.style.cssText='position:fixed;left:-10000px;top:0;width:'+caja2.ancho+'px;background:#fff';
+    caja.innerHTML=caja2.html;
     document.body.appendChild(caja);
-    const cv=await window.html2canvas(caja.querySelector('.trimg'),{scale:3,backgroundColor:'#ffffff',useCORS:true});
+    const cv=await window.html2canvas(caja.querySelector('.trimg'),{scale:1,backgroundColor:'#ffffff',useCORS:true});
     const blob=await new Promise((ok,mal)=>cv.toBlob(b=>b?ok(b):mal(new Error('no se pudo crear la imagen')),'image/png'));
     const file=new File([blob],nombre,{type:'image/png'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
@@ -1339,6 +1331,28 @@ async function imgTareResumenPg(btn){
     toast('Descargado: '+nombre);
   }catch(e){toast('No se pudo generar la imagen: '+((e&&e.message)||e),true);}
   finally{caja.remove();if(btn){btn.disabled=false;btn.style.opacity=1;}}
+}
+// La hoja del PDF, preparada para la imagen.
+// Antes se dibujaba a 794 px con escala 3: la letra salía nítida, pero cada
+// línea de 1 px quedaba de 3 px (gruesa). Ahora todas las medidas se
+// agrandan 3 veces y se dibuja a escala 1: la letra queda igual de nítida y
+// las líneas siguen de 1 px.
+const _TAR_IMG_X=3;
+function _tarImgHoja(d){
+  const x3=s=>s.replace(/(\d*\.?\d+)px/g,(m,n)=>(+n*_TAR_IMG_X).toFixed(2).replace(/\.?0+$/,'')+'px');
+  // Bordes: siempre 1 px, después de agrandar
+  const borde1=s=>s.replace(/(border(?:-top|-bottom|-left|-right)?:\s*)\d*\.?\d+px/g,'$11px');
+  // Los estilos de la hoja se encierran en .trimg para no tocar el sistema
+  let css=d.css.replace(/@page\{[^}]*\}/,'').replace(/@media print\{.*\}\s*$/s,'')
+    .replace(/(^|\})\s*\*\{/g,'$1 .trimg *{').replace(/(^|\})\s*body\{/g,'$1 .trimg{')
+    .replace(/(^|\})\s*th,td\{/g,'$1 .trimg th,.trimg td{')
+    // td{color:#000} también va encerrado y le gana al td{color:var(--text)}
+    // del tema oscuro: sin esto los números salían blancos sobre blanco.
+    .replace(/(^|\})\s*(table|tr|td|\.kpis|\.histo|\.hoja2)/g,'$1 .trimg $2');
+  css=borde1(x3(css));
+  const body=borde1(x3(d.body));
+  return{ancho:794*_TAR_IMG_X,
+    html:`<style>${css}</style><div class="trimg" style="padding:${10*_TAR_IMG_X}px;background:#fff">${body}</div>`};
 }
 // Contenido de la hoja (PDF e imagen): encabezado, KPIs, tabla e histograma
 function _tarResumenDoc(ids){
@@ -1368,7 +1382,7 @@ function _tarResumenDoc(ids){
   table{width:100%;border-collapse:collapse;table-layout:auto}
   table *{font-size:6.5px!important}
   th,td{border:.5px solid #000!important;padding:1.5px 3px!important;white-space:normal!important;word-break:break-word;vertical-align:middle}
-  td{color:#000}
+  td{color:#000!important}
   tr{border-bottom:.5px solid #000!important}
   tr:nth-child(even) td{background:#f8fafc}
   .kpis{display:flex;gap:3px;margin-bottom:4px;flex-wrap:nowrap}

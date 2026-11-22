@@ -74,10 +74,23 @@ es('  barra de PEON con sus 3 tipos',(hoja.split('PEON')[1]||'').split('</b>')[0
 es('  sin variables del tema oscuro',/var\(--/.test(hoja),false);
 es('  no se parte entre hojas',/\.histo\{[^}]*break-inside:avoid/.test(abierto),true);
 es('  líneas de la tabla en negro (antes plomo)',/th,td\{border:\.5px solid #000!important/.test(abierto)&&!/#94a3b8!important/.test(abierto),true);
-es('  texto de las celdas en negro',/\btd\{color:#000\}/.test(abierto),true);
+es('  texto de las celdas en negro',/\btd\{color:#000/.test(abierto),true);
 es('  marco del histograma en negro',/\.histo\{[^}]*border:\.5px solid #000/.test(abierto),true);
 es('  textos del histograma en negro',!/color:#(334155|475569|1e3a5f)/.test(hoja),true);
 es('imagen: el negro de las celdas le gana al tema oscuro',/\(table\|tr\|td\|/.test(TAR),true);
+es('  todo el texto de las celdas en negro (también En Obra y Total)',/\btd\{color:#000!important\}/.test(abierto),true);
+{
+  ctx.__d={css:'th,td{border:.5px solid #000!important;padding:1.5px 3px!important}td{color:#000!important}.histo{border:.5px solid #000;border-radius:4px;padding:6px}',
+           body:'<div style="font-size:6px;border-top:.5px solid #000;height:9px">x</div>'};
+  const r=ev('_tarImgHoja(__d)');
+  es('imagen: se dibuja 3 veces más grande',r.ancho,2382);
+  es('  la letra y las medidas se agrandan',[/padding:4\.5px 9px!important/.test(r.html),/font-size:18px/.test(r.html),/height:27px/.test(r.html)],[true,true,true]);
+  es('  pero las líneas quedan de 1 px (finas)',
+    (r.html.match(/border(?:-top)?:[^;]*?px/g)||[]).map(s=>s.match(/[\d.]+px/)[0]),['1px','1px','1px']);
+  es('  el redondeo del marco sí se agranda',/border-radius:12px/.test(r.html),true);
+  es('  estilos encerrados en .trimg',/\.trimg th,\.trimg td\{/.test(r.html)&&/\.trimg td\{color/.test(r.html),true);
+  es('  y se dibuja a escala 1',/html2canvas\(caja\.querySelector\('\.trimg'\),\{scale:1/.test(TAR),true);
+}
 console.log('\n== Opciones antes del PDF ==');
 const LS={};ctx.localStorage={getItem:k=>LS[k]??null,setItem:(k,v)=>{LS[k]=String(v);}};
 LS.gdar_tarres_hoja=JSON.stringify({kpis:true,histo:true});abierto='';ev('_printTareResumen('+IDS+')');
