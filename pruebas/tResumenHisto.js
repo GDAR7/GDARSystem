@@ -63,8 +63,9 @@ campos.tarPgFecha='2026-11-22';
 console.log('\n== PDF ==');
 ev('_printTareResumen('+IDS+')');
 es('el PDF incluye el histograma',/class="histo"[\s\S]*HISTOGRAMA POR CARGO/.test(abierto),true);
-es('  dos columnas: izquierda KPIs + tabla, derecha histograma',
-  /<div class="hoja2"><div class="izq"><div class="kpis">[\s\S]*<table[\s\S]*<\/div><div class="histo">/.test(abierto),true);
+es('  dos columnas: izquierda tabla, derecha histograma',
+  /<div class="hoja2"><div class="izq"><table[\s\S]*<\/div><div class="histo">/.test(abierto),true);
+es('  por defecto sin tarjetas',/<div class="kpis">/.test(abierto),false);
 const hoja=abierto.split('class="histo"')[1]||'';
 es('  el histograma va de arriba hacia abajo (cargo y su barra)',
   [...hoja.matchAll(/text-align:right;word-break:break-word">([^<]+)<[\s\S]*?<b[^>]*>(\d+)<\/b>/g)].map(m=>[m[1],+m[2]]),
@@ -72,13 +73,24 @@ es('  el histograma va de arriba hacia abajo (cargo y su barra)',
 es('  barra de PEON con sus 3 tipos',(hoja.split('PEON')[1]||'').split('</b>')[0].match(/flex:1 1 0;background/g).length,3);
 es('  sin variables del tema oscuro',/var\(--/.test(hoja),false);
 es('  no se parte entre hojas',/\.histo\{[^}]*break-inside:avoid/.test(abierto),true);
+console.log('\n== Opciones antes del PDF ==');
+const LS={};ctx.localStorage={getItem:k=>LS[k]??null,setItem:(k,v)=>{LS[k]=String(v);}};
+LS.gdar_tarres_hoja=JSON.stringify({kpis:true,histo:true});abierto='';ev('_printTareResumen('+IDS+')');
+es('con "Tarjetas" marcado: salen las tarjetas a la izquierda',/<div class="izq"><div class="kpis">/.test(abierto),true);
+LS.gdar_tarres_hoja=JSON.stringify({kpis:false,histo:false});abierto='';ev('_printTareResumen('+IDS+')');
+es('sin tarjetas ni histograma: solo la tabla',[/class="kpis"/.test(abierto),/class="histo"/.test(abierto),/<table/.test(abierto)],[false,false,true]);
+LS.gdar_tarres_hoja='{malo';
+es('preferencia dañada: por defecto (sin tarjetas, con histograma)',ev('_tarResPref()'),{kpis:false,histo:true});
+delete LS.gdar_tarres_hoja;
 campos.tarPgFecha='2026-01-01';abierto='';ev('_printTareResumen('+IDS+')');
 es('sin datos: hoja de una columna, sin histograma viejo',/class="hoja2"|class="histo"/.test(abierto),false);
 campos.tarPgFecha='2026-11-22';
 
 console.log('\n== Conexión ==');
 es('contenedor del histograma en la página',/id="tarPgHisto"/.test(HTML),true);
-es('botón Imagen junto al PDF',/id="tarPgBtnImg" onclick="imgTareResumenPg\(this\)"/.test(HTML),true);
+es('botón Imagen junto al PDF, con su menú de opciones',/id="tarPgBtnImg" onclick="_tarResOpciones\('img',this\)"/.test(HTML),true);
+es('botón PDF también pregunta antes',/id="tarPgBtnPdf" onclick="_tarResOpciones\('pdf'\)"/.test(HTML),true);
+es('el menú tiene Tarjetas e Histograma',/'Tarjetas'[\s\S]{0,200}'Histograma por cargo'/.test(TAR),true);
 es('todas las llamadas pasan el histograma',(TAR.match(/chart:'tarPgChart',histo:'tarPgHisto'/g)||[]).length,5);
 es('Imagen se oculta en los otros tabs',/'tarPgBtnImg'/.test(GD),true);
 es('la imagen usa la misma hoja que el PDF',/imgTareResumenPg[\s\S]{0,400}_tarResumenDoc\(ids\)/.test(TAR),true);

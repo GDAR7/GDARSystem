@@ -1237,6 +1237,40 @@ function _tarHistoCargoHtml(porCargo,tipos){
   return tit+`<div style="display:flex;gap:4px;align-items:flex-end">${filas.map(col).join('')}</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:.6rem">${ley}</div>`;
 }
+// Qué lleva la hoja del PDF / imagen. Se elige antes de generarla y se
+// recuerda en este navegador. Por defecto: sin tarjetas, con histograma.
+function _tarResPref(){
+  try{const p=JSON.parse(localStorage.getItem('gdar_tarres_hoja')||'{}');
+    return{kpis:p.kpis===true,histo:p.histo!==false};}
+  catch(e){return{kpis:false,histo:true};}
+}
+function _tarResOpciones(accion,btn){
+  const p=_tarResPref();
+  let ov=document.getElementById('tarResOpc');if(ov)ov.remove();
+  ov=document.createElement('div');ov.id='tarResOpc';
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const chk=(id,on,t,s)=>`<label style="display:flex;gap:.6rem;align-items:flex-start;cursor:pointer;padding:.55rem .7rem;border:2px solid var(--border);border-radius:9px;background:var(--panel2)">
+      <input type="checkbox" id="${id}" ${on?'checked':''} style="width:auto;margin:.15rem 0 0;cursor:pointer">
+      <span><b style="display:block;font-size:.85rem">${t}</b><span style="font-size:.72rem;color:var(--muted2)">${s}</span></span></label>`;
+  ov.innerHTML=`<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem;width:100%;max-width:360px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+      <b style="font-size:1rem">${accion==='img'?'🖼️ Imagen':'🖨️ PDF'} · ¿Qué incluir?</b>
+      <button onclick="document.getElementById('tarResOpc').remove()" style="background:none;border:none;color:var(--muted2);font-size:1.2rem;cursor:pointer">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:.5rem">
+      ${chk('tarResOpcKpis',p.kpis,'Tarjetas','Total personal, en obra, TD, A5, F, DM…')}
+      ${chk('tarResOpcHisto',p.histo,'Histograma por cargo','A la derecha de la tabla')}
+    </div>
+    <button id="tarResOpcOk" style="margin-top:.9rem;width:100%;background:${accion==='img'?'#0f766e':'#1e3a5f'};color:#fff;border:2px solid ${accion==='img'?'#14b8a6':'#3b82f6'};border-radius:8px;padding:.55rem;font-weight:700;cursor:pointer">
+      ${accion==='img'?'Generar imagen':'Ver PDF'}</button></div>`;
+  document.body.appendChild(ov);
+  document.getElementById('tarResOpcOk').onclick=()=>{
+    const nuevo={kpis:document.getElementById('tarResOpcKpis').checked,histo:document.getElementById('tarResOpcHisto').checked};
+    try{localStorage.setItem('gdar_tarres_hoja',JSON.stringify(nuevo));}catch(e){}
+    ov.remove();
+    if(accion==='img')imgTareResumenPg(btn);else printTareResumenPg();
+  };
+}
 // Datos del último histograma dibujado (para la hoja del PDF / imagen)
 let _tarHistoUltimo=null;
 // Versión para la hoja: los cargos de arriba hacia abajo y la barra hacia la
@@ -1321,7 +1355,9 @@ function _tarResumenDoc(ids){
     .replace(/ondblclick="[^"]*"/g,'');
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
-  const histoHTML=ids.histo&&_tarHistoUltimo?_tarHistoCargoHojaHtml(_tarHistoUltimo.porCargo,_tarHistoUltimo.tipos):'';
+  const pref=_tarResPref();
+  const histoHTML=pref.histo&&ids.histo&&_tarHistoUltimo?_tarHistoCargoHojaHtml(_tarHistoUltimo.porCargo,_tarHistoUltimo.tipos):'';
+  const kpisBloque=pref.kpis?`<div class="kpis">${kpisHTML}</div>`:'';
   const cat=_tarPgCatVal(ids.cat);
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
@@ -1354,8 +1390,8 @@ function _tarResumenDoc(ids){
   </div>
   ${histoHTML
     // Izquierda: indicadores y tabla · derecha: el histograma de arriba hacia abajo
-    ?`<div class="hoja2"><div class="izq"><div class="kpis">${kpisHTML}</div>${tableHTML}</div><div class="histo">${histoHTML}</div></div>`
-    :`<div class="kpis">${kpisHTML}</div>${tableHTML}`}`;
+    ?`<div class="hoja2"><div class="izq">${kpisBloque}${tableHTML}</div><div class="histo">${histoHTML}</div></div>`
+    :`${kpisBloque}${tableHTML}`}`;
   return{fecha,cat,css,body};
 }
 // Popup detalle doble-clic

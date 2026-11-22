@@ -1047,8 +1047,8 @@
       <div id="tarPgColMenu" style="display:none;position:absolute;top:calc(100% + 3px);left:0;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:210px"></div>
     </div>
     <button id="tarPgBtnXls" onclick="exportTareResumenXLSX()" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;margin-left:auto">📊 Exportar Excel</button>
-    <button id="tarPgBtnImg" onclick="imgTareResumenPg(this)" style="background:#0f766e;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖼️ Imagen</button>
-    <button id="tarPgBtnPdf" onclick="printTareResumenPg()" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
+    <button id="tarPgBtnImg" onclick="_tarResOpciones('img',this)" style="background:#0f766e;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖼️ Imagen</button>
+    <button id="tarPgBtnPdf" onclick="_tarResOpciones('pdf')" style="background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:.38rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer">🖨️ PDF</button>
   </div>
   <div id="tarPgPanelResumen">
     <div id="tarPgKpis" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
@@ -3448,7 +3448,7 @@
 <script src="js/masterResumen.js?v=7"></script>
 <script src="js/historialMaster.js?v=2"></script>
 <script src="js/salidaEquipos.js?v=4"></script>
-<script src="js/tareaje.js?v=33"></script>
+<script src="js/tareaje.js?v=34"></script>
 <script src="js/tareajeCarga.js?v=1"></script>
 <script src="js/tareajeHist.js?v=3"></script>
 <script src="js/tareajeCorte.js?v=3"></script>
