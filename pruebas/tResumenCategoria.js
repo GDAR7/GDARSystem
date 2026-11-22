@@ -25,11 +25,11 @@ es('sin selector en la página: todos',vm.runInContext('_tarPgFiltrarCat(P,undef
 console.log('\n== Conexión ==');
 es('selector Categoría en la página',/id="tarPgCat"[^>]*onchange="rTareResumenPg\(\)"/.test(HTML),true);
 es('  con Obrero y Staff',/<option value="Obrero">Obrero<\/option><option value="Staff">Staff<\/option>/.test(HTML),true);
-es('las 4 llamadas al resumen pasan la categoría',(TAR.match(/cat:'tarPgCat'/g)||[]).length,4);
+es('las 5 llamadas al resumen (con la imagen) pasan la categoría',(TAR.match(/cat:'tarPgCat'/g)||[]).length,5);
 es('el resumen filtra',/persF=_tarPgFiltrarCat\(persF,ids\.cat\)/.test(TAR),true);
 es('el Excel filtra',/persF=_tarPgFiltrarCat\(persF,'tarPgCat'\)/.test(TAR),true);
 es('  y su encabezado dice la categoría',/Categoría: \$\{cat\}/.test(TAR),true);
-es('el PDF dice la categoría',/Categoría: <strong>\$\{_tarPgCatVal\(ids\.cat\)\}/.test(TAR),true);
+es('el PDF dice la categoría',/Categoría: <strong>\$\{cat\}/.test(TAR),true);
 es('el Excel ya incluye la Suspensión',/_CO=\[[^\]]*'S'/.test(TAR),true);
 es('se oculta en los otros tabs',/tarPgCatWrap[\s\S]{0,80}esRes\?'':'none'/.test(GD),true);
 

@@ -1161,7 +1161,11 @@ function _buildTareResumen(ids,colFilter){
   // Gráfico horizontal
   const chartEl=document.getElementById(ids.chart);
   if(chartEl){
-    if(!tiposPresentes.length){chartEl.innerHTML='';return;}
+    if(!tiposPresentes.length){
+      chartEl.innerHTML='';
+      const h=ids.histo?document.getElementById(ids.histo):null;if(h)h.innerHTML='';
+      return;
+    }
     const maxVal=Math.max(...tiposPresentes.map(t=>totalGral[t]||0),1);
     chartEl.innerHTML=`<div style="font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.8rem;letter-spacing:.04em;text-transform:uppercase">Distribución por Tipo</div>
       <div style="display:flex;flex-direction:column;gap:.6rem">
@@ -1191,9 +1195,88 @@ function _buildTareResumen(ids,colFilter){
         }).join('')}
       </div>`;
   }
+  // Histograma vertical por cargo (respeta todos los filtros y las columnas)
+  const histoEl=ids.histo?document.getElementById(ids.histo):null;
+  if(histoEl){
+    const porCargo={};
+    Object.values(grupos).forEach(gc=>Object.entries(gc).forEach(([cargo,cc])=>{
+      const d=porCargo[cargo]=porCargo[cargo]||{};
+      tiposPresentes.forEach(t=>{if(cc[t])d[t]=(d[t]||0)+cc[t];});
+    }));
+    histoEl.innerHTML=_tarHistoCargoHtml(porCargo,tiposPresentes);
+  }
   return {fecha,proy,guardia,tiposPresentes,tiposAll,totalGral,totalPersonas};
 }
+// Columnas verticales por cargo, apiladas por tipo de jornada, con el total
+// arriba. Hecho con HTML (sin librería) para que salga igual en pantalla, en
+// el PDF y en la imagen. Usa var(--text)/var(--muted2)/var(--border), que el
+// PDF reemplaza por colores de hoja blanca.
+function _tarHistoCargoHtml(porCargo,tipos){
+  const filas=Object.entries(porCargo)
+    .map(([cargo,d])=>({cargo,d,tot:tipos.reduce((s,t)=>s+(d[t]||0),0)}))
+    .filter(x=>x.tot>0)
+    .sort((a,b)=>b.tot-a.tot||a.cargo.localeCompare(b.cargo,'es'));
+  const tit='<div style="font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.6rem;letter-spacing:.04em;text-transform:uppercase">Histograma por cargo</div>';
+  if(!filas.length)return tit+'<div style="color:var(--muted2);font-size:.75rem;padding:1rem;text-align:center">Sin datos con los filtros elegidos</div>';
+  const max=Math.max(...filas.map(x=>x.tot),1);
+  const ALTO=200;
+  const col=x=>`<div class="thc-col" style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center">
+      <div style="height:${ALTO+14}px;width:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center">
+        <div style="font-size:.68rem;font-weight:800;color:var(--text);line-height:1;margin-bottom:2px">${x.tot}</div>
+        <div style="width:70%;max-width:38px;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden">
+          ${tipos.filter(t=>x.d[t]).map(t=>`<div title="${t}: ${x.d[t]}" style="height:${Math.max(2,Math.round(x.d[t]/max*ALTO))}px;background:${_TARE_T[t]?.bg||'#666'}"></div>`).join('')}
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);width:100%;padding-top:3px;font-size:.56rem;line-height:1.15;color:var(--muted2);text-align:center;word-break:break-word;min-height:2.4em">${x.cargo}</div>
+    </div>`;
+  const ley=tipos.filter(t=>filas.some(x=>x.d[t])).map(t=>
+    `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.62rem;color:var(--muted2)"><span style="width:10px;height:10px;border-radius:2px;background:${_TARE_T[t]?.bg||'#666'}"></span>${t} ${_TARE_T[t]?.l||''}</span>`).join('');
+  return tit+`<div style="display:flex;gap:4px;align-items:flex-end">${filas.map(col).join('')}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:.6rem">${ley}</div>`;
+}
 function _printTareResumen(ids){
+  const d=_tarResumenDoc(ids);if(!d)return;
+  const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${d.fecha}</title><style>${d.css}</style></head><body>${d.body}</body></html>`);
+  win.document.close();win.focus();setTimeout(()=>win.print(),600);
+}
+// Exportar como imagen (PNG): el mismo contenido del PDF. En el celular abre
+// el menú de compartir (WhatsApp…); en la PC se descarga.
+async function imgTareResumenPg(btn){
+  const ids={fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart',histo:'tarPgHisto'};
+  const d=_tarResumenDoc(ids);if(!d)return;
+  const nombre='Resumen tareaje '+d.fecha+(d.cat?' '+d.cat:'')+'.png';
+  if(btn){btn.disabled=true;btn.style.opacity=.6;}
+  toast('Generando imagen…');
+  const caja=document.createElement('div');
+  try{
+    const cargar=typeof _arcLib==='function'?_arcLib:_ptCargarLib;
+    await cargar('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',()=>typeof window.html2canvas==='function');
+    // La hoja del PDF está pensada para A4 (letra muy chica): en la imagen se
+    // dibuja a 794 px y con escala 3 para que se lea bien al hacer zoom.
+    caja.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+    // Los estilos de la hoja se encierran en .trimg para no tocar el sistema
+    const css=d.css.replace(/@page\{[^}]*\}/,'').replace(/@media print\{.*\}\s*$/s,'')
+      .replace(/(^|\})\s*\*\{/g,'$1 .trimg *{').replace(/(^|\})\s*body\{/g,'$1 .trimg{')
+      .replace(/(^|\})\s*th,td\{/g,'$1 .trimg th,.trimg td{')
+      .replace(/(^|\})\s*(table|tr|\.kpis|\.histo)/g,'$1 .trimg $2');
+    caja.innerHTML=`<style>${css}</style><div class="trimg" style="padding:10px;background:#fff">${d.body}</div>`;
+    document.body.appendChild(caja);
+    const cv=await window.html2canvas(caja.querySelector('.trimg'),{scale:3,backgroundColor:'#ffffff',useCORS:true});
+    const blob=await new Promise((ok,mal)=>cv.toBlob(b=>b?ok(b):mal(new Error('no se pudo crear la imagen')),'image/png'));
+    const file=new File([blob],nombre,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'Resumen diario de tareaje'});return;}
+      catch(e){if(e&&e.name==='AbortError')return;}
+    }
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+    toast('Descargado: '+nombre);
+  }catch(e){toast('No se pudo generar la imagen: '+((e&&e.message)||e),true);}
+  finally{caja.remove();if(btn){btn.disabled=false;btn.style.opacity=1;}}
+}
+// Contenido de la hoja (PDF e imagen): encabezado, KPIs, tabla e histograma
+function _tarResumenDoc(ids){
   const state=_buildTareResumen(ids,_tarPgColVis);
   const fecha=state.fecha,proy=state.proy,guardia=state.guardia;
   const tablaEl=document.getElementById(ids.tabla);
@@ -1209,11 +1292,13 @@ function _printTareResumen(ids){
     .replace(/ondblclick="[^"]*"/g,'');
   const tableHTML=_fix(tablaEl?tablaEl.innerHTML:'');
   const kpisHTML=_fix(kpisEl?kpisEl.innerHTML:'');
+  const histoEl=ids.histo?document.getElementById(ids.histo):null;
+  const histoHTML=_fix(histoEl?histoEl.innerHTML:'').replace(/\.(\d+)rem/g,(m,n)=>(+('0.'+n)*11).toFixed(1)+'px').replace(/ title="[^"]*"/g,'');
+  const cat=_tarPgCatVal(ids.cat);
   const proyNombre=proy?(DB.proyectos.find(p=>p.codigo===proy)?.nombre||proy):'— Todos —';
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
   const fechaFmt=fecha?new Date(fecha+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen Tareaje ${fecha}</title>
-  <style>@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}
+  const css=`@page{size:A4 portrait;margin:.35cm .5cm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:6.5px;color:#111;margin:0}
   table{width:100%;border-collapse:collapse;table-layout:auto}
   table *{font-size:6.5px!important}
   th,td{border:1px solid #94a3b8!important;padding:1.5px 3px!important;white-space:normal!important;word-break:break-word;vertical-align:middle}
@@ -1223,22 +1308,23 @@ function _printTareResumen(ids){
   .kpis>div{padding:2px 4px!important;min-width:unset!important;flex:1!important;border-radius:4px!important}
   .kpis>div>div:first-child{font-size:5px!important;margin-bottom:0!important;white-space:nowrap!important}
   .kpis>div>div:last-child{font-size:9px!important;line-height:1.1!important}
-  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  .histo{margin-top:8px;border:1px solid #94a3b8;border-radius:4px;padding:6px;break-inside:avoid;page-break-inside:avoid}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+  const body=`
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:5px">
     <img src="${_logoUrl}" alt="Ecosermo" style="height:26px;object-fit:contain">
     <div style="text-align:center"><div style="font-size:9px;font-weight:900;color:#1e3a5f">RESUMEN DIARIO DE TAREAJE</div>
     <div style="font-size:6px;color:#64748b;text-transform:capitalize">${fechaFmt}</div></div>
     <div style="text-align:right;font-size:6px;color:#64748b">
       <div>Proyecto: <strong>${proyNombre}</strong></div>
-      <div>Guardia: <strong>${guardia||'Todas'}</strong>${_tarPgCatVal(ids.cat)?` · Categoría: <strong>${_tarPgCatVal(ids.cat)}</strong>`:''}</div>
+      <div>Guardia: <strong>${guardia||'Todas'}</strong>${cat?` · Categoría: <strong>${cat}</strong>`:''}</div>
       <div>Generado: ${new Date().toLocaleString('es-PE')}</div>
     </div>
   </div>
   <div class="kpis">${kpisHTML}</div>
   ${tableHTML}
-  </body></html>`;
-  const win=window.open('','_blank');if(!win){toast('Active ventanas emergentes',true);return;}
-  win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),600);
+  ${histoHTML?`<div class="histo">${histoHTML}</div>`:''}`;
+  return{fecha,cat,css,body};
 }
 // Popup detalle doble-clic
 function _tarResDetail(event,grupo,cargoEnc,tipo){
@@ -1378,7 +1464,7 @@ function _tarColSelAll(state){
   allKeys.forEach(k=>{const cb=document.getElementById(`tarCol_${k}`);if(cb)cb.checked=state;});
   const btnLbl=document.getElementById('tarPgColBtnLbl');
   if(btnLbl)btnLbl.textContent=state?'Todas las columnas':'0 columnas';
-  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart',histo:'tarPgHisto'},_tarPgColVis);
 }
 function _onTarColChange(){
   const allKeys=[..._tarPgColsAvail,'EO','TG'];
@@ -1387,7 +1473,7 @@ function _onTarColChange(){
   const btnLbl=document.getElementById('tarPgColBtnLbl');
   const cnt=_tarPgColVis?_tarPgColVis.size:allKeys.length;
   if(btnLbl)btnLbl.textContent=cnt===allKeys.length?'Todas las columnas':`${cnt} / ${allKeys.length} columnas`;
-  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},_tarPgColVis);
+  _buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart',histo:'tarPgHisto'},_tarPgColVis);
 }
 // Página completa
 // Fecha y lista de proyectos: son de la página, las comparten ambos tabs
@@ -1406,10 +1492,10 @@ function rTareResumenPg(){
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='hist'){rTarHist();return;}
   if(typeof _tarPgTabAct!=='undefined'&&_tarPgTabAct==='corte'){rTarCorte();return;}
   _tarPgColVis=null;
-  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'},null);
+  const _st=_buildTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart',histo:'tarPgHisto'},null);
   _buildTarColMenu(_st.tiposAll||[]);
 }
-function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart'});}
+function printTareResumenPg(){_printTareResumen({fecha:'tarPgFecha',proy:'tarPgProy',guardia:'tarPgGuardia',cat:'tarPgCat',kpis:'tarPgKpis',tabla:'tarPgTabla',chart:'tarPgChart',histo:'tarPgHisto'});}
 function exportTareResumenXLSX(){
   const fecha=document.getElementById('tarPgFecha')?.value||today();
   const proy=document.getElementById('tarPgProy')?.value||'';

@@ -120,6 +120,22 @@ function autoFillEquipo(){
   _checkStandby();
 }
 
+// Valor final ('hrFin' o 'kmFin') del último parte del equipo que lo tenga.
+// "Último" = el anterior a la fecha y turno del parte que se está llenando
+// (la noche va después del día); si no hay ninguno anterior, el más reciente.
+// No cuenta el parte que se está editando.
+function _pdUltimoFin(eqId,campo){
+  const fecha=document.getElementById('rpFecha')?.value||'';
+  const turno=(typeof parteState!=='undefined'&&parteState.turno)||'DIA';
+  const clave=(f,t)=>String(f||'')+(t==='NOCHE'?'2':'1');
+  const yo=clave(fecha,turno);
+  const editando=typeof _editingParteId!=='undefined'?_editingParteId:null;
+  const lista=(DB.partes||[]).filter(p=>p.eqId===eqId&&+p[campo]>0&&p.id!==editando)
+    .sort((a,b)=>clave(b.fecha,b.turno).localeCompare(clave(a.fecha,a.turno))||(+b.id||0)-(+a.id||0));
+  if(!lista.length)return 0;
+  const antes=fecha?lista.find(p=>clave(p.fecha,p.turno)<yo):null;
+  return +(antes||lista[0])[campo]||0;
+}
 function _checkStandby(){
   const cond=document.getElementById('rpCondicion')?.value||'';
   const eqId=+document.getElementById('rpCodigo').value;
@@ -130,14 +146,14 @@ function _checkStandby(){
   // terminaba con horas trabajadas negativas.
   const _sinHorometro=currentReporteTipo==='Vehículo Menor';
 
-  // Obtener último hrFin y kmFin registrados para este equipo
-  const partesEq=DB.partes.filter(p=>p.eqId===eqId&&+p.hrFin>0);
-  let lastHr=_sinHorometro?0:(partesEq.length?Math.max(...partesEq.map(p=>+p.hrFin||0)):0);
+  // Último hrFin y kmFin de ESTE equipo: el del parte más reciente, no el
+  // mayor de toda la historia (un código reasignado o un valor mal digitado
+  // dejaban un máximo viejo que se arrastraba a todos los partes nuevos).
+  let lastHr=_sinHorometro?0:_pdUltimoFin(eqId,'hrFin');
   if(!_sinHorometro&&!lastHr){const eq=DB.equipos.find(e=>e.id===eqId);lastHr=+eq?.hr||0;}
 
   const _esKm=['Línea Blanca','Vehículo Menor'].includes(currentReporteTipo);
-  const partesKm=_esKm?DB.partes.filter(p=>p.eqId===eqId&&+p.kmFin>0):[];
-  let lastKm=partesKm.length?Math.max(...partesKm.map(p=>+p.kmFin||0)):0;
+  let lastKm=_esKm?_pdUltimoFin(eqId,'kmFin'):0;
 
   if(cond==='OPERATIVO (TRABAJADO)'){
     if(lastHr>0) document.getElementById('rpHrIni').value=lastHr;

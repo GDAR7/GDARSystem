@@ -45,7 +45,7 @@ function _tarPgTab(k){
   const colW=document.getElementById('tarPgColWrap');if(colW)colW.style.display=esRes?'':'none';
   // La categoría (Obrero / Staff) solo filtra el Resumen
   const catW=document.getElementById('tarPgCatWrap');if(catW)catW.style.display=esRes?'':'none';
-  ['tarPgBtnXls','tarPgBtnPdf'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display=esRes?'':'none';});
+  ['tarPgBtnXls','tarPgBtnImg','tarPgBtnPdf'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display=esRes?'':'none';});
   // La guardia individual no aplica al cuadro de las tres guardias
   const gw=document.getElementById('tarPgGuardia');
   if(gw&&gw.parentElement)gw.parentElement.style.display=k==='guardias'?'none':'';
