@@ -55,6 +55,9 @@ function _viaStoragePath(url){
   return i!==-1?decodeURIComponent(url.slice(i+marker.length)):null;
 }
 
+// Nombre del cliente a la derecha del encabezado de los PDF: la B en verde y
+// el resto en gris, como su logotipo. Para cambiar los colores, edite aquí.
+const _VIA_CLIENTE_HTML=`<div style="text-align:right;font-family:Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:.04em;white-space:nowrap"><span style="color:#1f7a5a;font-size:22px;font-weight:900">B</span><span style="color:#6d6e71">UENAVENTURA</span></div>`;
 const _viaDmy=iso=>{if(!iso||!iso.includes('-'))return iso||'';const[y,m,d]=iso.split('-');return`${d}-${m}-${y}`;};
 const _viaN2=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _viaN3=v=>Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:3,maximumFractionDigits:3});
@@ -488,7 +491,7 @@ function _viaPrintDetalle(){
       <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES</div>
       <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
     </div>
-    <div style="text-align:right;font-size:16px;font-weight:900;color:#15803d;letter-spacing:.02em">BUENAVENTURA</div>
+    ${_VIA_CLIENTE_HTML}
   </div>
   <table>
     <thead><tr>
@@ -540,7 +543,9 @@ function _viaDetGrupos(){
   });
   return{rows,byCod,codsOrd:Object.keys(byCod).sort(),totGen:rows.reduce((s,r)=>s+(+r.importe||0),0)};
 }
-function _viaDetTablaHtml(){
+// enc: bloque del logo y título. Va dentro del <thead> para que al imprimir
+// se repita en cada hoja junto con la fila de columnas.
+function _viaDetTablaHtml(enc){
   const{rows,byCod,codsOrd,totGen}=_viaDetGrupos();
   const AZ='#1e3a5f';
   const TH=`background:${AZ};color:#fff;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid ${AZ}`;
@@ -567,7 +572,7 @@ function _viaDetTablaHtml(){
     });
   });
   return`<table style="width:100%;border-collapse:collapse">
-    <thead><tr>
+    <thead>${enc?`<tr><th colspan="7" style="padding:0 0 6px;border:none;background:#fff;font-weight:normal;text-align:left">${enc}</th></tr>`:''}<tr>
       <th style="${TH};text-align:left">Código</th><th style="${TH};text-align:left">Proveedor</th>
       <th style="${TH};text-align:left">Factura y Fecha</th><th style="${TH};text-align:left">Descripción</th>
       <th style="${TH};text-align:center">Cantidad</th><th style="${TH};text-align:right">Precio Unit. S/IGV</th>
@@ -584,25 +589,28 @@ function _viaDetDocHtml(){
     ?`${_viaDetCod}${byCod[_viaDetCod]&&byCod[_viaDetCod].nombre?' - '+byCod[_viaDetCod].nombre.toUpperCase():''}`
     :(codsOrd.length===1?codsOrd[0]:'TODOS LOS CÓDIGOS');
   const _logoUrl=window.location.href.replace(/[^\/\\]+$/,'')+EMPRESA.logo;
-  return`<div style="font-family:Arial,sans-serif;color:#111">
-    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px;margin-bottom:6px">
+  const enc=`<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${AZ};padding-bottom:6px">
       <img src="${_logoUrl}" style="height:44px;object-fit:contain">
       <div style="text-align:center;flex:1">
         <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES B.S.</div>
         <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}${_viaFiltEdp?' · EDP N° '+_viaFiltEdp:''}</div>
         ${_viaDetProy?`<div style="font-size:8.5px;font-weight:700;color:#334155;margin-top:2px">PROYECTO: ${_viaDetProy}</div>`:''}
       </div>
-      <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
-    </div>
-    ${_viaDetTablaHtml()}
-    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}${_viaDetProy?`Proyecto: ${_viaDetProy} · `:''}${_viaFiltEdp?`EDP N° ${_viaFiltEdp} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+      ${_VIA_CLIENTE_HTML}
+    </div>`;
+  const pie=`${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}${_viaDetProy?`Proyecto: ${_viaDetProy} · `:''}${_viaFiltEdp?`EDP N° ${_viaFiltEdp}`:''}`.replace(/ · $/,'');
+  return`<div style="font-family:Arial,sans-serif;color:#111">
+    ${_viaDetTablaHtml(enc)}
+    ${pie?`<div style="margin-top:10px;font-size:7.5px;color:#64748b">${pie}</div>`:''}
   </div>`;
 }
 function _viaDetPrint(){
   const{rows}=_viaDetGrupos();
   if(!rows.length){toast('No hay registros para imprimir con este código',true);return;}
+  // "Página X de Y" en el pie de cada hoja (cuadro de margen de @page)
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Detalle de Reembolsables B.S.</title>
-  <style>@page{size:A4 landscape;margin:1cm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  <style>@page{size:A4 landscape;margin:1cm 1cm 1.2cm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font-family:Arial,sans-serif;font-size:8px;color:#334155}}
+  thead{display:table-header-group}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{font-family:Arial,sans-serif;font-size:9px;color:#111;margin:0}
   tr{page-break-inside:avoid}</style></head><body>${_viaDetDocHtml()}</body></html>`;
   const win=window.open('','_blank');

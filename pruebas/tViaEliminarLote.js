@@ -87,6 +87,13 @@ es('desmarcar todos',ev('_viaSel.size'),0);
   es('P1: solo lo de P1',ev('_viaDetGrupos().totGen'),100);
   es('  los chips de código solo de P1 (sin R05)',/_viaDetSetCod\('R05'\)/.test(pg.innerHTML),false);
   es('  el PDF dice el proyecto',/PROYECTO: P1/.test(ev('_viaDetDocHtml()')),true);
+  {const d=ev('_viaDetDocHtml()');
+   es('encabezado dentro del thead (se repite en cada hoja)',/<thead><tr><th colspan="7"[^>]*>[\s\S]*DETALLE DE REEMBOLSABLES B\.S\.[\s\S]*<\/th><\/tr><tr>\s*<th[^>]*>Código/.test(d),true);
+   es('  sin fecha de emisión',/Emitido/.test(d),false);
+   es('  a la derecha BUENAVENTURA (B verde, resto gris)',/color:#1f7a5a[^>]*>B<\/span><span style="color:#6d6e71">UENAVENTURA/.test(d)&&!/>Gdar</.test(d),true);
+   let html='';ctx.window.open=()=>({document:{write:h=>{html+=h;},close(){}},focus(){},print(){}});
+   ctx.setTimeout=()=>{};ev('_viaDetPrint()');
+   es('  PDF: "Página X de Y" en el pie',/@bottom-right\{content:"Página " counter\(page\) " de " counter\(pages\)/.test(html),true);}
   ev('_viaDetSetCod("R05");_viaDetSetProy("P1")');
   es('código que no existe en el proyecto se suelta',ev('_viaDetCod'),'');
   console.log(`\n${mal?'✗ '+mal+' FALLAS':'OK todo bien'}  ·  ${ok}/${ok+mal}`);
