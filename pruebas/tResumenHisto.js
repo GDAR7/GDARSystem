@@ -61,6 +61,17 @@ es('columnas: solo TD → la altura cuenta solo TD',cols(),[['ING. RESIDENTE',1]
 ev('_buildTareResumen('+IDS+',new Set(["DL"]))');
 es('  solo DL: el grupo OBRERO queda solo con VIGIA',(el.tarPgTabla.innerHTML.match(/padding-left:1\.6rem[^>]*>([^<]+)</g)||[]).map(s=>s.split('>')[1].replace('<','')),['VIGIA']);
 es('  y el grupo STAFF (sin DL) no aparece',/>STAFF</.test(el.tarPgTabla.innerHTML),false);
+ev('_buildTareResumen('+IDS+',null)');
+{const fila=c=>(el.tarPgTabla.innerHTML.split('>'+c+'<')[1]||'').split('</tr>')[0];
+ const eo=c=>+((fila(c).match(/color:#10b981;font-weight:600">(\d*)</)||[])[1]||0);
+ es('En Obra: PEON = TD + A5 (la F no suma)',eo('PEON'),2);
+ es('  VIGIA en DL: En Obra vacío',eo('VIGIA'),0);
+ es('  tarjeta Total en Obra = TD+TN+DLT+A5',/Total en Obra<\/div>\s*<div class="kpi-val"[^>]*>4</.test(el.tarPgKpis.innerHTML),true);
+ const tg=(el.tarPgTabla.innerHTML.split('Total general')[1]||'').match(/color:#10b981">(\d+)</);
+ es('  Total general En Obra',tg&&+tg[1],4);
+ ev('_buildTareResumen('+IDS+',new Set(["TD","EO"]))');
+ es('  con solo TD visible: A5 ya no suma en PEON',eo('PEON'),1);
+ es('  ni en la tarjeta',/Total en Obra<\/div>\s*<div class="kpi-val"[^>]*>3</.test(el.tarPgKpis.innerHTML),true);}
 campos.tarPgFecha='2026-01-01';ev('_buildTareResumen('+IDS+',null)');
 es('fecha sin datos: el histograma se limpia',el.tarPgHisto.innerHTML,'');
 campos.tarPgFecha='2026-11-22';

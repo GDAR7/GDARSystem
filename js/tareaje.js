@@ -1074,6 +1074,10 @@ function _tarPgFiltrarCat(pers,id){
   if(!cat)return pers;
   return pers.filter(p=>cat==='Staff'?p.tipo==='Staff':p.tipo!=='Staff');
 }
+// "En Obra" = solo quienes trabajan en obra: TD, TN, DLT y Anexo 5.
+// DL, P, F, S, descansos médicos, licencias, vacaciones, etc. no suman.
+// Y de esos, solo los visibles en "Columnas": si se oculta A5, no suma.
+const _TAR_EN_OBRA=['TD','TN','DLT','A5'];
 function _buildTareResumen(ids,colFilter){
   const fecha=document.getElementById(ids.fecha)?.value||today();
   const proy=document.getElementById(ids.proy)?.value||'';
@@ -1102,7 +1106,8 @@ function _buildTareResumen(ids,colFilter){
     totalGral[tarTipo]=(totalGral[tarTipo]||0)+1;
   });
   const totalPersonas=Object.values(tarMap).length;
-  const totalEnObra=totalPersonas-(totalGral['DL']||0);
+  const _eoT=tiposPresentes.filter(t=>_TAR_EN_OBRA.includes(t));
+  const totalEnObra=_eoT.reduce((s,t)=>s+(totalGral[t]||0),0);
   _tarResCache={fecha,proy,guardia,tarMap:{...tarMap},persF:[...persF]};
   // KPIs
   const kpiEl=document.getElementById(ids.kpis);
@@ -1133,7 +1138,7 @@ function _buildTareResumen(ids,colFilter){
     ['OBRERO','STAFF'].filter(g=>grupos[g]&&_sumVis(grupoTotales[g])>0).forEach(g=>{
       const tot=grupoTotales[g];
       const totG=tiposPresentes.reduce((s,t)=>s+(tot[t]||0),0);
-      const totGObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
+      const totGObra=_eoT.reduce((s,t)=>s+(tot[t]||0),0);
       html+=`<tr style="background:rgba(30,58,95,.18)"><td style="${tdS};font-weight:700;letter-spacing:.04em">${g}</td>
         ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700">${tot[t]||''}</td>`).join('')}
         ${showEnObra?`<td style="${tdS};text-align:center;font-weight:700;color:#10b981">${totGObra||''}</td>`:''}
@@ -1142,7 +1147,7 @@ function _buildTareResumen(ids,colFilter){
       Object.keys(grupos[g]).sort().filter(cargo=>_sumVis(grupos[g][cargo])>0).forEach(cargo=>{
         const cc=grupos[g][cargo];
         const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
-        const totCObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(cc[t]||0),0);
+        const totCObra=_eoT.reduce((s,t)=>s+(cc[t]||0),0);
         const cpe=encodeURIComponent(cargo);
         html+=`<tr><td style="${tdS};padding-left:1.6rem;color:var(--muted2);font-size:.73rem">${cargo}</td>
           ${tiposPresentes.map(t=>{const v=cc[t]||0;return`<td style="${tdS};text-align:center${v?';cursor:pointer':''}" ${v?`ondblclick="_tarResDetail(event,'${g}','${cpe}','${t}')"`:''}>${v||''}</td>`;}).join('')}
@@ -1152,7 +1157,7 @@ function _buildTareResumen(ids,colFilter){
       });
     });
     const grandTotal=tiposPresentes.reduce((s,t)=>s+(totalGral[t]||0),0);
-    const grandTotalObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(totalGral[t]||0),0);
+    const grandTotalObra=_eoT.reduce((s,t)=>s+(totalGral[t]||0),0);
     html+=`<tr style="background:rgba(220,38,38,.12)"><td style="${tdS};font-weight:700;color:#dc2626">Total general</td>
       ${tiposPresentes.map(t=>`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totalGral[t]||''}</td>`).join('')}
       ${showEnObra?`<td style="${tdS};text-align:center;font-weight:700;color:#10b981">${grandTotalObra}</td>`:''}
@@ -1603,6 +1608,7 @@ function exportTareResumenXLSX(){
   const tiposAll=_CO.filter(t=>_ts.has(t));
   const tiposP=_tarPgColVis?tiposAll.filter(t=>_tarPgColVis.has(t)):tiposAll;
   const showEO=!_tarPgColVis||_tarPgColVis.has('EO');
+  const _eoP=tiposP.filter(t=>_TAR_EN_OBRA.includes(t));
   const showTG=!_tarPgColVis||_tarPgColVis.has('TG');
   const grupos={},grupoTot={},totalGral={};
   persF.forEach(p=>{
@@ -1631,19 +1637,19 @@ function exportTareResumenXLSX(){
   ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
     const tot=grupoTot[g];
     const tG=tiposP.reduce((s,t)=>s+(tot[t]||0),0);
-    const tGO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
+    const tGO=_eoP.reduce((s,t)=>s+(tot[t]||0),0);
     wsData.push([g,...tiposP.map(t=>tot[t]||''),...(showEO?[tGO||'']:[]),...(showTG?[tG]:[])]);
     rowTypes.push('group');
     Object.keys(grupos[g]).sort().forEach(cargo=>{
       const cc=grupos[g][cargo];
       const tC=tiposP.reduce((s,t)=>s+(cc[t]||0),0);
-      const tCO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(cc[t]||0),0);
+      const tCO=_eoP.reduce((s,t)=>s+(cc[t]||0),0);
       wsData.push(['  '+cargo,...tiposP.map(t=>cc[t]||''),...(showEO?[tCO||'']:[]),...(showTG?[tC]:[])]);
       rowTypes.push('cargo');
     });
   });
   const gT=tiposP.reduce((s,t)=>s+(totalGral[t]||0),0);
-  const gTO=tiposP.filter(t=>t!=='DL').reduce((s,t)=>s+(totalGral[t]||0),0);
+  const gTO=_eoP.reduce((s,t)=>s+(totalGral[t]||0),0);
   wsData.push(['TOTAL GENERAL',...tiposP.map(t=>totalGral[t]||''),...(showEO?[gTO]:[]),...(showTG?[gT]:[])]);
   rowTypes.push('grand');
   const ws=XLSX.utils.aoa_to_sheet(wsData);
