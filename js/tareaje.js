@@ -1127,7 +1127,10 @@ function _buildTareResumen(ids,colFilter){
       ${showTotal?`<th style="${thS};background:#dc2626;color:#fff">Total<br>General</th>`:''}
 
     </tr></thead><tbody>`;
-    ['OBRERO','STAFF'].filter(g=>grupos[g]).forEach(g=>{
+    // Filas vacías fuera: si las columnas elegidas no tienen a nadie de ese
+    // cargo (p. ej. solo TD y el capataz está en DL), la fila no aporta nada.
+    const _sumVis=o=>tiposPresentes.reduce((s,t)=>s+(o[t]||0),0);
+    ['OBRERO','STAFF'].filter(g=>grupos[g]&&_sumVis(grupoTotales[g])>0).forEach(g=>{
       const tot=grupoTotales[g];
       const totG=tiposPresentes.reduce((s,t)=>s+(tot[t]||0),0);
       const totGObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(tot[t]||0),0);
@@ -1136,7 +1139,7 @@ function _buildTareResumen(ids,colFilter){
         ${showEnObra?`<td style="${tdS};text-align:center;font-weight:700;color:#10b981">${totGObra||''}</td>`:''}
         ${showTotal?`<td style="${tdS};text-align:center;font-weight:700;color:#dc2626">${totG}</td>`:''}
       </tr>`;
-      Object.keys(grupos[g]).sort().forEach(cargo=>{
+      Object.keys(grupos[g]).sort().filter(cargo=>_sumVis(grupos[g][cargo])>0).forEach(cargo=>{
         const cc=grupos[g][cargo];
         const totC=tiposPresentes.reduce((s,t)=>s+(cc[t]||0),0);
         const totCObra=tiposPresentes.filter(t=>t!=='DL').reduce((s,t)=>s+(cc[t]||0),0);

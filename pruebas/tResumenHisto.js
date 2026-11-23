@@ -56,6 +56,11 @@ es('filtro guardia B',cols(),[['PEON',1],['VIGIA',1]]);
 campos.tarPgGuardia='';
 ev('_buildTareResumen('+IDS+',new Set(["TD"]))');
 es('columnas: solo TD → la altura cuenta solo TD',cols(),[['ING. RESIDENTE',1],['OP. VOLQUETE',1],['PEON',1]]);
+{const t=el.tarPgTabla.innerHTML;
+ es('tabla con solo TD: sin filas vacías (VIGIA en DL se oculta)',[/>PEON</.test(t),/>VIGIA</.test(t)],[true,false]);}
+ev('_buildTareResumen('+IDS+',new Set(["DL"]))');
+es('  solo DL: el grupo OBRERO queda solo con VIGIA',(el.tarPgTabla.innerHTML.match(/padding-left:1\.6rem[^>]*>([^<]+)</g)||[]).map(s=>s.split('>')[1].replace('<','')),['VIGIA']);
+es('  y el grupo STAFF (sin DL) no aparece',/>STAFF</.test(el.tarPgTabla.innerHTML),false);
 campos.tarPgFecha='2026-01-01';ev('_buildTareResumen('+IDS+',null)');
 es('fecha sin datos: el histograma se limpia',el.tarPgHisto.innerHTML,'');
 campos.tarPgFecha='2026-11-22';
