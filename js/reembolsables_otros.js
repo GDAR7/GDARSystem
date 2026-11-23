@@ -5,6 +5,25 @@
 // prefijo interno: la clave del módulo, el id de la página y la clave de DB
 // siguen siendo 'viaticos' y están registradas así en config.js y utils.js.
 let _viaFiltProv='',_viaFiltProy='',_viaFiltCod='',_viaFiltEdp='',_viaQ='',_viaEditId=null;
+const _viaSel=new Set();   // ids marcados para eliminar en lote
+// ── Eliminar solo durante las primeras 48 horas ──
+// El reloj corre desde que se REGISTRÓ (columna creado_en, la pone la base al
+// insertar; ver sql/reembolsables_bbss_creado_en.sql), no desde la fecha de la
+// factura. Sin creado_en (registro recién creado aún no recargado, o el SQL
+// todavía no se ejecutó) no se bloquea. El administrador siempre puede.
+const _VIA_HORAS_ELIM=48;
+function _viaEsAdmin(){return typeof CU!=='undefined'&&!!CU&&CU.codigo==='EIBEL25';}
+function _viaNace(r){const t=r&&r.creadoEn?new Date(r.creadoEn).getTime():NaN;return isFinite(t)?t:null;}
+function _viaPuedeEliminar(r){
+  if(!r)return false;
+  if(_viaEsAdmin())return true;
+  const t=_viaNace(r);
+  return t==null||(Date.now()-t)<=_VIA_HORAS_ELIM*3600000;
+}
+function _viaMotivoBloqueo(r){
+  const t=_viaNace(r);const hs=t==null?0:Math.floor((Date.now()-t)/3600000);
+  return`Ya no se puede eliminar: se registró hace ${hs} horas (el límite es ${_VIA_HORAS_ELIM})`;
+}
 // Tab activo y filtro de período — mismo modelo que Facturas/Boletas de Almacén
 let _viaTab='reg';                 // 'reg' | 'detalle'
 let _viaFDesde='',_viaFHasta='';
@@ -63,6 +82,11 @@ function rViaticos(){
   if(_viaFiltCod&&!cods.includes(_viaFiltCod))_viaFiltCod='';
   if(_viaFiltEdp&&!edps.includes(_viaFiltEdp))_viaFiltEdp='';
   const rows=_viaRows();
+  // La selección solo guarda filas visibles: si un filtro oculta una fila
+  // marcada, se desmarca, para no borrar algo que no se está viendo.
+  {const vis=new Set(rows.filter(_viaPuedeEliminar).map(r=>r.id));[..._viaSel].forEach(id=>{if(!vis.has(id))_viaSel.delete(id);});}
+  const _selables=rows.filter(_viaPuedeEliminar);
+  const _todasSel=_selables.length>0&&_selables.every(r=>_viaSel.has(r.id));
 
   const totSin=rows.reduce((a,r)=>a+(+r.importe||0),0);
   const totCon=rows.reduce((a,r)=>a+(+r.importe||0)*1.18,0);
@@ -87,7 +111,10 @@ function rViaticos(){
     const factura=`${r.serie||''} - ${r.correlativo||''}`.trim();
     const totDol=tc>0?_viaN2(totSoles/tc):'—';
     const subDol=tc>0?_viaN2(subTotal/tc):'—';
-    return`<tr>
+    return`<tr data-via-id="${r.id}" style="${_viaSel.has(r.id)?'background:rgba(239,68,68,.10)':''}">
+      <td style="${TDs};text-align:center">${_viaPuedeEliminar(r)
+        ?`<input type="checkbox" class="viaChk" ${_viaSel.has(r.id)?'checked':''} onclick="_viaSelToggle(${r.id},this.checked)" style="cursor:pointer;width:15px;height:15px;accent-color:#ef4444">`
+        :`<span title="${_viaMotivoBloqueo(r)}" style="cursor:help;font-size:.8rem">🔒</span>`}</td>
       <td style="${TDs};font-family:monospace;color:var(--muted2)">${r.id}</td>
       <td style="${TDs};color:#a78bfa">${r.proyecto||'—'}</td>
       <td style="${TDs};text-align:center">${r.edp||'—'}</td>
@@ -118,7 +145,8 @@ function rViaticos(){
       <td style="${TDs};text-align:center">${r.pdfUrl?`<a href="${r.pdfUrl}" target="_blank" rel="noopener" title="Ver PDF: ${(r.pdfName||'comprobante').replace(/"/g,'&quot;')}" style="text-decoration:none;font-size:1rem">📄</a>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td style="${TDs};white-space:nowrap">
         <button onclick="_viaEdit(${r.id})" title="Editar" style="background:none;border:1px solid #f59e0b50;border-radius:5px;color:#f59e0b;cursor:pointer;font-size:.75rem;padding:.15rem .4rem;margin-right:.25rem">✏</button>
-        <button class="btn btn-del btn-sm" onclick="_viaDel(${r.id})">🗑</button>
+        ${_viaPuedeEliminar(r)?`<button class="btn btn-del btn-sm" onclick="_viaDel(${r.id})">🗑</button>`
+          :`<span title="${_viaMotivoBloqueo(r)}" style="display:inline-block;padding:.15rem .45rem;border:1px solid var(--border);border-radius:5px;color:var(--muted2);font-size:.75rem;cursor:help">🔒</span>`}
       </td>
     </tr>`;
   }).join('');
@@ -148,14 +176,15 @@ function rViaticos(){
           <input type="file" id="riFile" accept=".csv,.txt" style="display:none" onchange="_riArchivo(this)">
           <button onclick="_riAbrir()" style="background:transparent;border:1px solid #06b6d460;border-radius:6px;color:#06b6d4;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Cargar registros desde un archivo CSV">📥 Importar CSV</button>
           <button onclick="_viaExportXls()" style="background:#166534;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📊 Excel</button>
+          <button id="viaBtnDelSel" onclick="_viaDelSel()" style="display:${_viaSel.size?'':'none'};background:#ef4444;border:none;border-radius:6px;color:#fff;padding:.3rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap" title="Elimina los registros marcados">🗑 Eliminar seleccionados (<span id="viaNSel">${_viaSel.size}</span>)</button>
           <button class="btn btn-a" style="--ba:var(--bsw)" onclick="_viaNuevo()">＋ Nuevo Registro</button>
           <div class="search-wrap"><span>🔍</span><input id="viaBuscar" class="search-input" placeholder="Buscar..." value="${_viaQ}" oninput="_viaQ=this.value;buscarFoco('viaBuscar',rViaticos)"></div>
         </div>
       </div>
       <div class="card-body" style="padding:0"><div class="tbl-wrap" style="max-height:70vh;overflow:auto">
         <table style="min-width:100%;border-collapse:collapse">
-          <thead><tr>${cols.map(c=>`<th style="${THs}">${c}</th>`).join('')}<th style="${THs}"></th></tr></thead>
-          <tbody>${tbody||`<tr><td colspan="${cols.length+1}" style="text-align:center;padding:2.5rem;color:var(--muted2)">Sin reembolsables registrados. Usa <b style="color:var(--bsw)">＋ Nuevo Registro</b> para agregar.</td></tr>`}</tbody>
+          <thead><tr><th style="${THs};text-align:center"><input type="checkbox" id="viaChkTodos" ${_todasSel?'checked':''} onclick="_viaSelTodos(this.checked)" title="Marcar / desmarcar todos los visibles" style="cursor:pointer;width:15px;height:15px;accent-color:#ef4444"></th>${cols.map(c=>`<th style="${THs}">${c}</th>`).join('')}<th style="${THs}"></th></tr></thead>
+          <tbody>${tbody||`<tr><td colspan="${cols.length+2}"style="text-align:center;padding:2.5rem;color:var(--muted2)">Sin reembolsables registrados. Usa <b style="color:var(--bsw)">＋ Nuevo Registro</b> para agregar.</td></tr>`}</tbody>
         </table>
       </div></div>
     </div>`;
@@ -302,12 +331,68 @@ async function _viaSave(){
 }
 async function _viaDel(id){
   const r=(DB.viaticos||[]).find(x=>x.id===id);if(!r)return;
+  if(!_viaPuedeEliminar(r)){toast(_viaMotivoBloqueo(r),true);return;}
   if(!confirm('¿Eliminar este registro?'+(r.pdfUrl?'\n\nTambién se eliminará su PDF adjunto.':'')))return;
   const _p=_viaStoragePath(r.pdfUrl);
   if(_p){try{await supa.storage.from(_VIA_BUCKET).remove([_p]);}catch(e){}}
   DB.viaticos=DB.viaticos.filter(x=>x.id!==id);
   supaDelete('viaticos',id);
   rViaticos();toast('Registro eliminado');
+}
+
+// ── Selección múltiple y eliminación en lote ──
+// Marcar no vuelve a dibujar la tabla (así no se pierde el scroll): solo
+// actualiza la fila, la casilla de "todos" y el botón.
+function _viaSelUi(){
+  const n=_viaSel.size;
+  const b=document.getElementById('viaBtnDelSel');if(b)b.style.display=n?'':'none';
+  const c=document.getElementById('viaNSel');if(c)c.textContent=n;
+  const chks=[...document.querySelectorAll('.viaChk')];
+  const t=document.getElementById('viaChkTodos');if(t)t.checked=chks.length>0&&chks.every(x=>x.checked);
+}
+function _viaSelToggle(id,on){
+  if(on&&!_viaPuedeEliminar((DB.viaticos||[]).find(x=>x.id===id)))on=false;
+  if(on)_viaSel.add(id);else _viaSel.delete(id);
+  const tr=document.querySelector(`tr[data-via-id="${id}"]`);
+  if(tr)tr.style.background=on?'rgba(239,68,68,.10)':'';
+  _viaSelUi();
+}
+function _viaSelTodos(on){
+  _viaRows().forEach(r=>{if(on&&_viaPuedeEliminar(r))_viaSel.add(r.id);else _viaSel.delete(r.id);});
+  document.querySelectorAll('tr[data-via-id]').forEach(tr=>{
+    const c=tr.querySelector('.viaChk');if(!c)return;   // fila bloqueada: sin casilla
+    tr.style.background=on?'rgba(239,68,68,.10)':'';
+    c.checked=on;
+  });
+  _viaSelUi();
+}
+async function _viaDelSel(){
+  const vis=new Set(_viaRows().filter(_viaPuedeEliminar).map(r=>r.id));
+  const ids=[..._viaSel].filter(id=>vis.has(id));
+  if(!ids.length){toast('No hay registros seleccionados',true);return;}
+  const sel=(DB.viaticos||[]).filter(r=>ids.includes(r.id));
+  const tot=sel.reduce((s,r)=>s+(+r.importe||0),0);
+  const nPdf=sel.filter(r=>r.pdfUrl).length;
+  if(!confirm(`¿Eliminar ${ids.length} registro${ids.length>1?'s':''}?\n\nSubtotal sin IGV: S/ ${_viaN2(tot)}`
+    +(nPdf?`\n${nPdf} tienen PDF adjunto; se borra si ningún otro registro lo usa.`:'')
+    +'\n\nEsta acción no se puede deshacer.'))return;
+  const table=SUPA_TABLES.viaticos;
+  let borrados=[];
+  try{
+    const{data,error}=await supa.from(table).delete().in('id',ids).select('id');
+    if(error){toast('Error al eliminar: '+error.message,true);return;}
+    borrados=(data||[]).map(d=>+d.id);
+  }catch(e){toast('Error al eliminar: '+e.message,true);return;}
+  const ok=new Set(borrados);
+  DB.viaticos=DB.viaticos.filter(x=>!ok.has(x.id));
+  // PDF: solo los que ya no usa ningún registro que quedó
+  const enUso=new Set(DB.viaticos.map(r=>_viaStoragePath(r.pdfUrl)).filter(Boolean));
+  const paths=[...new Set(sel.filter(r=>ok.has(r.id)).map(r=>_viaStoragePath(r.pdfUrl)).filter(p=>p&&!enUso.has(p)))];
+  if(paths.length){try{await supa.storage.from(_VIA_BUCKET).remove(paths);}catch(e){}}
+  ids.forEach(id=>_viaSel.delete(id));
+  rViaticos();
+  if(ok.size===ids.length)toast(`${ok.size} registro${ok.size>1?'s':''} eliminado${ok.size>1?'s':''}`);
+  else toast(`Se eliminaron ${ok.size} de ${ids.length}. Los demás no se pudieron borrar (revise permisos).`,true);
 }
 
 function _viaExportXls(){
