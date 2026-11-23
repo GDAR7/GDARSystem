@@ -1626,7 +1626,7 @@ function _reembDetTablaHtml(){
       <th style="${TH};text-align:right">SubTotal S/. sin IGV</th>
     </tr></thead>
     <tbody>${body||`<tr><td colspan="7" style="${TD};text-align:center;color:#777">Sin registros para este código</td></tr>`}</tbody>
-    ${rows.length?`<tfoot><tr><td style="${TD};background:#dbeafe;font-weight:900" colspan="6">TOTAL GENERAL</td><td style="${TD};background:#dbeafe;font-weight:900;text-align:right;color:${AZ}">S/ ${_rdN2(totGen)}</td></tr></tfoot>`:''}
+    ${rows.length?`<tbody><tr><td style="${TD};background:#dbeafe;font-weight:900" colspan="6">TOTAL GENERAL</td><td style="${TD};background:#dbeafe;font-weight:900;text-align:right;color:${AZ}">S/ ${_rdN2(totGen)}</td></tr></tbody>`:''}
   </table>`;
 }
 function _reembDetDocHtml(){
