@@ -75,6 +75,20 @@ es('desmarcar todos',ev('_viaSel.size'),0);
   es('administrador: sí puede eliminar el de 49 h',/_viaDel\(11\)/.test(pg.innerHTML),true);
   delete ctx.CU;
   es('SQL de la columna creado_en con default now()',/add column if not exists creado_en timestamptz not null default now\(\)/.test(fs.readFileSync(R+'sql/reembolsables_bbss_creado_en.sql','utf8')),true);
+  console.log('\n== Detalle por Código: filtro Proyecto ==');
+  ctx.window={location:{href:'https://x/index.html'}};ctx.EMPRESA={logo:'l.png'};
+  ctx.DB.viaticos=[{id:20,proyecto:'P1',codigo:'R01',importe:100,fecha:'2026-10-01'},
+                   {id:21,proyecto:'P2',codigo:'R01',importe:30,fecha:'2026-10-01'},
+                   {id:22,proyecto:'P2',codigo:'R05',importe:7,fecha:'2026-10-01'}];
+  ev('_viaTab="detalle";rViaticos()');
+  es('selector de proyecto con P1 y P2',[/_viaDetSetProy\(this\.value\)/.test(pg.innerHTML),/>P1<\/option>/.test(pg.innerHTML),/>P2<\/option>/.test(pg.innerHTML)],[true,true,true]);
+  es('sin proyecto: total de todos',ev('_viaDetGrupos().totGen'),137);
+  ev('_viaDetSetProy("P1")');
+  es('P1: solo lo de P1',ev('_viaDetGrupos().totGen'),100);
+  es('  los chips de código solo de P1 (sin R05)',/_viaDetSetCod\('R05'\)/.test(pg.innerHTML),false);
+  es('  el PDF dice el proyecto',/PROYECTO: P1/.test(ev('_viaDetDocHtml()')),true);
+  ev('_viaDetSetCod("R05");_viaDetSetProy("P1")');
+  es('código que no existe en el proyecto se suelta',ev('_viaDetCod'),'');
   console.log(`\n${mal?'✗ '+mal+' FALLAS':'OK todo bien'}  ·  ${ok}/${ok+mal}`);
   process.exitCode=mal?1:0;
 })();

@@ -514,12 +514,16 @@ function _viaPrintDetalle(){
 // ══ TAB: DETALLE POR CÓDIGO ═════════════════════════════════════════════════
 // Misma vista que Facturas/Boletas de Almacén: se agrupa Código → Proveedor →
 // Factura → ítems y se pinta en una hoja A4 horizontal lista para imprimir.
-// Filtra por período (barra superior) y por el chip de código; los filtros de
-// proyecto/proveedor/búsqueda son del tab de Registro y aquí no se aplican.
-let _viaDetCod='';
+// Filtra por período y EDP (barra superior), por su propio selector de
+// proyecto y por el chip de código; proveedor/búsqueda son del tab de Registro.
+let _viaDetCod='',_viaDetProy='';
 function _viaDetSetCod(c){_viaDetCod=c;rViaticos();}
+function _viaDetSetProy(p){_viaDetProy=p;rViaticos();}
+function _viaDetBase(){
+  return(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r)&&(!_viaDetProy||r.proyecto===_viaDetProy));
+}
 function _viaDetGrupos(){
-  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r));
+  const all=_viaDetBase();
   const rows=_viaDetCod?all.filter(r=>(r.codigo||'(Sin código)')===_viaDetCod):all;
   const byCod={};
   rows.forEach(r=>{
@@ -586,11 +590,12 @@ function _viaDetDocHtml(){
       <div style="text-align:center;flex:1">
         <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES B.S.</div>
         <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}${_viaFiltEdp?' · EDP N° '+_viaFiltEdp:''}</div>
+        ${_viaDetProy?`<div style="font-size:8.5px;font-weight:700;color:#334155;margin-top:2px">PROYECTO: ${_viaDetProy}</div>`:''}
       </div>
       <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">Gdar</div>
     </div>
     ${_viaDetTablaHtml()}
-    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}${_viaFiltEdp?`EDP N° ${_viaFiltEdp} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
+    <div style="margin-top:10px;font-size:7.5px;color:#64748b">${(_viaFDesde||_viaFHasta)?`Período: ${_viaFDesde?_viaDmy(_viaFDesde):'inicio'} al ${_viaFHasta?_viaDmy(_viaFHasta):'hoy'} · `:''}${_viaDetProy?`Proyecto: ${_viaDetProy} · `:''}${_viaFiltEdp?`EDP N° ${_viaFiltEdp} · `:''}Emitido: ${new Date().toLocaleDateString('es-PE')}</div>
   </div>`;
 }
 function _viaDetPrint(){
@@ -606,13 +611,22 @@ function _viaDetPrint(){
   setTimeout(()=>win.print(),400);
 }
 function _viaDetHtml(){
-  const all=(DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r));
+  // Proyectos disponibles según período y EDP (sin aplicar el propio filtro)
+  const proys=[...new Set((DB.viaticos||[]).filter(r=>_viaEnRango(r.fecha)&&_viaEnEdp(r)).map(r=>r.proyecto).filter(Boolean))].sort();
+  if(_viaDetProy&&!proys.includes(_viaDetProy))_viaDetProy='';
+  const all=_viaDetBase();
   const codMap={};all.forEach(r=>{const c=r.codigo||'(Sin código)';if(!codMap[c])codMap[c]=r.nombreCodif||'';});
   const cods=Object.keys(codMap).sort();
-  if(_viaDetCod&&!cods.includes(_viaDetCod))_viaDetCod='';   // el período pudo dejar fuera ese código
+  if(_viaDetCod&&!cods.includes(_viaDetCod))_viaDetCod='';   // el período o el proyecto pudo dejar fuera ese código
+  const selProy=`<span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Proyecto</span>
+      <select onchange="_viaDetSetProy(this.value)" style="background:var(--panel);border:1px solid ${_viaDetProy?'#10b981':'var(--border)'};border-radius:6px;color:var(--text);padding:.3rem .55rem;font-size:.74rem;max-width:280px;cursor:pointer;outline:none">
+        <option value="">— Todos —</option>${proys.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${p===_viaDetProy?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <span style="width:1px;height:20px;background:var(--border);margin:0 .3rem"></span>`;
   const chip=(val,lbl)=>{const sel=_viaDetCod===val;return`<button onclick="_viaDetSetCod('${val.replace(/'/g,"\\'")}')" style="font-size:.72rem;padding:.32rem .8rem;border-radius:20px;border:1px solid ${sel?'var(--bsw)':'var(--border)'};background:${sel?'var(--bsw)':'var(--panel2)'};color:${sel?'#fff':'var(--muted2)'};cursor:pointer;font-weight:${sel?'800':'500'};white-space:nowrap">${lbl}</button>`;};
   return`
     <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.9rem;padding:.5rem .7rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px">
+      ${selProy}
       <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Código</span>
       ${chip('','Todos')}
       ${cods.map(c=>chip(c,c+(codMap[c]?' — '+codMap[c]:''))).join('')}
