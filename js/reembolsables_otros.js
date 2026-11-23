@@ -403,7 +403,7 @@ function _viaPrintDetalle(){
       <div style="font-size:14px;font-weight:900;color:${AZ};letter-spacing:.03em">DETALLE DE REEMBOLSABLES</div>
       <div style="font-size:10px;font-weight:800;color:#b91c1c;margin-top:2px">${subtitulo}</div>
     </div>
-    <div style="text-align:right;font-size:16px;font-weight:900;color:${AZ};letter-spacing:.02em">BUENAVENTURA</div>
+    <div style="text-align:right;font-size:16px;font-weight:900;color:#15803d;letter-spacing:.02em">BUENAVENTURA</div>
   </div>
   <table>
     <thead><tr>
