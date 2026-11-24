@@ -631,7 +631,7 @@ function _amtSemViajes(fIni,fFin){
       if(_amtMatFiltro.size&&!_amtMatFiltro.has(v.material))return;
       const cant=parseFloat(v.cant)||0;if(!cant)return;
       // Sin material = traslado de un frente a otro → cuenta el viaje pero NO el volumen
-      out.push({fecha:p.fecha,noche,origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:_amtMatOk(v.material)?cant*_amtCapM3:0,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
+      out.push({fecha:p.fecha,noche,guardia:String(p.guardia||'').trim().toUpperCase(),origen:v.origen||'',destino:v.destino||'',material:v.material||'',cant,m3:_amtMatOk(v.material)?cant*_amtCapM3:0,eqId:p.eqId,op:p.op||p.operador||'',tramoId:v.tramoId||null});
     });
   });
   return out;
@@ -658,6 +658,11 @@ function _amtSemBar(opts){
     ${opts.cap!==false?`<div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Cap. m³/viaje</span>
     <input type="number" min="1" step="0.5" value="${_amtCapM3}" onchange="_amtSetCap(this.value)" style="${inpS};width:58px" title="Capacidad de carga por viaje en m³">`:''}
+    ${opts.guardia?`<div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Guardia</span>
+    <select onchange="_amtOpGuardia=this.value;_amtRender()" style="${inpS};border-color:${_amtOpGuardia?'#06b6d4':'var(--border)'};cursor:pointer" title="Guardia registrada en el parte diario">
+      <option value="">Todas</option>${['A','B','C'].map(g=>`<option value="${g}" ${_amtOpGuardia===g?'selected':''}>Guardia ${g}</option>`).join('')}
+    </select>`:''}
     ${opts.meta?`<div style="width:1px;height:18px;background:var(--border)"></div>
     <span style="font-size:.62rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">🎯 Meta m³/sem</span>
     <input type="number" min="0" step="100" value="${_amtMetaSem||''}" placeholder="—" onchange="_amtSetMeta(this.value)" style="${inpS};width:80px" title="Meta semanal de m³ (0 = sin meta)">`:''}
@@ -999,12 +1004,15 @@ function _amtRenderSemEquipos(body){
 }
 
 // ── TAB 6: VIAJES POR OPERADOR ────────────────────────────────────────────────
+// Filtro de guardia: la que se registró en cada parte diario (A/B/C), no la
+// del maestro de personal, porque un operador puede cubrir otra guardia.
+let _amtOpGuardia='';
 function _amtRenderSemOperadores(body){
   const info=_amtSemInfo();
   const{fechas,fIni,fFin,rango}=info;
   const hoy=today();
   const TH=_AMT_TH,TD=_AMT_TD;
-  const vs=_amtSemViajes(fIni,fFin).filter(v=>v.op);
+  const vs=_amtSemViajes(fIni,fFin).filter(v=>v.op&&(!_amtOpGuardia||v.guardia===_amtOpGuardia));
 
   const grid={};
   vs.forEach(function(v){
@@ -1051,13 +1059,13 @@ function _amtRenderSemOperadores(body){
   _amtSemExportData={
     name:'viajes_por_operador_'+fIni+'.xlsx',
     aoa:[
-      ['VIAJES POR OPERADOR — '+rango],
+      ['VIAJES POR OPERADOR — '+rango+(_amtOpGuardia?' — GUARDIA '+_amtOpGuardia:'')],
       ['Operador',...fechas.map(f=>f.lbl+' '+f.dm),'Viajes','☀ Día','🌙 Noche','m³','Días trab.','Prom v/día'],
       ...rows.map(r=>[r.op,...fechas.map(f=>{const c=grid[r.op][f.iso];return c?c.viajes:'';}),r.viajes,r.vd,r.vn,+r.m3.toFixed(1),r.dias,+r.prom.toFixed(1)])
     ]
   };
 
-  body.innerHTML=_amtSemBar({rango})+`
+  body.innerHTML=_amtSemBar({rango,guardia:true})+`
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.9rem">
     ${_amtKpi('Operadores con Viajes','<b style="font-size:1.3rem">'+rows.length+'</b>','#8b5cf6')}
     ${_amtKpi('Viajes de la Semana','<b style="font-size:1.3rem">'+totalViajes.toLocaleString()+'</b> <span style="font-size:.68rem;font-weight:700"><span style="color:#b45309">☀ '+totalVd.toLocaleString()+'</span> · <span style="color:#1d4ed8">🌙 '+totalVn.toLocaleString()+'</span></span>','#3b82f6')}
@@ -1076,7 +1084,7 @@ function _amtRenderSemOperadores(body){
         <th style="${TH};text-align:center">Días</th>
         <th style="${TH};text-align:right" title="Promedio de viajes por día trabajado">Prom v/día</th>
       </tr></thead>
-      <tbody>${filas||`<tr><td colspan="13" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes con operador registrado en esta semana (${rango})</td></tr>`}</tbody>
+      <tbody>${filas||`<tr><td colspan="13" style="text-align:center;padding:2.5rem;color:var(--muted2);font-size:.85rem">Sin viajes con operador registrado en esta semana (${rango})${_amtOpGuardia?' en la guardia '+_amtOpGuardia:''}</td></tr>`}</tbody>
     </table>
     </div>
   </div>
